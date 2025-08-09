@@ -1,10 +1,10 @@
 server {
 
 	listen 443 ssl;
-	server_name $(SERVER_NAME);
+	server_name ${SERVER_NAME};
 
-	ssl_certificate /etc/nginx/ssl/login.42.fr.crt;
-	ssl_certificate_key /etc/nginx/ssl/login.42.fr.key;
+	ssl_certificate /etc/nginx/ssl/${SERVER_NAME}.crt;
+	ssl_certificate_key /etc/nginx/ssl/${SERVER_NAME}.key;
 
 	ssl_protocols TLSv1.3;
 	root /var/www/html;
