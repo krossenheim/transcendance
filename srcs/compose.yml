@@ -1,0 +1,29 @@
+services:
+  nginx:
+    container_name: nginx
+    image: nginx
+    env_file:
+      - ./nginx/site.env
+    build:
+      context: ./nginx
+    restart: always
+    ports:
+      - "443:443"
+    volumes:
+      - inception_resources:/var/www/html/
+    networks:
+      - inception_network
+
+volumes:
+  inception_resources:
+    name: inception_resources
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_DIR}
+
+networks:
+  inception_network:
+    name: inception_network
+    driver: bridge
+
