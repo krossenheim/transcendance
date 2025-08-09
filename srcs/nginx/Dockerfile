@@ -22,9 +22,5 @@ EXPOSE 443
 COPY nginx_entryp.sh /etc/nginx/nginx_entryp.sh
 RUN chmod 777 /etc/nginx/nginx_entryp.sh
 
-RUN mkdir -p /var/www/html/public
-COPY website/single_page_website.html /var/www/html/public/
-RUN chmod 644 /var/www/html/public/single_page_website.html 
-
 ENTRYPOINT ["/etc/nginx/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]

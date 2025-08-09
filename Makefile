@@ -21,7 +21,7 @@ all: build
 # 		exit 42; \
 # 	fi
 
-re: clean build all
+re: down all
 
 write_global_envs:
 	mkdir -p $(OUTPUT_FILES_DIR)
