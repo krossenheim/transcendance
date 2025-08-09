@@ -13,6 +13,22 @@ services:
       - inception_resources:/var/www/html/
     networks:
       - inception_network
+  fastify:
+    container_name: fastify
+    image: fastify
+    env_file:
+      - ./fastify/fastify.env
+    build:
+      context: ./fastify
+    restart: always
+    ports:
+      - "3000:3000"
+    # volumes:
+    #   - inception_resources:/resources/
+    networks:
+      - inception_network
+
+
 
 volumes:
   inception_resources:

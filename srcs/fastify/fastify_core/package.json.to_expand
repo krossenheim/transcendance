@@ -1,0 +1,11 @@
+{
+  "name": "${FASTIFY_NAME}",
+  "version": "${FASTIFY_VER}",
+  "type": "module",
+  "scripts": {
+    "start": "node ${FASTIFY_NODE_MAINJS}"
+  },
+  "dependencies": {
+    "fastify": "^4.0.0"
+  }
+}
