@@ -7,15 +7,12 @@ RUN apt-get update && apt-get install -y gettext openssl procps && rm -rf /var/l
 COPY nginx.conf /etc/nginx/
 RUN chmod 644 /etc/nginx/nginx.conf
 
+# Make site-templates and move things awaiting nginx_entryp.sh to replace env vars within the files.
 RUN mkdir -p /etc/nginx/site-templates/
 COPY mysite.conf.to_expand /etc/nginx/site-templates
 RUN chmod 644 /etc/nginx/site-templates/mysite.conf.to_expand
 
-RUN mkdir -p /etc/nginx/ssl
-
 RUN rm -f /etc/nginx/conf.d/default.d
-
-STOPSIGNAL SIGTERM
 
 EXPOSE 443
 

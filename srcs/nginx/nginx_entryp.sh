@@ -4,6 +4,7 @@ set -ex
 mkdir -p /etc/nginx/sites-enabled/
 envsubst '${SERVER_NAME}' < /etc/nginx/site-templates/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
 
+mkdir -p /etc/nginx/ssl
 cd /etc/nginx/ssl 
 
 SUBJECT="/C=${SSL_C}/ST=${SSL_ST}/L=${SSL_LO}/O=${SSL_OP}/OU=${SSL_OU}/CN=${SERVER_NAME}" 
