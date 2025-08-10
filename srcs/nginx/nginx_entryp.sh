@@ -1,7 +1,8 @@
 #!/bin/bash
 set -ex
 
-envsubst '${SERVER_NAME}' < /etc/nginx/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
+mkdir -p /etc/nginx/sites-enabled/
+envsubst '${SERVER_NAME}' < /etc/nginx/site-templates/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
 
 cd /etc/nginx/ssl 
 

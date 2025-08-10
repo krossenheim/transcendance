@@ -15,6 +15,8 @@ $(NAME): all
 all: build
 	docker compose   -f $(PATH_TO_COMPOSE) --env-file $(PATH_TO_COMPOSE_ENV_FILE) up -d
 
+dnginx:
+	docker exec -it nginx "cat /var/log/nginx/error.log"
 # secrets_present:
 # 	@if [ ! -d "secrets/" ]; then \
 # 		echo "Secrets folder not present. Kindly provide it."; \

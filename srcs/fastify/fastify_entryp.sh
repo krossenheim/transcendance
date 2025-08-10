@@ -19,8 +19,14 @@ set -ex
 #   envsubst < "$file" > "/app/$filename"
 # done
 
-cd /app/
+# cd /app/
 
-npm install
+# npm install -g npm@latest
+
+# npm install
+
+# npm install fastify
+
+# npm install 
 
 exec "$@" # Very important otherwise the CMD on the dockerfile won't really run. It also makes that CMD run as PID 1. Which is good. For reasons.

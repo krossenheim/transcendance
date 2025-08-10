@@ -1,15 +1,15 @@
-FROM debian:bullseye
+FROM nginx:1.29.0
 
-RUN apt-get update && apt-get install -y gettext nginx openssl procps && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gettext openssl procps && rm -rf /var/lib/apt/lists/*
 
-HEALTHCHECK --interval=5s --timeout=2s --retries=3 CMD nginx -t
+# HEALTHCHECK --interval=5s --timeout=2s --retries=3 CMD nginx -t
 
 COPY nginx.conf /etc/nginx/
-
-COPY mysite.conf.to_expand /etc/nginx/
-RUN chmod 644 /etc/nginx/sites-enabled/*
-
 RUN chmod 644 /etc/nginx/nginx.conf
+
+RUN mkdir -p /etc/nginx/site-templates/
+COPY mysite.conf.to_expand /etc/nginx/site-templates
+RUN chmod 644 /etc/nginx/site-templates/mysite.conf.to_expand
 
 RUN mkdir -p /etc/nginx/ssl
 
@@ -19,8 +19,8 @@ STOPSIGNAL SIGTERM
 
 EXPOSE 443
 
-COPY nginx_entryp.sh /etc/nginx/nginx_entryp.sh
-RUN chmod 777 /etc/nginx/nginx_entryp.sh
+COPY nginx_entryp.sh /etc/nginx_entryp.sh
+RUN chmod 777 /etc/nginx_entryp.sh
 
-ENTRYPOINT ["/etc/nginx/nginx_entryp.sh"]
+ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]
