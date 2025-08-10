@@ -8,15 +8,35 @@ server {
 
 	ssl_protocols TLSv1.3;
 
-	error_log /var/log/nginx/error.log;
-	access_log /var/log/nginx/access.log;
-	
 	location / {
+		proxy_pass http://fastify:3000;
+		proxy_http_version 1.1;
+		proxy_set_header Host $host;
+    }
+
+	location /ws {
         proxy_pass http://fastify:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;        # for WebSocket support
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Upgrade "websocket";
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
+
+		proxy_cache_bypass $http_upgrade;
+    	proxy_buffering off;
     }
+
+	location /wss {
+        proxy_pass http://fastify:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade "websocket";
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+
+		proxy_cache_bypass "websocket";
+    	proxy_buffering off;
+    }
+
+	location /test-connection-upgrade {
+    	return 200 "$connection_upgrade\n";
+}
 }

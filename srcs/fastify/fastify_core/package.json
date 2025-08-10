@@ -1,0 +1,12 @@
+{
+  "name": "TranscenFastify",
+  "version": "42.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "dependencies": {
+    "fastify": "^5.4.0",
+    "@fastify/websocket": "^11.2.0"
+  }
+}

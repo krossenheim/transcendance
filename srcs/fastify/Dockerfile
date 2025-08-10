@@ -3,10 +3,9 @@ FROM node:18-alpine
 RUN apk add --no-cache gettext
 
 RUN mkdir -p /app/
-RUN mkdir -p /app_to_expand/
 
-COPY fastify_core/* /app_to_expand/
-RUN chmod 444 /app_to_expand/*
+COPY fastify_core/* /app/
+RUN chmod 444 /app/*
 
 EXPOSE 3000
 
