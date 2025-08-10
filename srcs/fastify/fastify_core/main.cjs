@@ -44,6 +44,7 @@ fastify.register(async function (fastify) {
             function sendInput() {
             const val = document.getElementById('myInput').value;
             ws.send(val);
+            document.getElementById('myInput').value = '';
           }
 
           // Send on button click
