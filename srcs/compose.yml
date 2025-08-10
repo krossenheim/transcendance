@@ -21,10 +21,6 @@ services:
     build:
       context: ./fastify
     restart: always
-    ports:
-      - "3000:3000"
-    # volumes:
-    #   - transcendance_resources:/resources/
     networks:
       - transcendance_network
 
