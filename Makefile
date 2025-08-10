@@ -51,7 +51,7 @@ create_shared_volume_folder:
 	fi
 
 clean:
-	docker compose   -f $(PATH_TO_COMPOSE) --env-file $(PATH_TO_COMPOSE_ENV_FILE) down --volumes --rmi all
+	docker compose   -f $(PATH_TO_COMPOSE) --env-file $(PATH_TO_COMPOSE_ENV_FILE) down --volumes --rmi all --remove-orphans
 	rm -rf $(VOLUMES_DIR)
 
 fclean: clean 

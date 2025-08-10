@@ -18,4 +18,4 @@ COPY fastify_entryp.sh /app/fastify_entryp.sh
 RUN chmod 755 /app/fastify_entryp.sh
 
 # ENTRYPOINT ["/app/fastify_entryp.sh"]
-CMD ["node", "/app/main.cjs"]
+CMD node /app/$FASTIFY_NODE_MAINJS

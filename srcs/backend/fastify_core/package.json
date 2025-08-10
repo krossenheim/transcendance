@@ -1,10 +1,6 @@
 {
   "name": "fastifytransce",
   "version": "1.0.0",
-  "main": "main.js",
-  "scripts": {
-    "start": "node main.cjs"
-  },
   "dependencies": {
     "fastify": "latest",
     "@fastify/websocket": "latest"

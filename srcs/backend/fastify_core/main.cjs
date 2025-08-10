@@ -63,7 +63,7 @@ fastify.register(async function (fastify) {
 });
 
 
-fastify.listen({ port: 3000, host: '::'}, err => {
+fastify.listen({ port: process.env.FASTIFY_PORT, host: process.env.FASTIFY_BIND_TO}, err => {
   if (err) {
     fastify.log.error(err)
     process.exit(1)
