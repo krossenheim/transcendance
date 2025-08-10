@@ -17,6 +17,8 @@ fastify.register(async function (fastify) {
       <head><title>WebSocket Test</title></head>
       <body>
         <h1>WebSocket Test</h1>
+        <input id="myInput" type="text" placeholder="Type something" />
+        <button id="sendBtn">Send</button>
         <div id="status">Connecting...</div>
         <script>
           protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -39,6 +41,20 @@ fastify.register(async function (fastify) {
           ws.onclose = () => {
             document.getElementById('status').textContent = 'Disconnected'
           }
+            function sendInput() {
+            const val = document.getElementById('myInput').value;
+            ws.send(val);
+          }
+
+          // Send on button click
+          document.getElementById('sendBtn').addEventListener('click', sendInput);
+
+          // Send on Enter key press inside input
+          document.getElementById('myInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              sendInput();
+            }
+          });
         </script>
       </body>
     </html>`);
