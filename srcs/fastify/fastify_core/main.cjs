@@ -1,5 +1,17 @@
 'use strict'
 
+try
+{
+  require('./ensure_enviromental_vars.cjs');
+} 
+catch (err) 
+{
+  console.error('Failed to load module:', err.message);
+  process.exit(1);
+}
+
+const ipInDockerSubnet = require("./ip_in_docker_subnet.cjs")
+
 const fastify = require('fastify')()
 fastify.register(require('@fastify/websocket'))
 fastify.register(async function () 
@@ -25,8 +37,13 @@ fastify.register(async function ()
     socket.send(`Params: ${JSON.stringify(req.params)}`);
 
     socket.on('message', message => {
-      console.log("Received: " + message);
-      socket.send('Uppercased message -> ' + message.toString().toUpperCase())})
+      let prepend = "empty";
+      if (ipInDockerSubnet(socket._socket.remoteAddress))
+        prepend = "(From docker network)";
+      else
+        prepend = ("(From outside docker network)");
+      console.log("Received: " + prepend + message);
+      socket.send(prepend + message.toString().toUpperCase())})
     }
   })
   // fastify.get('/ws', { websocket: true }, (socket /* WebSocket */, req /* FastifyRequest */) => {

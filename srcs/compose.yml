@@ -22,6 +22,8 @@ services:
       - "3000:3000" #debug only!! dont expose!!
     env_file:
       - ./fastify/fastify.env
+    environment:
+      - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
     build:
       context: ./fastify
     restart: always

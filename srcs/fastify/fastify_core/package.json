@@ -1,9 +1,10 @@
 {
-  "name": "fastifytransce",
+  "name": "fastifytranscendance",
   "version": "1.0.0",
   "dependencies": {
     "fastify": "latest",
-    "@fastify/websocket": "latest"
+    "@fastify/websocket": "latest",
+    "ip": "latest" 
   }
 }
 
