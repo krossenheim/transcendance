@@ -1,6 +1,4 @@
 #include "ChatRoom.hpp"
-#include <arpa/inet.h>  
-#include <netinet/in.h> 
 
 const char *InvalidIP::what() const noexcept
 {
@@ -12,12 +10,12 @@ const char *BadDisconnect::what() const noexcept
     return ("The instance is flagged as 'succesfully connected' but the ip supplied is invalid.");
 }
 
-ChatRoom::ChatRoom() : _networking_established(false), _websocket_target(std::string())
+ChatRoom::ChatRoom() : _networking_established(false), _remote_uri(std::string())
 {
 
 }
 
-ChatRoom::ChatRoom(const ChatRoom& other) : _networking_established(false), _websocket_target(other._websocket_target)
+ChatRoom::ChatRoom(const ChatRoom& other) : _networking_established(false), _remote_uri(other._remote_uri)
 {
 
 }
@@ -35,23 +33,7 @@ ChatRoom::~ChatRoom()
         std::cout << "Destructor must close connection cleanly." << std::endl;
 }
 
-bool ChatRoom::is_valid_ip(const std::string& remote_ip)
-{
-    sockaddr_in sa4;
-    sockaddr_in6 sa6;
-
-    if (inet_pton(AF_INET, remote_ip.c_str(), &(sa4.sin_addr)) == 1)
-        return true;
-
-    if (inet_pton(AF_INET6, remote_ip.c_str(), &(sa6.sin6_addr)) == 1)
-        return true;
-
-    return false;
-}
-
 ChatRoom::ChatRoom(const std::string& remote_ip) : _networking_established(false)
 {
-    // if (!is_valid_ip(remote_ip))
-    //     throw InvalidIP();
-    _websocket_target = remote_ip;
+    _remote_uri = remote_ip;
 }

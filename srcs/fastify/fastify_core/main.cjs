@@ -7,13 +7,10 @@ fastify.register(async function ()
     fastify.route({
     method: 'GET',
     url: '/ws',
-    handler: (req, reply) => {
-      // this will handle http requests
-      reply.send({ hello: 'world' })
-    },
     wsHandler: (socket, req) => {
       // this will handle websockets connections
-     socket.send(`Socket readyState: ${socket.readyState}`);
+      socket.send(`Hello client! Feast your eyes!! :`);
+      socket.send(`Socket readyState: ${socket.readyState}`);
       socket.send(`Socket protocol: ${socket.protocol}`);
       socket.send(`Socket remote address: ${socket._socket.remoteAddress}`);
       socket.send(`Socket remote port: ${socket._socket.remotePort}`);
@@ -29,16 +26,6 @@ fastify.register(async function ()
       socket.send('Uppercased message -> ' + message.toString().toUpperCase())})
     }
   })
-  // fastify.get('/ws', { websocket: true }, (socket /* WebSocket */, req /* FastifyRequest */) => {
-  //   socket.on('opend', message => {
-  //     console.log("Received: " + message);
-  //     socket.send('Uppercased message -> ' + message.toString().toUpperCase())
-  //   })
-  //   socket.on('message', message => {
-  //     console.log("Received: " + message);
-  //     socket.send('Uppercased message -> ' + message.toString().toUpperCase())
-  //   })
-  // })
 })
 
 fastify.register(async function (fastify) {

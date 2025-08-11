@@ -1,7 +1,7 @@
 #include "ChatRoom.hpp"
 
 /*
- * Copyright (c) 2014, Peter Thorson. All rights reserved.
+ * Copyright (_client) 2016, Peter Thorson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,17 +24,13 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
-/** ====== WARNING ========
- * This example is presently used as a scratch space. It may or may not be broken
- * at any given time.
- */
-
-#include <websocketpp/config/asio_client.hpp>
+#include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
+
 #include <iostream>
-#include <chrono>
 
 typedef websocketpp::client<websocketpp::config::asio_client> client;
 
@@ -43,121 +39,54 @@ using websocketpp::lib::placeholders::_2;
 using websocketpp::lib::bind;
 
 // pull out the type of messages sent by our config
-typedef websocketpp::config::asio_tls_client::message_type::ptr message_ptr;
-typedef websocketpp::lib::shared_ptr<boost::asio::ssl::context> context_ptr;
-typedef client::connection_ptr connection_ptr;
+typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
+
+// This message handler will be invoked once for each incoming message. It
+// prints the message and then sends a copy of the message back to the server.
+void on_message(client* _client, websocketpp::connection_hdl hdl, message_ptr msg) {
+    std::cout << "on_message called with hdl: " << hdl.lock().get()
+              << " and message: " << msg->get_payload()
+              << std::endl;
 
 
-
-class perftest {
-public:
-    typedef perftest type;
-    typedef std::chrono::duration<int,std::micro> dur_type;
-
-    perftest () {
-        m_endpoint.set_access_channels(websocketpp::log::alevel::all);
-        m_endpoint.set_error_channels(websocketpp::log::elevel::all);
-
-        // Initialize ASIO
-        m_endpoint.init_asio();
-
-        // Register our handlers
-        m_endpoint.set_socket_init_handler(bind(&type::on_socket_init,this,::_1));
-        //m_endpoint.set_tls_init_handler(bind(&type::on_tls_init,this,::_1));
-        m_endpoint.set_message_handler(bind(&type::on_message,this,::_1,::_2));
-        m_endpoint.set_open_handler(bind(&type::on_open,this,::_1));
-        m_endpoint.set_close_handler(bind(&type::on_close,this,::_1));
-        m_endpoint.set_fail_handler(bind(&type::on_fail,this,::_1));
-    }
-
-    void start(std::string uri) {
-        websocketpp::lib::error_code ec;
-        client::connection_ptr con = m_endpoint.get_connection(uri, ec);
-
-        if (ec) {
-            m_endpoint.get_alog().write(websocketpp::log::alevel::app,ec.message());
-            return;
-        }
-
-        //con->set_proxy("http://humupdates.uchicago.edu:8443");
-
-        m_endpoint.connect(con);
-
-        // Start the ASIO io_service run loop
-        m_start = std::chrono::high_resolution_clock::now();
-        m_endpoint.run();
-    }
-
-    void on_socket_init(websocketpp::connection_hdl) {
-        m_socket_init = std::chrono::high_resolution_clock::now();
-    }
-
-    context_ptr on_tls_init(websocketpp::connection_hdl) {
-        m_tls_init = std::chrono::high_resolution_clock::now();
-        context_ptr ctx = websocketpp::lib::make_shared<boost::asio::ssl::context>(boost::asio::ssl::context::tlsv1);
-
-        try {
-            ctx->set_options(boost::asio::ssl::context::default_workarounds |
-                             boost::asio::ssl::context::no_sslv2 |
-                             boost::asio::ssl::context::no_sslv3 |
-                             boost::asio::ssl::context::single_dh_use);
-        } catch (std::exception& e) {
-            std::cout << e.what() << std::endl;
-        }
-        return ctx;
-    }
-
-    void on_fail(websocketpp::connection_hdl hdl) {
-        client::connection_ptr con = m_endpoint.get_con_from_hdl(hdl);
-        
-        std::cout << "Fail handler" << std::endl;
-        std::cout << con->get_state() << std::endl;
-        std::cout << con->get_local_close_code() << std::endl;
-        std::cout << con->get_local_close_reason() << std::endl;
-        std::cout << con->get_remote_close_code() << std::endl;
-        std::cout << con->get_remote_close_reason() << std::endl;
-        std::cout << con->get_ec() << " - " << con->get_ec().message() << std::endl;
-    }
-
-    void on_open(websocketpp::connection_hdl hdl) {
-        m_open = std::chrono::high_resolution_clock::now();
-        m_endpoint.send(hdl, "", websocketpp::frame::opcode::text);
-    }
-    void on_message(websocketpp::connection_hdl hdl, message_ptr) {
-        m_message = std::chrono::high_resolution_clock::now();
-        m_endpoint.close(hdl,websocketpp::close::status::going_away,"");
-    }
-    void on_close(websocketpp::connection_hdl) {
-        m_close = std::chrono::high_resolution_clock::now();
-
-        std::cout << "Socket Init: " << std::chrono::duration_cast<dur_type>(m_socket_init-m_start).count() << std::endl;
-        std::cout << "TLS Init: " << std::chrono::duration_cast<dur_type>(m_tls_init-m_start).count() << std::endl;
-        std::cout << "Open: " << std::chrono::duration_cast<dur_type>(m_open-m_start).count() << std::endl;
-        std::cout << "Message: " << std::chrono::duration_cast<dur_type>(m_message-m_start).count() << std::endl;
-        std::cout << "Close: " << std::chrono::duration_cast<dur_type>(m_close-m_start).count() << std::endl;
-    }
-private:
-    client m_endpoint;
-
-    std::chrono::high_resolution_clock::time_point m_start;
-    std::chrono::high_resolution_clock::time_point m_socket_init;
-    std::chrono::high_resolution_clock::time_point m_tls_init;
-    std::chrono::high_resolution_clock::time_point m_open;
-    std::chrono::high_resolution_clock::time_point m_message;
-    std::chrono::high_resolution_clock::time_point m_close;
-};
+    // websocketpp::lib::error_code ec;
+    (void) _client;
+    // _client->send(hdl, msg->get_payload(), msg->get_opcode(), ec);
+    // if (ec) {
+    //     std::cout << "Echo failed because: " << ec.message() << std::endl;
+    // }
+}
 
 bool ChatRoom::connect()
 {
     try {
-        perftest endpoint;
-        endpoint.start(_websocket_target);
+        // Set logging to be pretty verbose (everything except message payloads)
+        _client.set_access_channels(websocketpp::log::alevel::all);
+        _client.clear_access_channels(websocketpp::log::alevel::frame_payload);
+
+        // Initialize ASIO
+        _client.init_asio();
+
+        // Register our message handler
+        _client.set_message_handler(bind(&on_message,&_client,::_1,::_2));
+
+        websocketpp::lib::error_code ec;
+        client::connection_ptr con = _client.get_connection(_remote_uri, ec);
+        if (ec) {
+            std::cout << "could not create connection because: " << ec.message() << std::endl;
+            return 0;
+        }
+
+        // Note that connect here only requests a connection. No network messages are
+        // exchanged until the event loop starts running in the next line.
+        _client.connect(con);
+
+        // Start the ASIO io_service run loop
+        // this will cause a single connection to be made to the server. _client.run()
+        // will exit when this connection is closed.
+        _client.run();
     } catch (websocketpp::exception const & e) {
         std::cout << e.what() << std::endl;
-    } catch (std::exception const & e) {
-        std::cout << e.what() << std::endl;
-    } catch (...) {
-        std::cout << "other exception" << std::endl;
     }
     return (true);
 }
@@ -166,7 +95,4 @@ void ChatRoom::disconnect()
 {
     if (!_networking_established)
         return ;
-    // if (!is_valid_ip(_websocket_target))
-    //     throw BadDisconnect();
-    
 }

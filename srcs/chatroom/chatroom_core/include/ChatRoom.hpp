@@ -1,6 +1,8 @@
 #ifndef CHATROOM_H
 # define CHATROOM_H
 # include <iostream>
+# include <websocketpp/client.hpp>
+# include <websocketpp/config/asio_no_tls_client.hpp>
 
 class InvalidIP : public std::exception
 {
@@ -11,6 +13,8 @@ class BadDisconnect : public std::exception
 {
     const char *what() const noexcept override;
 };
+
+typedef websocketpp::client<websocketpp::config::asio_client> client;
 
 class ChatRoom
 {
@@ -24,10 +28,8 @@ class ChatRoom
         void disconnect();
     private:
         bool _networking_established;
-        std::string _websocket_target;
-        bool is_valid_ip(const std::string& remote_ip);
-
-        
+        std::string _remote_uri;
+        client _client;
 };
 #endif
 
