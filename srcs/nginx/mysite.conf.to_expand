@@ -13,9 +13,9 @@ server {
 
 	ssl_protocols TLSv1.3;
 
-	add_header FromDockerSubnet $allowed_subnet always;
 
 	location /health_check {
+		keepalive_timeout 0;
 		if ($allowed_subnet = 0) {
             return 301 https://${SERVER_NAME}/;
         }
@@ -26,6 +26,8 @@ server {
 		proxy_pass http://fastify:3000;
 		proxy_http_version 1.1;
 		proxy_set_header Host $host;
+		proxy_set_header FromDockerSubnet $allowed_subnet;
+
     }
 
 	location /ws {
@@ -34,6 +36,7 @@ server {
 
 		proxy_set_header Upgrade $http_upgrade;
 		proxy_set_header Connection $connection_upgrade;
+		proxy_set_header FromDockerSubnet $allowed_subnet;
 
 		proxy_set_header Host $host;
 		proxy_set_header X-Real-IP $remote_addr;
