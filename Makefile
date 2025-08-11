@@ -9,7 +9,6 @@ PATH_TO_COMPOSE_ENV_FILE := $(OUTPUT_FILES_DIR)/env_vars_for_docker_compose.env
 PATH_TO_COMPOSE := $(SOURCES_DIR)/compose.yml
 
 HOST_IP := $(shell hostname -I | awk '{print $$1}')
-
 $(NAME): all
 
 all: build
@@ -25,6 +24,11 @@ dnginx:
 # 	fi
 
 re: down all
+
+# append_subnet_to_global_envs:
+# 	chmod 644 $(PATH_TO_COMPOSE_ENV_FILE)
+# 	@echo -n "TR_NETWORK_SUBNET=$(shell docker network inspect transcendance_network --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}')" >> $(PATH_TO_COMPOSE_ENV_FILE)
+# 	chmod 444 $(PATH_TO_COMPOSE_ENV_FILE)
 
 write_global_envs:
 	mkdir -p $(OUTPUT_FILES_DIR)

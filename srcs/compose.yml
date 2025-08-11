@@ -17,7 +17,7 @@ services:
     container_name: fastify
     image: fastify
     ports:
-      - "3000:3000" #debug only
+      - "3000:3000" #debug only!! dont expose!!
     env_file:
       - ./fastify/fastify.env
     build:
@@ -25,6 +25,14 @@ services:
     restart: always
     networks:
       - transcendance_network
+  # chatroom:
+  #   container_name: chatroom
+  #   image: chatroom
+  #   build:
+  #     context: ./chatroom
+  #   restart: always
+  #   networks:
+  #     - transcendance_network
 
 # volumes:
 #   transcendance_resources:

@@ -15,7 +15,5 @@ int main(int argc, char* argv[]) {
     {
         std::cerr << e.what() << '\n';
     }
-    
-    std::cout << "Bye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\nBye from mayn\n" << std::endl;
-    return (0);
+        return (0);
 }
