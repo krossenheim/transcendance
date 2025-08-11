@@ -1,3 +1,5 @@
 *.swp
 secrets
 out
+*.o
+*.d
