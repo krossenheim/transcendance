@@ -12,6 +12,5 @@ RUN apt-get update && apt-get install g++ build-essential libwebsocketpp-dev lib
 
 RUN make re
 
-CMD tail -f 
 
-# CMD ./chatroom_exec ws://$NGINX_NAME:$BACKEND_PORT/ws
+CMD ./chatroom_exec ws://nginx:443/ws
