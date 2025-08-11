@@ -9,8 +9,8 @@ services:
     restart: always
     ports:
       - "443:443"
-    volumes:
-      - transcendance_resources:/var/www/html/
+    # volumes:
+    #   - transcendance_resources:/var/www/html/
     networks:
       - transcendance_network
   fastify:
@@ -24,15 +24,13 @@ services:
     networks:
       - transcendance_network
 
-
-
-volumes:
-  transcendance_resources:
-    name: transcendance_resources
-    driver_opts:
-      type: none
-      o: bind
-      device: ${VOLUMES_DIR}
+# volumes:
+#   transcendance_resources:
+#     name: transcendance_resources
+#     driver_opts:
+#       type: none
+#       o: bind
+#       device: ${VOLUMES_DIR}
 
 networks:
   transcendance_network:

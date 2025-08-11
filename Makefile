@@ -17,6 +17,7 @@ all: build
 
 dnginx:
 	docker exec -it nginx "cat /var/log/nginx/error.log"
+
 # secrets_present:
 # 	@if [ ! -d "secrets/" ]; then \
 # 		echo "Secrets folder not present. Kindly provide it."; \
@@ -29,10 +30,10 @@ write_global_envs:
 	mkdir -p $(OUTPUT_FILES_DIR)
 	touch $(PATH_TO_COMPOSE_ENV_FILE)
 	chmod 644 $(PATH_TO_COMPOSE_ENV_FILE)
-	@echo "# This file is made and populated via the makefile. Your changes are unlikely to be ." > $(PATH_TO_COMPOSE_ENV_FILE)
+	@echo "# This file is made and populated via the makefile. Your changes are unlikely to be applied." > $(PATH_TO_COMPOSE_ENV_FILE)
 # 	@echo "ROOT_DIR=$(PROJECT_ROOT)" >> $(PATH_TO_COMPOSE_ENV_FILE)
-	@echo "VOLUMES_DIR=$(VOLUMES_DIR)" >> $(PATH_TO_COMPOSE_ENV_FILE)
-	@echo "HOST_IP=$(HOST_IP)" >> $(PATH_TO_COMPOSE_ENV_FILE)
+# 	@echo "VOLUMES_DIR=$(VOLUMES_DIR)" >> $(PATH_TO_COMPOSE_ENV_FILE)
+# 	@echo "HOST_IP=$(HOST_IP)" >> $(PATH_TO_COMPOSE_ENV_FILE)
 	chmod 444 $(PATH_TO_COMPOSE_ENV_FILE)
 
 down:
