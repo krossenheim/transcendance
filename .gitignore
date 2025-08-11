@@ -4,3 +4,4 @@ out
 *.o
 *.d
 chatroom_exec
+*objs
