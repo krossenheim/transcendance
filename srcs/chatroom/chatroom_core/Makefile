@@ -11,7 +11,7 @@ OBJS	=	$(SOURCES:%.cpp=$(OBJDIR)%.o)
 
 DEPENDENCIES = $(OBJS:%.o=%.d)
 CFLAGS	+=	-Wall -Wextra -Werror -MMD -std=c++17
-CFLAGS_FOR_ZAPHOYD_WEBSOCKETS := -lcrypto -lssl
+CFLAGS_FOR_ZAPHOYD_WEBSOCKETS := -lcrypto -lssl -pthread
 
 $(OBJDIR)%.o: $(SRCDIR)%.cpp | $(OBJDIR)
 	c++ $(CFLAGS) -c $< -o $@ 

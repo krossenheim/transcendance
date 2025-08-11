@@ -1,18 +1,18 @@
 FROM debian:bullseye
 
+RUN if [ -z "${BACKEND_PORT}'" ]; then echo "ERROR: BACKEND_PORT is not set" >&2; exit 1; fi
+RUN if [ -z "${BACKEND_NAME}'" ]; then echo "ERROR: BACKEND_NAME is not set" >&2; exit 1; fi
+
 RUN mkdir -p /chatroom/
 
-COPY chatroom_core/ /chatroom/
-RUN chmod -R 755 /chatroom/
+WORKDIR /chatroom/
 
-# RUN apt-get update && apt-get install g++ build-essential libwebsocketpp-dev -y && rm -rf /var/lib/apt/lists/*
+# Dont want to move objs or the executable.
+COPY chatroom_core/ .
+RUN chmod -R 755 .
 
-#wscat/nodejs for debugging only
-RUN apt-get update && apt-get install g++ build-essential libwebsocketpp-dev nodejs npm -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install g++ build-essential libwebsocketpp-dev libssl-dev libboost-all-dev -y && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g wscat
+RUN make re
 
-COPY eternal.sh /chatroom/
-RUN chmod 777 eternal.sh
-
-RUN bash eternal.sh
+CMD ./chatroom_exec ws://$BACKEND_NAME:$BACKEND_PORT/ws

@@ -33,7 +33,9 @@ class ChatRoom
         ~ChatRoom();
         bool connect();
         void disconnect();
-        void on_message(client* _client, websocketpp::connection_hdl hdl, message_ptr msg);
+        void on_message(websocketpp::connection_hdl hdl, message_ptr msg);
+        void on_open(websocketpp::connection_hdl hdl);
+        
     private:
         bool _networking_established;
         std::string _remote_uri;

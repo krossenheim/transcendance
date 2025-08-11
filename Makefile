@@ -9,9 +9,13 @@ PATH_TO_COMPOSE_ENV_FILE := $(OUTPUT_FILES_DIR)/env_vars_for_docker_compose.env
 PATH_TO_COMPOSE := $(SOURCES_DIR)/compose.yml
 
 HOST_IP := $(shell hostname -I | awk '{print $$1}')
+TR_NETWORK_SUBNET=172.18.0.0/16
+BACKEND_PORT=3000
+BACKEND_NAME=fastify
+
 $(NAME): all
 
-all: build
+all: build 
 	docker compose   -f $(PATH_TO_COMPOSE) --env-file $(PATH_TO_COMPOSE_ENV_FILE) up -d
 
 dnginx:
@@ -25,11 +29,6 @@ dnginx:
 
 re: down all
 
-# append_subnet_to_global_envs:
-# 	chmod 644 $(PATH_TO_COMPOSE_ENV_FILE)
-# 	@echo -n "TR_NETWORK_SUBNET=$(shell docker network inspect transcendance_network --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}')" >> $(PATH_TO_COMPOSE_ENV_FILE)
-# 	chmod 444 $(PATH_TO_COMPOSE_ENV_FILE)
-
 write_global_envs:
 	mkdir -p $(OUTPUT_FILES_DIR)
 	touch $(PATH_TO_COMPOSE_ENV_FILE)
@@ -38,6 +37,9 @@ write_global_envs:
 # 	@echo "ROOT_DIR=$(PROJECT_ROOT)" >> $(PATH_TO_COMPOSE_ENV_FILE)
 # 	@echo "VOLUMES_DIR=$(VOLUMES_DIR)" >> $(PATH_TO_COMPOSE_ENV_FILE)
 # 	@echo "HOST_IP=$(HOST_IP)" >> $(PATH_TO_COMPOSE_ENV_FILE)
+	@echo "TR_NETWORK_SUBNET=$(TR_NETWORK_SUBNET)" >> $(PATH_TO_COMPOSE_ENV_FILE)
+	@echo "BACKEND_PORT=$(BACKEND_PORT)" >> $(PATH_TO_COMPOSE_ENV_FILE)
+	@echo "BACKEND_NAME=$(BACKEND_NAME)" >> $(PATH_TO_COMPOSE_ENV_FILE)
 	chmod 444 $(PATH_TO_COMPOSE_ENV_FILE)
 
 down:

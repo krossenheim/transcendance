@@ -1,8 +1,12 @@
 #!/bin/bash
 set -ex
 
+
 mkdir -p /etc/nginx/sites-enabled/
-envsubst '${SERVER_NAME}' < /etc/nginx/site-templates/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
+
+#multiple vars can be done by ont typing argumnets to envsubst other than input and output files (Itll try to replace all env vars found inside)
+envsubst '${SERVER_NAME}' < /etc/nginx/un_expanded/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
+envsubst '${TR_NETWORK_SUBNET}' < /etc/nginx/un_expanded/nginx.conf.to_expand > /etc/nginx/nginx.conf
 
 mkdir -p /etc/nginx/ssl
 cd /etc/nginx/ssl 
@@ -23,8 +27,13 @@ if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.key" ]; then
   exit 1
 fi
 
-nginx -t
-
 rm -f /var/www/html/index.nginx-debian.html
+
+if ! nginx -t; then
+  cat /etc/nginx/nginx.conf
+  cat /etc/nginx/sites-enabled/mysite.conf
+  tail -f /dev/null  # keep container alive or
+fi
+
 
 exec "$@" # Very important otherwise the CMD on the dockerfile won't really run. It also makes that CMD run as PID 1. Which is good. For reasons.

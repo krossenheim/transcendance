@@ -9,6 +9,13 @@ server {
 	ssl_protocols TLSv1.3;
 #	add_header Content-Security-Policy "connect-src https: wss:;" always;
 
+	location /health_check {
+		if ($allowed_subnet = 0) {
+            return 301 https://${SERVER_NAME}/;
+        }
+		return 200 "Hello internal network individual.";
+    }
+
 	location / {
 		proxy_pass http://fastify:3000;
 		proxy_http_version 1.1;

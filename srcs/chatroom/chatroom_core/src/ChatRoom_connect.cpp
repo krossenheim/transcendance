@@ -62,7 +62,7 @@ const std::string parse_message(const std::string& message)
     return (empty_str);
 }
 
-void ChatRoom::on_message(client* _client, websocketpp::connection_hdl hdl, message_ptr msg) {
+void ChatRoom::on_message(websocketpp::connection_hdl hdl, message_ptr msg) {
     std::cout << "on_message called with hdl: " << hdl.lock().get()
               << " and message: " << msg->get_payload()
               << std::endl;
@@ -70,12 +70,21 @@ void ChatRoom::on_message(client* _client, websocketpp::connection_hdl hdl, mess
     const std::string reply = parse_message(msg->get_payload());
     // websocketpp::lib::error_code ec;
     (void) _client;
-    // _client->send(hdl, msg->get_payload(), msg->get_opcode(), ec);
+    // _client.send(hdl, msg->get_payload(), msg->get_opcode(), ec);
     // if (ec) {
-    //     std::cout << "Echo failed because: " << ec.message() << std::endl;
+    //     std::cout << "on_message failed because: " << ec.message() << std::endl;
     // }
 }
 
+void ChatRoom::on_open(websocketpp::connection_hdl hdl) {
+    std::string hello = "Chatroom says hello!";
+    websocketpp::lib::error_code ec;
+
+    _client.send(hdl, hello, websocketpp::frame::opcode::text, ec);
+    if (ec) {
+        std::cout << "on_open failed because: " << ec.message() << std::endl;
+    }
+}
 
 bool ChatRoom::connect()
 {
@@ -88,7 +97,17 @@ bool ChatRoom::connect()
         _client.init_asio();
 
         // Register our message handler
-        _client.set_message_handler(bind(&ChatRoom::on_message,this,&_client,::_1,::_2));
+        _client.set_message_handler(bind(&ChatRoom::on_message,this,::_1,::_2));
+        _client.set_open_handler(bind(&ChatRoom::on_open,this,::_1));
+
+        // // Register our handlers
+        // m_endpoint.set_socket_init_handler(bind(&type::on_socket_init,this,::_1));
+        // //m_endpoint.set_tls_init_handler(bind(&type::on_tls_init,this,::_1));
+        // m_endpoint.set_message_handler(bind(&type::on_message,this,::_1,::_2));
+        // m_endpoint.set_open_handler(bind(&type::on_open,this,::_1));
+        // m_endpoint.set_close_handler(bind(&type::on_close,this,::_1));
+        // m_endpoint.set_fail_handler(bind(&type::on_fail,this,::_1));
+
 
         websocketpp::lib::error_code ec;
         client::connection_ptr con = _client.get_connection(_remote_uri, ec);

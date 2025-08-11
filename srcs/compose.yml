@@ -7,6 +7,8 @@ services:
     build:
       context: ./nginx
     restart: always
+    environment:
+      - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
     ports:
       - "443:443"
     # volumes:
@@ -25,14 +27,20 @@ services:
     restart: always
     networks:
       - transcendance_network
-  # chatroom:
-  #   container_name: chatroom
-  #   image: chatroom
-  #   build:
-  #     context: ./chatroom
-  #   restart: always
-  #   networks:
-  #     - transcendance_network
+  chatroom:
+    container_name: chatroom
+    image: chatroom
+    build:
+      context: ./chatroom
+    restart: always
+    environment:
+      - BACKEND_PORT=${BACKEND_PORT}
+      - BACKEND_NAME=${BACKEND_NAME}
+    networks:
+      - transcendance_network
+    depends_on:
+      fastify:
+        condition: service_healthy
 
 # volumes:
 #   transcendance_resources:
@@ -46,4 +54,7 @@ networks:
   transcendance_network:
     name: transcendance_network
     driver: bridge
+    ipam:
+      config:
+        - subnet: ${TR_NETWORK_SUBNET}
 

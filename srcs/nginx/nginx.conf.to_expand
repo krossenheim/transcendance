@@ -33,5 +33,9 @@ http {
     default upgrade;
     ''      close;
 	}
+    geo $allowed_subnet {
+        default 0;
+        ${TR_NETWORK_SUBNET} 1;
+    }
     include /etc/nginx/sites-enabled/*;
 }
