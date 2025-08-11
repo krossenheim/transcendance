@@ -10,6 +10,21 @@ catch (err)
   process.exit(1);
 }
 
+function barfInfo(socket, req) {
+  
+    socket.send(`Socket readyState: ${socket.readyState}`);
+    socket.send(`Socket protocol: ${socket.protocol}`);
+    socket.send(`Socket remote address: ${socket._socket.remoteAddress}`);
+    socket.send(`Socket remote port: ${socket._socket.remotePort}`);
+    socket.send(`Request method: ${req.method}`);
+    socket.send(`Request url: ${req.url}`);
+    socket.send(`Headers: ${JSON.stringify(req.headers)}`);
+    socket.send(`Query: ${JSON.stringify(req.query)}`);
+    socket.send(`Params: ${JSON.stringify(req.params)}`);
+
+}
+
+
 const ipInDockerSubnet = require("./ip_in_docker_subnet.cjs")
 
 const fastify = require('fastify')()
@@ -25,18 +40,10 @@ fastify.register(async function ()
     },
     wsHandler: (socket, req) => {
       // this will handle websockets connections
-    socket.send(`Socket readyState: ${socket.readyState}`);
-    socket.send(`Socket protocol: ${socket.protocol}`);
-    socket.send(`Socket remote address: ${socket._socket.remoteAddress}`);
-    socket.send(`Socket remote port: ${socket._socket.remotePort}`);
-
-    socket.send(`Request method: ${req.method}`);
-    socket.send(`Request url: ${req.url}`);
-    socket.send(`Headers: ${JSON.stringify(req.headers)}`);
-    socket.send(`Query: ${JSON.stringify(req.query)}`);
-    socket.send(`Params: ${JSON.stringify(req.params)}`);
-
+        barfInfo(socket, req);
     socket.on('message', message => {
+        if (message == "info" || message == "barf")
+            barfInfo(socket, req);
       let prepend = "empty";
       if (ipInDockerSubnet(req.headers.fromdockersubnet))
         prepend = "(From docker network)";
