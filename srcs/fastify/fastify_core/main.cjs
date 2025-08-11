@@ -38,7 +38,7 @@ fastify.register(async function ()
 
     socket.on('message', message => {
       let prepend = "empty";
-      if (ipInDockerSubnet(socket._socket.remoteAddress))
+      if (ipInDockerSubnet(req.headers.fromdockersubnet))
         prepend = "(From docker network)";
       else
         prepend = ("(From outside docker network)");

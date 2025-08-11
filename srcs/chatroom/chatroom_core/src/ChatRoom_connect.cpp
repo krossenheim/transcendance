@@ -27,6 +27,29 @@
  *
  */
 
+// to allow insecure ssl
+websocketpp::lib::shared_ptr<websocketpp::lib::asio::ssl::context>
+on_tls_init(websocketpp::connection_hdl) {
+    auto ctx = websocketpp::lib::make_shared<websocketpp::lib::asio::ssl::context>(
+        websocketpp::lib::asio::ssl::context::tls_client
+    );
+
+    try {
+        ctx->set_options(
+            websocketpp::lib::asio::ssl::context::default_workarounds |
+            websocketpp::lib::asio::ssl::context::no_sslv2 |
+            websocketpp::lib::asio::ssl::context::no_sslv3 |
+            websocketpp::lib::asio::ssl::context::single_dh_use
+        );
+        ctx->set_verify_mode(websocketpp::lib::asio::ssl::verify_none);
+    }
+    catch (std::exception& e) {
+        std::cerr << "TLS init error: " << e.what() << std::endl;
+    }
+
+    return ctx;
+}
+
 static const std::string empty_str = "";
 
 const std::string send_to_room(const std::string& message)
@@ -96,6 +119,8 @@ bool ChatRoom::connect()
         // Initialize ASIO
         _client.init_asio();
 
+        // Apply in our ssl safety ignorer
+        _client.set_tls_init_handler(websocketpp::lib::bind(&on_tls_init, websocketpp::lib::placeholders::_1));
         // Register our message handler
         _client.set_message_handler(bind(&ChatRoom::on_message,this,::_1,::_2));
         _client.set_open_handler(bind(&ChatRoom::on_open,this,::_1));

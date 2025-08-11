@@ -1,8 +1,5 @@
 FROM debian:bullseye
 
-RUN if [ -z "${BACKEND_PORT}'" ]; then echo "ERROR: BACKEND_PORT is not set" >&2; exit 1; fi
-RUN if [ -z "${BACKEND_NAME}'" ]; then echo "ERROR: BACKEND_NAME is not set" >&2; exit 1; fi
-
 RUN mkdir -p /chatroom/
 
 WORKDIR /chatroom/
@@ -15,4 +12,6 @@ RUN apt-get update && apt-get install g++ build-essential libwebsocketpp-dev lib
 
 RUN make re
 
-CMD ./chatroom_exec ws://$BACKEND_NAME:$BACKEND_PORT/ws
+CMD tail -f 
+
+# CMD ./chatroom_exec ws://$NGINX_NAME:$BACKEND_PORT/ws

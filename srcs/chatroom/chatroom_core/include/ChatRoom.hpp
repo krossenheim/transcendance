@@ -1,7 +1,7 @@
 #ifndef CHATROOM_H
 # define CHATROOM_H
-# include <websocketpp/client.hpp>
-# include <websocketpp/config/asio_no_tls_client.hpp>
+#include <websocketpp/config/asio_client.hpp>
+#include <websocketpp/client.hpp>
 # include <iostream>
 
 class InvalidIP : public std::exception
@@ -14,7 +14,7 @@ class BadDisconnect : public std::exception
     const char *what() const noexcept override;
 };
 
-typedef websocketpp::client<websocketpp::config::asio_client> client;
+typedef websocketpp::client<websocketpp::config::asio_tls_client> client;
 
 using websocketpp::lib::placeholders::_1;
 using websocketpp::lib::placeholders::_2;

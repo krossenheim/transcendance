@@ -35,9 +35,6 @@ services:
     build:
       context: ./chatroom
     restart: always
-    environment:
-      - BACKEND_PORT=${BACKEND_PORT}
-      - BACKEND_NAME=${BACKEND_NAME}
     networks:
       - transcendance_network
     depends_on:
