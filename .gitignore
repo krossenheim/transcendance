@@ -1,7 +1,7 @@
-*.swp
-/secrets
-/out
+*.swp/
+secrets/
+out/
 *.o
 *.d
 chatroom_exec
-/objs
+objs/
