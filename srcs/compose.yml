@@ -18,8 +18,6 @@ services:
   fastify:
     container_name: fastify
     image: fastify
-    ports:
-      - "3000:3000" #debug only!! dont expose!!
     env_file:
       - ./fastify/fastify.env
     environment:
