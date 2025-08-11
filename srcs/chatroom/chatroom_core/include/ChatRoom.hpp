@@ -25,6 +25,8 @@ class ChatRoom
     private:
         bool _networking_established;
         std::string _websocket_target;
+        bool is_valid_ip(const std::string& remote_ip);
+
         
 };
 #endif
