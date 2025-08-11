@@ -13,13 +13,13 @@ services:
       - transcendance_resources:/var/www/html/
     networks:
       - transcendance_network
-  backend:
-    container_name: backend
-    image: backend
+  fastify:
+    container_name: fastify
+    image: fastify
     env_file:
-      - ./backend/fastify.env
+      - ./fastify/fastify.env
     build:
-      context: ./backend
+      context: ./fastify
     restart: always
     networks:
       - transcendance_network
