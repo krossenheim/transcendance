@@ -1,6 +1,6 @@
 FROM nginx:1.29.0
 
-RUN if [ -z "${TR_NETWORK_SUBNET}'" ]; then echo "ERROR: TR_NETWORK_SUBNET is not set" >&2; exit 1; fi
+RUN if [ -z "${TR_NETWORK_SUBNET}" ]; then echo "ERROR: TR_NETWORK_SUBNET is not set" >&2; exit 1; fi
 
 RUN apt-get update && apt-get install -y gettext openssl procps && rm -rf /var/lib/apt/lists/*
 

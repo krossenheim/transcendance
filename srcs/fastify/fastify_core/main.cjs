@@ -53,16 +53,6 @@ fastify.register(async function ()
       socket.send(prepend + message.toString().toUpperCase())})
     }
   })
-  // fastify.get('/ws', { websocket: true }, (socket /* WebSocket */, req /* FastifyRequest */) => {
-  //   socket.on('opend', message => {
-  //     console.log("Received: " + message);
-  //     socket.send('Uppercased message -> ' + message.toString().toUpperCase())
-  //   })
-  //   socket.on('message', message => {
-  //     console.log("Received: " + message);
-  //     socket.send('Uppercased message -> ' + message.toString().toUpperCase())
-  //   })
-  // })
 })
 
 fastify.register(async function (fastify) {

@@ -76,8 +76,16 @@ const std::string new_room(const std::string& message)
     return (empty_str);
 }
 
+bool respects_protocol(const std::string& message)
+{
+    (void) message;
+    return (true);
+}
+
 const std::string parse_message(const std::string& message)
 {
+	if (!respects_protocol(message))
+		return (empty_str);
     if (new_room_request(message))
         return (new_room(message));
     if (send_to_room_request(message))
