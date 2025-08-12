@@ -94,17 +94,20 @@ const std::string parse_message(const std::string& message)
 }
 
 void ChatRoom::on_message(websocketpp::connection_hdl hdl, message_ptr msg) {
-    std::cout << "on_message called with hdl: " << hdl.lock().get()
-              << " and message: " << msg->get_payload()
-              << std::endl;
-
+	(void) hdl;
     const std::string reply = parse_message(msg->get_payload());
-    // websocketpp::lib::error_code ec;
-    (void) _client;
-    // _client.send(hdl, msg->get_payload(), msg->get_opcode(), ec);
-    // if (ec) {
-    //     std::cout << "on_message failed because: " << ec.message() << std::endl;
-    // }
+	if (reply == empty_str)
+	{
+		if (!msg->get_payload().empty())
+			std::cout << "----- REPLYLESS MESSAGE WARNING ------" << msg->get_payload() <<  "----- REPLYLESS MESSAGE WARNING ------" << std::endl;
+		return ;
+	}
+
+    websocketpp::lib::error_code ec;
+    _client.send(hdl, reply, msg->get_opcode(), ec);
+    if (ec) {
+        std::cout << "on_message failed because: " << ec.message() << std::endl;
+    }
 }
 
 void ChatRoom::on_open(websocketpp::connection_hdl hdl) {

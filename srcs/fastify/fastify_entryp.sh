@@ -1,6 +1,8 @@
 #!/bin/sh
 set -ex
 
+if [ -z "${MESSAGE_FROM_DOCKER_NETWORK}" ]; then echo "ERROR: MESSAGE_FROM_DOCKER_NETWORK is not set" >&2; exit 1; fi
+if [ -z "${FASTIFY_NODE_MAINJS}" ]; then echo "ERROR: FASTIFY_NODE_MAINJS is not set" >&2; exit 1; fi
 if [ -z "${FASTIFY_BIND_TO}" ]; then echo "ERROR: FASTIFY_BIND_TO is not set" >&2; exit 1; fi
 if [ -z "${FASTIFY_PORT}" ]; then echo "ERROR: FASTIFY_PORT is not set" >&2; exit 1; fi 
 

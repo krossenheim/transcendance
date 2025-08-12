@@ -35,7 +35,7 @@ fastify.register(async function ()
         if (message == "info" || message == "barf")
             barfInfo(socket, req);
       let prepend = "empty";
-      if (ipInDockerSubnet(req.headers.fromdockersubnet))
+      if (ipInDockerSubnet(req.headers[process.env.MESSAGE_FROM_DOCKER_NETWORK]))
         prepend = "(From docker network)";
       else
         prepend = ("(From outside docker network)");

@@ -21,12 +21,6 @@ all: build
 dnginx:
 	docker exec -it nginx "cat /var/log/nginx/error.log"
 
-# secrets_present:
-# 	@if [ ! -d "secrets/" ]; then \
-# 		echo "Secrets folder not present. Kindly provide it."; \
-# 		exit 42; \
-# 	fi
-
 re: down all
 
 down:

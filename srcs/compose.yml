@@ -9,6 +9,7 @@ services:
     restart: always
     environment:
       - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
+      - MESSAGE_FROM_DOCKER_NETWORK=${MESSAGE_FROM_DOCKER_NETWORK}
     ports:
       - "443:443"
     # volumes:
@@ -22,6 +23,7 @@ services:
       - ./fastify/fastify.env
     environment:
       - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
+      - MESSAGE_FROM_DOCKER_NETWORK=${MESSAGE_FROM_DOCKER_NETWORK}
     build:
       context: ./fastify
     restart: always
