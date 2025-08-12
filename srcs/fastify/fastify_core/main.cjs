@@ -1,15 +1,5 @@
 'use strict'
 
-try
-{
-  require('./ensure_enviromental_vars.cjs');
-} 
-catch (err) 
-{
-  console.error('Failed to load module:', err.message);
-  process.exit(1);
-}
-
 function barfInfo(socket, req) {
   
     socket.send(`Socket readyState: ${socket.readyState}`);

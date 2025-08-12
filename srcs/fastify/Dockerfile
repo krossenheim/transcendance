@@ -15,8 +15,8 @@ RUN npm install
 COPY fastify_entryp.sh /app/fastify_entryp.sh
 RUN chmod 755 /app/fastify_entryp.sh
 
-HEALTHCHECK --interval=2s --timeout=10s --start-period=5s --retries=10 \
+HEALTHCHECK --interval=3s --timeout=5s --start-period=2s --retries=20 \
   CMD curl -fsSLk https://nginx:443/health_check | grep -q "Hello internal network individual." || exit 1
 
-# ENTRYPOINT ["/app/fastify_entryp.sh"]
+ENTRYPOINT ["/app/fastify_entryp.sh"]
 CMD node /app/$FASTIFY_NODE_MAINJS
