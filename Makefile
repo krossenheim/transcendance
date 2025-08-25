@@ -1,5 +1,5 @@
 # Base directories
-PROJECT_ROOT := $(CURDIR)/
+PROJECT_ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OUTPUT_FILES_DIR := $(PROJECT_ROOT)out
 SOURCES_DIR := $(PROJECT_ROOT)srcs
 VOLUMES_DIR := $(OUTPUT_FILES_DIR)/transcendance_volumes/
