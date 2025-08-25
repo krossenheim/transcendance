@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniRT Favicon Pong</title>
+    <link id="favicon" rel="icon" type="image/png" href="/favicon.png">
+    <link id="favicon-ico" rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+    <link id="favicon-apple" rel="apple-touch-icon" href="/favicon.png">
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+            color: #fff;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #00ff41;
+            text-shadow: 0 0 10px #00ff41;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #888;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        #gameCanvas {
+            border: 2px solid #00ff41;
+            background-color: #000;
+            margin: 20px 0;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            padding: 12px 24px;
+            margin: 0 8px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            background: #222;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #00ff41;
+            color: #000;
+            box-shadow: 0 0 10px #00ff41;
+        }
+        .score {
+            font-size: 28px;
+            margin: 15px 0;
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+            font-weight: bold;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px 20px;
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            border-radius: 4px;
+            color: #00ff41;
+        }
+        .instructions {
+            margin-top: 20px;
+            text-align: center;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ MiniRT Favicon Pong ⚡</h1>
+    <p class="subtitle">3D Raytraced Favicon Game - Look at your browser tab!</p>
+    
+    <div class="status">
+        <div>Game Status: <span id="gameStatus">Paused</span></div>
+        <div>Raytracing: <span id="renderStatus">Ready</span></div>
+    </div>
+    
+    <div class="score">
+        Player: <span id="playerScore">0</span> | 
+        Computer: <span id="computerScore">0</span>
+    </div>
+    
+    <canvas id="gameCanvas" width="320" height="240"></canvas>
+    
+    <div class="controls">
+        <button onclick="moveUp()">↑ UP</button>
+        <button onclick="moveDown()">↓ DOWN</button>
+    </div>
+    <div class="controls">
+        <button id="toggleBtn" onclick="toggleGame()">START GAME</button>
+        <button onclick="resetGame()">RESET</button>
+    </div>
+    
+    <div class="instructions">
+        <p><strong>Controls:</strong> W/S keys or ↑/↓ arrows or buttons to move left paddle</p>
+        <p><em>Your favicon is being rendered in real-time with MiniRT raytracer!</em></p>
+    </div>
+
+    <script>
+        const gameSize = 16; // Favicon coordinate system
+
+        // Game canvas for visual feedback
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gameCtx = gameCanvas.getContext('2d', { alpha: false });
+
+        let gameRunning = false;
+        let playerScore = 0;
+        let computerScore = 0;
+        let lastFaviconUpdate = 0;
+        let isRendering = false;
+
+        const game = {
+            ball: {
+                x: gameSize / 2,
+                y: gameSize / 2,
+                vx: 0.2,
+                vy: 0.15,
+                size: 1
+            },
+            playerPaddle: {
+                x: 1,
+                y: gameSize / 2 - 2,
+                height: 4,
+                width: 1,
+                speed: 0.3
+            },
+            computerPaddle: {
+                x: gameSize - 2,
+                y: gameSize / 2 - 2,
+                height: 4,
+                width: 1,
+                speed: 0.25
+            }
+        };
+
+        let keys = {};
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(e.code)) {
+                e.preventDefault();
+            }
+            keys[e.code] = true;
+            keys[e.key.toLowerCase()] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function moveUp() {
+            if (gameRunning) {
+                game.playerPaddle.y = Math.max(0, game.playerPaddle.y - 1.5);
+            }
+        }
+
+        function moveDown() {
+            if (gameRunning) {
+                game.playerPaddle.y = Math.min(gameSize - game.playerPaddle.height, game.playerPaddle.y + 1.5);
+            }
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Player controls
+            if (keys['KeyW'] || keys['ArrowUp'] || keys['w']) {
+                game.playerPaddle.y = Math.max(0, game.playerPaddle.y - game.playerPaddle.speed);
+            }
+            if (keys['KeyS'] || keys['ArrowDown'] || keys['s']) {
+                game.playerPaddle.y = Math.min(gameSize - game.playerPaddle.height, game.playerPaddle.y + game.playerPaddle.speed);
+            }
+
+            // Ball physics
+            game.ball.x += game.ball.vx;
+            game.ball.y += game.ball.vy;
+
+            // Ball collision with top/bottom walls
+            if (game.ball.y <= 0 || game.ball.y >= gameSize - game.ball.size) {
+                game.ball.vy = -game.ball.vy;
+                game.ball.y = Math.max(0, Math.min(gameSize - game.ball.size, game.ball.y));
+            }
+
+            // Ball collision with player paddle
+            if (game.ball.x <= game.playerPaddle.x + game.playerPaddle.width &&
+                game.ball.x >= game.playerPaddle.x &&
+                game.ball.y + game.ball.size >= game.playerPaddle.y &&
+                game.ball.y <= game.playerPaddle.y + game.playerPaddle.height) {
+                
+                game.ball.vx = Math.abs(game.ball.vx);
+                const hitPos = (game.ball.y - game.playerPaddle.y) / game.playerPaddle.height;
+                game.ball.vy += (hitPos - 0.5) * 0.15;
+                game.ball.vy = Math.max(-0.4, Math.min(0.4, game.ball.vy)); // Limit velocity
+            }
+
+            // Ball collision with computer paddle
+            if (game.ball.x + game.ball.size >= game.computerPaddle.x &&
+                game.ball.x <= game.computerPaddle.x + game.computerPaddle.width &&
+                game.ball.y + game.ball.size >= game.computerPaddle.y &&
+                game.ball.y <= game.computerPaddle.y + game.computerPaddle.height) {
+                
+                game.ball.vx = -Math.abs(game.ball.vx);
+                const hitPos = (game.ball.y - game.computerPaddle.y) / game.computerPaddle.height;
+                game.ball.vy += (hitPos - 0.5) * 0.15;
+                game.ball.vy = Math.max(-0.4, Math.min(0.4, game.ball.vy)); // Limit velocity
+            }
+
+            // Computer AI - improved
+            const ballCenterY = game.ball.y + game.ball.size / 2;
+            const paddleCenterY = game.computerPaddle.y + game.computerPaddle.height / 2;
+            const diff = ballCenterY - paddleCenterY;
+            
+            if (Math.abs(diff) > 0.5) {
+                const moveAmount = Math.min(game.computerPaddle.speed, Math.abs(diff));
+                game.computerPaddle.y += Math.sign(diff) * moveAmount;
+                game.computerPaddle.y = Math.max(0, Math.min(gameSize - game.computerPaddle.height, game.computerPaddle.y));
+            }
+
+            // Scoring
+            if (game.ball.x < -1) {
+                computerScore++;
+                updateScore();
+                resetBall();
+            } else if (game.ball.x > gameSize + 1) {
+                playerScore++;
+                updateScore();
+                resetBall();
+            }
+        }
+
+        function resetBall() {
+            game.ball.x = gameSize / 2;
+            game.ball.y = gameSize / 2 + (Math.random() - 0.5) * 4;
+            game.ball.vx = (Math.random() > 0.5 ? 1 : -1) * 0.2;
+            game.ball.vy = (Math.random() - 0.5) * 0.3;
+        }
+
+        function drawGame() {
+            const scale = gameCanvas.width / gameSize;
+            
+            // Clear and draw background
+            gameCtx.fillStyle = '#000';
+            gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+            
+            // Draw center line
+            gameCtx.fillStyle = '#333';
+            gameCtx.fillRect(gameCanvas.width / 2 - 1, 0, 2, gameCanvas.height);
+            for (let i = 0; i < gameCanvas.height; i += 20) {
+                gameCtx.fillStyle = '#555';
+                gameCtx.fillRect(gameCanvas.width / 2 - 1, i, 2, 10);
+            }
+
+            // Draw player paddle (blue)
+            gameCtx.fillStyle = '#0088ff';
+            gameCtx.fillRect(
+                game.playerPaddle.x * scale,
+                game.playerPaddle.y * scale,
+                game.playerPaddle.width * scale,
+                game.playerPaddle.height * scale
+            );
+
+            // Draw computer paddle (red)
+            gameCtx.fillStyle = '#ff4444';
+            gameCtx.fillRect(
+                game.computerPaddle.x * scale,
+                game.computerPaddle.y * scale,
+                game.computerPaddle.width * scale,
+                game.computerPaddle.height * scale
+            );
+
+            // Draw ball (green)
+            gameCtx.fillStyle = '#00ff41';
+            gameCtx.fillRect(
+                game.ball.x * scale,
+                game.ball.y * scale,
+                game.ball.size * scale,
+                game.ball.size * scale
+            );
+        }
+
+        async function updateMiniRTFavicon() {
+            if (isRendering) return; // Prevent concurrent renders
+            
+            isRendering = true;
+            document.getElementById('renderStatus').textContent = 'Rendering...';
+            
+            try {
+                const response = await fetch('/api/update-favicon', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ball: { x: game.ball.x, y: game.ball.y },
+                        player: { y: game.playerPaddle.y },
+                        computer: { y: game.computerPaddle.y }
+                    })
+                });
+
+                if (response.ok) {
+                    // Force favicon refresh with multiple methods
+                    const favicon = document.getElementById('favicon');
+                    const timestamp = Date.now();
+                    
+                    // Remove and re-add all favicon elements to force browser refresh
+                    ['favicon', 'favicon-shortcut', 'favicon-apple'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.remove();
+                    });
+                    
+                    // Add new favicon elements
+                    const faviconTypes = [
+                        { id: 'favicon', rel: 'icon' },
+                        { id: 'favicon-shortcut', rel: 'shortcut icon' },
+                        { id: 'favicon-apple', rel: 'apple-touch-icon' }
+                    ];
+                    
+                    faviconTypes.forEach(({ id, rel }) => {
+                        const newFavicon = document.createElement('link');
+                        newFavicon.id = id;
+                        newFavicon.rel = rel;
+                        newFavicon.type = 'image/png';
+                        newFavicon.href = `/favicon.png?t=${timestamp}`;
+                        document.head.appendChild(newFavicon);
+                    });
+                    
+                    document.getElementById('renderStatus').textContent = 'Updated';
+                } else {
+                    document.getElementById('renderStatus').textContent = 'Error';
+                }
+            } catch (error) {
+                console.error('Favicon update failed:', error);
+                document.getElementById('renderStatus').textContent = 'Failed';
+            }
+            
+            isRendering = false;
+        }
+
+        function gameLoop() {
+            updateGame();
+            drawGame();
+            
+            // Update favicon less frequently to avoid overloading the raytracer
+            const now = Date.now();
+            if (gameRunning && now - lastFaviconUpdate > 200) { // 5 FPS for favicon
+                updateMiniRTFavicon();
+                lastFaviconUpdate = now;
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        function toggleGame() {
+            gameRunning = !gameRunning;
+            const btn = document.getElementById('toggleBtn');
+            const status = document.getElementById('gameStatus');
+            
+            if (gameRunning) {
+                btn.textContent = 'PAUSE GAME';
+                status.textContent = 'Playing';
+                status.style.color = '#00ff41';
+            } else {
+                btn.textContent = 'START GAME';
+                status.textContent = 'Paused';
+                status.style.color = '#ffaa00';
+            }
+        }
+
+        function resetGame() {
+            gameRunning = false;
+            playerScore = 0;
+            computerScore = 0;
+            updateScore();
+            resetBall();
+            game.playerPaddle.y = gameSize / 2 - 2;
+            game.computerPaddle.y = gameSize / 2 - 2;
+            
+            document.getElementById('toggleBtn').textContent = 'START GAME';
+            document.getElementById('gameStatus').textContent = 'Reset';
+            document.getElementById('gameStatus').style.color = '#888';
+            
+            // Update favicon with reset state
+            updateMiniRTFavicon();
+        }
+
+        function updateScore() {
+            document.getElementById('playerScore').textContent = playerScore;
+            document.getElementById('computerScore').textContent = computerScore;
+        }
+
+        // Initialize the game
+        drawGame();
+        updateMiniRTFavicon(); // Set initial favicon
+        gameLoop();
+    </script>
+</body>
+</html>
