@@ -32,11 +32,13 @@ fi
 
 rm -f /var/www/html/index.nginx-debian.html
 
+
 if ! nginx -t; then
   cat /etc/nginx/nginx.conf
   cat /etc/nginx/sites-enabled/mysite.conf
   tail -f /dev/null  # keep container alive or
 fi
+
 
 
 exec "$@" # Very important otherwise the CMD on the dockerfile won't really run. It also makes that CMD run as PID 1. Which is good. For reasons.

@@ -1,11 +1,18 @@
 server {
-    listen 80 default_server;
-    return 301 https://$SERVER_NAME$request_uri;
+    listen 80;
+	if ($allowed_subnet = 0) {
+    	return 301 https://$SERVER_NAME$request_uri;
+	}
+
+	location /static 
+	{
+		alias /var/www/html/;
+	}
 }
 
 server {
 
-	listen 443 ssl;
+	listen 443 ssl default_server;
 	server_name ${SERVER_NAME};
 
 	ssl_certificate /etc/nginx/ssl/${SERVER_NAME}.crt;
@@ -51,4 +58,9 @@ server {
 		proxy_cache off;
 		#gzip off;
     }
+
+	location /static 
+	{
+		alias /var/www/html/;
+	}
 }

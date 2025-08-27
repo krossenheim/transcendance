@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+    <html>
+      <head><title>WebSocket Test</title></head>
+      <body>
+        <h1>WebSocket Test</h1>
+        <input id="myInput" type="text" placeholder="Type something" />
+        <button id="sendBtn">Send</button>
+        <div id="status">Init...</div>
+        <script>
+          protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+          ws = new WebSocket(protocol + window.location.host + '/wsdebug')
+          document.getElementById('status').textContent = 'Connecting to ' + protocol + window.location.host + '/wsdebug'
+
+          ws.onopen = () => {
+            document.getElementById('status').textContent = 'Connected!'
+          }
+
+          ws.onmessage = (event) => {
+            p = document.createElement('p')
+            p.textContent = 'Server says: ' + event.data
+            document.body.appendChild(p)
+          }
+
+          ws.onerror = (err) => {
+            document.getElementById('status').textContent = 'Error: ' + err.message
+          }
+
+          ws.onclose = () => {
+            document.getElementById('status').textContent = 'Disconnected'
+          }
+            function sendInput() {
+            const val = document.getElementById('myInput').value;
+            ws.send(val);
+            document.getElementById('myInput').value = '';
+          }
+
+          // Send on button click
+          document.getElementById('sendBtn').addEventListener('click', sendInput);
+
+          // Send on Enter key press inside input
+          document.getElementById('myInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              sendInput();
+            }
+          });
+        </script>
+      </body>
+    </html>
