@@ -171,6 +171,7 @@ fastify.register(async function (fastify) {
   });
 });
 
+
 fastify.register(async function () 
 {
     fastify.route({

@@ -1,22 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Babylon.js Test</title>
-  <style>
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-    }
-    #renderCanvas {
-      width: 100%;
-      height: 100%;
-      touch-action: none;
-    }
-  </style>
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+<meta charset="UTF-8">
+<title>Babylon.js Test</title>
+<style>
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+  #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+</style>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
 </head>
 <body>
 <canvas id="renderCanvas"></canvas>
@@ -25,30 +16,51 @@ const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
 const scene = new BABYLON.Scene(engine);
 
-// ===== Scene Background =====
-let backgroundUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e"; // example
-const backgroundLayer = new BABYLON.Layer("bgLayer", backgroundUrl, scene);
+// ===== Video/GIF Background as Skybox =====
+let backgroundVideoUrl = "http://" + window.location.host + "/static/catground.mp4";
+const video = document.createElement("video");
+video.src = backgroundVideoUrl;
+video.autoplay = true;
+video.loop = true;
+video.muted = true;
+video.play();
 
-// Camera
-const camera = new BABYLON.ArcRotateCamera("camera", Math.PI/2, Math.PI/4, 6, BABYLON.Vector3.Zero(), scene);
-camera.attachControl(canvas, true);
+const videoTexture = new BABYLON.VideoTexture("bgVideo", video, scene, true, true);
+videoTexture.uScale = 1;
+videoTexture.vScale = 1;
 
-// Light
-const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 1000 }, scene);
+const skyboxMaterial = new BABYLON.StandardMaterial("skyBoxMat", scene);
+skyboxMaterial.backFaceCulling = false;       // render inside of the box
+skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+skyboxMaterial.emissiveColor = new BABYLON.Color3(1.1, 1.1, 1.1);
+skyboxMaterial.diffuseTexture = videoTexture; // apply video
+skybox.material = skyboxMaterial;
 
-// Box
+// ===== Box =====
 const box = BABYLON.MeshBuilder.CreateBox("box1", {}, scene);
 box.material = new BABYLON.StandardMaterial("mat", scene);
 box.material.diffuseColor = new BABYLON.Color3(0.5, 0.5, 1);
+
+// ===== Camera =====
+const cameraRadius = 6;
+let cameraAngle = 0;
+const cameraSpeed = 0.000001; // radians per frame
+const camera = new BABYLON.ArcRotateCamera("camera", 0, Math.PI / 4, cameraRadius, box.position, scene);
+camera.attachControl(canvas, true);
+
+// ===== Light =====
+const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
 
 // ===== Target state for lerp =====
 let targetPosition = box.position.clone();
 let targetRotation = box.rotation.clone();
 let targetColor = box.material.diffuseColor.clone();
-let lerpFactor = 0.1; // adjust for smoothness
+let lerpFactor = 0.1;
 
+// ===== Render loop =====
 engine.runRenderLoop(() => {
-  // Lerp position, rotation, color
+  // Lerp box properties
   box.position = BABYLON.Vector3.Lerp(box.position, targetPosition, lerpFactor);
   box.rotation = BABYLON.Vector3.Lerp(box.rotation, targetRotation, lerpFactor);
   box.material.diffuseColor = BABYLON.Color3.Lerp(box.material.diffuseColor, targetColor, lerpFactor);
