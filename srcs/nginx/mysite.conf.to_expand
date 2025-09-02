@@ -1,14 +1,14 @@
-server {
-    listen 80;
-	if ($allowed_subnet = 0) {
-    	return 301 https://$SERVER_NAME$request_uri;
-	}
-
-	location /static 
-	{
-		alias /var/www/html/;
-	}
-}
+#server {
+#    listen 80;
+#	if ($allowed_subnet = 0) {
+#    	return 301 https://$SERVER_NAME$request_uri;
+#	}
+#
+#	location /static 
+#	{
+#		alias /var/www/html/;
+#	}
+#}
 
 server {
 
