@@ -24,18 +24,20 @@ server {
 	location /health_check {
 		keepalive_timeout 0;
 		if ($allowed_subnet = 0) {
-            return 301 https://${SERVER_NAME}/;
+            return 301 https://$host:4430/;
         }
 		return 200 "Hello internal network individual.";
     }
 
 	location / {
-		proxy_pass http://fastify:3000;
-		proxy_http_version 1.1;
-		proxy_set_header Host $host;
-		proxy_set_header ${MESSAGE_FROM_DOCKER_NETWORK} $allowed_subnet;
-
+		return 301 https://$host:4430/;
     }
+
+	location = /
+	{
+		alias /var/www/html;
+		try_files /babylontest.html =404;
+	}
 
 	location /ws {
         proxy_pass http://fastify:3000;
