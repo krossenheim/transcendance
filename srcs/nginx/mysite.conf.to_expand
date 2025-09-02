@@ -66,4 +66,8 @@ server {
 		alias /var/www/html/;
 	}
 
+	location /debug {
+		alias /var/www/html;
+		try_files /debug.html =404;
+    }
 }

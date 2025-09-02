@@ -19,22 +19,6 @@ const ipInDockerSubnet = require("./ip_in_docker_subnet.cjs")
 const fastify = require('fastify')()
 fastify.register(require('@fastify/websocket'))
 
-// fastify.get("/", async (req, reply) => {
-//   try {
-//     const staticUrl = "http://nginx/static/babylontest.html";
-
-//     // Fetch the HTML content
-//     const res = await fetch(staticUrl);
-//     if (!res.ok) throw new Error(`Failed to fetch ${staticUrl}: ${res.status}`);
-//     const htmlContent = await res.text();
-
-//     reply.type("text/html").send(htmlContent);
-//   } catch (err) {
-//     console.error("Error reading babylontest.html:", err);
-//     reply.code(500).send("Internal Server Error");
-//   }
-// });
-
 fastify.register(async function (fastify) {
   fastify.route({
     method: 'GET',
@@ -164,13 +148,6 @@ fastify.register(async function ()
     }
   })
 })
-
-fastify.register(async function (fastify) {
-  fastify.get('/debug', (req, reply) => {
-      reply.redirect("/static/debug.html");
-  });
-});
-
 
 fastify.register(async function () 
 {

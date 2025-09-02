@@ -36,6 +36,7 @@ rm -f /var/www/html/index.nginx-debian.html
 if ! nginx -t; then
   cat /etc/nginx/nginx.conf
   cat /etc/nginx/sites-enabled/mysite.conf
+  echo "Command 'nginx -t' failed, above are the configs!"
   tail -f /dev/null  # keep container alive or
 fi
 
