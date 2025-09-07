@@ -1,13 +1,25 @@
 'use strict'
 
 const ipInDockerSubnet = require("./ip_in_docker_subnet.cjs")
-const fastify = require('fastify')()
+const fastify = require('fastify')({
+  logger: {
+    level: 'info', // or 'debug' for more verbosity
+    transport: {
+      target: 'pino-pretty', // pretty-print logs in development
+      options: {
+        colorize: true,
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname'
+      }
+    }
+  }
+})
 fastify.register(require('@fastify/websocket'))
 
 fastify.register(async function (fastify) {
   fastify.route({
     method: 'GET',
-    url: '/ws',
+    url: '/',
     handler: (req, reply) => {
       reply.send('Hello from chat room.');
     },

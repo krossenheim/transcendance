@@ -1,7 +1,8 @@
 'use strict'
 
-function barfInfo(socket, req) {
-  
+async function barfInfo(socket, req) {
+  	const axios = require('axios');
+
     socket.send(`Socket readyState: ${socket.readyState}`);
     socket.send(`Socket protocol: ${socket.protocol}`);
     socket.send(`Socket remote address: ${socket._socket.remoteAddress}`);
@@ -11,12 +12,32 @@ function barfInfo(socket, req) {
     socket.send(`Headers: ${JSON.stringify(req.headers)}`);
     socket.send(`Query: ${JSON.stringify(req.query)}`);
     socket.send(`Params: ${JSON.stringify(req.params)}`);
+	try {
+	const res = await axios.get('http://chatroom_service:3001/');
+	socket.send(res.data); // parsed JSON automatically
+	} catch (err) {
+	console.error('Error fetching from chatroom_service:', err.message);
+	socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
+	}
+
 
 }
 
 
 const ipInDockerSubnet = require("./ip_in_docker_subnet.cjs")
-const fastify = require('fastify')()
+const fastify = require('fastify')({
+  logger: {
+    level: 'info', // or 'debug' for more verbosity
+    transport: {
+      target: 'pino-pretty', // pretty-print logs in development
+      options: {
+        colorize: true,
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname'
+      }
+    }
+  }
+})
 fastify.register(require('@fastify/websocket'))
 
 fastify.register(async function (fastify) {
