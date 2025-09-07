@@ -9,7 +9,7 @@ if [ -z "${SERVER_NAME}" ]; then echo "ERROR: SERVER_NAME is not set" >&2; exit 
 if [ -z "${SUBJECT}" ]; then echo "ERROR: SUBJECT is not set" >&2; exit 1; fi
 
 #multiple vars can be done by ont typing argumnets to envsubst other than input and output files (Itll try to replace all env vars found inside)
-envsubst '${SERVER_NAME} ${MESSAGE_FROM_DOCKER_NETWORK}' < /etc/nginx/un_expanded/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
+envsubst '${SERVER_NAME} ${MESSAGE_FROM_DOCKER_NETWORK} ${WEBSOCKET_TIMEOUT}' < /etc/nginx/un_expanded/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
 envsubst '${TR_NETWORK_SUBNET}' < /etc/nginx/un_expanded/nginx.conf.to_expand > /etc/nginx/nginx.conf
 
 mkdir -p /etc/nginx/ssl
