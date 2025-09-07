@@ -1,6 +1,6 @@
 function ipInDockerSubnet(customNginxHeaderFromDockerSubnet) {
   
-  return (customNginxHeaderFromDockerSubnet == "1")
+  return (customNginxHeaderFromDockerSubnet != "0")
 }
 
 module.exports = ipInDockerSubnet;

@@ -29,7 +29,7 @@ services:
     restart: always
     networks:
       - transcendance_network
-  chatroom:
+  chatroom_service:
     container_name: chatroom_service
     image: chatroom_service
     env_file:

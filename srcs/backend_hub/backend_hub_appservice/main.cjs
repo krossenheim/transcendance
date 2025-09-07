@@ -1,7 +1,7 @@
 'use strict'
+const axios = require('axios');
 
 async function barfInfo(socket, req) {
-  	const axios = require('axios');
 
     socket.send(`Socket readyState: ${socket.readyState}`);
     socket.send(`Socket protocol: ${socket.protocol}`);
@@ -13,7 +13,7 @@ async function barfInfo(socket, req) {
     socket.send(`Query: ${JSON.stringify(req.query)}`);
     socket.send(`Params: ${JSON.stringify(req.params)}`);
 	try {
-	const res = await axios.get('http://chatroom_service:3001/');
+	const res = await axios.get('http://chatroom_service:3000/');
 	socket.send(res.data); // parsed JSON automatically
 	} catch (err) {
 	console.error('Error fetching from chatroom_service:', err.message);
@@ -156,9 +156,36 @@ fastify.register(async function ()
     wsHandler: (socket, req) => {
       // this will handle websockets connections
         barfInfo(socket, req);
-    socket.on('message', message => {
+    socket.on('message', async message => {
         if (message == "info" || message == "barf")
             barfInfo(socket, req);
+		if (message.includes("addRoom:"))
+			{
+				try 
+				{
+					const data = message.toString().split(':')[1];
+					const res = await axios.post('http://chatroom_service:3000/new_room', {roomName : data});
+					socket.send(JSON.stringify(res.data));
+				} 
+				catch (err) 
+				{
+					console.error('Error fetching from chatroom_service:', err.message);
+					socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
+				}
+			}
+		if (message.includes("listRooms:"))
+		{
+			try 
+			{
+				const res = await axios.get('http://chatroom_service:3000/list_rooms');
+				socket.send(JSON.stringify(res.data));
+			} 
+			catch (err) 
+			{
+				console.error('Error fetching from chatroom_service:', err.message);
+				socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
+			}
+		}
       let prepend = "empty";
       if (ipInDockerSubnet(req.headers[process.env.MESSAGE_FROM_DOCKER_NETWORK]))
         prepend = "(From docker network)";
@@ -169,6 +196,43 @@ fastify.register(async function ()
     }
   })
 })
+
+async function proxyRequest(req, reply, method, url) {
+  console.log(`Proxying ${method} request to: ${url}`);
+	try {
+    const response = await axios({
+      method,
+      url,
+      headers: {
+        ...req.headers,
+        host: undefined,
+        connection: undefined,
+      },
+      data: req.body,
+      params: req.query,
+      validateStatus: () => true,
+    });
+    reply.code(response.status).send(response.data);
+	} catch (error) {
+		console.error('Error proxying request:', error);
+		reply.code(500).send({ error: 'Internal Server Error: ' + error.message });
+	}
+}
+
+fastify.all('/api/:dest/public/*', async (req, reply) => {
+	const { dest } = req.params;
+	const restOfUrl = req.url.replace(`${dest}/`, '');
+	const url = `http://${dest}:3000${restOfUrl}`;
+  await proxyRequest(req, reply, req.method, url);
+});
+
+fastify.all('/api/:dest/*', async (req, reply) => {
+	const { dest } = req.params;
+	const restOfUrl = req.url.replace(`${dest}/`, '');
+	const url = `http://${dest}:3000${restOfUrl}`;
+	await proxyRequest(req, reply, req.method, url);
+});
+
 
 fastify.register(async function () 
 {

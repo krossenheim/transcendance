@@ -15,6 +15,53 @@ const fastify = require('fastify')({
   }
 })
 fastify.register(require('@fastify/websocket'))
+// Setup above
+
+const { ChatRooms } = require("./roomClass.cjs")
+
+// Room class above
+const singletonChatRooms = new ChatRooms();
+// Room global list above
+fastify.register(async function (fastify) {
+  fastify.route({
+    method: 'POST',
+    url: '/new_room',
+    handler: (req, reply) => {
+      const { roomName } = req.body;
+
+      // Basic validation
+      if (!roomName ) {
+        return reply.status(400).send({ error: 'roomName is required' });
+      }
+	  let roomCreatedMessage = singletonChatRooms.addRoom(roomName);
+      // Process arguments (example)
+      // e.g., create a room in DB or memory here
+	  reply.status(200).send(roomCreatedMessage);
+
+    //   reply.send({
+    //     message: roomCreatedMessage
+    //   });
+    },
+  });
+});
+
+fastify.register(async function (fastify) {
+  fastify.route({
+    method: 'GET',
+    url: '/list_rooms',
+    handler: (req, reply) => {
+
+	  let listedRooms = singletonChatRooms.listRooms();
+      // Process arguments (example)
+      // e.g., create a room in DB or memory here
+	  reply.status(200).send(listedRooms);
+
+    //   reply.send({
+    //     message: listedRooms
+    //   });
+    },
+  });
+});
 
 fastify.register(async function (fastify) {
   fastify.route({
