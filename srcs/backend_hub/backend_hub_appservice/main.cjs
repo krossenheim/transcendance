@@ -13,7 +13,7 @@ async function barfInfo(socket, req) {
     socket.send(`Query: ${JSON.stringify(req.query)}`);
     socket.send(`Params: ${JSON.stringify(req.params)}`);
 	try {
-	const res = await axios.get('http://chatroom_service:3001/');
+	const res = await axios.get('http://chatroom_service:3000/');
 	socket.send(res.data); // parsed JSON automatically
 	} catch (err) {
 	console.error('Error fetching from chatroom_service:', err.message);
@@ -164,7 +164,7 @@ fastify.register(async function ()
 				try 
 				{
 					const data = message.toString().split(':')[1];
-					const res = await axios.post('http://chatroom_service:3001/new_room', {roomName : data});
+					const res = await axios.post('http://chatroom_service:3000/new_room', {roomName : data});
 					socket.send(JSON.stringify(res.data));
 				} 
 				catch (err) 
@@ -177,7 +177,7 @@ fastify.register(async function ()
 		{
 			try 
 			{
-				const res = await axios.get('http://chatroom_service:3001/list_rooms');
+				const res = await axios.get('http://chatroom_service:3000/list_rooms');
 				socket.send(JSON.stringify(res.data));
 			} 
 			catch (err) 
