@@ -9,8 +9,8 @@ PATH_TO_COMPOSE_ENV_FILE := $(SOURCES_DIR)/globals.env
 PATH_TO_COMPOSE := $(SOURCES_DIR)/compose.yml
 
 # Base image
-PATH_TO_BASE_IMAGE := $(SOURCES_DIR)/base_debian/Dockerfile
-BASE_IMAGE_TAG := transcendance_debian_base:1.0
+PATH_TO_BASE_IMAGE := $(SOURCES_DIR)/nodejs_base_image/Dockerfile
+BASE_IMAGE_TAG := nodejs_base_image:1.0
 
 # Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
@@ -28,11 +28,11 @@ re: down all
 down:
 	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down
 
-build: build_base_debian create_shared_volume_folder
+build: build_base_nodejs create_shared_volume_folder
 	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
 
-build_base_debian:
-	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(PROJECT_ROOT)"
+build_base_nodejs:
+	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(PROJECT_ROOT)srcs/nodejs_base_image"
 
 print_config: create_shared_volume_folder
 	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
