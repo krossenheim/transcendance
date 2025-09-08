@@ -60,7 +60,7 @@ fastify.register(async function (fastify) {
     method: 'POST',
     url: '/send_message_to_room',
     handler: (req, reply) => {
-    const { fromUser, roomName, message } = req.body;
+    const { fromUser, roomName, messageSent } = req.body;
 
     // Basic validation
     if (!fromUser ) {
@@ -69,11 +69,11 @@ fastify.register(async function (fastify) {
     if (!roomName ) {
       return reply.status(400).send({ error: 'roomName is required' });
     }
-    if (!message ) {
-      return reply.status(400).send({ error: 'message is required' });
+    if (!messageSent ) {
+      return reply.status(400).send({ error: 'messageSent is required' });
     }
 
-	  let messagepayload = singletonChatRooms.sendMessage(fromUser, roomName, message);
+	  let messagepayload = singletonChatRooms.sendMessage(fromUser, roomName, messageSent);
 	  reply.status(200).send(messagepayload);
     },
   });
@@ -97,7 +97,7 @@ fastify.register(async function (fastify) {
       return reply.status(400).send({ error: 'userToAdd is required' });
     }
 
-	  let messagepayload = singletonChatRooms.addUserToRoom(fromUser, roomName, message);
+	  let messagepayload = singletonChatRooms.addUserToRoom(userAdds, roomToAdd, userToAdd);
 	  reply.status(200).send(messagepayload);
     },
   });

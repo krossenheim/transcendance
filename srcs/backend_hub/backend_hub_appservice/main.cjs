@@ -192,7 +192,7 @@ fastify.register(async function ()
 					const roomToAdd = message.toString().split(':')[2];
 					const userToAdd = message.toString().split(':')[3];
 					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/add_to_room',
-             {userRequesting : userAdds,roomName : roomToAdd, userToAdd : userToAdd});
+             {userAdds : userAdds,roomToAdd : roomToAdd, userToAdd : userToAdd});
 					socket.send(JSON.stringify(res.data));
 				} 
 				catch (err) 
@@ -205,11 +205,11 @@ fastify.register(async function ()
 			{
 				try 
 				{
-					const from = message.toString().split(':')[1];
+					const fromUser = message.toString().split(':')[1];
 					const roomName = message.toString().split(':')[2];
-					const message = message.toString().split(':')[3];
+					const messageSent = message.toString().split(':')[3];
 					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/send_message_to_room',
-             {from : from,roomName : roomName, message : message});
+             {fromUser : fromUser,roomName : roomName, messageSent : messageSent});
 					socket.send(JSON.stringify(res.data));
 				} 
 				catch (err) 

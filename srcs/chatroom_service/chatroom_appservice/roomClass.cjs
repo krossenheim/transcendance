@@ -31,6 +31,13 @@ class Room {
 	addUser(userRequestedBy, userToAdd) 
 	{
 		this.users.push(userToAdd);
+		const payload = {
+			status: "Success2",
+			usedAdded: userToAdd,
+			roomAddedTo: this.roomName,
+			addedBy: userRequestedBy
+		};
+		return (JSON.stringify(payload));
 	}
 
 	removeUser(user) 
@@ -43,10 +50,11 @@ class Room {
 		return this.users.length;
 	}
 
-	sendMessage(from, message)
+	sendMessage(from, message_src)
 	{
-		message_list = [];
-		message = "[" + new Date.now().toISOString() + "]" + from + ": " + message;
+		let message_list = [];
+		const timestamp = new Date().toISOString();
+		const message = "[" + timestamp + "]" + from + ": " + message_src;
 		this.messages.add(message);
 		for (const user of this.users) 
 		{
@@ -54,6 +62,7 @@ class Room {
 		}
 		
 		const payload = {
+			status: "Success1",
 			list: message_list
 		};
 
