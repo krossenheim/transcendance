@@ -257,30 +257,53 @@ function updateBallEffects() {
   const trailDirection = new BABYLON.Vector3(-gameState.ballDirection.x, -gameState.ballDirection.y, 0);
   trailDirection.normalize();
   trailDirection.scaleInPlace(0.5);
-  
+
   trailParticleSystem.direction1 = trailDirection.add(new BABYLON.Vector3(-0.2, -0.2, -0.2));
   trailParticleSystem.direction2 = trailDirection.add(new BABYLON.Vector3(0.2, 0.2, 0.2));
-  
+
   const currentSpeed = gameState.ballSpeed;
   const speedRatio = currentSpeed / gameState.baseBallSpeed; // 1.0 to 2.5
   fireParticleSystem.emitRate = 80 + (speedRatio - 1) * 150; // More particles at higher speeds
-  
+
   const glowIntensity = 0.3 + (speedRatio - 1) * 0.4; // 0.3 to 0.9
   ballMaterial.emissiveColor = new BABYLON.Color3(glowIntensity * 0.3, glowIntensity * 0.6, glowIntensity);
-  
+
   // Light follows the ball everywhere
   ballLight.position.copyFrom(ball.position);
-  
+
+  // --- Animated light source ---
   const time = performance.now() * 0.003;
-  const pulseEffect = 1 + Math.sin(time) * 0.3; // Subtle pulsing between 0.7 and 1.3
+  // Pulsing effect for intensity and range
+  const pulse = 1 + Math.sin(time * 2.2) * 0.35; // Faster, more visible pulse
   const speedLightMultiplier = 1 + (speedRatio - 1) * 2; // 1.0 to 4.0 based on speed
-  ballLight.intensity = 3.0 * speedLightMultiplier * pulseEffect;
-  
-  ballLight.range = 8.0 + (speedRatio - 1) * 8.0; // 8.0 to 20.0 range
-  
-  // Subtle color variation with pulsing
+  ballLight.intensity = 3.0 * speedLightMultiplier * pulse;
+  ballLight.range = 8.0 + (speedRatio - 1) * 8.0 * pulse; // Range also pulses
+
+  // Animated color shift (blue-cyan)
   const colorPulse = 0.8 + Math.sin(time * 1.5) * 0.2;
-  ballLight.diffuse = new BABYLON.Color3(0.2 * colorPulse, 0.6 * colorPulse, 1.0);
+  const hueShift = 0.55 + 0.1 * Math.sin(time * 0.7); // Subtle hue shift
+  // Convert HSV to RGB for color animation
+  function hsvToRgb(h, s, v) {
+    let r, g, b;
+    let i = Math.floor(h * 6);
+    let f = h * 6 - i;
+    let p = v * (1 - s);
+    let q = v * (1 - f * s);
+    let t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+      case 0: r = v, g = t, b = p; break;
+      case 1: r = q, g = v, b = p; break;
+      case 2: r = p, g = v, b = t; break;
+      case 3: r = p, g = q, b = v; break;
+      case 4: r = t, g = p, b = v; break;
+      case 5: r = v, g = p, b = q; break;
+    }
+    return new BABYLON.Color3(r, g, b);
+  }
+  ballLight.diffuse = hsvToRgb(hueShift, 0.6, colorPulse);
+
+  // Optionally animate specular as well
+  ballLight.specular = hsvToRgb(hueShift, 0.4, 1.0);
 }
 
 function updateBall() {
@@ -355,77 +378,73 @@ function updateScore() {
 
 // ===== Camera shake and ball animation from version 2 =====
 function triggerBallSquash(axis, shakeStrength) {
+  // Duration is shorter at higher speeds (min 0.06s, max 0.18s)
+  const speed = gameState.ballSpeed;
+  const minDuration = 0.06;
+  const maxDuration = 0.18;
+  const baseSpeed = gameState.baseBallSpeed;
+  const speedRatio = Math.min(speed / baseSpeed, gameState.maxSpeedMultiplier);
+  const squashDuration = Math.max(maxDuration / speedRatio, minDuration);
+
   gameState.ballAnimationState = 'squashing';
   gameState.ballAnimationTimer = 0;
+  gameState.squashDuration = squashDuration;
+  gameState.stretchDuration = squashDuration * 0.7;
   gameState.squashAxis = axis;
   gameState.cameraShakeTime = gameState.cameraShakeDuration;
   gameState.cameraShakeIntensity = shakeStrength;
 }
 
-// ===== Animate Sun (Light) =====
-scene.onBeforeRenderObservable.add(() => {
-  const time = performance.now() * 0.00005; // smaller = slower cycle
-  const radius = 30;
-
-  const sunX = Math.sin(time) * radius;
-  const sunY = Math.cos(time) * radius * 0.5 + 10; // stays above horizon
-  const sunZ = -20;
-
-  directionalLight.position.set(sunX, sunY, sunZ);
-  directionalLight.direction = new BABYLON.Vector3(-sunX, -sunY, 20).normalize();
-
-  // Color shift (warm at sunrise/sunset, white at noon)
-  const t = (Math.cos(time) + 1) / 2; // oscillates 0–1
-  directionalLight.diffuse = new BABYLON.Color3(1.0, 0.6 + 0.4 * t, 0.4 + 0.6 * t);
-});
-
-// ===== Ball Animation Functions - improved from version 2 =====
 function updateBallAnimation(deltaTime) {
-  switch (gameState.ballAnimationState) {
-    case 'squashing':
-      gameState.ballAnimationTimer += deltaTime;
+  // More extreme squash/stretch
+  const squashAmount = 0.85; // 0.0 = flat, 1.0 = no squash
+  const stretchAmount = 1.5;
 
-      const squashAmount = 0.5;
-      const expandAmount = 1.5;
+  switch (gameState.ballAnimationState) {
+    case 'squashing': {
+      gameState.ballAnimationTimer += deltaTime;
+      const t = Math.min(gameState.ballAnimationTimer / gameState.squashDuration, 1);
+      // Ease out for squash (fast at first, then slows)
+      const ease = 1 - Math.pow(1 - t, 2);
 
       if (gameState.squashAxis === "x") {
-        ball.scaling.x = 1 - squashAmount;
-        ball.scaling.y = expandAmount;
-        ball.scaling.z = expandAmount;
+        ball.scaling.x = BABYLON.Scalar.Lerp(1, squashAmount, ease);
+        ball.scaling.y = BABYLON.Scalar.Lerp(1, stretchAmount, ease);
+        ball.scaling.z = BABYLON.Scalar.Lerp(1, stretchAmount, ease);
       } else {
-        ball.scaling.y = 1 - squashAmount;
-        ball.scaling.x = expandAmount;
-        ball.scaling.z = expandAmount;
+        ball.scaling.y = BABYLON.Scalar.Lerp(1, squashAmount, ease);
+        ball.scaling.x = BABYLON.Scalar.Lerp(1, stretchAmount, ease);
+        ball.scaling.z = BABYLON.Scalar.Lerp(1, stretchAmount, ease);
       }
 
-      if (gameState.ballAnimationTimer >= gameState.squashDuration) {
+      if (t >= 1) {
         gameState.ballAnimationState = 'stretching';
         gameState.ballAnimationTimer = 0;
       }
       break;
-
-    case 'stretching':
+    }
+    case 'stretching': {
       gameState.ballAnimationTimer += deltaTime;
-
-      const maxStretch = 1.4;
-      const minWidth = 0.8;
+      const t = Math.min(gameState.ballAnimationTimer / gameState.stretchDuration, 1);
+      // Ease out for stretch
+      const ease = 1 - Math.pow(1 - t, 2);
 
       if (gameState.squashAxis === "x") {
-        ball.scaling.x = maxStretch;
-        ball.scaling.y = minWidth;
-        ball.scaling.z = minWidth;
+        ball.scaling.x = BABYLON.Scalar.Lerp(squashAmount, 1, ease);
+        ball.scaling.y = BABYLON.Scalar.Lerp(stretchAmount, 1, ease);
+        ball.scaling.z = BABYLON.Scalar.Lerp(stretchAmount, 1, ease);
       } else {
-        ball.scaling.y = maxStretch;
-        ball.scaling.x = minWidth;
-        ball.scaling.z = minWidth;
+        ball.scaling.y = BABYLON.Scalar.Lerp(squashAmount, 1, ease);
+        ball.scaling.x = BABYLON.Scalar.Lerp(stretchAmount, 1, ease);
+        ball.scaling.z = BABYLON.Scalar.Lerp(stretchAmount, 1, ease);
       }
 
-      if (gameState.ballAnimationTimer >= gameState.stretchDuration) {
+      if (t >= 1) {
         gameState.ballAnimationState = 'normal';
         ball.scaling.set(1, 1, 1);
       }
       break;
-
+    }
     case 'normal':
       ball.scaling.set(1, 1, 1);
       break;
@@ -438,7 +457,16 @@ engine.runRenderLoop(() => {
   const currentTime = performance.now();
   const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
   lastTime = currentTime;
-  
+
+  // Animate directional light (sunrise/sunset effect)
+  const sunTime = currentTime * 0.00008; // Adjust speed as desired
+  // Sun moves in a big arc above the scene
+  const sunRadius = 20;
+  const sunY = Math.sin(sunTime) * 8 + 8; // Y goes from 0 to 16
+  const sunX = Math.cos(sunTime) * sunRadius;
+  directionalLight.position = new BABYLON.Vector3(sunX, sunY, -20);
+  directionalLight.direction = new BABYLON.Vector3(-sunX * 0.08, -sunY * 0.12, 1).normalize();
+
   updatePaddles();
   updateBall();
   updateBallAnimation(deltaTime);
