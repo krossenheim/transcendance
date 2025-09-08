@@ -13,7 +13,7 @@ async function barfInfo(socket, req) {
     socket.send(`Query: ${JSON.stringify(req.query)}`);
     socket.send(`Params: ${JSON.stringify(req.params)}`);
 	try {
-	const res = await axios.get('http://chatroom_service:3000/');
+  const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/');
 	socket.send(res.data); // parsed JSON automatically
 	} catch (err) {
 	console.error('Error fetching from chatroom_service:', err.message);
@@ -164,7 +164,7 @@ fastify.register(async function ()
 				try 
 				{
 					const data = message.toString().split(':')[1];
-					const res = await axios.post('http://chatroom_service:3000/new_room', {roomName : data});
+					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/new_room', {roomName : data});
 					socket.send(JSON.stringify(res.data));
 				} 
 				catch (err) 
@@ -177,7 +177,7 @@ fastify.register(async function ()
 		{
 			try 
 			{
-				const res = await axios.get('http://chatroom_service:3000/list_rooms');
+				const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/list_rooms');
 				socket.send(JSON.stringify(res.data));
 			} 
 			catch (err) 
@@ -222,14 +222,14 @@ async function proxyRequest(req, reply, method, url) {
 fastify.all('/api/:dest/public/*', async (req, reply) => {
 	const { dest } = req.params;
 	const restOfUrl = req.url.replace(`${dest}/`, '');
-	const url = `http://${dest}:3000${restOfUrl}`;
+	const url = `http://${dest}:`+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+`${restOfUrl}`;
   await proxyRequest(req, reply, req.method, url);
 });
 
 fastify.all('/api/:dest/*', async (req, reply) => {
 	const { dest } = req.params;
 	const restOfUrl = req.url.replace(`${dest}/`, '');
-	const url = `http://${dest}:3000${restOfUrl}`;
+	const url = `http://${dest}:`+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+`${restOfUrl}`;
 	await proxyRequest(req, reply, req.method, url);
 });
 
@@ -246,7 +246,7 @@ fastify.register(async function ()
   })
 })
 
-fastify.listen({ port: process.env.BACKEND_HUB_PORT, host: process.env.BACKEND_HUB_BIND_TO}, err => {
+fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.BACKEND_HUB_BIND_TO}, err => {
   if (err) {
     fastify.log.error(err)
     process.exit(1)

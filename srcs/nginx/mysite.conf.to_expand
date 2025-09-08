@@ -24,13 +24,13 @@ server {
 	location /health_check {
 		keepalive_timeout 0;
 		if ($allowed_subnet = 0) {
-            return 301 https://$host:4430/;
+            return 301 https://$host:${FORWARDED_SSL_PORT_FROM_NAT_HOST}/;
         }
 		return 200 "Hello internal network individual.";
     }
 
 	location / {
-		return 301 https://$host:4430/;
+		return 301 https://$host:${FORWARDED_SSL_PORT_FROM_NAT_HOST}/;
     }
 
 	location = /
@@ -40,7 +40,7 @@ server {
 	}
 
 	location /ws {
-        proxy_pass http://backend_hub:3000;
+        proxy_pass http://backend_hub:${COMMON_PORT_ALL_DOCKER_CONTAINERS};
 		proxy_http_version 1.1;
 
 		proxy_set_header Upgrade $http_upgrade;
@@ -62,7 +62,7 @@ server {
     }
 
 	location /api {
-        proxy_pass http://backend_hub:3000;
+        proxy_pass http://backend_hub:${COMMON_PORT_ALL_DOCKER_CONTAINERS};
 		proxy_http_version 1.1;
 
 		proxy_set_header ${MESSAGE_FROM_DOCKER_NETWORK} $allowed_subnet;

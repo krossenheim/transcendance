@@ -85,7 +85,7 @@ fastify.register(async function ()
   })
 })
 
-fastify.listen({ port: process.env.CHATROOM_PORT, host: process.env.CHATROOM_BIND_TO}, err => {
+fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.CHATROOM_BIND_TO}, err => {
   if (err) {
     fastify.log.error(err)
     process.exit(1)

@@ -10,6 +10,8 @@ services:
     environment:
       - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
       - MESSAGE_FROM_DOCKER_NETWORK=${MESSAGE_FROM_DOCKER_NETWORK}
+      - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
+      - FORWARDED_SSL_PORT_FROM_NAT_HOST=${FORWARDED_SSL_PORT_FROM_NAT_HOST}
     ports:
       - "443:443"
     # volumes:
@@ -24,6 +26,7 @@ services:
     environment:
       - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
       - MESSAGE_FROM_DOCKER_NETWORK=${MESSAGE_FROM_DOCKER_NETWORK}
+      - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
     build:
       context: ./backend_hub
     restart: always
@@ -34,6 +37,8 @@ services:
     image: chatroom_service
     env_file:
     - ./chatroom_service/chatroom_service.env
+    environment:
+      - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
     build:
       context: ./chatroom_service
     restart: always
