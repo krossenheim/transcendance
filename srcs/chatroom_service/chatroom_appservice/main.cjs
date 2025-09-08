@@ -20,27 +20,25 @@ fastify.register(require('@fastify/websocket'))
 const { ChatRooms } = require("./roomClass.cjs")
 
 // Room class above
+
 const singletonChatRooms = new ChatRooms();
 // Room global list above
+// --- --- --- --- --- --- --- --- --- --- ---
+// 
+// --- --- --- --- --- --- --- --- --- --- ---
+// Urls<->methods below
 fastify.register(async function (fastify) {
   fastify.route({
     method: 'POST',
     url: '/new_room',
     handler: (req, reply) => {
-      const { roomName } = req.body;
+    const { roomName } = req.body;
 
-      // Basic validation
-      if (!roomName ) {
-        return reply.status(400).send({ error: 'roomName is required' });
-      }
+    if (!roomName ) {
+      return reply.status(400).send({ error: 'roomName is required' });
+    }
 	  let roomCreatedMessage = singletonChatRooms.addRoom(roomName);
-      // Process arguments (example)
-      // e.g., create a room in DB or memory here
-	  reply.status(200).send(roomCreatedMessage);
-
-    //   reply.send({
-    //     message: roomCreatedMessage
-    //   });
+	  reply.status(200).send(roomCreatedMessage);;
     },
   });
 });
@@ -52,13 +50,55 @@ fastify.register(async function (fastify) {
     handler: (req, reply) => {
 
 	  let listedRooms = singletonChatRooms.listRooms();
-      // Process arguments (example)
-      // e.g., create a room in DB or memory here
 	  reply.status(200).send(listedRooms);
+    },
+  });
+});
 
-    //   reply.send({
-    //     message: listedRooms
-    //   });
+fastify.register(async function (fastify) {
+  fastify.route({
+    method: 'POST',
+    url: '/send_message_to_room',
+    handler: (req, reply) => {
+    const { fromUser, roomName, message } = req.body;
+
+    // Basic validation
+    if (!fromUser ) {
+      return reply.status(400).send({ error: 'fromUser is required' });
+    }
+    if (!roomName ) {
+      return reply.status(400).send({ error: 'roomName is required' });
+    }
+    if (!message ) {
+      return reply.status(400).send({ error: 'message is required' });
+    }
+
+	  let messagepayload = singletonChatRooms.sendMessage(fromUser, roomName, message);
+	  reply.status(200).send(messagepayload);
+    },
+  });
+});
+
+fastify.register(async function (fastify) {
+  fastify.route({
+    method: 'POST',
+    url: '/add_to_room',
+    handler: (req, reply) => {
+    const { userAdds, roomToAdd, userToAdd } = req.body;
+
+    // Basic validation
+    if (!userAdds ) {
+      return reply.status(400).send({ error: 'userAdds is required' });
+    }
+    if (!roomToAdd ) {
+      return reply.status(400).send({ error: 'roomToAdd is required' });
+    }
+    if (!userToAdd ) {
+      return reply.status(400).send({ error: 'userToAdd is required' });
+    }
+
+	  let messagepayload = singletonChatRooms.addUserToRoom(fromUser, roomName, message);
+	  reply.status(200).send(messagepayload);
     },
   });
 });

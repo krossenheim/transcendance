@@ -28,9 +28,9 @@ class Room {
 		this.messages = new FixedSizeList(20);
 	}
 
-	addUser(user) 
+	addUser(userRequestedBy, userToAdd) 
 	{
-		this.users.push(user);
+		this.users.push(userToAdd);
 	}
 
 	removeUser(user) 
@@ -45,14 +45,21 @@ class Room {
 
 	sendMessage(from, message)
 	{
-		returnedValues = [];
+		message_list = [];
 		message = "[" + new Date.now().toISOString() + "]" + from + ": " + message;
 		this.messages.add(message);
 		for (const user of this.users) 
 		{
-			returnedValues.push(user + ":" + this.roomName + ":" + message);
+			message_list.push(user + ":" + this.roomName + ":" + message);
 		}
-		return (returnedValues);
+		
+		const payload = {
+			list: message_list
+		};
+
+		const json = JSON.stringify(payload);
+
+		return (json);
 	}
 
 	equals(otherRoom)
@@ -98,13 +105,21 @@ class ChatRooms {
 		}	
 		return returnedValues;
 	}
+
 	sendMessage(from, roomName, message)
 	{
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
 		if (targetRoom == undefined)
 			return "Error: Room " +roomName + " doesnt exist";
 		return (targetRoom.sendMessage(from, message));
-		
+	}
+
+	addUserToRoom(userRequesting, roomName, userToAdd)
+	{
+		let targetRoom = this.rooms.find(room => roomName === room.roomName);
+		if (targetRoom == undefined)
+			return "Error: Room " +roomName + " doesnt exist";
+		return (targetRoom.addUser(userRequesting, userToAdd));
 	}
 }
 

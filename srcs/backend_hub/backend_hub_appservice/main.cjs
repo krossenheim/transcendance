@@ -142,8 +142,6 @@ function hsvToRgb(h, s, v) {
   return { r, g, b };
 }
 
-
-
 fastify.register(async function () 
 {
     fastify.route({
@@ -186,6 +184,40 @@ fastify.register(async function ()
 				socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
 			}
 		}
+		if (message.includes("addToRoom:"))
+			{
+				try 
+				{
+					const userAdds = message.toString().split(':')[1]; 
+					const roomToAdd = message.toString().split(':')[2];
+					const userToAdd = message.toString().split(':')[3];
+					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/add_to_room',
+             {userRequesting : userAdds,roomName : roomToAdd, userToAdd : userToAdd});
+					socket.send(JSON.stringify(res.data));
+				} 
+				catch (err) 
+				{
+					console.error('Error fetching from chatroom_service:', err.message);
+					socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
+				}
+			}
+		if (message.includes("sendMessage:"))
+			{
+				try 
+				{
+					const from = message.toString().split(':')[1];
+					const roomName = message.toString().split(':')[2];
+					const message = message.toString().split(':')[3];
+					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/send_message_to_room',
+             {from : from,roomName : roomName, message : message});
+					socket.send(JSON.stringify(res.data));
+				} 
+				catch (err) 
+				{
+					console.error('Error fetching from chatroom_service:', err.message);
+					socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
+				}
+			}
       let prepend = "empty";
       if (ipInDockerSubnet(req.headers[process.env.MESSAGE_FROM_DOCKER_NETWORK]))
         prepend = "(From docker network)";
