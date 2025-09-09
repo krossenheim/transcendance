@@ -54,7 +54,7 @@ class ApiMessage {
     {
         if (typeof value !== "string" || !containerNames.includes(value)) 
             {
-                throw new Error("Status must be one of: " + containerNames.join(", "));
+                throw new Error("containerFrom must be one of: " + containerNames.join(", "));
             }
         this.#containerFrom = value;
     }
