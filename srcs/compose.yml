@@ -47,14 +47,31 @@ services:
     depends_on:
       backend_hub:
         condition: service_healthy
+  database_service:
+    container_name: database_service
+    image: database_service
+    env_file:
+    - ./database/database.env
+    environment:
+      - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
+    build:
+      context: ./database
+    restart: always
+    networks:
+      - transcendance_network
+    depends_on:
+      backend_hub:
+        condition: service_healthy
+    volumes:
+      - databases:/etc/database_data
 
-# volumes:
-#   transcendance_resources:
-#     name: transcendance_resources
-#     driver_opts:
-#       type: none
-#       o: bind
-#       device: ${VOLUMES_DIR}
+volumes:
+  databases:
+    name: databases
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_DIR}
 
 networks:
   transcendance_network:

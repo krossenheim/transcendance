@@ -18,7 +18,7 @@ TR_NETWORK_SUBNET = 172.18.0.0/16
 $(NAME): all
 
 all: build
-	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d
+	VOLUMES_DIR=${VOLUMES_DIR}  docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d
 
 dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
@@ -29,7 +29,7 @@ down:
 	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down
 
 build: build_base_nodejs create_shared_volume_folder
-	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
 
 build_base_nodejs:
 	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(PROJECT_ROOT)srcs/nodejs_base_image"
