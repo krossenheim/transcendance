@@ -7,7 +7,7 @@ RUN mkdir -p /appservice/
 
 WORKDIR /appservice/
 
-COPY base_image_items/* /appservice/
+COPY base_image_items/ /appservice/
 RUN chmod 444 /appservice/*
 
 RUN npm install

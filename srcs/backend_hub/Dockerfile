@@ -4,7 +4,7 @@ RUN mkdir -p /appservice/
 
 WORKDIR /appservice/
 
-COPY backend_hub_appservice/* /appservice/
+COPY backend_hub_appservice/ /appservice/
 RUN chmod 444 /appservice/*
 
 COPY backend_hub_entryp.sh /appservice/backend_hub_entryp.sh
