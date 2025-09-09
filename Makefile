@@ -16,7 +16,7 @@ BASE_IMAGE_TAG := nodejs_base_image:1.0
 TR_NETWORK_SUBNET = 172.18.0.0/16
 
 # Path to dynamically created list of container names .js file for the base JS image
-DYNAMIC_CONTAINER_NAMES_JS = "$(PROJECT_ROOT)/srcs/nodejs_base_image/base_image_items/container_names.cjs"
+DYNAMIC_CONTAINER_NAMES_JS = "$(PROJECT_ROOT)/srcs/nodejs_base_image/appservice/_container_names.cjs"
 $(NAME): all
 
 all: build
@@ -65,7 +65,7 @@ populate_container_names: install_yq
 		 | awk 'NR>1{printf ","} {printf "\"%s\"", $$0} END{print ""}' \
 		>> "$(DYNAMIC_CONTAINER_NAMES_JS)"
 	@echo "];" >> "$(DYNAMIC_CONTAINER_NAMES_JS)"
-	@echo "export default containerNames;" >> "$(DYNAMIC_CONTAINER_NAMES_JS)"
+	@echo "module.exports = { containerNames };" >> "$(DYNAMIC_CONTAINER_NAMES_JS)"
 
 
 fclean: clean
