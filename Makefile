@@ -20,7 +20,7 @@ DYNAMIC_CONTAINER_NAMES_JS = "$(PROJECT_ROOT)/srcs/nodejs_base_image/appservice/
 $(NAME): all
 
 all: build
-	VOLUMES_DIR=${VOLUMES_DIR}  docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d
 
 dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
@@ -28,7 +28,7 @@ dnginx:
 re: down all
 
 down:
-	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down
 
 build: populate_container_names build_base_nodejs create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build

@@ -1,3 +1,5 @@
+const { ApiMessage } = require('/appservice/api_message.cjs');
+
 class FixedSizeList {
 	constructor(maxSize = 10) 
 	{
@@ -32,12 +34,14 @@ class Room {
 	{
 		this.users.push(userToAdd);
 		const payload = {
-			status: "Success2",
+			title: "Succesfully added user.",
 			usedAdded: userToAdd,
 			roomAddedTo: this.roomName,
 			addedBy: userRequestedBy
 		};
-		return (JSON.stringify(payload));
+		//(status, containerFrom, destination, payload) 
+		const added_ok = new ApiMessage("Success", "chatroom_service", "External-Client", userRequestedBy, payload);
+		return (added_ok);
 	}
 
 	removeUser(user) 

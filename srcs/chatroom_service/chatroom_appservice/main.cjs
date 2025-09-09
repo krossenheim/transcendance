@@ -97,8 +97,9 @@ fastify.register(async function (fastify) {
       return reply.status(400).send({ error: 'userToAdd is required' });
     }
 
-	  let messagepayload = singletonChatRooms.addUserToRoom(userAdds, roomToAdd, userToAdd);
-	  reply.status(200).send(messagepayload);
+	  let apiMessageReturned = singletonChatRooms.addUserToRoom(userAdds, roomToAdd, userToAdd);
+	  
+    reply.status(200).send(apiMessageReturned.toString());
     },
   });
 });

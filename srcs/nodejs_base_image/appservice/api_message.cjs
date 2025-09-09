@@ -2,33 +2,65 @@ const { containerNames } = require('/appservice/_container_names.cjs')
 
 const allowedStatusValues = ["Success", "Error"];
 
-const allowedDestination = ["Internal-Container", "External-Client"];
+const allowedDestinationTypes = ["Internal-Container", "External-Client"];
 
 class ApiMessage {
     #status
-    #destination
+    #destinationType
+    #destinationName
     #containerFrom
-	constructor(status, containerFrom, destination, payload) 
+
+    toString()
+    {
+        return `Api Message:
+        status: ${this.status}
+        destinationType: ${this.destinationType}
+        destinationName: ${this.destinationName}
+        containerFrom: ${this.containerFrom}
+        payload: ${JSON.stringify(this.payload, null, 2)}`;
+    }
+    
+	constructor(status, containerFrom, destinationType, destinationName, payload) 
 	{
 		this.status = status;
 		this.containerFrom = containerFrom;
-        this.destination = destination;
+        this.destinationType = destinationType;
+        this.destinationName = destinationName;
 		this.payload = payload;
 	}
 
 
-    get destination()
+    get destinationName()
     {
-        return (this.#destination);
+        return (this.#destinationName);
     }
 
-    set destination(value)
+    set destinationName(value)
     {
-        if (typeof value !== "string" || !allowedDestination.includes(value)) 
+        if (typeof value !== "string") 
+        {
+            throw new Error("Value for destination name must be string");
+        }
+        if (this.#destinationType == "Internal-Container" && !containerNames.includes(value))
+        {
+            throw new Error("Destination type is container and must be one of: " + containerNames.join(", "));
+        }
+        // Might be a valid client name.
+        this.#destinationName = value;
+    }
+
+    get destinationType()
+    {
+        return (this.#destinationType);
+    }
+
+    set destinationType(value)
+    {
+        if (typeof value !== "string" || !allowedDestinationTypes.includes(value)) 
             {
-                throw new Error("Destination must be one of: " + allowedDestination.join(", "));
+                throw new Error("Destination must be one of: " + allowedDestinationTypes.join(", "));
             }
-        this.#destination = value;
+        this.#destinationType = value;
     }
 
     get status()
@@ -60,3 +92,5 @@ class ApiMessage {
     }
     
 }
+
+module.exports = { ApiMessage };
