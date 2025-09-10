@@ -99,7 +99,7 @@ fastify.register(async function (fastify) {
 
 	  let apiMessageReturned = singletonChatRooms.addUserToRoom(userAdds, roomToAdd, userToAdd);
 	  
-    reply.status(200).send(apiMessageReturned.toString());
+    reply.status(200).send(apiMessageReturned.toJson());
     },
   });
 });

@@ -10,14 +10,16 @@ class ApiMessage {
     #destinationName
     #containerFrom
 
-    toString()
+    toJson()
     {
-        return `Api Message:
-        status: ${this.status}
-        destinationType: ${this.destinationType}
-        destinationName: ${this.destinationName}
-        containerFrom: ${this.containerFrom}
-        payload: ${JSON.stringify(this.payload, null, 2)}`;
+        const toJsoniFy = {
+        status: this.status,
+        destinationType: this.destinationType,
+        destinationName: this.destinationName,
+        containerFrom: this.containerFrom,
+        payload: this.payload};
+
+        return JSON.stringify(toJsoniFy);
     }
     
 	constructor(status, containerFrom, destinationType, destinationName, payload) 
