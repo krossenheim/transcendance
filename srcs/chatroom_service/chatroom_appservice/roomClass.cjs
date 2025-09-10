@@ -58,19 +58,18 @@ class Room {
 	{
 		let message_list = [];
 		const timestamp = new Date().toISOString();
-		const message = "[" + timestamp + "]" + from + ": " + message_src;
+		const message = "[" + timestamp + "] " + from + ": " + message_src;
 		this.messages.add(message);
+		const payload = {
+			users: [],
+			message: message,
+		};
 		for (const user of this.users) 
 		{
-			message_list.push(user + ":" + this.roomName + ":" + message);
+			payload.users.push(user);
 		}
-		
-		const payload = {
-			status: "Success1",
-			list: message_list
-		};
-
-		const json = JSON.stringify(payload);
+		const sendMessages = new ApiMessage("Success", "chatroom_service", "External-Client", from, payload);
+		const json = JSON.stringify(sendMessages);
 
 		return (json);
 	}
