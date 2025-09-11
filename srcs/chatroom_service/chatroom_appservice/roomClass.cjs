@@ -23,29 +23,29 @@ class FixedSizeList {
 	}
 }
 
-// class Message
-// {
-// 	#timestamp
+class Message
+{
+	#timestamp
 
-// 	constructor(fromUser, toRoom, message_src) 
-// 	{
-// 		this.fromUser = fromUser
-// 		this.roomName = toRoom;
-// 		this.message_src = message_src;
-// 		this.#timestamp = new Date().toISOString();
-// 	}
+	constructor(fromUser, toRoom, message_src) 
+	{
+		this.fromUser = fromUser
+		this.roomName = toRoom;
+		this.message_src = message_src;
+		this.#timestamp = new Date().toISOString();
+	}
 
-// 	get timestamp()
-// 	{
-// 		return (this.#timestamp);
-// 	}
+	get timestamp()
+	{
+		return (this.#timestamp);
+	}
 
-// 	toString()
-// 	{
-// 		return ( "[" + this.timestamp + "] " + fromUser + ": " + message_src)
-// 	}
+	toString()
+	{
+		return ( "[" + this.timestamp + "] " + fromUser + ": " + message_src)
+	}
 	
-// }
+}
 
 class Room {
 	constructor(roomName) 
@@ -64,6 +64,7 @@ class Room {
 			roomAddedTo: this.roomName,
 			addedBy: userRequestedBy
 		};
+		//(status, containerfromUser, destination, payload) 
 		const added_ok = new ApiMessage("Success", "chatroom_service", "External-Client", userRequestedBy, payload);
 		return (added_ok);
 	}
@@ -76,6 +77,13 @@ class Room {
 	getUserCount() 
 	{
 		return this.users.length;
+	}
+
+	formatMessage(message_src)
+	{
+		const timestamp = new Date().toISOString();
+		const message = "[" + timestamp + "] " + fromUser + ": " + message_src;
+		return (message);
 	}
 
 	payloadMessageUsers(fromUser, msg)
@@ -98,7 +106,7 @@ class Room {
 	{
 		const errorText = "Your username does not seem to be in room " + this.roomName + "' or the room doesn't exist."
 		const payload = {
-			recipients: [ toUser ],
+			recipients: [ fromUser ],
 			functionToExecute: "pop_up", // a function name also existing in the front end, like pop_up(which_element_id, message, ...); or error(message): {which_element_id id assigned here};
 			functionArguments: [ errorText ],
 		};
@@ -113,11 +121,19 @@ class Room {
 
 	sendMessage(fromUser, message_src)
 	{
-		if (this.userInThisRoom(fromUser))
+		// I'm having a brain fart about how these methods might be called from http or through websocket 
+		// and what they should return.
+		if (!userInThisRoom(fromUser))
 		{
-			const internalApiMessage = payloadMessageUsers(fromUser, new Message(fromUser, this.roomName, message_src).toString());
-			sendThroughWebsocket(internalApiMessage);
+			const internalApiMessage = payloadUserNotInRoom(fromUser);
 		}
+		else
+		{
+			const message = new Message(fromUser, this.roomName, message_src);
+			const internalApiMessage = payloadMessageUsers(fromUser, message.toString());
+		}
+		const jsonOut = JSON.stringify(internalApiMessage);
+		return (jsonOut);
 	}
 
 	equals(otherRoom)
@@ -164,24 +180,11 @@ class ChatRooms {
 		return returnedValues;
 	}
 
-	userIsInRoom(user, room)
-	{
-		if (!room.users.includes(user))
-		{
-			return (false);
-		}
-		return (true);
-	}
-
 	sendMessage(fromUser, roomName, message)
 	{
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
 		if (targetRoom == undefined)
 			return "Error: Room " +roomName + " doesnt exist";
-		if (!this.userIsInRoom(userRequesting, targetRoom))
-		{
-			return {Error: }
-		}
 		return (targetRoom.sendMessage(fromUser, message));
 	}
 
