@@ -231,6 +231,9 @@ fastify.register(async function ()
 
 async function proxyRequest(req, reply, method, url) {
   console.log(`Proxying ${method} request to: ${url}`);
+  console.log(req.headers);
+  console.log(req.body);
+  console.log(req.query);
 	try {
     const response = await axios({
       method,

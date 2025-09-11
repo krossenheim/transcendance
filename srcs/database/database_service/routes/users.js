@@ -22,8 +22,7 @@ async function userRoutes(fastify, options) {
 	fastify.post('/create', async (request, reply) => {
 		console.log(request);
 		console.log(3);
-		0/0;
-		const { username, email, password } = JSON.stringify(request.body);
+		const { username, email, password } = request.body;
 		if (!username || !email || !password) {
 			reply.status(400).send({ error: 'Username, email, and password are required' });
 			return;
