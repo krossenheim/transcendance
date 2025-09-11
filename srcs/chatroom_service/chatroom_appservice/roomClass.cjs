@@ -1,4 +1,5 @@
 const { ApiMessage } = require('/appservice/api_message.cjs');
+const { g_myContainerName } = require('/appservice/get_this_container_name.cjs');
 
 class FixedSizeList {
 	constructor(maxSize = 10) 
@@ -22,6 +23,30 @@ class FixedSizeList {
 	}
 }
 
+// class Message
+// {
+// 	#timestamp
+
+// 	constructor(fromUser, toRoom, message_src) 
+// 	{
+// 		this.fromUser = fromUser
+// 		this.roomName = toRoom;
+// 		this.message_src = message_src;
+// 		this.#timestamp = new Date().toISOString();
+// 	}
+
+// 	get timestamp()
+// 	{
+// 		return (this.#timestamp);
+// 	}
+
+// 	toString()
+// 	{
+// 		return ( "[" + this.timestamp + "] " + fromUser + ": " + message_src)
+// 	}
+	
+// }
+
 class Room {
 	constructor(roomName) 
 	{
@@ -39,7 +64,6 @@ class Room {
 			roomAddedTo: this.roomName,
 			addedBy: userRequestedBy
 		};
-		//(status, containerFrom, destination, payload) 
 		const added_ok = new ApiMessage("Success", "chatroom_service", "External-Client", userRequestedBy, payload);
 		return (added_ok);
 	}
@@ -54,24 +78,46 @@ class Room {
 		return this.users.length;
 	}
 
-	sendMessage(from, message_src)
+	payloadMessageUsers(fromUser, msg)
 	{
-		let message_list = [];
-		const timestamp = new Date().toISOString();
-		const message = "[" + timestamp + "] " + from + ": " + message_src;
-		this.messages.add(message);
+		this.messages.add(msg);
 		const payload = {
-			users: [],
-			message: message,
+			recipients: this.users,
+			functionToExecute: "add_message_to_room",
+			functionArguments: [ this.roomName, msg],
 		};
-		for (const user of this.users) 
+		for (const recipient of this.users) 
 		{
-			payload.users.push(user);
+			payload.recipients.push(recipient);
 		}
-		const sendMessages = new ApiMessage("Success", "chatroom_service", "External-Client", from, payload);
-		const json = JSON.stringify(sendMessages);
+		const newApiMessage = new ApiMessage("Success", g_myContainerName, "External-Client", fromUser, payload);
+		return (newApiMessage);
+	}
 
-		return (json);
+	payloadUserNotInRoom(toUser)
+	{
+		const errorText = "Your username does not seem to be in room " + this.roomName + "' or the room doesn't exist."
+		const payload = {
+			recipients: [ toUser ],
+			functionToExecute: "pop_up", // a function name also existing in the front end, like pop_up(which_element_id, message, ...); or error(message): {which_element_id id assigned here};
+			functionArguments: [ errorText ],
+		};
+		const newApiMessage = new ApiMessage("Error", g_myContainerName, "External-Client", toUser, payload);
+		return (newApiMessage);
+	}
+
+	userInThisRoom(user)
+	{
+		return (this.users.includes(user));
+	}
+
+	sendMessage(fromUser, message_src)
+	{
+		if (this.userInThisRoom(fromUser))
+		{
+			const internalApiMessage = payloadMessageUsers(fromUser, new Message(fromUser, this.roomName, message_src).toString());
+			sendThroughWebsocket(internalApiMessage);
+		}
 	}
 
 	equals(otherRoom)
@@ -118,12 +164,25 @@ class ChatRooms {
 		return returnedValues;
 	}
 
-	sendMessage(from, roomName, message)
+	userIsInRoom(user, room)
+	{
+		if (!room.users.includes(user))
+		{
+			return (false);
+		}
+		return (true);
+	}
+
+	sendMessage(fromUser, roomName, message)
 	{
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
 		if (targetRoom == undefined)
 			return "Error: Room " +roomName + " doesnt exist";
-		return (targetRoom.sendMessage(from, message));
+		if (!this.userIsInRoom(userRequesting, targetRoom))
+		{
+			return {Error: }
+		}
+		return (targetRoom.sendMessage(fromUser, message));
 	}
 
 	addUserToRoom(userRequesting, roomName, userToAdd)
