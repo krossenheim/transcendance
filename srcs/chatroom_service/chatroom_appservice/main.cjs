@@ -97,33 +97,34 @@ fastify.register(async function (fastify) {
       return reply.status(400).send({ error: 'userToAdd is required' });
     }
 
-	  let messagepayload = singletonChatRooms.addUserToRoom(userAdds, roomToAdd, userToAdd);
-	  reply.status(200).send(messagepayload);
+	  let apiMessageReturned = singletonChatRooms.addUserToRoom(userAdds, roomToAdd, userToAdd);
+	  
+    reply.status(200).send(apiMessageReturned.toJson());
     },
   });
 });
 
-fastify.register(async function (fastify) {
-  fastify.route({
-    method: 'GET',
-    url: '/',
-    handler: (req, reply) => {
-      reply.send('Hello from chat room.');
-    },
-  });
-});
+// fastify.register(async function (fastify) {
+//   fastify.route({
+//     method: 'GET',
+//     url: '/',
+//     handler: (req, reply) => {
+//       reply.send('Hello from chat room.');
+//     },
+//   });
+// });
 
-fastify.register(async function () 
-{
-    fastify.route({
-    method: 'GET',
-    url: '*',
-    handler: (req, reply) => {
-      // this will handle http requests
-      reply.redirect('/');
-    },
-  })
-})
+// fastify.register(async function () 
+// {
+//     fastify.route({
+//     method: 'GET',
+//     url: '*',
+//     handler: (req, reply) => {
+//       // this will handle http requests
+//       reply.redirect('/');
+//     },
+//   })
+// })
 
 fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.CHATROOM_BIND_TO}, err => {
   if (err) {

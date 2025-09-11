@@ -5,3 +5,4 @@ out/
 *.d
 chatroom_exec
 objs/
+container_names.cjs

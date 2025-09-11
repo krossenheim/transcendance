@@ -1,3 +1,5 @@
+const { ApiMessage } = require('/appservice/api_message.cjs');
+
 class FixedSizeList {
 	constructor(maxSize = 10) 
 	{
@@ -32,12 +34,14 @@ class Room {
 	{
 		this.users.push(userToAdd);
 		const payload = {
-			status: "Success2",
+			title: "Succesfully added user.",
 			usedAdded: userToAdd,
 			roomAddedTo: this.roomName,
 			addedBy: userRequestedBy
 		};
-		return (JSON.stringify(payload));
+		//(status, containerFrom, destination, payload) 
+		const added_ok = new ApiMessage("Success", "chatroom_service", "External-Client", userRequestedBy, payload);
+		return (added_ok);
 	}
 
 	removeUser(user) 
@@ -54,19 +58,18 @@ class Room {
 	{
 		let message_list = [];
 		const timestamp = new Date().toISOString();
-		const message = "[" + timestamp + "]" + from + ": " + message_src;
+		const message = "[" + timestamp + "] " + from + ": " + message_src;
 		this.messages.add(message);
+		const payload = {
+			users: [],
+			message: message,
+		};
 		for (const user of this.users) 
 		{
-			message_list.push(user + ":" + this.roomName + ":" + message);
+			payload.users.push(user);
 		}
-		
-		const payload = {
-			status: "Success1",
-			list: message_list
-		};
-
-		const json = JSON.stringify(payload);
+		const sendMessages = new ApiMessage("Success", "chatroom_service", "External-Client", from, payload);
+		const json = JSON.stringify(sendMessages);
 
 		return (json);
 	}

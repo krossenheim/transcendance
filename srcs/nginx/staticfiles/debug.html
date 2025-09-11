@@ -1,48 +1,98 @@
 <!DOCTYPE html>
-    <html>
-      <head><title>WebSocket Test</title></head>
-      <body>
-        <h1>WebSocket Test</h1>
-        <input id="myInput" type="text" placeholder="Type something" />
-        <button id="sendBtn">Send</button>
-        <div id="status">Init...</div>
-        <script>
-          protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-          ws = new WebSocket(protocol + window.location.host + '/wsdebug')
-          document.getElementById('status').textContent = 'Connecting to ' + protocol + window.location.host + '/wsdebug'
+<html>
+  <head><title>WebSocket Test</title></head>
+  <body>
+    <h1>WebSocket Test</h1>
+    <input id="myInput" type="text" placeholder="Type raw message" />
+    <button id="sendBtn">Send Raw</button>
 
-          ws.onopen = () => {
-            document.getElementById('status').textContent = 'Connected!'
-          }
+    <h2>Commands</h2>
+    <div>
+      <button onclick="ws.send('info')">Info</button>
+      <button onclick="ws.send('barf')">Barf</button>
+    </div>
 
-          ws.onmessage = (event) => {
-            p = document.createElement('p')
-            p.textContent = 'Server says: ' + event.data
-            document.body.appendChild(p)
-          }
+    <div>
+      <input id="roomName" placeholder="Room name" />
+      <button onclick="sendAddRoom()">Add Room</button>
+    </div>
 
-          ws.onerror = (err) => {
-            document.getElementById('status').textContent = 'Error: ' + err.message
-          }
+    <div>
+      <button onclick="ws.send('listRooms:')">List Rooms</button>
+    </div>
 
-          ws.onclose = () => {
-            document.getElementById('status').textContent = 'Disconnected'
-          }
-            function sendInput() {
-            const val = document.getElementById('myInput').value;
-            ws.send(val);
-            document.getElementById('myInput').value = '';
-          }
+    <div>
+      <input id="userAdds" placeholder="User adding" />
+      <input id="roomToAdd" placeholder="Room to add to" />
+      <input id="userToAdd" placeholder="User to add" />
+      <button onclick="sendAddToRoom()">Add To Room</button>
+    </div>
 
-          // Send on button click
-          document.getElementById('sendBtn').addEventListener('click', sendInput);
+    <div>
+      <input id="fromUser" placeholder="From user" />
+      <input id="roomName" placeholder="Room name" />
+      <input id="messageSent" placeholder="Message" />
+      <button onclick="sendMessage()">Send Message</button>
+    </div>
 
-          // Send on Enter key press inside input
-          document.getElementById('myInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-              sendInput();
-            }
-          });
-        </script>
-      </body>
-    </html>
+    <div id="status">Init...</div>
+    <button onclick="document.getElementById('messages').innerHTML = ''">Clear Output</button>
+    <div id="messages"></div>
+    <script>
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(protocol + window.location.host + '/wsdebug');
+      document.getElementById('status').textContent =
+        'Connecting to ' + protocol + window.location.host + '/wsdebug';
+
+      ws.onopen = () => {
+        document.getElementById('status').textContent = 'Connected!';
+      };
+
+      ws.onmessage = (event) => {
+        const p = document.createElement('p');
+        p.textContent = 'Server says: ' + event.data;
+        document.getElementById('messages').appendChild(p);
+      };
+
+      ws.onerror = (err) => {
+        document.getElementById('status').textContent = 'Error: ' + err.message;
+      };
+
+      ws.onclose = () => {
+        document.getElementById('status').textContent = 'Disconnected';
+      };
+
+      function sendInput() {
+        const val = document.getElementById('myInput').value;
+        ws.send(val);
+        document.getElementById('myInput').value = '';
+      }
+
+      // Wire up raw send
+      document.getElementById('sendBtn').addEventListener('click', sendInput);
+      document.getElementById('myInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') sendInput();
+      });
+
+      // Button handlers
+      function sendAddRoom() {
+        const room = document.getElementById('roomName').value;
+        ws.send('addRoom:' + room);
+      }
+
+      function sendAddToRoom() {
+        const userAdds = document.getElementById('userAdds').value;
+        const roomToAdd = document.getElementById('roomToAdd').value;
+        const userToAdd = document.getElementById('userToAdd').value;
+        ws.send('addToRoom:' + userAdds + ':' + roomToAdd + ':' + userToAdd);
+      }
+
+      function sendMessage() {
+        const fromUser = document.getElementById('fromUser').value;
+        const roomName = document.getElementById('roomName').value;
+        const messageSent = document.getElementById('messageSent').value;
+        ws.send('sendMessage:' + fromUser + ':' + roomName + ':' + messageSent);
+      }
+    </script>
+  </body>
+</html>
