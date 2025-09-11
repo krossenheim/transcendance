@@ -1,20 +1,23 @@
 const { containerNames } = require('./container_names.cjs');
-const run_bash_command = require('/appservice/run_bash_command.cjs');
+const { run_bash_command } = require('/appservice/run_bash_command.cjs');
 
-const my_ip = run_bash_command("getent hosts | grep -v 'localhost' | awk '{print $1}'");
-
-getOwnName()
+function getOwnContainerName()
 {
+    const my_ip = run_bash_command("getent hosts | grep -v 'localhost' | awk '{print $1}'");
+
     for (const cname of containerNames) 
     {
-        const container_ip = "getent hosts "+ cname +" | awk '{print $1}'";
+        const container_ip = run_bash_command("getent hosts "+ cname +" | awk '{print $1}'");
         if (my_ip === container_ip)
         {
             return (cname);
         }
     }
+
+    throw new Error("Could not determine container name");
 }
 
-const this_container_name = getOwnName();
+// const this_container_name = getOwnName();
 
-module.export( {this_container_name} );
+module.exports = { getOwnContainerName };
+
