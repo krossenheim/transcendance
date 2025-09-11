@@ -54,6 +54,16 @@ class Database {
 		console.log("Insert info:", info);
 		return this.fetchUserById(info.lastInsertRowid);
 	}
+
+	validateUserCredentials(username, passwordHash) {
+		const stmt = this.db.prepare('SELECT * FROM users WHERE username = ? AND passwordHash = ?');
+		const user = stmt.get(username, passwordHash);
+		return !!user;
+	}
+
+	close() {
+		this.db.close();
+	}
 }
 
 module.exports = Database;

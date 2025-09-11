@@ -64,6 +64,21 @@ services:
         condition: service_healthy
     volumes:
       - databases:/etc/database_data
+  auth_service:
+    container_name: auth_service
+    image: auth_service
+    env_file:
+    - ./auth/auth.env
+    environment:
+      - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
+    build:
+      context: ./auth
+    restart: always
+    networks:
+      - transcendance_network
+    depends_on:
+      backend_hub:
+        condition: service_healthy
 
 volumes:
   databases:
