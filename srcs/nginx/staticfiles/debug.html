@@ -41,6 +41,7 @@
     <script>
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(protocol + window.location.host + '/wsdebug');
+      console.log("Open ws: " + protocol + window.location.host + '/wsdebug');
       document.getElementById('status').textContent =
         'Connecting to ' + protocol + window.location.host + '/wsdebug';
 

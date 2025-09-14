@@ -1,5 +1,7 @@
 'use strict'
 const axios = require('axios');
+// const httpStatus = require('/appservice/httpStatusEnum.cjs');
+const { isFromNginx } = require('/appservice/get_is_from_non_nginx.cjs');
 
 async function barfInfo(socket, req) {
 
@@ -13,7 +15,7 @@ async function barfInfo(socket, req) {
 	socket.send(`Query: ${JSON.stringify(req.query)}`);
 	socket.send(`Params: ${JSON.stringify(req.params)}`);
 	try {
-  const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/');
+  const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/');
 	socket.send(res.data); // parsed JSON automatically
 	} catch (err) {
 	console.error('Error fetching from chatroom_service:', err.message);
@@ -142,7 +144,35 @@ function hsvToRgb(h, s, v) {
   return { r, g, b };
 }
 
-fastify.register(async function () 
+let Clients = new Map();
+
+fastify.register(async function ()
+{
+	fastify.route({
+	method: 'GET',
+	url: '/internalsocket',
+	handler: (req, reply) => {
+	  // this will handle http requests
+	  reply.redirect('/');
+	},
+	wsHandler: (socket, req) => {
+	  // this will handle websockets connections
+	socket.on('message', async message => {
+
+	  let prepend = ("INTERNAL");
+	  console.log("Received: " + prepend + message);
+	  socket.send(prepend + message.toString().toUpperCase())})
+	  socket.on('connect', () => {
+		if (isFromNginx(socket._socket.remoteAddress))
+			socket.close();
+	});
+	}
+  })
+})
+
+
+
+fastify.register(async function ()
 {
 	fastify.route({
 	method: 'GET',
@@ -155,6 +185,26 @@ fastify.register(async function ()
 	  // this will handle websockets connections
 		barfInfo(socket, req);
 	socket.on('message', async message => {
+		console.log("IsFromNonNginxContainer: " + isFromNonNginxContainer(socket._socket.remoteAddress));
+		if (message.type == "init_auth") {
+			// Do auth check here
+
+			if (true) {
+				Clients.set(socket, {
+					authenticated: false,
+					user_id: -1,
+				});
+
+			}
+		}
+
+		client_data = Clients.get(socket);
+		if (!client_data) {
+			// Not authenticated
+			socket.send(JSON.stringify({ error: 'Not authenticated' }));
+			return;
+		}
+
 		if (message == "info" || message == "barf")
 			barfInfo(socket, req);
 		if (message.includes("addRoom:"))
@@ -162,7 +212,7 @@ fastify.register(async function ()
 				try 
 				{
 					const data = message.toString().split(':')[1];
-					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/new_room', {roomName : data});
+					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/new_room', {roomName : data});
 					socket.send(JSON.stringify(res.data));
 				} 
 				catch (err) 
@@ -175,7 +225,7 @@ fastify.register(async function ()
 		{
 			try 
 			{
-				const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/list_rooms');
+				const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/list_rooms');
 				socket.send(JSON.stringify(res.data));
 			} 
 			catch (err) 
@@ -191,7 +241,7 @@ fastify.register(async function ()
 					const userAdds = message.toString().split(':')[1]; 
 					const roomToAdd = message.toString().split(':')[2];
 					const userToAdd = message.toString().split(':')[3];
-					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/add_to_room',
+					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/add_to_room',
 						{userAdds : userAdds,roomToAdd : roomToAdd, userToAdd : userToAdd});
 					socket.send(JSON.stringify(res.data));
 				} 
@@ -214,7 +264,7 @@ fastify.register(async function ()
 					const fromUser = message.toString().split(':')[1];
 					const roomName = message.toString().split(':')[2];
 					const messageSent = message.toString().split(':')[3];
-					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/send_message_to_room',
+					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/send_message_to_room',
 			 			{fromUser : fromUser,roomName : roomName, messageSent : messageSent});
 					socket.send(JSON.stringify(res.data));
 				} 

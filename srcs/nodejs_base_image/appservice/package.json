@@ -2,8 +2,10 @@
   "name": "fastifytranscendance",
   "version": "1.0.0",
   "dependencies": {
-    "fastify": "latest",
-    "@fastify/websocket": "latest",
+  "fastify": "latest",
+  "@fastify/websocket": "latest",
+  "ip": "latest",
+  "jsonwebtoken": "latest",
 	"axios": "latest",
 	"pino-pretty": "latest"
   }

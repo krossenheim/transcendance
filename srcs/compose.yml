@@ -17,7 +17,8 @@ services:
     # volumes:
     #   - transcendance_resources:/var/www/html/
     networks:
-      - transcendance_network
+      transcendance_network:
+        ipv4_address: ${NGINX_IPV4_ADDRESS}
   backend_hub:
     container_name: backend_hub
     image: backend_hub
@@ -25,6 +26,7 @@ services:
       - ./backend_hub/backend_hub.env
     environment:
       - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
+      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
       - MESSAGE_FROM_DOCKER_NETWORK=${MESSAGE_FROM_DOCKER_NETWORK}
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
     build:
@@ -39,6 +41,7 @@ services:
     - ./chatroom_service/chatroom_service.env
     environment:
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
+      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
     build:
       context: ./chatroom_service
     restart: always
@@ -54,6 +57,7 @@ services:
     - ./database/database.env
     environment:
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
+      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
     build:
       context: ./database
     restart: always
@@ -71,6 +75,7 @@ services:
     - ./auth/auth.env
     environment:
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
+      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
     build:
       context: ./auth
     restart: always

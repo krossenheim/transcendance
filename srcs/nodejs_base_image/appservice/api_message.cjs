@@ -1,82 +1,30 @@
 const { containerNames } = require('/appservice/_container_names.cjs')
 
-const allowedStatusValues = ["Success", "Error"];
-
-const allowedDestinationTypes = ["Internal-Container", "External-Client"];
-
-class ApiMessage {
-    #status
-    #destinationType
-    #destinationName
+class MessageFromService {
     #containerFrom
+    #httpStatus
+    #payload
+    #recipients
 
-    toJson()
-    {
-        const toJsoniFy = {
-        status: this.status,
-        destinationType: this.destinationType,
-        destinationName: this.destinationName,
-        containerFrom: this.containerFrom,
-        payload: this.payload};
-
-        return JSON.stringify(toJsoniFy);
-    }
-    
-	constructor(status, containerFrom, destinationType, destinationName, payload) 
+	constructor(httpStatus, recipients, containerFrom, payload) 
 	{
-		this.status = status;
+        this.httpStatus = httpStatus;
+		this.recipients = recipients;
 		this.containerFrom = containerFrom;
-        this.destinationType = destinationType;
-        this.destinationName = destinationName;
-		this.payload = payload;
+		this.payload = payload; 
 	}
 
-
-    get destinationName()
+    get recipients()
     {
-        return (this.#destinationName);
+        return this.#recipients;
     }
 
-    set destinationName(value)
+    set recipients(value)
     {
-        if (typeof value !== "string") 
-        {
-            throw new Error("Value for destination name must be string");
+        if (!Array.isArray(value)) {
+            throw new Error("recipients must be an array");
         }
-        if (this.#destinationType == "Internal-Container" && !containerNames.includes(value))
-        {
-            throw new Error("Destination type is container and must be one of: " + containerNames.join(", "));
-        }
-        // Might be a valid client name.
-        this.#destinationName = value;
-    }
-
-    get destinationType()
-    {
-        return (this.#destinationType);
-    }
-
-    set destinationType(value)
-    {
-        if (typeof value !== "string" || !allowedDestinationTypes.includes(value)) 
-            {
-                throw new Error("Destination must be one of: " + allowedDestinationTypes.join(", "));
-            }
-        this.#destinationType = value;
-    }
-
-    get status()
-    {
-        return (this.#status);
-    }
-
-    set status(value)
-    {
-        if (typeof value !== "string" || !allowedStatusValues.includes(value)) 
-            {
-                throw new Error("Status must be one of: " + allowedStatusValues.join(", "));
-            }
-        this.#status = value;
+        this.#recipients = value;
     }
 
     get containerFrom()
@@ -92,7 +40,27 @@ class ApiMessage {
             }
         this.#containerFrom = value;
     }
+
+    get payload()
+    {
+        return (this.#payload);
+    }
+
+    set payload(value)
+    {
+        this.#payload = value;
+    }
+
+    get httpStatus()
+    {
+        return (this.#httpStatus);
+    }
+
+    set httpStatus(value)
+    {
+        this.#httpStatus = value;
+    }
     
 }
 
-module.exports = { ApiMessage };
+module.exports = { MessageFromService };

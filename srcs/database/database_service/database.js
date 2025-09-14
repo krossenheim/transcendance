@@ -55,10 +55,9 @@ class Database {
 		return this.fetchUserById(info.lastInsertRowid);
 	}
 
-	validateUserCredentials(username, passwordHash) {
+	fetchUserFromCredentials(username, passwordHash) {
 		const stmt = this.db.prepare('SELECT * FROM users WHERE username = ? AND passwordHash = ?');
-		const user = stmt.get(username, passwordHash);
-		return !!user;
+		return stmt.get(username, passwordHash);
 	}
 
 	close() {

@@ -1,7 +1,6 @@
-const { ApiMessage } = require('/appservice/api_message.cjs');
-const { getOwnContainerName } = require('/appservice/get_this_container_name.cjs');
-
-g_myContainerName = getOwnContainerName();
+const { MessageFromService } = require('/appservice/api_message.cjs');
+const { g_myContainerName } = require('/appservice/get_this_container_name.cjs');
+const { httpStatus } = require('/appservice/httpStatusEnum.cjs');
 
 class FixedSizeList {
 	constructor(maxSize = 10) 
@@ -49,25 +48,49 @@ class Message
 	
 }
 
+class ErrorPayload
+{
+	constructor(textResponse, context)
+	{
+		this.textResponse = textResponse;
+		this.context = context;
+	}
+
+	toJson()
+	{
+		return JSON.stringify({
+			textResponse: this.textResponse,
+			context: this.context
+		});
+	}
+}
+
 class Room {
 	constructor(roomName) 
 	{
 		this.roomName = roomName;
-		this.users = [];
+		this.users = new Array();
+		this.users.push("a","b","c"); // for testing
 		this.messages = new FixedSizeList(20);
 	}
 
 	addUser(userRequestedBy, userToAdd) 
 	{
+		if (!this.isUserInThisRoom(userRequestedBy))
+		{
+			const payload = new ErrorPayload("User requestring to modify room is not in room.", null);
+			return (new MessageFromService(httpStatus.UNAUTHORIZED, [ userRequestedBy ], g_myContainerName, payload));
+		}
 		this.users.push(userToAdd);
+		const recipients = [ userToAdd, userRequestedBy];
 		const payload = {
-			title: "Succesfully added user.",
-			usedAdded: userToAdd,
+			userAdded: userToAdd,
 			roomAddedTo: this.roomName,
 			addedBy: userRequestedBy
 		};
-		//(status, containerfromUser, destination, payload) 
-		const added_ok = new ApiMessage("Success", g_myContainerName, "External-Client", userRequestedBy, payload);
+		//or(recipients, containerFrom, payload) 
+		const added_ok = new MessageFromService(httpStatus.OK, recipients, g_myContainerName, payload);
+		this.sendMessage(userRequestedBy, userRequestedBy + " added user " + userToAdd + " to the room.");
 		return (added_ok);
 	}
 
@@ -91,17 +114,13 @@ class Room {
 	payloadMessageUsers(fromUser, msg)
 	{
 		this.messages.add(msg);
+		const recipients = this.users;
 		const payload = {
-			recipients: [ this.users ],
 			functionToExecute: "add_message_to_room",
 			functionArguments: [ this.roomName, msg],
 		};
-		for (const recipient of this.users) 
-		{
-			payload.recipients.push(recipient);
-		}
-		const newApiMessage = new ApiMessage("Success", g_myContainerName, "External-Client", fromUser, payload);
-		return (newApiMessage);
+		const newMessageFromService = new MessageFromService(httpStatus.OK, this.users, g_myContainerName, payload);
+		return (newMessageFromService);
 	}
 
 	payloadUserNotInRoom(toUser)
@@ -112,11 +131,11 @@ class Room {
 			functionToExecute: "pop_up", // a function name also existing in the front end, like pop_up(which_element_id, message, ...); or error(message): {which_element_id id assigned here};
 			functionArguments: [ errorText ],
 		};
-		const newApiMessage = new ApiMessage("Error", g_myContainerName, "External-Client", toUser, payload);
-		return (newApiMessage);
+		const newMessageFromService = new MessageFromService(httpStatus.UNAUTHORIZED, [ toUser ], g_myContainerName, payload);
+		return (newMessageFromService);
 	}
 
-	userInThisRoom(user)
+	isUserInThisRoom(user)
 	{
 		return (this.users.includes(user));
 	}
@@ -125,9 +144,9 @@ class Room {
 	{
 		// I'm having a brain fart about how these methods might be called from http or through websocket 
 		// and what they should return.
-		const internalApiMessage = !this.userInThisRoom(fromUser) ? this.payloadUserNotInRoom(fromUser) :
+		const internalMessageFromService = !this.isUserInThisRoom(fromUser) ? this.payloadUserNotInRoom(fromUser) :
 			this.payloadMessageUsers(fromUser, new Message(fromUser, this.roomName, message_src).toString());;
-		const jsonOut = JSON.stringify(internalApiMessage);
+		const jsonOut = JSON.stringify(internalMessageFromService);
 		return (jsonOut);
 	}
 
@@ -137,6 +156,28 @@ class Room {
 	}
 }
 
+// const tasks = {
+//   'ADD_A_NEW_ROOM': {
+//     url: '/api/new_room',
+//     handler: singletonChatRooms.addRoom,
+//     method: 'POST',
+//   },
+//   'LIST_ROOMS': {
+//     url: '/api/list_rooms',
+//     handler: singletonChatRooms.listRooms,
+//     method: 'GET',
+//   },
+//   'SEND_MESSAGE_TO_ROOM': {
+//     url: '/api/send_message_to_room',
+//     handler: singletonChatRooms.sendMessage,
+//     method: 'POST',
+//   },
+//   'ADD_USER_TO_ROOM': {
+//     url: '/api/add_to_room',
+//     handler: singletonChatRooms.addUserToRoom,
+//     method: 'POST',
+//   },
+// };
 class ChatRooms {
 	constructor() 
 	{
@@ -145,7 +186,7 @@ class ChatRooms {
 		}
 
 		// Initialize your ChatRooms properties here
-		this.rooms = []
+		this.rooms = new Array();
 
 		// Cache the instance
 		ChatRooms.instance = this;
@@ -153,15 +194,17 @@ class ChatRooms {
 		return this;
 	}
 
-	addRoom(roomName)
+	addRoom(clientRequest)
 	{
+		const roomName = clientRequest.arguments.roomName;
 		if (!roomName)
-			return ("Error: No room name given.");
+			return (new MessageFromService(httpStatus.BAD_REQUEST, [ clientRequest.clientID ], g_myContainerName, new ErrorPayload("No room name given.", null)));
 		let room = new Room(roomName);
-		if (this.rooms.some(r => r.equals(room)))
-			return ("Error: room already exists");
+		if (this.rooms && this.rooms.some(r => r.equals(room)))
+			return (new MessageFromService(httpStatus.CONFLICT, [ clientRequest.clientID ], g_myContainerName, new ErrorPayload("Room already exists.", null)));
 		this.rooms.push(room);
-		return ("OK: Room made");
+		room.users.push(clientRequest.clientID);
+		return (new MessageFromService(httpStatus.OK, [ clientRequest.clientID ], g_myContainerName, {"Success": "Room " + roomName + " created."}));
 	}
 
 	listRooms()
@@ -175,19 +218,27 @@ class ChatRooms {
 		return returnedValues;
 	}
 
-	sendMessage(fromUser, roomName, message)
+	sendMessage(clientRequest)
 	{
+		const fromUser = clientRequest.arguments.fromUser;
+		const roomName = clientRequest.arguments.roomName;
+		const message = clientRequest.arguments.messageSent;
+		if (!fromUser || !roomName || !message)
+			return (new MessageFromService(httpStatus.BAD_REQUEST, [], g_myContainerName, new ErrorPayload("Missing fromUser, roomName or messageSent argument.", null)));
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
 		if (targetRoom == undefined)
-			return "Error: Room " +roomName + " doesnt exist";
+			return (new MessageFromService(httpStatus.NOT_FOUND, [], g_myContainerName, new ErrorPayload("Room " + roomName + " doesn't exist.", null)));
 		return (targetRoom.sendMessage(fromUser, message));
 	}
 
-	addUserToRoom(userRequesting, roomName, userToAdd)
+	addUserToRoom(clientRequest)
 	{
+		const userRequesting = clientRequest.arguments.userRequesting;
+		const roomName = clientRequest.arguments.roomName;
+		const userToAdd = clientRequest.arguments.userToAdd;	
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
 		if (targetRoom == undefined)
-			return "Error: Room " +roomName + " doesnt exist";
+			return (new MessageFromService(httpStatus.NOT_FOUND, [], g_myContainerName, new ErrorPayload("Room " + roomName + " doesn't exist.", null)));
 		return (targetRoom.addUser(userRequesting, userToAdd));
 	}
 }

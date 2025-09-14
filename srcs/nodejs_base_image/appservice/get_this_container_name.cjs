@@ -17,7 +17,7 @@ function getOwnContainerName()
     throw new Error("Could not determine container name");
 }
 
-// const this_container_name = getOwnName();
+const g_myContainerName = getOwnContainerName();
 
-module.exports = { getOwnContainerName };
+module.exports = { g_myContainerName };
 

@@ -12,9 +12,9 @@ async function userRoutes(fastify, options) {
 		if (!username || !password) {
 			return reply.status(400).send({ error: 'Username and password are required' });
 		}
-		const isValid = options.database.validateUserCredentials(username, password);
-		if (isValid) {
-			return { success: true };
+		const user = options.database.fetchUserFromCredentials(username, password);
+		if (user) {
+			return { success: true, user: user };
 		} else {
 			return reply.status(401).send({ success: false, error: 'Invalid credentials' });
 		}
