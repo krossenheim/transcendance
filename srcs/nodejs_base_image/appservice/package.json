@@ -7,7 +7,6 @@
     "ip": "latest",
     "jsonwebtoken": "latest",
     "axios": "latest",
-    "crypto": "latest",
     "pino-pretty": "latest"
   }
 }

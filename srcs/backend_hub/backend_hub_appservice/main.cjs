@@ -1,351 +1,218 @@
 'use strict'
 const axios = require('axios');
-// const httpStatus = require('/appservice/httpStatusEnum.cjs');
-const { isFromNginx } = require('/appservice/get_is_from_non_nginx.cjs');
+const httpStatus = require('/appservice/httpStatusEnum.cjs');
+const { g_myContainerName } = require('/appservice/get_this_container_name.cjs');
+const { containerNames } = require('/appservice/container_names.cjs')
 
-async function barfInfo(socket, req) {
-
-	socket.send(`Socket readyState: ${socket.readyState}`);
-	socket.send(`Socket protocol: ${socket.protocol}`);
-	socket.send(`Socket remote address: ${socket._socket.remoteAddress}`);
-	socket.send(`Socket remote port: ${socket._socket.remotePort}`);
-	socket.send(`Request method: ${req.method}`);
-	socket.send(`Request url: ${req.url}`);
-	socket.send(`Headers: ${JSON.stringify(req.headers)}`);
-	socket.send(`Query: ${JSON.stringify(req.query)}`);
-	socket.send(`Params: ${JSON.stringify(req.params)}`);
-	try {
-  const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/');
-	socket.send(res.data); // parsed JSON automatically
-	} catch (err) {
-	console.error('Error fetching from chatroom_service:', err.message);
-	socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
+const fastify = require('fastify')({
+	logger: {
+		level: 'info', // or 'debug' for more verbosity
+		transport: {
+			target: 'pino-pretty', // pretty-print logs in development
+			options: {
+				colorize: true,
+				translateTime: 'HH:MM:ss Z',
+			}
+		}
 	}
+})
 
+fastify.register(require('@fastify/websocket'))
+//////// Token generating and making, needs database and some package 
 
+const openSocketToUserID = new Map();
+const openUserIdToSocket = new Map();
+
+function isAuthenticatedHttp(request) {
+	const token = request.headers['authorization'] || null;
+	const existsToken = authentication_tokenExists(token);
+	return (existsToken === true)
 }
 
-
-const ipInDockerSubnet = require("./ip_in_docker_subnet.cjs")
-const fastify = require('fastify')({
-  logger: {
-	level: 'info', // or 'debug' for more verbosity
-	transport: {
-	  target: 'pino-pretty', // pretty-print logs in development
-	  options: {
-		colorize: true,
-		translateTime: 'HH:MM:ss Z',
-		ignore: 'pid,hostname'
-	  }
-	}
-  }
-})
-fastify.register(require('@fastify/websocket'))
-
-fastify.register(async function (fastify) {
-  fastify.route({
-	method: 'GET',
-	url: '/ws',
-	handler: (req, reply) => {
-	  reply.redirect('/');
-	},
-	wsHandler: (socket, req) => {
-	  console.log("Client connected");
-
-	  // Initial random state
-	  const state = {
-		position: {
-		  baseX: Math.random() * 2,
-		  baseY: Math.random() * 2,
-		  baseZ: Math.random() * 2,
-		  t: 0, // time for sin()
-		},
-		rotation: {
-		  x: Math.random() * Math.PI * 2,
-		  y: Math.random() * Math.PI * 2,
-		  z: Math.random() * Math.PI * 2,
-		  deltaX: 0.02,
-		  deltaY: 0.03,
-		  deltaZ: 0.015,
-		},
-		color: {
-		  h: Math.random(), // hue 0..1
-		  deltaH: 0.002,
-		},
-	  };
-
-	  const interval = setInterval(() => {
-		// Update time
-		state.position.t += 0.05;
-
-		// Position oscillates ±2 units
-		const pos = {
-		  x: state.position.baseX + Math.sin(state.position.t) * 2,
-		  y: state.position.baseY + Math.sin(state.position.t * 1.5) * 1, // y smaller amplitude
-		  z: state.position.baseZ + Math.sin(state.position.t * 0.7) * 2,
-		};
-
-		// Rotation increments by constant deltas
-		state.rotation.x += state.rotation.deltaX;
-		state.rotation.y += state.rotation.deltaY;
-		state.rotation.z += state.rotation.deltaZ;
-
-		// Color cycles hue
-		state.color.h += state.color.deltaH;
-		if (state.color.h > 1) state.color.h -= 1;
-
-		// Convert hue to RGB
-		const rgb = hsvToRgb(state.color.h, 0.8, 0.8);
-
-		const msg = {
-		  type: "updateParams",
-		  data: {
-			meshId: "box1",
-			position: pos,
-			rotation: {
-			  x: state.rotation.x,
-			  y: state.rotation.y,
-			  z: state.rotation.z,
+async function authentication_getUserIdFromToken(token) {
+	try {
+		const response = await axios({
+			method: 'GET',
+			url: "/authentication_service/token_exists",
+			headers: {
+				host: g_myContainerName,
+				connection: undefined,
 			},
-			color: rgb,
-		  },
-		};
+			data: { token: token },
+			params: null,
+			validateStatus: () => true,
+		});
+		return (response.data.user_id); //verify what happens when no token-user exists 
+	} catch (error) {
+		console.error('Error proxying request:', error);
+		return (undefined);
+	}
+}
 
-		socket.send(JSON.stringify(msg));
-	  }, 100);
+function parseTokenFromMessage(message) {
 
-	  socket.on("close", () => {
-		clearInterval(interval);
-		console.log("Client disconnected");
-	  });
-	},
-  });
+	const msgStr = message.toString();
+	if (msgStr.startsWith("Authorization: Bearer: ")) {
+		const token = msgStr.split(":")[2].trim();
+		return token;
+	}
+	return (undefined);
+}
+
+function isAuthenticatedWebsocket(websocket, request, message) {
+	if (websocket.user_id === undefined) {
+		const token = parseTokenFromMessage(message);
+		if (token) {
+			websocket.user_id = authentication_getUserIdFromToken(token);
+		}
+	}
+	return (websocket.user_id !== undefined);
+}
+
+function parse_websocket_message(message, socket) {
+	// Implement your message parsing logic here
+	const jsonOut = JSON.parse(message);
+	const endpoint = jsonOut.endpoint;
+	if (!endpoint)
+		socket.send({ error: 'No endpoint specified in message' });
+	const param = jsonOut.parameters;
+
+	let newEndpoint, targetContainer;
+	if (endpoint.startsWith("/api/public/")) {
+		targetContainer = endpoint.split('/')[3];
+		newEndpoint = '/api/public/' + endpoint.split('/').slice(4).join('/');
+	} else {
+		targetContainer = endpoint.split('/')[2];
+		newEndpoint = '/api/' + endpoint.split('/').slice(3).join('/');
+	}
+
+	return ({ endpoint: newEndpoint, parameters: param, user_id: socket.user_id, targetContainer: targetContainer });
+}
+
+function messageAuthenticatesSocket(message) {
+	const token = parseTokenFromMessage(message);
+	if (token) {
+		const user_id = authentication_getUserIdFromToken(token);
+		return (user_id);
+	}
+	return (undefined);
+}
+fastify.register(async function (instance) {
+
+	fastify.addHook('onRequest', async (request, reply) => {
+		const isWebSocket = request.raw.headers.upgrade === 'websocket';
+		const isPublic = request.raw.url.startsWith('/api/public/');
+
+		if (!isPublic && !isWebSocket) {
+			if (!isAuthenticatedHttp(request)) {
+				reply.code(httpStatus.UNAUTHORIZED).send({ error: 'Unauthorized HTTP request' });
+				return;
+			}
+		}
+	});
+	fastify.get('/ws', {
+		handler: (req, reply) => {
+			return reply.redirect(httpStatus.SEE_OTHER, '/'); // or any other appropriate action
+		},
+		wsHandler: (socket, req) => {
+			socket.on('connect', () => {
+				openSocketToUserID.set(socket, { user_id: undefined });
+			});
+
+			socket.on('message', async message => {
+				try {
+					const request = parse_websocket_message(message, socket);
+					if (!request.endpoint.startsWith("/api/public/")) {
+						if (!isAuthenticatedWebsocket(socket, req, message)) {
+							const user_id = messageAuthenticatesSocket(message)
+							if (false && !user_id) {
+								socket.send("Goodbye, unauthorized");
+								socket.close(1008, 'Unauthorized');
+								return;
+							}
+							socket.user_id = user_id || 1;
+							openUserIdToSocket.set(user_id || 1, socket);
+						}
+					}
+
+					if (!containerNames.includes(request.targetContainer)) {
+						socket.send(JSON.stringify({ error: 'Invalid container name \"' + request.targetContainer + '\" in endpoint' }));
+						return;
+					}
+
+					const url = `http://${request.targetContainer}:` + process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS + `${request.endpoint}`;
+					try {
+						const response = await axios({
+							method: 'POST',
+							url,
+							headers: {
+								'Content-Type': 'application/json',
+								host: g_myContainerName,
+								connection: undefined,
+							},
+							data: { ...request.parameters, user_id: request.user_id },
+							params: null,
+							validateStatus: () => true,
+						});
+						socket.send(JSON.stringify(response.data));
+					} catch (error) {
+						console.error('Error proxying websocket request:', error);
+						socket.send(JSON.stringify({ error: 'Internal Server Error: ' + error.message }));
+					}
+					// Your logic here
+				} catch (err) {
+					console.error('WebSocket message error:', err);
+					socket.send(JSON.stringify({ error: err.message }));
+				}
+			});
+		}
+	}),
+		fastify.all('/api/public/:dest/*', async (req, reply) => {
+			const { dest } = req.params;
+			const restOfUrl = req.url.replace(`${dest}/`, '');
+			const url = `http://${dest}:` + process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS + `${restOfUrl}`;
+			await proxyRequest(req, reply, req.method, url);
+		});
+
+	fastify.all('/api/:dest/*', async (req, reply) => {
+		if (!isAuthenticatedHttp(req)) {
+			return (reply.code(httpStatus.UNAUTHORIZED));
+		}
+		const { dest } = req.params;
+		const restOfUrl = req.url.replace(`${dest}/`, '');
+		const url = `http://${dest}:` + process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS + `${restOfUrl}`;
+		await proxyRequest(req, reply, req.method, url);
+	});
 });
 
-// Helper: HSV -> RGB
-function hsvToRgb(h, s, v) {
-  let r, g, b;
-
-  const i = Math.floor(h * 6);
-  const f = h * 6 - i;
-  const p = v * (1 - s);
-  const q = v * (1 - f * s);
-  const t = v * (1 - (1 - f) * s);
-
-  switch (i % 6) {
-	case 0: r = v; g = t; b = p; break;
-	case 1: r = q; g = v; b = p; break;
-	case 2: r = p; g = v; b = t; break;
-	case 3: r = p; g = q; b = v; break;
-	case 4: r = t; g = p; b = v; break;
-	case 5: r = v; g = p; b = q; break;
-  }
-
-  return { r, g, b };
-}
-
-let Clients = new Map();
-
-fastify.register(async function ()
-{
-	fastify.route({
-	method: 'GET',
-	url: '/internalsocket',
-	handler: (req, reply) => {
-	  // this will handle http requests
-	  reply.redirect('/');
-	},
-	wsHandler: (socket, req) => {
-	  // this will handle websockets connections
-	socket.on('message', async message => {
-
-	  let prepend = ("INTERNAL");
-	  console.log("Received: " + prepend + message);
-	  socket.send(prepend + message.toString().toUpperCase())})
-	  socket.on('connect', () => {
-		if (isFromNginx(socket._socket.remoteAddress))
-			socket.close();
-	});
-	}
-  })
-})
-
-
-
-fastify.register(async function ()
-{
-	fastify.route({
-	method: 'GET',
-	url: '/wsdebug',
-	handler: (req, reply) => {
-	  // this will handle http requests
-	  reply.redirect('/');
-	},
-	wsHandler: (socket, req) => {
-	  // this will handle websockets connections
-		barfInfo(socket, req);
-	socket.on('message', async message => {
-		console.log("IsFromNonNginxContainer: " + isFromNonNginxContainer(socket._socket.remoteAddress));
-		if (message.type == "init_auth") {
-			// Do auth check here
-
-			if (true) {
-				Clients.set(socket, {
-					authenticated: false,
-					user_id: -1,
-				});
-
-			}
-		}
-
-		client_data = Clients.get(socket);
-		if (!client_data) {
-			// Not authenticated
-			socket.send(JSON.stringify({ error: 'Not authenticated' }));
-			return;
-		}
-
-		if (message == "info" || message == "barf")
-			barfInfo(socket, req);
-		if (message.includes("addRoom:"))
-			{
-				try 
-				{
-					const data = message.toString().split(':')[1];
-					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/new_room', {roomName : data});
-					socket.send(JSON.stringify(res.data));
-				} 
-				catch (err) 
-				{
-					console.error('Error fetching from chatroom_service:', err.message);
-					socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
-				}
-			}
-		if (message.includes("listRooms:"))
-		{
-			try 
-			{
-				const res = await axios.get('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/list_rooms');
-				socket.send(JSON.stringify(res.data));
-			} 
-			catch (err) 
-			{
-				console.error('Error fetching from chatroom_service:', err.message);
-				socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service:' + err.message }));
-			}
-		}
-		if (message.includes("addToRoom:"))
-			{
-				try 
-				{
-					const userAdds = message.toString().split(':')[1]; 
-					const roomToAdd = message.toString().split(':')[2];
-					const userToAdd = message.toString().split(':')[3];
-					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/add_to_room',
-						{userAdds : userAdds,roomToAdd : roomToAdd, userToAdd : userToAdd});
-					socket.send(JSON.stringify(res.data));
-				} 
-		catch (err) 
-		{
-		  if (err.response && err.response.data) 
-		  {
-			socket.send(JSON.stringify(err.response.data));
-		  } 
-		  else 
-		  {
-			socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service: ' + err.message }));
-		  }
-		}
-			}
-		if (message.includes("sendMessage:"))
-			{
-				try 
-				{
-					const fromUser = message.toString().split(':')[1];
-					const roomName = message.toString().split(':')[2];
-					const messageSent = message.toString().split(':')[3];
-					const res = await axios.post('http://chatroom_service:'+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+'/api/send_message_to_room',
-			 			{fromUser : fromUser,roomName : roomName, messageSent : messageSent});
-					socket.send(JSON.stringify(res.data));
-				} 
-				catch (err) 
-				{
-					if (err.response && err.response.data) 
-					{
-						socket.send(JSON.stringify(err.response.data));
-					} 
-					else 
-					{
-						socket.send(JSON.stringify({ error: 'Error fetching from chatroom_service: ' + err.message }));
-					}
-				}
-			}
-	  let prepend = "empty";
-	  if (ipInDockerSubnet(req.headers[process.env.MESSAGE_FROM_DOCKER_NETWORK]))
-		prepend = "(From docker network)";
-	  else
-		prepend = ("(From outside docker network)");
-	  console.log("Received: " + prepend + message);
-	  socket.send(prepend + message.toString().toUpperCase())})
-	}
-  })
-})
-
 async function proxyRequest(req, reply, method, url) {
-  console.log(`Proxying ${method} request to: ${url}`);
-  console.log(req.headers);
-  console.log(req.body);
-  console.log(req.query);
+	console.log(`Proxying ${method} request to: ${url}`);
+	console.log(req.headers);
+	console.log(req.body);
+	console.log(req.query);
 	try {
-	const response = await axios({
-	  method,
-	  url,
-	  headers: {
-		...req.headers,
-		host: undefined,
-		connection: undefined,
-	  },
-	  data: req.body,
-	  params: req.query,
-	  validateStatus: () => true,
-	});
-	reply.code(response.status).send(response.data);
+		const response = await axios({
+			method,
+			url,
+			headers: {
+				...req.headers,
+				host: undefined,
+				connection: undefined,
+			},
+			data: req.body,
+			params: req.query,
+			validateStatus: () => true,
+		});
+		reply.code(response.status).send(response.data);
 	} catch (error) {
 		console.error('Error proxying request:', error);
 		reply.code(500).send({ error: 'Internal Server Error: ' + error.message });
 	}
 }
 
-fastify.all('/api/:dest/public/*', async (req, reply) => {
-	const { dest } = req.params;
-	const restOfUrl = req.url.replace(`${dest}/`, '');
-	const url = `http://${dest}:`+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+`${restOfUrl}`;
-  await proxyRequest(req, reply, req.method, url);
-});
-
-fastify.all('/api/:dest/*', async (req, reply) => {
-	const { dest } = req.params;
-	const restOfUrl = req.url.replace(`${dest}/`, '');
-	const url = `http://${dest}:`+process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS+`${restOfUrl}`;
-	await proxyRequest(req, reply, req.method, url);
-});
-
-
-fastify.register(async function () 
-{
-	fastify.route({
-	method: 'GET',
-	url: '*',
-	handler: (req, reply) => {
-	  // this will handle http requests
-	  reply.redirect('/');
-	},
-  })
-})
-
-fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.BACKEND_HUB_BIND_TO}, err => {
-  if (err) {
-	fastify.log.error(err)
-	process.exit(1)
-  }
+fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.BACKEND_HUB_BIND_TO }, err => {
+	if (err) {
+		fastify.log.error(err)
+		process.exit(1)
+	}
 })
