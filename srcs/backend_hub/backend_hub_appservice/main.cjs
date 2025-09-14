@@ -2,7 +2,7 @@
 const axios = require('axios');
 const httpStatus = require('/appservice/httpStatusEnum.cjs');
 const { g_myContainerName } = require('/appservice/get_this_container_name.cjs');
-const { containerNames } = require('/appservice/container_names.cjs')
+const containers = require('/appservice/container_names.cjs')
 
 const fastify = require('fastify')({
 	logger: {
@@ -98,12 +98,35 @@ function messageAuthenticatesSocket(message) {
 	return (undefined);
 }
 
+function getContainerNameFromIp(ipstr) 
+{
+	for (const [ip, name] of containers.containersIpToNames) 
+	{
+		if (ipstr.endsWith(ip)) {
+			return name;
+		}
+	}
+	return ( undefined);
+}
+
+const interContainerWebsockets = new Map();
+
 fastify.register(async function () {
-	fastify.get('/trustedws', {
+	fastify.get('/inter_container_api', {
 		handler: (req, reply) => {
-			return reply.redirect(httpStatus.SEE_OTHER, '/'); // or any other appropriate action
+
 		},
 		wsHandler: (socket, req) => {
+			const containerName = getContainerNameFromIp(req.socket.remoteAddress);
+			console.log(containers.containersIpToNames.values());
+			console.log("ip na: " + req.socket.remoteAddress);
+			console.log("Container name: " + containerName);
+			if (containerName === undefined) {
+				socket.send("Goodbye, unauthorized container");
+				socket.close(1008, 'Unauthorized container');
+				return;
+			}
+			interContainerWebsockets.set(socket, { user_id: undefined });
 		}
 	});
 });
@@ -146,7 +169,7 @@ fastify.register(async function (instance) {
 						}
 					}
 
-					if (!containerNames.includes(request.targetContainer)) {
+					if (!containers.containerNames.includes(request.targetContainer)) {
 						socket.send(JSON.stringify({ error: 'Invalid container name \"' + request.targetContainer + '\" in endpoint' }));
 						return;
 					}

@@ -1,6 +1,4 @@
 const { containerNames } = require('/appservice/_container_names.cjs')
-const dns = require("dns");
-const net = require("net");
 
 /**
  * Resolve a container name to an IP and check if it is reachable on a port.
@@ -13,44 +11,36 @@ if ( process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS == undefined)
       throw new Error("Env var COMMON_PORT_ALL_DOCKER_CONTAINERS not set'" + cname + "'.");
 }
 
-const containerNamesAndIps = new Map(containerNames.map(name => [name, true]));
-
-
-function pingContainer(containerName, port = process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS) {
-  dns.lookup(containerName, (err, address) => {
-    if (err) {
-      console.error(`DNS lookup failed for ${containerName}:`, err.message);
-      return (false);
-    }
-
-    console.log(`Resolved ${containerName} to ${address}`);
-
-    const socket = net.createConnection(port, address);
-    socket.setTimeout(5000);
-
-    socket.on("connect", () => {
-      // console.log(`${containerName} is reachable on port ${port}`);
-      socket.destroy();
-      containerNamesAndIps.set(containerName, address);
-      return (true);
-    });
-
-    socket.on("timeout", () => {
-      console.error(`${containerName} timed out on port ${port}`);
-      socket.destroy();
-    });
-
-    socket.on("error", (e) => {
-      console.error(`${containerName} connection failed: ${e.message}`);
-    });
-    return (false);
-  });
+if ( process.env.CHATROOM_IPV4_ADDRESS == undefined)
+{
+      throw new Error("Env var CHATROOM_IPV4_ADDRESS not set'" + cname + "'.");
 }
 
-for (const cname of containerNames) 
-{ 
-  if (pingContainer(cname) == false)
-    throw new Error("Could not reach container named: '" + cname + "'.");
+if ( process.env.NGINX_IPV4_ADDRESS == undefined)
+{
+      throw new Error("Env var NGINX_IPV4_ADDRESS not set'" + cname + "'.");
 }
 
-module.exports = { containerNames };
+if ( process.env.DATABASE_IPV4_ADDRESS == undefined)
+{
+      throw new Error("Env var DATABASE_IPV4_ADDRESS not set'" + cname + "'.");
+}
+
+if ( process.env.AUTH_IPV4_ADDRESS == undefined)
+{
+      throw new Error("Env var AUTH_IPV4_ADDRESS not set'" + cname + "'.");
+}
+
+if ( process.env.HUB_IPV4_ADDRESS == undefined)
+{
+      throw new Error("Env var HUB_IPV4_ADDRESS not set'" + cname + "'.");
+}
+
+const containersIpToNames = new Map();
+containersIpToNames.set(process.env.NGINX_IPV4_ADDRESS, "nginx");
+containersIpToNames.set(process.env.CHATROOM_IPV4_ADDRESS, "chatroom_hub");
+containersIpToNames.set(process.env.DATABASE_IPV4_ADDRESS, "database_service");
+containersIpToNames.set(process.env.AUTH_IPV4_ADDRESS, "auth_service");
+containersIpToNames.set(process.env.HUB_IPV4_ADDRESS, "backend_hub");
+
+module.exports = { containerNames, containersIpToNames };

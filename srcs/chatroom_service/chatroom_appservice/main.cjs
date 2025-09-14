@@ -52,7 +52,7 @@ const tasks = {
 
 // map of function names and functions above
 const WebSocket = require('ws');
-const socketToBackend = new WebSocket('ws://backend_hub:3000/internalsocket');
+const socketToBackend = new WebSocket('ws://backend_hub:3000/inter_container_api');
 
 socketToBackend.on('open', () => {
   console.log('I ' + g_myContainerName + ' connected.');

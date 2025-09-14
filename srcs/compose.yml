@@ -3,6 +3,7 @@ services:
     container_name: nginx
     image: nginx
     env_file:
+      - ./static_ips.env
       - ./nginx/site.env
     build:
       context: ./nginx
@@ -23,10 +24,10 @@ services:
     container_name: backend_hub
     image: backend_hub
     env_file:
+      - ./static_ips.env
       - ./backend_hub/backend_hub.env
     environment:
       - TR_NETWORK_SUBNET=${TR_NETWORK_SUBNET}
-      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
       - MESSAGE_FROM_DOCKER_NETWORK=${MESSAGE_FROM_DOCKER_NETWORK}
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
     build:
@@ -39,16 +40,16 @@ services:
     container_name: chatroom_service
     image: chatroom_service
     env_file:
-    - ./chatroom_service/chatroom_service.env
+      - ./static_ips.env
+      - ./chatroom_service/chatroom_service.env
     environment:
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
-      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
     build:
       context: ./chatroom_service
     restart: always
     networks:
       transcendance_network:
-        ipv4_address: ${DATABASE_IPV4_ADDRESS}
+        ipv4_address: ${CHATROOM_IPV4_ADDRESS}
     depends_on:
       backend_hub:
         condition: service_healthy
@@ -56,10 +57,10 @@ services:
     container_name: database_service
     image: database_service
     env_file:
-    - ./database/database.env
+      - ./static_ips.env
+      - ./database/database.env
     environment:
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
-      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
     build:
       context: ./database
     restart: always
@@ -75,10 +76,10 @@ services:
     container_name: auth_service
     image: auth_service
     env_file:
-    - ./auth/auth.env
+      - ./static_ips.env
+      - ./auth/auth.env
     environment:
       - COMMON_PORT_ALL_DOCKER_CONTAINERS=${COMMON_PORT_ALL_DOCKER_CONTAINERS}
-      - NGINX_IPV4_ADDRESS=${NGINX_IPV4_ADDRESS}
     build:
       context: ./auth
     restart: always
