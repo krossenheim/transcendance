@@ -97,6 +97,17 @@ function messageAuthenticatesSocket(message) {
 	}
 	return (undefined);
 }
+
+fastify.register(async function () {
+	fastify.get('/trustedws', {
+		handler: (req, reply) => {
+			return reply.redirect(httpStatus.SEE_OTHER, '/'); // or any other appropriate action
+		},
+		wsHandler: (socket, req) => {
+		}
+	});
+});
+
 fastify.register(async function (instance) {
 
 	fastify.addHook('onRequest', async (request, reply) => {

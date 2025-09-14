@@ -1,5 +1,4 @@
 const ip = require('ip');
-const { run_bash_command } = require('/appservice/run_bash_command.cjs');
 
 function isFromNginx(address)
 {

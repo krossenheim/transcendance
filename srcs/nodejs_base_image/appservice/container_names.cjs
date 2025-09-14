@@ -12,6 +12,10 @@ if ( process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS == undefined)
 {
       throw new Error("Env var COMMON_PORT_ALL_DOCKER_CONTAINERS not set'" + cname + "'.");
 }
+
+const containerNamesAndIps = new Map(containerNames.map(name => [name, true]));
+
+
 function pingContainer(containerName, port = process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS) {
   dns.lookup(containerName, (err, address) => {
     if (err) {
@@ -27,6 +31,7 @@ function pingContainer(containerName, port = process.env.COMMON_PORT_ALL_DOCKER_
     socket.on("connect", () => {
       // console.log(`${containerName} is reachable on port ${port}`);
       socket.destroy();
+      containerNamesAndIps.set(containerName, address);
       return (true);
     });
 
@@ -47,4 +52,5 @@ for (const cname of containerNames)
   if (pingContainer(cname) == false)
     throw new Error("Could not reach container named: '" + cname + "'.");
 }
+
 module.exports = { containerNames };

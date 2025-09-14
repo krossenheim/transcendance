@@ -33,7 +33,8 @@ services:
       context: ./backend_hub
     restart: always
     networks:
-      - transcendance_network
+      transcendance_network:
+        ipv4_address: ${HUB_IPV4_ADDRESS}
   chatroom_service:
     container_name: chatroom_service
     image: chatroom_service
@@ -46,7 +47,8 @@ services:
       context: ./chatroom_service
     restart: always
     networks:
-      - transcendance_network
+      transcendance_network:
+        ipv4_address: ${DATABASE_IPV4_ADDRESS}
     depends_on:
       backend_hub:
         condition: service_healthy
@@ -62,7 +64,8 @@ services:
       context: ./database
     restart: always
     networks:
-      - transcendance_network
+      transcendance_network:
+        ipv4_address: ${DATABASE_IPV4_ADDRESS}
     depends_on:
       backend_hub:
         condition: service_healthy
@@ -80,7 +83,8 @@ services:
       context: ./auth
     restart: always
     networks:
-      - transcendance_network
+      transcendance_network:
+        ipv4_address: ${AUTH_IPV4_ADDRESS}
     depends_on:
       backend_hub:
         condition: service_healthy
