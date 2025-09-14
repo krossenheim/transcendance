@@ -109,7 +109,8 @@ function getContainerNameFromIp(ipstr)
 	return ( undefined);
 }
 
-const interContainerWebsockets = new Map();
+const interContainerWebsocketsToName = new Map();
+const interContainerNameToWebsockets = new Map();
 
 fastify.register(async function () {
 	fastify.get('/inter_container_api', {
@@ -118,15 +119,19 @@ fastify.register(async function () {
 		},
 		wsHandler: (socket, req) => {
 			const containerName = getContainerNameFromIp(req.socket.remoteAddress);
-			console.log(containers.containersIpToNames.values());
-			console.log("ip na: " + req.socket.remoteAddress);
-			console.log("Container name: " + containerName);
 			if (containerName === undefined) {
 				socket.send("Goodbye, unauthorized container");
 				socket.close(1008, 'Unauthorized container');
 				return;
 			}
-			interContainerWebsockets.set(socket, { user_id: undefined });
+
+			if (!interContainerNameToWebsockets.has(containerName)) 
+			{
+				interContainerNameToWebsockets.set(containerName, socket);
+				interContainerWebsocketsToName.set(socket, containerName);
+			}
+			// MessageFromService 
+			// Chatroom says to container/userlist in MessageFromService send payload in MessageFromService
 		}
 	});
 });
