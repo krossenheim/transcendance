@@ -13,32 +13,32 @@ services:
     networks:
       transcendance_network:
         ipv4_address: ${NGINX_IPV4_ADDRESS}
-  backend_hub:
-    container_name: backend_hub
-    image: backend_hub
+  hub:
+    container_name: ${HUB_NAME}
+    image: ${HUB_NAME}
     env_file:
       - ./globals.env
-      - ./backend_hub/backend_hub.env
+      - ./${HUB_NAME}/service_env.env
     build:
-      context: ./backend_hub
+      context: ./${HUB_NAME}
     restart: always
     networks:
       transcendance_network:
         ipv4_address: ${HUB_IPV4_ADDRESS}
-  chatroom_service:
-    container_name: chatroom_service
-    image: chatroom_service
+  chat:
+    container_name: ${CHATROOM_NAME}
+    image: ${CHATROOM_NAME}
     env_file:
       - ./globals.env
-      - ./chatroom_service/chatroom_service.env
+      - ./${CHATROOM_NAME}/service_env.env
     build:
-      context: ./chatroom_service
+      context: ./${CHATROOM_NAME}
     restart: always
     networks:
       transcendance_network:
         ipv4_address: ${CHATROOM_IPV4_ADDRESS}
     depends_on:
-      backend_hub:
+      hub:
         condition: service_healthy
   database_service:
     container_name: database_service
@@ -53,7 +53,7 @@ services:
       transcendance_network:
         ipv4_address: ${DATABASE_IPV4_ADDRESS}
     depends_on:
-      backend_hub:
+      hub:
         condition: service_healthy
     volumes:
       - databases:/etc/database_data
@@ -70,7 +70,7 @@ services:
       transcendance_network:
         ipv4_address: ${AUTH_IPV4_ADDRESS}
     depends_on:
-      backend_hub:
+      hub:
         condition: service_healthy
 
 volumes:

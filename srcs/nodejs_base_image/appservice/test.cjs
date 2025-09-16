@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 
-const socket = new WebSocket('ws://backend_hub:3000/internalsocket');
+const socket = new WebSocket('ws://' + process.env.HUB_NAME + ':3000/internalsocket');
 
 socket.on('open', () => {
   console.log('Connected to /internalsocket');

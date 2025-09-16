@@ -8,6 +8,7 @@ if [ -z "${COMMON_PORT_ALL_DOCKER_CONTAINERS}" ]; then echo "ERROR: COMMON_PORT_
 if [ -z "${FORWARDED_SSL_PORT_FROM_NAT_HOST}" ]; then echo "ERROR: FORWARDED_SSL_PORT_FROM_NAT_HOST is not set" >&2; exit 1; fi
 if [ -z "${MESSAGE_FROM_DOCKER_NETWORK}" ]; then echo "ERROR: MESSAGE_FROM_DOCKER_NETWORK is not set" >&2; exit 1; fi
 if [ -z "${TR_NETWORK_SUBNET}" ]; then echo "ERROR: TR_NETWORK_SUBNET is not set" >&2; exit 1; fi
+if [ -z "${HUB_NAME}" ]; then echo "ERROR: '${HUB_NAME}' (in between docker containers and behind nginx.) is not set" >&2; exit 1; fi
 if [ -z "${SERVER_NAME}" ]; then echo "ERROR: SERVER_NAME is not set" >&2; exit 1; fi
 if [ -z "${SUBJECT}" ]; then echo "ERROR: SUBJECT is not set" >&2; exit 1; fi
 
@@ -16,6 +17,7 @@ envsubst '${SERVER_NAME}
 ${MESSAGE_FROM_DOCKER_NETWORK} 
 ${WEBSOCKET_TIMEOUT}
 ${COMMON_PORT_ALL_DOCKER_CONTAINERS} 
+${HUB_NAME}
 ${FORWARDED_SSL_PORT_FROM_NAT_HOST}' < /etc/nginx/un_expanded/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
 
 envsubst '${TR_NETWORK_SUBNET}' < /etc/nginx/un_expanded/nginx.conf.to_expand > /etc/nginx/nginx.conf

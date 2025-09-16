@@ -1,7 +1,7 @@
 server {
     listen 80;
 	if ($allowed_subnet = 0) {
-    	return 301 https://$SERVER_NAME$request_uri;
+    	return 301 https://${SERVER_NAME}$request_uri;
 	}
 
 	location /static 
@@ -40,7 +40,7 @@ server {
 	}
 
 	location /ws {
-        proxy_pass http://backend_hub:${COMMON_PORT_ALL_DOCKER_CONTAINERS};
+        proxy_pass http://${HUB_NAME}:${COMMON_PORT_ALL_DOCKER_CONTAINERS};
 		proxy_http_version 1.1;
 
 		proxy_set_header Upgrade $http_upgrade;
@@ -62,7 +62,7 @@ server {
     }
 
 	location /api {
-        proxy_pass http://backend_hub:${COMMON_PORT_ALL_DOCKER_CONTAINERS};
+        proxy_pass http://${HUB_NAME}:${COMMON_PORT_ALL_DOCKER_CONTAINERS};
 		proxy_http_version 1.1;
 
 		proxy_set_header ${MESSAGE_FROM_DOCKER_NETWORK} $allowed_subnet;

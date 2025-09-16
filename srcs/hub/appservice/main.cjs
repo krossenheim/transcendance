@@ -165,7 +165,7 @@ fastify.register(async function (instance) {
 					}
 
 					if (!containersNameToIp.has(request.targetContainer)) { 
-						socket.send(JSON.stringify({ error: 'Invalid container name \"' + request.targetContainer + '\" in endpoint' }));
+						socket.send(JSON.stringify({ error: 'Invalid container name \"' + request.targetContainer + '\" in endpoint for target: ' + request.targetContainer }));
 						return;
 					}
 
