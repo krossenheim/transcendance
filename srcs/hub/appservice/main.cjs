@@ -4,6 +4,12 @@ const httpStatus = require('/appservice/httpStatusEnum.cjs');
 const { g_myContainerName, containersNameToIp, containersIpToName } = require('/appservice/container_names.cjs');
 const { ClientRequest } = require('/appservice/client_request.cjs');
 
+// Maps holding user to websocket and containername to websocket relationships
+const openSocketToUserID = new Map();
+const openUserIdToSocket = new Map();
+const interContainerWebsocketsToName = new Map();
+const interContainerNameToWebsockets = new Map();
+
 const fastify = require('fastify')({
 	logger: {
 		level: 'info', // or 'debug' for more verbosity
@@ -18,10 +24,7 @@ const fastify = require('fastify')({
 })
 
 fastify.register(require('@fastify/websocket'))
-//////// Token generating and making, needs database and some package 
 
-const openSocketToUserID = new Map();
-const openUserIdToSocket = new Map();
 
 function isAuthenticatedHttp(request) {
 	const token = request.headers['authorization'] || null;
@@ -99,40 +102,9 @@ function messageAuthenticatesSocket(message) {
 	return (undefined);
 }
 
-const interContainerWebsocketsToName = new Map();
-const interContainerNameToWebsockets = new Map();
 
-fastify.register(async function () {
-	fastify.get('/inter_container_api', {
-		handler: (req, reply) => {
 
-		},
-		wsHandler: (socket, req) => {
-			if (socket.ipv6_to_ipv4_address === undefined) // 
-				socket.ipv6_to_ipv4_address = req.socket.remoteAddress.startsWith("::ffff:") ? req.socket.remoteAddress.slice(7) : req.socket.remoteAddress;
-			const containerName = containersIpToName.get(socket.ipv6_to_ipv4_address);
-			if (containerName === undefined) {
-				socket.send("Goodbye, unauthorized container (Couldnt determine the name of address: '" +  req.socket.remoteAddress + "'");
-				socket.close(1008, 'Unauthorized container');
-				return;
-			}
-
-			if (!interContainerNameToWebsockets.has(containerName)) 
-			{
-				interContainerNameToWebsockets.set(containerName, socket);
-				interContainerWebsocketsToName.set(socket, containerName);
-				console.log("wSocket from " + containerName + " established." )
-			}
-
-			socket.on('connect', () => {
-				socket.send("Hello " + containerName);
-			});
-			// MessageFromService 
-			// Chatroom says to container/userlist in MessageFromService send payload in MessageFromService
-		}
-	});
-});
-
+let connectionCounttempid = 1; // global counter
 fastify.register(async function (instance) {
 
 	fastify.addHook('onRequest', async (request, reply) => {
@@ -151,9 +123,13 @@ fastify.register(async function (instance) {
 			return reply.redirect(httpStatus.SEE_OTHER, '/'); // or any other appropriate action
 		},
 		wsHandler: (socket, req) => {
-			socket.on('connect', () => {
-				openSocketToUserID.set(socket, { user_id: undefined });
-			});
+			if (!openSocketToUserID.has(socket)) 
+			{
+				openSocketToUserID.set(socket, { user_id: connectionCounttempid }); 
+				socket.send("WELCOME SOCKET!");
+				console.log("Added user id " + connectionCounttempid + " socket map.")
+				connectionCounttempid++;
+			}
 
 			socket.on('message', async message => {
 				try {
@@ -234,6 +210,44 @@ async function proxyRequest(req, reply, method, url) {
 		reply.code(500).send({ error: 'Internal Server Error: ' + error.message });
 	}
 }
+
+fastify.register(async function () {
+	fastify.get('/inter_container_api', {
+		handler: (req, reply) => {
+
+		},
+		wsHandler: (socket, req) => {
+			if (socket.ipv6_to_ipv4_address === undefined) // 
+				socket.ipv6_to_ipv4_address = req.socket.remoteAddress.startsWith("::ffff:") ? req.socket.remoteAddress.slice(7) : req.socket.remoteAddress;
+			const containerName = containersIpToName.get(socket.ipv6_to_ipv4_address);
+			if (containerName === undefined) {
+				socket.send("Goodbye, unauthorized container (Couldnt determine the name of address: '" +  req.socket.remoteAddress + "'");
+				socket.close(1008, 'Unauthorized container');
+				return;
+			}
+
+			if (!interContainerNameToWebsockets.has(containerName)) 
+			{
+				interContainerNameToWebsockets.set(containerName, socket);
+				interContainerWebsocketsToName.set(socket, containerName);
+				console.log("wSocket from " + containerName + " established." )
+			}
+			socket.on('message', async message => {
+				console.log("Received on inter_container_api: " + message);
+				for (const [_socketToUser, user_id] of openSocketToUserID) 
+				{
+					console.log("Sending to userID " + user_id + "message ")
+					_socketToUser.send("Chat sent out:" + message);
+				}
+			});
+			socket.on('open', () => {
+				socket.send("Hello " + containerName);
+			});
+			// MessageFromService 
+			// Chatroom says to container/userlist in MessageFromService send payload in MessageFromService
+		}
+	});
+});
 
 fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.BACKEND_HUB_BIND_TO }, err => {
 	if (err) {
