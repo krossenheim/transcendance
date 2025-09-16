@@ -74,7 +74,7 @@ function parse_websocket_message(message, socket) {
 	const endpoint = jsonOut.endpoint;
 	if (!endpoint)
 		socket.send({ error: 'No endpoint specified in message' });
-	const param = jsonOut.parameters;
+	const payload = jsonOut.payload;
 
 	let newEndpoint, targetContainer;
 	if (endpoint.startsWith("/api/public/")) {
@@ -85,7 +85,7 @@ function parse_websocket_message(message, socket) {
 		newEndpoint = '/api/' + endpoint.split('/').slice(3).join('/');
 	}
 
-	return ({ endpoint: newEndpoint, parameters: param, user_id: socket.user_id, targetContainer: targetContainer });
+	return ({ endpoint: newEndpoint, payload: payload, user_id: socket.user_id, targetContainer: targetContainer });
 }
 
 function messageAuthenticatesSocket(message) {
@@ -179,7 +179,7 @@ fastify.register(async function (instance) {
 								host: g_myContainerName,
 								connection: undefined,
 							},
-							data: { ...request.parameters, user_id: request.user_id },
+							data: { ...request.payload, user_id: request.user_id },
 							params: null,
 							validateStatus: () => true,
 						});
