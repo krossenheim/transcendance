@@ -1,6 +1,12 @@
 FROM nodejs_base_image:1.0
 
-COPY auth_service/ /appservice/
-RUN chmod -R 444 /appservice/*
+WORKDIR /appservice/
 
-CMD node /appservice/$AUTH_SERVICE_MAINJS
+COPY appservice/ /appservice/
+RUN chmod 444 /appservice/*
+
+RUN cat /appservice/check_global_envs.sh /appservice/service_entryp.sh > /appservice/entrypoint.sh \
+    && chmod +x /appservice/entrypoint.sh
+
+ENTRYPOINT ["/appservice/entrypoint.sh"]
+CMD node /appservice/$SERVICE_MAINJS

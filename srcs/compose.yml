@@ -40,14 +40,14 @@ services:
     depends_on:
       hub:
         condition: service_healthy
-  database_service:
-    container_name: database_service
-    image: database_service
+  db:
+    container_name: ${DATABASE_NAME}
+    image: ${DATABASE_NAME}
     env_file:
       - ./globals.env
-      - ./database/database.env
+      - ./${DATABASE_NAME}/service_env.env
     build:
-      context: ./database
+      context: ./${DATABASE_NAME}
     restart: always
     networks:
       transcendance_network:
@@ -57,14 +57,14 @@ services:
         condition: service_healthy
     volumes:
       - databases:/etc/database_data
-  auth_service:
-    container_name: auth_service
-    image: auth_service
+  auth:
+    container_name: ${AUTH_NAME}
+    image: ${AUTH_NAME}
     env_file:
       - ./globals.env
-      - ./auth/auth.env
+      - ./${AUTH_NAME}/service_env.env
     build:
-      context: ./auth
+      context: ./${AUTH_NAME}
     restart: always
     networks:
       transcendance_network:

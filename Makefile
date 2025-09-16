@@ -29,7 +29,7 @@ re: down all
 down:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
-build: build_base_nodejs create_shared_volume_folder
+build: pass_global_envs_test_to_nodejs_containers build_base_nodejs create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
 
 build_base_nodejs:
