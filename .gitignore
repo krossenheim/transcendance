@@ -5,5 +5,3 @@ out/
 *.d
 chatroom_exec
 objs/
-_container_names.cjs
-testtest.ctest

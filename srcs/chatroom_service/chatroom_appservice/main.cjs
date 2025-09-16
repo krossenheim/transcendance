@@ -1,5 +1,5 @@
 'use strict'
-const { g_myContainerName } = require('/appservice/get_this_container_name.cjs');
+const { g_myContainerName, containersNameToIp, containersIpToName } = require('/appservice/container_names.cjs');
 const { ClientRequest } = require('/appservice/client_request.cjs');
 
 const ipInDockerSubnet = require("/appservice/ip_in_docker_subnet.cjs")

@@ -1,7 +1,5 @@
 server {
     listen 80;
-	# Listening COMMON_PORT_ALL_DOCKER_CONTAINERS exclusively to simplifly /appservice/container_names.cjs
-    listen ${COMMON_PORT_ALL_DOCKER_CONTAINERS};
 	if ($allowed_subnet = 0) {
     	return 301 https://$SERVER_NAME$request_uri;
 	}

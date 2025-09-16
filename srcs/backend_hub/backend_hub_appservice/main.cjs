@@ -1,8 +1,7 @@
 'use strict'
 const axios = require('axios');
 const httpStatus = require('/appservice/httpStatusEnum.cjs');
-const { g_myContainerName } = require('/appservice/get_this_container_name.cjs');
-const containers = require('/appservice/container_names.cjs')
+const { g_myContainerName, containersNameToIp, containersIpToName } = require('/appservice/container_names.cjs');
 
 const fastify = require('fastify')({
 	logger: {
@@ -98,17 +97,6 @@ function messageAuthenticatesSocket(message) {
 	return (undefined);
 }
 
-function getContainerNameFromIp(ipstr) 
-{
-	for (const [ip, name] of containers.containersIpToNames) 
-	{
-		if (ipstr.endsWith(ip)) {
-			return name;
-		}
-	}
-	return ( undefined);
-}
-
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
 
@@ -118,7 +106,7 @@ fastify.register(async function () {
 
 		},
 		wsHandler: (socket, req) => {
-			const containerName = getContainerNameFromIp(req.socket.remoteAddress);
+			const containerName = containersIpToName.get(req.socket.remoteAddress);
 			if (containerName === undefined) {
 				socket.send("Goodbye, unauthorized container");
 				socket.close(1008, 'Unauthorized container');
@@ -174,7 +162,7 @@ fastify.register(async function (instance) {
 						}
 					}
 
-					if (!containers.containerNames.includes(request.targetContainer)) {
+					if (!containersNameToIp.has(request.targetContainer)) { 
 						socket.send(JSON.stringify({ error: 'Invalid container name \"' + request.targetContainer + '\" in endpoint' }));
 						return;
 					}
