@@ -41,9 +41,9 @@ containersIpToName.set(process.env.AUTH_IPV4_ADDRESS, "auth_service");
 containersIpToName.set(process.env.HUB_IPV4_ADDRESS, "backend_hub");
 // 
 
-const my_ip = run_bash_command("getent hosts ${HOSTNAME} | awk '{print $1}'");
-
-if (my_ip === undefined)
+const my_address = run_bash_command("getent hosts ${HOSTNAME} | awk '{print $1}'");
+console.log("My address is: " + my_address);
+if (my_address === undefined)
 {
     throw new Error("'getent hosts ${HOSTNAME} | awk '{print $1}' did not return any output.")
 }
@@ -54,18 +54,20 @@ if (my_ip === undefined)
 
 let g_myContainerName = null;
 
+console.log("Setting names and ips of participating containers.")
 for (const [ip, name] of containersIpToName) 
 {
-    if (my_ip === ip)
+    if (my_address === ip)
     {
         g_myContainerName = name;
     }
+    console.log(name + ":" + ip);
     containersNameToIp.set(name, ip);
 }
 
 if (g_myContainerName === undefined)
 {
-    throw new Error("There is a mismatch between the IP of this container: '" + my_ip + "'). \nIt was not found in list of addresses for all participating containers: " + containersIpToName.values())
+    throw new Error("There is a mismatch between the IP of this container: '" + my_address + "'). \nIt was not found in list of addresses for all participating containers: " + containersIpToName.values())
 }
 
 module.exports = { g_myContainerName, containersNameToIp, containersIpToName };

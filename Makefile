@@ -15,8 +15,6 @@ BASE_IMAGE_TAG := nodejs_base_image:1.0
 # Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
 
-# Path to dynamically created list of container names .js file for the base JS image
-DYNAMIC_CONTAINER_NAMES_JS = "$(PROJECT_ROOT)/srcs/nodejs_base_image/appservice/_container_names.cjs"
 $(NAME): all
 
 all: build
@@ -37,7 +35,7 @@ build_base_nodejs:
 	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(PROJECT_ROOT)srcs/nodejs_base_image"
 
 print_config: create_shared_volume_folder
-	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
 
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \
@@ -45,7 +43,7 @@ create_shared_volume_folder:
 	fi
 
 clean:
-	docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
 babylon:

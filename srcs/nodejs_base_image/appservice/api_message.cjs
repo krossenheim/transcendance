@@ -1,4 +1,4 @@
-const { containerNames } = require('/appservice/_container_names.cjs')
+const { containersNameToIp } = require('/appservice/container_names.cjs');
 
 class MessageFromService {
     #containerFrom
@@ -34,9 +34,9 @@ class MessageFromService {
 
     set containerFrom(value)
     {
-        if (typeof value !== "string" || !containerNames.includes(value)) 
+        if (typeof value !== "string" || !containersNameToIp.has(value)) 
             {
-                throw new Error("containerFrom (" + value + ") must be one of: " + containerNames.join(", "));
+                throw new Error("containerFrom (" + value + ") must be one of: " + Array.from(containersNameToIp.keys()).join(", "));
             }
         this.#containerFrom = value;
     }

@@ -106,9 +106,11 @@ fastify.register(async function () {
 
 		},
 		wsHandler: (socket, req) => {
-			const containerName = containersIpToName.get(req.socket.remoteAddress);
+			if (socket.ipv6_to_ipv4_address === undefined) // 
+				socket.ipv6_to_ipv4_address = req.socket.remoteAddress.startsWith("::ffff:") ? req.socket.remoteAddress.slice(7) : req.socket.remoteAddress;
+			const containerName = containersIpToName.get(socket.ipv6_to_ipv4_address);
 			if (containerName === undefined) {
-				socket.send("Goodbye, unauthorized container");
+				socket.send("Goodbye, unauthorized container (Couldnt determine the name of address: '" +  req.socket.remoteAddress + "'");
 				socket.close(1008, 'Unauthorized container');
 				return;
 			}

@@ -1,5 +1,5 @@
 const { MessageFromService } = require('/appservice/api_message.cjs');
-const { g_myContainerName, containersNameToIp, containersIpToName } = require('/appservice/container_names.cjs');
+const { g_myContainerName } = require('/appservice/container_names.cjs');
 const { httpStatus } = require('/appservice/httpStatusEnum.cjs');
 class FixedSizeList {
 	constructor(maxSize = 10) 
