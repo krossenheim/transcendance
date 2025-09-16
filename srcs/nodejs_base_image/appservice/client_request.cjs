@@ -1,24 +1,32 @@
 class ClientRequest 
 {
-  constructor() 
+  printInfo()
   {
-    this.url = null;
-    this.method = null;
-    this.arguments = {};
-    this.clientID = null;
+    console.log(this.endpoint);
+    console.log(this.payload);
+    console.log(this.clientID);
+    console.log(this.targetContainer);
+    
+  }
+  constructor(endpoint, payload, clienTID, targetContainer) 
+  {
+    this.endpoint = endpoint;
+    this.payload = payload;
+    this.clientID = clienTID;
+    this.targetContainer = targetContainer;
   }
 
-  static fromHTTP(request, clientID)
+  static fromHTTP(request, clientID, targetContainer)
   {
     const instance = new ClientRequest();
-    instance.method = request.method;
-    instance.url = request.url;
-    instance.arguments = request.body;
+    instance.endpoint = request.method;
+    instance.payload = request.body;
     instance.clientID = clientID;
+    instance.targetContainer = targetContainer;
     return instance;
   }
 
-  static fromWebsocketMessage(stringmessage, clientID)
+  static fromWebsocketMessage(stringmessage, clientID, targetContainer)
   {
     console.log("Parsing message: " + stringmessage);
     let message = {}
@@ -28,10 +36,10 @@ class ClientRequest
     } catch (e) {
     }
     const instance = new ClientRequest();
-    instance.method = message.method;
-    instance.url = message.url;
-    instance.arguments = message.arguments;
+    instance.endpoint = message.endpoint;
+    instance.payload = message.payload;
     instance.clientID = clientID;
+    instance.targetContainer = targetContainer;
     return instance;
   }
 }

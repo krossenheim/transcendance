@@ -2,6 +2,7 @@
 const axios = require('axios');
 const httpStatus = require('/appservice/httpStatusEnum.cjs');
 const { g_myContainerName, containersNameToIp, containersIpToName } = require('/appservice/container_names.cjs');
+const { ClientRequest } = require('/appservice/client_request.cjs');
 
 const fastify = require('fastify')({
 	logger: {
@@ -69,6 +70,7 @@ function isAuthenticatedWebsocket(websocket, request, message) {
 }
 
 function parse_websocket_message(message, socket) {
+	console.log("Parsing wsm: "+ message);
 	// Implement your message parsing logic here
 	const jsonOut = JSON.parse(message);
 	const endpoint = jsonOut.endpoint;
@@ -84,8 +86,8 @@ function parse_websocket_message(message, socket) {
 		targetContainer = endpoint.split('/')[2];
 		newEndpoint = '/api/' + endpoint.split('/').slice(3).join('/');
 	}
-
-	return ({ endpoint: newEndpoint, payload: payload, user_id: socket.user_id, targetContainer: targetContainer });
+	const clientRequest = new ClientRequest(newEndpoint, payload, socket.user_id, targetContainer);
+	return (clientRequest);
 }
 
 function messageAuthenticatesSocket(message) {
@@ -119,7 +121,12 @@ fastify.register(async function () {
 			{
 				interContainerNameToWebsockets.set(containerName, socket);
 				interContainerWebsocketsToName.set(socket, containerName);
+				console.log("wSocket from " + containerName + " established." )
 			}
+
+			socket.on('connect', () => {
+				socket.send("Hello " + containerName);
+			});
 			// MessageFromService 
 			// Chatroom says to container/userlist in MessageFromService send payload in MessageFromService
 		}
@@ -160,35 +167,24 @@ fastify.register(async function (instance) {
 								return;
 							}
 							socket.user_id = user_id || 1;
+							request.user_id = socket.user_id;
 							openUserIdToSocket.set(user_id || 1, socket);
 						}
 					}
-
+					request.printInfo();
 					if (!containersNameToIp.has(request.targetContainer)) { 
 						socket.send(JSON.stringify({ error: 'Invalid container name \"' + request.targetContainer + '\" in endpoint for target: ' + request.targetContainer }));
 						return;
 					}
-
-					const url = `http://${request.targetContainer}:` + process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS + `${request.endpoint}`;
-					try {
-						const response = await axios({
-							method: 'POST',
-							url,
-							headers: {
-								'Content-Type': 'application/json',
-								host: g_myContainerName,
-								connection: undefined,
-							},
-							data: { ...request.payload, user_id: request.user_id },
-							params: null,
-							validateStatus: () => true,
-						});
-						socket.send(JSON.stringify(response.data));
-					} catch (error) {
-						console.error('Error proxying websocket request:', error);
-						socket.send(JSON.stringify({ error: 'Internal Server Error: ' + error.message }));
+					
+					const wsToContainer = interContainerNameToWebsockets.get(request.targetContainer)
+					if (!wsToContainer)
+					{
+						throw new Error("Socket to reach container name " + request.targetContainer + " is not listed as ever having opened.");
 					}
-					// Your logic here
+					console.log("sending to " + request.targetContainer + ": " + JSON.stringify(request));
+					wsToContainer.send(JSON.stringify(request));
+					
 				} catch (err) {
 					console.error('WebSocket message error:', err);
 					socket.send(JSON.stringify({ error: err.message }));

@@ -61,15 +61,17 @@ socketToBackend.on('open', () => {
 
 
 socketToBackend.on('message', (data) => {
-  const myClass = ClientRequest.fromWebsocketMessage(data.toString(), 666);
+  const clientRequest = JSON.parse(data);
   for (const taskKey in tasks) {
-    if (tasks[taskKey].url === myClass.url && tasks[taskKey].method === myClass.method) {
-      const result = tasks[taskKey].handler(myClass);
-      socketToBackend.send(result.payload);
+    if (tasks[taskKey].url === clientRequest.endpoint) {
+      console.log("Executing task handler for:" +taskKey);
+      const result = tasks[taskKey].handler(clientRequest);
+      console.log("Sending to backend: " + JSON.stringify(result.payload));
+      socketToBackend.send(JSON.stringify(result.payload));
       return;
     }
   }
-  console.warn('No matching task for URL:', myClass.url, 'and method:', myClass.method);
+  console.log('No matching task for URL:', clientRequest.endpoint, 'and method:', clientRequest.method);
 });
 
 socketToBackend.on('close', () => {

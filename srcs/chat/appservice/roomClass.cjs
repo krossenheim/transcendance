@@ -195,7 +195,7 @@ class ChatRooms {
 
 	addRoom(clientRequest)
 	{
-		const roomName = clientRequest.arguments.roomName;
+		const roomName = clientRequest.payload.roomName;
 		if (!roomName)
 			return (new MessageFromService(httpStatus.BAD_REQUEST, [ clientRequest.clientID ], g_myContainerName, new ErrorPayload("No room name given.", null)));
 		let room = new Room(roomName);
@@ -219,9 +219,9 @@ class ChatRooms {
 
 	sendMessage(clientRequest)
 	{
-		const fromUser = clientRequest.arguments.fromUser;
-		const roomName = clientRequest.arguments.roomName;
-		const message = clientRequest.arguments.messageSent;
+		const fromUser = clientRequest.payload.fromUser;
+		const roomName = clientRequest.payload.roomName;
+		const message = clientRequest.payload.messageSent;
 		if (!fromUser || !roomName || !message)
 			return (new MessageFromService(httpStatus.BAD_REQUEST, [], g_myContainerName, new ErrorPayload("Missing fromUser, roomName or messageSent argument.", null)));
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
@@ -232,9 +232,9 @@ class ChatRooms {
 
 	addUserToRoom(clientRequest)
 	{
-		const userRequesting = clientRequest.arguments.userRequesting;
-		const roomName = clientRequest.arguments.roomName;
-		const userToAdd = clientRequest.arguments.userToAdd;	
+		const userRequesting = clientRequest.payload.userRequesting;
+		const roomName = clientRequest.payload.roomName;
+		const userToAdd = clientRequest.payload.userToAdd;	
 		let targetRoom = this.rooms.find(room => roomName === room.roomName);
 		if (targetRoom == undefined)
 			return (new MessageFromService(httpStatus.NOT_FOUND, [], g_myContainerName, new ErrorPayload("Room " + roomName + " doesn't exist.", null)));
