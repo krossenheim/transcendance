@@ -61,13 +61,30 @@ socketToBackend.on('open', () => {
 
 
 socketToBackend.on('message', (data) => {
-  const clientRequest = JSON.parse(data);
+  let clientRequest;
+  try
+  {
+    clientRequest = JSON.parse(data);
+  }
+  catch (e)
+  {
+    console.log("Received malformed message from socket to backend: '" + data + "'");
+    return ;
+  }
   for (const taskKey in tasks) {
     if (tasks[taskKey].url === clientRequest.endpoint) {
       console.log("Executing task handler for:" +taskKey);
       const result = tasks[taskKey].handler(clientRequest);
-      console.log("Sending to backend: " + JSON.stringify(result.payload));
-      socketToBackend.send(JSON.stringify(result.payload));
+      if (result === undefined)
+      {
+         console.log("Handler did not return a value: " +taskKey);
+      }
+      console.log("Sending to backend: " + result.httpStatus);
+      console.log("Sending to backend: " + result.recipients);
+      console.log("Sending to backend: " + result.containerFrom);
+      console.log("Sending to backend: " + result.payload);
+
+      socketToBackend.send(JSON.stringify(result));
       return;
     }
   }

@@ -1,10 +1,9 @@
-const { containersNameToIp } = require('/appservice/container_names.cjs');
-
 class MessageFromService {
-    #containerFrom
-    #httpStatus
-    #payload
-    #recipients
+    toString() {
+    return `Status: ${this.httpStatus}, ` +
+           `ContainerFrom: ${this.containerFrom}, ` +
+           `Payload: ${JSON.stringify(this.payload)}`;
+    }
 
 	constructor(httpStatus, recipients, containerFrom, payload) 
 	{
@@ -13,53 +12,6 @@ class MessageFromService {
 		this.containerFrom = containerFrom;
 		this.payload = payload; 
 	}
-
-    get recipients()
-    {
-        return this.#recipients;
-    }
-
-    set recipients(value)
-    {
-        if (!Array.isArray(value)) {
-            throw new Error("recipients must be an array");
-        }
-        this.#recipients = value;
-    }
-
-    get containerFrom()
-    {
-        return (this.#containerFrom);
-    }
-
-    set containerFrom(value)
-    {
-        if (typeof value !== "string" || !containersNameToIp.has(value)) 
-            {
-                throw new Error("containerFrom (" + value + ") must be one of: " + Array.from(containersNameToIp.keys()).join(", "));
-            }
-        this.#containerFrom = value;
-    }
-
-    get payload()
-    {
-        return (this.#payload);
-    }
-
-    set payload(value)
-    {
-        this.#payload = value;
-    }
-
-    get httpStatus()
-    {
-        return (this.#httpStatus);
-    }
-
-    set httpStatus(value)
-    {
-        this.#httpStatus = value;
-    }
     
 }
 

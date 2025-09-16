@@ -75,6 +75,7 @@ function isAuthenticatedWebsocket(websocket, request, message) {
 function parse_websocket_message(message, socket) {
 	console.log("Parsing wsm: "+ message);
 	// Implement your message parsing logic here
+	
 	const jsonOut = JSON.parse(message);
 	const endpoint = jsonOut.endpoint;
 	if (!endpoint)
@@ -231,17 +232,24 @@ fastify.register(async function () {
 				interContainerNameToWebsockets.set(containerName, socket);
 				interContainerWebsocketsToName.set(socket, containerName);
 				console.log("wSocket from " + containerName + " established." )
+				socket.send("Hello from " + process.env.HUB_NAME + ", " + containerName);
 			}
 			socket.on('message', async message => {
 				console.log("Received on inter_container_api: " + message);
+				let messageFromService;
+				try
+				{
+					messageFromService = JSON.parse(message);
+				}	
+				catch (e)
+				{
+					console.log("Could not parse message into a JSON");
+				}
 				for (const [_socketToUser, user_id] of openSocketToUserID) 
 				{
-					console.log("Sending to userID " + user_id + "message ")
-					_socketToUser.send("Chat sent out:" + message);
+					console.log("Sending to userID:" + user_id +  "message:" + message.toString())
+					_socketToUser.send("Container : '" + containerName + "' sent out:" + message.toString());
 				}
-			});
-			socket.on('open', () => {
-				socket.send("Hello " + containerName);
 			});
 			// MessageFromService 
 			// Chatroom says to container/userlist in MessageFromService send payload in MessageFromService
