@@ -1,8 +1,10 @@
 'use strict'
 const { g_myContainerName } = require('/appservice/container_names.cjs');
 const { ClientRequest } = require('/appservice/client_request.cjs');
-
-const ipInDockerSubnet = require("/appservice/ip_in_docker_subnet.cjs")
+const { ErrorPayload } = require('/appservice/error_payload.cjs');
+const { MessageFromService } = require('/appservice/api_message.cjs');
+const { httpStatus } = require('/appservice/httpStatusEnum.cjs');
+const axios = require('axios');
 const fastify = require('fastify')({
   logger: {
     level: 'info', // or 'debug' for more verbosity
@@ -25,6 +27,36 @@ const { ChatRooms } = require("./roomClass.cjs");
 
 const singletonChatRooms = new ChatRooms();
 
+async function t1(requestbody) {
+  try {
+    const response = await axios.post(
+      `http://` + process.env.HUB_NAME + `:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api/subscribe_online_status`,
+      { subscribe: [1, 2, 3] }
+    );
+    const res = new MessageFromService(httpStatus.OK, null, 't1 test', { unsubscribe: response.data });
+    return (res);
+  } catch (err) {
+    const res = new MessageFromService(httpStatus.BAD_REQUEST, null, 't1 test', new ErrorPayload("Error", err.message));
+    return (res);
+  }
+
+}
+
+async function t2(requestbody) {
+  try {
+    const response = await axios.post(
+      `http://` + process.env.HUB_NAME + `:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api/unsubscribe_online_status`,
+      { subscribe: [1, 2, 3] }
+    );
+    const res = new MessageFromService(httpStatus.OK, null, 't2 test', { unsubscribe: response.data });
+    return (res);
+  } catch (err) {
+    const res = new MessageFromService(httpStatus.BAD_REQUEST, null, 't2 test', new ErrorPayload("Error", err.message));
+    return (res);
+  }
+
+}
+
 const tasks = {
   'ADD_A_NEW_ROOM': {
     url: '/api/new_room',
@@ -46,44 +78,54 @@ const tasks = {
     handler: singletonChatRooms.addUserToRoom.bind(singletonChatRooms),
     method: 'POST',
   },
+  'T1': {
+    url: '/api/t1',
+    handler: t1,
+    method: 'POST',
+  },
+  'T2': {
+    url: '/api/t2',
+    handler: t2,
+    method: 'POST',
+  },
 };
 
 //
 
 // map of function names and functions above
 const WebSocket = require('ws');
-const socketToBackend = new WebSocket('ws://' + process.env.HUB_NAME + ':3000/inter_container_api');
+const socketToBackend = new WebSocket('ws://' + process.env.HUB_NAME + ':3000/inter_api');
 
 socketToBackend.on('open', () => {
   console.log('I ' + g_myContainerName + ' connected.');
   socketToBackend.send('Container ' + g_myContainerName + ' connected.');
 });
 
+function isAsync(fn) {
+  return fn.constructor.name === 'AsyncFunction';
+}
 
-socketToBackend.on('message', (data) => {
+socketToBackend.on('message', async (data) => {
   let clientRequest;
-  try
-  {
+  try {
     clientRequest = JSON.parse(data);
   }
-  catch (e)
-  {
+  catch (e) {
     console.log("Received malformed message from socket to backend: '" + data + "'");
-    return ;
+    return;
   }
   for (const taskKey in tasks) {
     if (tasks[taskKey].url === clientRequest.endpoint) {
-      console.log("Executing task handler for:" +taskKey);
-      const result = tasks[taskKey].handler(clientRequest);
-      if (result === undefined)
-      {
-         console.log("Handler did not return a value: " +taskKey);
+      console.log("Executing task handler for:" + taskKey);
+      let result;
+      if (isAsync(tasks[taskKey].handler)) {
+        result = await tasks[taskKey].handler(clientRequest);
+      } else {
+        result = tasks[taskKey].handler(clientRequest);
       }
-      console.log("Sending to backend: " + result.httpStatus);
-      console.log("Sending to backend: " + result.recipients);
-      console.log("Sending to backend: " + result.containerFrom);
-      console.log("Sending to backend: " + result.payload);
-
+      if (result === undefined) {
+        console.log("Handler did not return a value: " + taskKey);
+      }
       socketToBackend.send(JSON.stringify(result));
       return;
     }

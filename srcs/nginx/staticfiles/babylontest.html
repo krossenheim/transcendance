@@ -54,7 +54,7 @@ const backgroundPlane = BABYLON.MeshBuilder.CreatePlane("backgroundPlane", { wid
 backgroundPlane.position.z = 8;
 
 // Create video texture from catground.mp4
-const videoTexture = new BABYLON.VideoTexture("videoTexture", ["https://localhost/static/catground.mp4"], scene, true, true);
+const videoTexture = new BABYLON.VideoTexture("videoTexture", ["https://localhost:4430/static/catground.mp4"], scene, true, true);
 
 // Video configuration with error handling
 videoTexture.video.addEventListener('loadeddata', () => {

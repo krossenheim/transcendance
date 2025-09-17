@@ -1,51 +1,61 @@
 <!DOCTYPE html>
 <html>
-  <head><title>WebSocket Test</title></head>
-  <body>
-    <h1>WebSocket Test</h1>
-     { "endpoint" : "/api/chat/new_room" , "payload": { "roomName": "a"} } <br>
-     { "endpoint" : "/api/chat/send_message_to_room" , "payload": { "fromUser": 1, "roomName" :"a", "messageSent":"B"} } <br>
-    <input id="myInput" type="text" placeholder="Type raw message" />
-    <button id="sendBtn">Send Raw</button>
 
-    <h2>Commands</h2>
-    <div>
-      <button onclick="ws.send('info')">Info</button>
-      <button onclick="ws.send('barf')">Barf</button>
-    </div>
+<head>
+  <title>WebSocket Test</title>
+</head>
 
-    <div>
-      <input id="roomName" placeholder="Room name" />
-      <button onclick="sendAddRoom()">Add Room</button>
-    </div>
+<body>
+  <h1>WebSocket Test</h1>
+  { "endpoint" : "/api/chat/new_room" , "payload": { "roomName": "a"} } <br>
+  { "endpoint" : "/api/chat/add_to_room" , "payload": { "roomName": "a", "userToAdd" : 2} } <br>
+  { "endpoint" : "/api/chat/send_message_to_room" , "payload": { "fromUser": 1, "roomName" :"a", "messageSent":"B"} }
+  <br>
+  <input id="myInput" type="text" placeholder="Type raw message" />
+  <button id="sendBtn">Send Raw</button>
+  <button onclick="reconnectSocket()">Reconnect</button>
+  <h2>Commands</h2>
+  <div>
+    <button onclick="ws.send('info')">Info</button>
+    <button onclick="ws.send('barf')">Barf</button>
+  </div>
 
-    <div>
-      <button onclick="ws.send('listRooms:')">List Rooms</button>
-    </div>
+  <div>
+    <input id="roomName" placeholder="Room name" />
+    <button onclick="sendAddRoom()">Add Room</button>
+  </div>
 
-    <div>
-      <input id="userAdds" placeholder="User adding" />
-      <input id="roomToAdd" placeholder="Room to add to" />
-      <input id="userToAdd" placeholder="User to add" />
-      <button onclick="sendAddToRoom()">Add To Room</button>
-    </div>
+  <div>
+    <button onclick="ws.send('listRooms:')">List Rooms</button>
+  </div>
 
-    <div>
-      <input id="fromUser" placeholder="From user" />
-      <input id="roomName" placeholder="Room name" />
-      <input id="messageSent" placeholder="Message" />
-      <button onclick="sendMessage()">Send Message</button>
-    </div>
+  <div>
+    <input id="userAdds" placeholder="User adding" />
+    <input id="roomToAdd" placeholder="Room to add to" />
+    <input id="userToAdd" placeholder="User to add" />
+    <button onclick="sendAddToRoom()">Add To Room</button>
+  </div>
 
-    <div id="status">Init...</div>
-    <button onclick="document.getElementById('messages').innerHTML = ''">Clear Output</button>
-    <div id="messages"></div>
-    <script>
+  <div>
+    <input id="fromUser" placeholder="From user" />
+    <input id="roomName" placeholder="Room name" />
+    <input id="messageSent" placeholder="Message" />
+    <button onclick="sendMessage()">Send Message</button>
+  </div>
+
+  <div id="status">Init...</div>
+  <button onclick="document.getElementById('messages').innerHTML = ''">Clear Output</button>
+  <div id="messages"></div>
+  <script>
+    let ws;
+
+    function connectSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(protocol + window.location.host + '/ws');
-      console.log("Open ws: " + protocol + window.location.host + '/ws');
-      document.getElementById('status').textContent =
-        'Connecting to ' + protocol + window.location.host + '/ws';
+      const wsUrl = protocol + '//' + window.location.host + '/ws';
+      console.log("Open ws: " + wsUrl);
+      document.getElementById('status').textContent = 'Connecting to ' + wsUrl;
+
+      ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         document.getElementById('status').textContent = 'Connected!';
@@ -64,37 +74,52 @@
       ws.onclose = () => {
         document.getElementById('status').textContent = 'Disconnected';
       };
+    }
 
-      function sendInput() {
-        const val = document.getElementById('myInput').value;
+    // Call it on page load
+    connectSocket();
+
+    function sendInput() {
+      const val = document.getElementById('myInput').value;
+      if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(val);
+      } else {
+        alert('WebSocket is not connected.');
       }
+    }
 
-      // Wire up raw send
-      document.getElementById('sendBtn').addEventListener('click', sendInput);
-      document.getElementById('myInput').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') sendInput();
-      });
-
-      // Button handlers
-      function sendAddRoom() {
-        const room = document.getElementById('roomName').value;
-        ws.send('addRoom:' + room);
+    function reconnectSocket() {
+      if (ws) {
+        ws.close(); // close the old one if still open
       }
+      connectSocket();
+    }
+    // Wire up raw send
+    document.getElementById('sendBtn').addEventListener('click', sendInput);
+    document.getElementById('myInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendInput();
+    });
 
-      function sendAddToRoom() {
-        const userAdds = document.getElementById('userAdds').value;
-        const roomToAdd = document.getElementById('roomToAdd').value;
-        const userToAdd = document.getElementById('userToAdd').value;
-        ws.send('addToRoom:' + userAdds + ':' + roomToAdd + ':' + userToAdd);
-      }
+    // Button handlers
+    function sendAddRoom() {
+      const room = document.getElementById('roomName').value;
+      ws.send('addRoom:' + room);
+    }
 
-      function sendMessage() {
-        const fromUser = document.getElementById('fromUser').value;
-        const roomName = document.getElementById('roomName').value;
-        const messageSent = document.getElementById('messageSent').value;
-        ws.send('sendMessage:' + fromUser + ':' + roomName + ':' + messageSent);
-      }
-    </script>
-  </body>
+    function sendAddToRoom() {
+      const userAdds = document.getElementById('userAdds').value;
+      const roomToAdd = document.getElementById('roomToAdd').value;
+      const userToAdd = document.getElementById('userToAdd').value;
+      ws.send('addToRoom:' + userAdds + ':' + roomToAdd + ':' + userToAdd);
+    }
+
+    function sendMessage() {
+      const fromUser = document.getElementById('fromUser').value;
+      const roomName = document.getElementById('roomName').value;
+      const messageSent = document.getElementById('messageSent').value;
+      ws.send('sendMessage:' + fromUser + ':' + roomName + ':' + messageSent);
+    }
+  </script>
+</body>
+
 </html>

@@ -1,15 +1,9 @@
 class MessageFromService {
-    toString() {
-    return `Status: ${this.httpStatus}, ` +
-           `ContainerFrom: ${this.containerFrom}, ` +
-           `Payload: ${JSON.stringify(this.payload)}`;
-    }
-
-	constructor(httpStatus, recipients, containerFrom, payload) 
+	constructor(httpStatus, recipients, endpoint, payload) 
 	{
         this.httpStatus = httpStatus;
 		this.recipients = recipients;
-		this.containerFrom = containerFrom;
+		this.endpoint = endpoint;
 		this.payload = payload; 
 	}
     

@@ -4,7 +4,7 @@ class ClientRequest
   {
     console.log(this.endpoint);
     console.log(this.payload);
-    console.log(this.clientID);
+    console.log(this.user_id);
     console.log(this.targetContainer);
     
   }
@@ -12,21 +12,21 @@ class ClientRequest
   {
     this.endpoint = endpoint;
     this.payload = payload;
-    this.clientID = clienTID;
+    this.user_id = clienTID;
     this.targetContainer = targetContainer;
   }
 
-  static fromHTTP(request, clientID, targetContainer)
+  static fromHTTP(request, user_id, targetContainer)
   {
     const instance = new ClientRequest();
     instance.endpoint = request.method;
     instance.payload = request.body;
-    instance.clientID = clientID;
+    instance.user_id = user_id;
     instance.targetContainer = targetContainer;
     return instance;
   }
 
-  static fromWebsocketMessage(stringmessage, clientID, targetContainer)
+  static fromWebsocketMessage(stringmessage, user_id, targetContainer)
   {
     console.log("Parsing message: " + stringmessage);
     let message = {}
@@ -38,7 +38,7 @@ class ClientRequest
     const instance = new ClientRequest();
     instance.endpoint = message.endpoint;
     instance.payload = message.payload;
-    instance.clientID = clientID;
+    instance.user_id = user_id;
     instance.targetContainer = targetContainer;
     return instance;
   }

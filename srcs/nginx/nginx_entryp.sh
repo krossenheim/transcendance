@@ -25,31 +25,34 @@ envsubst '${TR_NETWORK_SUBNET}' < /etc/nginx/un_expanded/nginx.conf.to_expand > 
 mkdir -p /etc/nginx/ssl
 cd /etc/nginx/ssl 
 
-echo "Signing certificate with server name ${SUBJECT}";
-openssl req -x509 -newkey rsa:4086 -keyout ${SERVER_NAME}.key -out ${SERVER_NAME}.crt -days 666 -nodes -subj "$SUBJECT"
+if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.key" ] || [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.crt" ]; then
+  echo "SSL certificate or key not found, generating self-signed certificate and key for ${SERVER_NAME}"
 
-cd
+  echo "Signing certificate with server name ${SUBJECT}";
+  openssl req -x509 -newkey rsa:4086 -keyout ${SERVER_NAME}.key -out ${SERVER_NAME}.crt -days 666 -nodes -subj "$SUBJECT"
 
-if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.crt" ]; then
-  echo "/etc/nginx/ssl/${SERVER_NAME}.crt not found, aborting."
-  exit 1
+  cd
+
+  if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.crt" ]; then
+    echo "/etc/nginx/ssl/${SERVER_NAME}.crt not found, aborting."
+    exit 1
+  fi
+
+  if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.key" ]; then
+    echo "/etc/nginx/ssl/${SERVER_NAME}.key  not found, aborting."
+    exit 1
+  fi
+
+  rm -f /var/www/html/index.nginx-debian.html
+
+
+  if ! nginx -t; then
+    cat /etc/nginx/nginx.conf
+    cat /etc/nginx/sites-enabled/mysite.conf
+    echo "Command 'nginx -t' failed, above are the configs!"
+    tail -f /dev/null  # keep container alive or
+  fi
 fi
-
-if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.key" ]; then
-  echo "/etc/nginx/ssl/${SERVER_NAME}.key  not found, aborting."
-  exit 1
-fi
-
-rm -f /var/www/html/index.nginx-debian.html
-
-
-if ! nginx -t; then
-  cat /etc/nginx/nginx.conf
-  cat /etc/nginx/sites-enabled/mysite.conf
-  echo "Command 'nginx -t' failed, above are the configs!"
-  tail -f /dev/null  # keep container alive or
-fi
-
 
 
 exec "$@" # Very important otherwise the CMD on the dockerfile won't really run. It also makes that CMD run as PID 1. Which is good. For reasons.
