@@ -19,6 +19,8 @@ const openUserIdToSocket = new Map();
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
 
+const proxyRequest = require('/appservice/proxyRequest.cjs')
+
 const fastify = require("fastify")({
   logger: {
     level: "info", // or 'debug' for more verbosity
@@ -232,31 +234,6 @@ fastify.register(async function (instance) {
     await proxyRequest(req, reply, req.method, url);
   });
 });
-
-async function proxyRequest(req, reply, method, url) {
-  console.log(`Proxying ${method} request to: ${url}`);
-  console.log(req.headers);
-  console.log(req.body);
-  console.log(req.query);
-  try {
-    const response = await axios({
-      method,
-      url,
-      headers: {
-        ...req.headers,
-        host: undefined,
-        connection: undefined,
-      },
-      data: req.body,
-      params: req.query,
-      validateStatus: () => true,
-    });
-    reply.code(response.status).send(response.data);
-  } catch (error) {
-    console.error("Error proxying request:", error);
-    reply.code(500).send({ error: "Internal Server Error: " + error.message });
-  }
-}
 
 fastify.register(async function () {
   fastify.post("/inter_api/subscribe_online_status", async (req, reply) => {
