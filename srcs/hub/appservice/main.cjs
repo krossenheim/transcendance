@@ -82,7 +82,6 @@ function isAuthenticatedWebsocket(websocket, request, message) {
 }
 
 function parse_websocket_message(message, socket) {
-  console.log("Parsing wsm: " + message);
   let jsonOut;
   try {
     jsonOut = JSON.parse(message);
@@ -295,16 +294,15 @@ fastify.register(async function () {
         );
       }
       socket.on("message", async (ws_input) => {
-        console.log("Received on inter_api: " + ws_input);
         let messageFromService;
         try {
           const parsed = JSON.parse(ws_input);
           Object.setPrototypeOf(parsed, MessageFromService.prototype);
           messageFromService = parsed;
           messageFromService.containerFrom = containerName;
-          console.log(messageFromService);
+          console.log("Parsed " + messageFromService);
         } catch (e) {
-          console.error("Exception parsing message, ignoring the gabagool");
+          console.error("Exception (" + e.message + ") parsing message " + ws_input);
           return;
         }
         if (messageFromService.isForHub()) {
@@ -323,6 +321,10 @@ fastify.register(async function () {
         } else if (messageFromService.isForUsers()) {
           const recipients = messageFromService.recipients;
           delete messageFromService.recipients;
+          if (!recipients)
+          {
+            throw new Error("Message with a non-null, empty Array of recipients was parsed, message was: " + messageFromService + ".\n websocket received ws_input:" + ws_input);
+          }
           for (const user_id of recipients || []) {
             const socketToUser = openUserIdToSocket.get(user_id);
             if (socketToUser) {

@@ -26,7 +26,7 @@ class Room {
   constructor(roomName) {
     this.roomName = roomName;
     this.users = new Array();
-    this.users.push("a", "b", "c"); // for testing
+    this.users.push(); // for testing
     this.messages = new FixedSizeList(20);
     this.allowedUsers = new Array();
   }

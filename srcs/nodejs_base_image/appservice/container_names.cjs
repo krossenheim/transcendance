@@ -35,7 +35,7 @@ const containersNameToIp = new Map();
 
 // hardcoded names here
 
-containersIpToName.set(process.env.NGINX_IPV4_ADDRESS, process.env.NGINX_NAME);
+// containersIpToName.set(process.env.NGINX_IPV4_ADDRESS, process.env.NGINX_NAME);
 containersIpToName.set(process.env.CHATROOM_IPV4_ADDRESS, process.env.CHATROOM_NAME);
 containersIpToName.set(process.env.DATABASE_IPV4_ADDRESS, process.env.DATABASE_NAME);
 containersIpToName.set(process.env.AUTH_IPV4_ADDRESS, process.env.AUTH_NAME);
