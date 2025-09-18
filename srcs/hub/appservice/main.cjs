@@ -313,23 +313,6 @@ fastify.register(async function () {
           console.error("Exception parsing message, ignoring the gabagool");
           return;
         }
-        if (true && true && true && "so_true") {
-          // Wee woo debug
-          for (const [_socketToUser, user_id] of openSocketToUserID) {
-            console.log(
-              "Sending DEBUG userID:" +
-                user_id +
-                "message:" +
-                JSON.stringify(messageFromService)
-            );
-            _socketToUser.send(
-              "DEBUG, container '" +
-                containerName +
-                "' sent out:" +
-                JSON.stringify(messageFromService)
-            );
-          }
-        }
         if (messageFromService.isForHub()) {
           const handler_output = await getHubTaskOutput(messageFromService);
           const socketToService =
