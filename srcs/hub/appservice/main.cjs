@@ -143,7 +143,7 @@ fastify.register(async function (instance) {
       if (!openSocketToUserID.has(socket)) {
         openSocketToUserID.set(socket, { user_id: connectionCounttempid });
         openUserIdToSocket.set(connectionCounttempid, socket);
-        socket.send("WELCOME SOCKET!");
+        socket.send(JSON.stringify({ user_id: connectionCounttempid }));
         console.log("Added user id " + connectionCounttempid + " socket map.");
         connectionCounttempid++;
       }
@@ -245,9 +245,6 @@ fastify.register(async function () {
     const result = await tasksForHub["SUBSCRIBE_ONLINE_STATUS"].handler(
       customMessage
     );
-    if (result === undefined) {
-      console.log("UUANDFEEE");
-    }
     console.log("Result:" + result);
     reply.code(result.httpStatus).send(result);
   });
@@ -262,9 +259,6 @@ fastify.register(async function () {
     const result = await tasksForHub["UNSUBSCRIBE_ONLINE_STATUS"].handler(
       customMessage
     );
-    if (result === undefined) {
-      console.log("UUANDFEEE");
-    }
     reply.code(result.httpStatus).send(result);
   });
 
