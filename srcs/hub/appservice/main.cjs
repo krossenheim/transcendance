@@ -8,6 +8,10 @@ const {
 } = require("/appservice/container_names.cjs");
 const { ClientRequest } = require("/appservice/client_request.cjs");
 const { MessageFromService } = require("/appservice/api_message.cjs");
+const {
+  tasksForHub,
+  servicesSubscribedToUsers,
+} = require("/appservice/hub_tasks.cjs");
 
 // Maps holding user to websocket and containername to websocket relationships
 const openSocketToUserID = new Map();
@@ -77,17 +81,12 @@ function isAuthenticatedWebsocket(websocket, request, message) {
 
 function parse_websocket_message(message, socket) {
   console.log("Parsing wsm: " + message);
-  // Implement your message parsing logic here
-
   let jsonOut;
-  try
-  {
+  try {
     jsonOut = JSON.parse(message);
-  }
-  catch (e)
-  {
-    console.log("Couldn't parse:" +message);
-    return ;
+  } catch (e) {
+    console.log("Couldn't parse:" + message);
+    return;
   }
   const endpoint = jsonOut.endpoint;
   if (!endpoint) socket.send({ error: "No endpoint specified in message" });
@@ -150,6 +149,11 @@ fastify.register(async function (instance) {
       socket.on("message", async (message) => {
         try {
           const request = parse_websocket_message(message, socket);
+          if (!request)
+          {
+            console.log("Message cant be parsed: " + message);
+            return ;
+          }
           if (!request.endpoint.startsWith("/api/public/")) {
             if (!isAuthenticatedWebsocket(socket, req, message)) {
               const user_id = messageAuthenticatesSocket(message);
@@ -254,260 +258,6 @@ async function proxyRequest(req, reply, method, url) {
   }
 }
 
-// Inter container below
-
-const subscriptions = new Map();
-// subscriptions[container name here] = user ids to notify of online status changes
-for (const key of Object.keys(containersNameToIp)) {
-  subscriptions[key] = 0;
-  // 0 For no one, 1 for everyone, list for specific users
-}
-
-async function subscribe_online_status_handler(subscriptionRequestBody) {
-  if (subscriptionRequestBody.subscribe === undefined) {
-    console.error(
-      "No subscription request in subscriptionRequestBody from " +
-        subscriptionRequestBody.containerFrom
-    );
-    return new MessageFromService(
-      httpStatus.BAD_REQUEST,
-      null,
-      "subscribe_online_status",
-      {
-        error: "No subscription request",
-      }
-    );
-  }
-
-  if (Array.isArray(subscriptionRequestBody.subscribe)) {
-    let bool_was_modified = false;
-    const current_val = subscriptions[subscriptionRequestBody.containerFrom];
-    if (current_val === 1)
-      return new MessageFromService(
-        httpStatus.OK,
-        null,
-        "subscribe_online_status",
-        {
-          message: "Already subscribed to all users",
-        }
-      );
-    if (!Array.isArray(current_val))
-      subscriptions[subscriptionRequestBody.containerFrom] = [];
-
-    if (subscriptionRequestBody.replace) {
-      subscriptions[subscriptionRequestBody.containerFrom] =
-        subscriptionRequestBody.subscribe;
-    } else {
-      for (const user_id of subscriptionRequestBody.subscribe) {
-        if (
-          subscriptions[subscriptionRequestBody.containerFrom].includes(user_id)
-        )
-          continue;
-        subscriptions[subscriptionRequestBody.containerFrom].push(user_id);
-        bool_was_modified = true;
-      }
-    }
-    const httpStatusToReturn = bool_was_modified
-      ? httpStatus.OK
-      : httpStatus.ALREADY_REPORTED;
-    const message = bool_was_modified
-      ? "Subscribed to specific users"
-      : "No new users were added to subscription list";
-    console.log(
-      "Subscriptions for " +
-        subscriptionRequestBody.containerFrom +
-        " now: " +
-        subscriptions[subscriptionRequestBody.containerFrom]
-    );
-    return new MessageFromService(
-      httpStatusToReturn,
-      null,
-      "subscribe_online_status",
-      {
-        message,
-      }
-    );
-  } else if (subscriptionRequestBody.subscribe === "ALL") {
-    subscriptions[subscriptionRequestBody.containerFrom] = 1;
-    return new MessageFromService(
-      httpStatus.OK,
-      null,
-      "subscribe_online_status",
-      {
-        message: "Subscribed to all users",
-      }
-    );
-  } else if (subscriptionRequestBody.subscribe === "NONE") {
-    subscriptions[subscriptionRequestBody.containerFrom] = 0;
-    return new MessageFromService(
-      httpStatus.OK,
-      null,
-      "subscribe_online_status",
-      {
-        message: "Unsubscribed from all users",
-      }
-    );
-  } else {
-    console.error(
-      "Invalid subscription request in subscriptionRequestBody from " +
-        subscriptionRequestBody.containerFrom
-    );
-    return new MessageFromService(
-      httpStatus.BAD_REQUEST,
-      null,
-      "subscribe_online_status",
-      {
-        error: "Invalid subscription request",
-      }
-    );
-  }
-}
-
-async function unsubscribe_online_status_handler(subscriptionRequestBody) {
-  if (subscriptionRequestBody.subscribe === undefined) {
-    console.error(
-      "No subscription request in subscriptionRequestBody from " +
-        subscriptionRequestBody.containerFrom
-    );
-    return new MessageFromService(
-      httpStatus.BAD_REQUEST,
-      null,
-      "unsubscribe_online_status",
-      {
-        error: "No subscription request",
-      }
-    );
-  }
-
-  if (Array.isArray(subscriptionRequestBody.subscribe)) {
-    if (!Array.isArray(subscriptions[subscriptionRequestBody.containerFrom]))
-      return new MessageFromService(
-        httpStatus.BAD_REQUEST,
-        null,
-        "unsubscribe_online_status",
-        {
-          error: "No specific users subscribed",
-        }
-      );
-
-    for (const user_id of subscriptionRequestBody.subscribe) {
-      const index =
-        subscriptions[subscriptionRequestBody.containerFrom].indexOf(user_id);
-      if (index < 0)
-        return new MessageFromService(
-          httpStatus.BAD_REQUEST,
-          null,
-          "unsubscribe_online_status",
-          {
-            error:
-              "User id " +
-              user_id +
-              " not found in subscription list of " +
-              subscriptionRequestBody.containerFrom,
-          }
-        );
-      subscriptions[subscriptionRequestBody.containerFrom].splice(index, 1);
-    }
-
-    return new MessageFromService(
-      httpStatus.OK,
-      null,
-      "unsubscribe_online_status",
-      {
-        message: "Unsubscribed from specific users",
-      }
-    );
-  } else if (subscriptionRequestBody.subscribe === "ALL") {
-    subscriptions[subscriptionRequestBody.containerFrom] = 0;
-    return new MessageFromService(
-      httpStatus.OK,
-      null,
-      "unsubscribe_online_status",
-      {
-        message: "Unsubscribed from all users",
-      }
-    );
-  } else {
-    console.error(
-      "Invalid subscription request in subscriptionRequestBody from " +
-        subscriptionRequestBody.containerFrom
-    );
-    return new MessageFromService(
-      httpStatus.BAD_REQUEST,
-      null,
-      "unsubscribe_online_status",
-      {
-        error: "Invalid subscription request",
-      }
-    );
-  }
-}
-
-const tasksForHub = {
-  SUBSCRIBE_ONLINE_STATUS: {
-    url: "/inter_api/subscribe_online_status",
-    handler: subscribe_online_status_handler,
-    method: "POST",
-  },
-  UNSUBSCRIBE_ONLINE_STATUS: {
-    url: "/inter_api/unsubscribe_online_status",
-    handler: unsubscribe_online_status_handler,
-    method: "POST",
-  },
-};
-
-async function proxyMessageToService(messageFromService) {
-  Object.setPrototypeOf(messageFromService, MessageFromService);
-  for (const [task_name, task] of tasksForHub) {
-    if (messageFromService.endpoint !== task.url) continue;
-
-    console.log(
-      "Running task '" + task_name + "', " + messageFromService.toString()
-    );
-    const result = await task.handler(messageFromService);
-    if (!result) {
-      console.error(
-        "Result for url/endpoint handler returned falsy value:'" + result + "'"
-      );
-      break;
-    }
-    const socketToService = interContainerNameToWebsockets.get(containerName);
-    if (!socketToService) {
-      console.error(
-        "Socket to container_name:'" +
-          containerName +
-          "' isn't in our Map() of known services."
-      );
-      break;
-    }
-    console.log("Sent message: " + messageFromService.toString());
-    socketToService.send(result);
-    break;
-  }
-}
-async function proxyMessageToUsers(messageFromService) {
-  const recipients = messageFromService.recipients;
-  delete messageFromService.recipients;
-  for (const user_id of recipients || []) {
-    const socketToUser = openUserIdToSocket.get(user_id);
-    if (socketToUser) {
-      console.log(
-        "Sending to userID:" +
-          user_id +
-          "message:" +
-          JSON.stringify(messageFromService)
-      );
-      socketToUser.send(
-        "container '" +
-          messageFromService.containerFrom +
-          "' sent out:" +
-          JSON.stringify(messageFromService)
-      );
-    }
-    // inform container that whatever
-  }
-}
-
 fastify.register(async function () {
   fastify.post("/inter_api/subscribe_online_status", async (req, reply) => {
     const customMessage = req.body;
@@ -516,7 +266,12 @@ fastify.register(async function () {
         ? req.socket.remoteAddress.slice(7)
         : req.socket.remoteAddress
     );
-    const result = subscribe_online_status_handler(customMessage);
+    const result = await tasksForHub["SUBSCRIBE_ONLINE_STATUS"].handler(customMessage);
+    if (result === undefined)
+    {
+      console.log("UUANDFEEE");
+    }
+    console.log("Result:" + result);
     reply.code(result.httpStatus).send(result);
   });
 
@@ -527,7 +282,11 @@ fastify.register(async function () {
         ? req.socket.remoteAddress.slice(7)
         : req.socket.remoteAddress
     );
-    const result = unsubscribe_online_status_handler(customMessage);
+    const result = await tasksForHub["UNSUBSCRIBE_ONLINE_STATUS"].handler(customMessage);
+        if (result === undefined)
+    {
+      console.log("UUANDFEEE");
+    }
     reply.code(result.httpStatus).send(result);
   });
 
@@ -591,9 +350,38 @@ fastify.register(async function () {
           }
         }
         if (messageFromService.isForHub()) {
-          await proxyMessageToService(messageFromService);
+          const handler_output = await getHubTaskOutput(messageFromService);
+          const socketToService =
+            interContainerNameToWebsockets.get(containerName);
+          if (!socketToService) {
+            console.error(
+              "Socket to container_name:'" +
+                containerName +
+                "' isn't in our Map() of known services."
+            );
+          }
+          console.log("Sent message: " + messageFromService.toString());
+          socketToService.send(handler_output);
         } else if (messageFromService.isForUsers()) {
-          await proxyMessageToUsers(messageFromService);
+          const recipients = messageFromService.recipients;
+          delete messageFromService.recipients;
+          for (const user_id of recipients || []) {
+            const socketToUser = openUserIdToSocket.get(user_id);
+            if (socketToUser) {
+              console.log(
+                "Sending to userID:" +
+                  user_id +
+                  "message:" +
+                  JSON.stringify(messageFromService)
+              );
+              socketToUser.send(
+                "container '" +
+                  messageFromService.containerFrom +
+                  "' sent out:" +
+                  JSON.stringify(messageFromService)
+              );
+            }
+          }
         } else {
           console.error(
             "A message wasn't meant for hub or users, message was:\n" + message

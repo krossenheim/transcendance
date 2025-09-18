@@ -18,7 +18,7 @@ class MessageFromService {
 	return (
 		"Human readable 'MessageFromServer' instance:\n" +
 		"httpStatus: " + this.httpStatus + "\n" +
-		"recipients: " + Array.isArray(this.recipients) ? this.recipients.join(", ") : this.recipients + "\n" +
+		"recipients: " + Array.isArray(this.recipients) && this.recipients ? this.recipients.join(", ") : this.recipients + "\n" +
 		"endpoint: " + this.endpoint + "\n" +
 		"payload: " + safeStringify(this.payload) + "\n"
 	);
