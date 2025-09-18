@@ -19,7 +19,7 @@ const openUserIdToSocket = new Map();
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
 
-const proxyRequest = require('/appservice/proxyRequest.cjs')
+const proxyRequest = require("/appservice/proxyRequest.cjs");
 
 const fastify = require("fastify")({
   logger: {
@@ -151,10 +151,9 @@ fastify.register(async function (instance) {
       socket.on("message", async (message) => {
         try {
           const request = parse_websocket_message(message, socket);
-          if (!request)
-          {
+          if (!request) {
             console.log("Message cant be parsed: " + message);
-            return ;
+            return;
           }
           if (!request.endpoint.startsWith("/api/public/")) {
             if (!isAuthenticatedWebsocket(socket, req, message)) {
@@ -243,9 +242,10 @@ fastify.register(async function () {
         ? req.socket.remoteAddress.slice(7)
         : req.socket.remoteAddress
     );
-    const result = await tasksForHub["SUBSCRIBE_ONLINE_STATUS"].handler(customMessage);
-    if (result === undefined)
-    {
+    const result = await tasksForHub["SUBSCRIBE_ONLINE_STATUS"].handler(
+      customMessage
+    );
+    if (result === undefined) {
       console.log("UUANDFEEE");
     }
     console.log("Result:" + result);
@@ -259,9 +259,10 @@ fastify.register(async function () {
         ? req.socket.remoteAddress.slice(7)
         : req.socket.remoteAddress
     );
-    const result = await tasksForHub["UNSUBSCRIBE_ONLINE_STATUS"].handler(customMessage);
-        if (result === undefined)
-    {
+    const result = await tasksForHub["UNSUBSCRIBE_ONLINE_STATUS"].handler(
+      customMessage
+    );
+    if (result === undefined) {
       console.log("UUANDFEEE");
     }
     reply.code(result.httpStatus).send(result);
@@ -279,9 +280,12 @@ fastify.register(async function () {
           : req.socket.remoteAddress;
       const containerName = containersIpToName.get(socket.ipv6_to_ipv4_address);
       if (containerName === undefined) {
-        socket.send(
-          "Goodbye, unauthorized container (Couldnt determine the name of address: '" +
+        socket.send("Goodbye, unauthorized");
+        console.error(
+          "Undefined container name, socket address was: " +
             req.socket.remoteAddress +
+            " parsed into : '" +
+            socket.ipv6_to_ipv4_address +
             "'"
         );
         socket.close(1008, "Unauthorized container");

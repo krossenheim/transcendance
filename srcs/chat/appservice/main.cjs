@@ -57,7 +57,7 @@ async function t2(requestbody) {
 
 }
 
-const tasks = {
+const chatRoomTasks = {
   'ADD_A_NEW_ROOM': {
     url: '/api/new_room',
     handler: singletonChatRooms.addRoom.bind(singletonChatRooms),
@@ -92,84 +92,23 @@ const tasks = {
 
 //
 
-// map of function names and functions above
-const WebSocket = require('ws');
-const socketToBackend = new WebSocket('ws://' + process.env.HUB_NAME + ':3000/inter_api');
-
-socketToBackend.on('open', () => {
-  console.log('I ' + g_myContainerName + ' connected.');
-  socketToBackend.send('Container ' + g_myContainerName + ' connected.');
-});
-
-function isAsync(fn) {
-  return fn.constructor.name === 'AsyncFunction';
-}
-
-socketToBackend.on('message', async (data) => {
-  let clientRequest;
-  try {
-    clientRequest = JSON.parse(data);
-  }
-  catch (e) {
-    console.log("Received malformed message from socket to backend: '" + data + "'");
-    return;
-  }
-  for (const taskKey in tasks) {
-    if (tasks[taskKey].url === clientRequest.endpoint) {
-      console.log("Executing task handler for:" + taskKey);
-      let result;
-      if (isAsync(tasks[taskKey].handler)) {
-        result = await tasks[taskKey].handler(clientRequest);
-      } else {
-        result = tasks[taskKey].handler(clientRequest);
-      }
-      if (result === undefined) {
-        console.log("Handler did not return a value: " + taskKey);
-      }
-      socketToBackend.send(JSON.stringify(result));
-      return;
-    }
-  }
-  console.log('No matching task for URL:', clientRequest.endpoint, 'and method:', clientRequest.method);
-});
-
-socketToBackend.on('close', () => {
-  console.log('Websocket connection closed');
-});
-
-socketToBackend.on('error', (err) => {
-  console.error('Error:', err);
-});
-
-// Websocket behaviour above
-// --- --- --- --- --- --- --- --- --- --- ---
-// 
-// --- --- --- --- --- --- --- --- --- --- ---
-// Urls<->methods below
-for (const taskKey in tasks) {
+const { socketToHub, setSocketOnMessageHandler } = require("/appservice/socket_to_hub.cjs");
+// ws handler
+setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
+// http handling
+for (const taskKey in chatRoomTasks) {
   fastify.register(async function (fastify) {
     fastify.route({
-      method: tasks[taskKey].method,
-      url: tasks[taskKey].url,
+      method: chatRoomTasks[taskKey].method,
+      url: chatRoomTasks[taskKey].url,
       handler: (req, reply) => {
-        const myClass = ClientRequest.fromHTTP(req, 666);
-        const result = tasks[taskKey].handler(myClass);
+        const client_request = ClientRequest.fromHTTP(req, 666);
+        const result = chatRoomTasks[taskKey].handler(client_request);
         return reply.status(result.httpStatus).send(result.payload);
       },
     });
   });
 }
-
-fastify.register(async function () {
-  fastify.route({
-    method: 'GET',
-    url: '/api/*',
-    handler: (req, reply) => {
-      // this will handle http requests
-      reply.redirect('/');
-    },
-  })
-})
 
 fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.CHATROOM_BIND_TO }, err => {
   if (err) {
