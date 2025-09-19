@@ -31,12 +31,10 @@ class Room {
 
   addUser(client_request) {
     const { user_id, added_user_id, room_name } = client_request;
-    if (!user_id)
-    {
-            throw new Error(
-        `No user_id, request was: ${JSON.stringify(
-          client_request
-        )}`)
+    if (!user_id) {
+      throw new Error(
+        `No user_id, request was: ${JSON.stringify(client_request)}`
+      );
     }
     if (room_name != this.room_name) {
       console.error(
@@ -50,23 +48,18 @@ class Room {
         )}`
       );
     }
-    
-    if (!added_user_id) {
+
+    if (!added_user_id || added_user_id === user_id) {
       console.log(
-        `missing added_user_id, request was: ${JSON.stringify(client_request)}`
+        `missing or bad added_user_id, request was: ${JSON.stringify(client_request)}`
       );
       return {
         status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
         func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text:
-          "Room " +
-          requestedroom +
-          " doesn't exist or user_id " +
-          room_name +
-          "isnt in it.",
+        pop_up_text: "No or bad added_user_id field found",
       };
-    }    
+    }
     if (!this.isUserInThisRoom(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
@@ -93,7 +86,6 @@ class Room {
         room_name: this.room_name,
         message: `User ${added_user_id} already in room ${room_name}.`,
       };
-    this.users.push(added_user_id);
     return {
       status: httpStatus.OK,
       recipients: this.users,
@@ -177,7 +169,7 @@ class ChatRooms {
         status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
         func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text:"No room_name given.",
+        pop_up_text: "No room_name given.",
       };
     let room = new Room(room_name);
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
@@ -209,10 +201,9 @@ class ChatRooms {
 
   sendMessage(client_request) {
     const { user_id, room_name, message } = client_request;
-    if (!user_id || !room_name || !message)
-    {
+    if (!user_id || !room_name || !message) {
       console.error("request missing fields, request was:" + client_request);
-      return ;
+      return;
     }
     let targetRoom = this.rooms.find((room) => room_name === room.room_name);
     if (targetRoom == undefined)
@@ -220,21 +211,26 @@ class ChatRooms {
         status: httpStatus.NOT_FOUND,
         recipients: [user_id],
         func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text:"Room " + room_name + " doesn't exist.",
+        pop_up_text: "Room " + room_name + " doesn't exist.",
       };
 
     return targetRoom.sendMessage(client_request);
   }
 
   addUserToRoom(client_request) {
-    const room_name = client_request.room_name;
+    
+    const {user_id, room_name} = client_request;
+    if (!user_id)
+    {
+      throw new Error("No userid for request");
+    }
     let targetRoom = this.rooms.find((room) => room_name === room.room_name);
     if (targetRoom == undefined)
       return {
         status: httpStatus.NOT_FOUND,
         recipients: [user_id],
         func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text:"Room " + room_name + " doesn't exist.",
+        pop_up_text: "Room " + room_name + " doesn't exist.",
       };
 
     return targetRoom.addUser(client_request);
