@@ -31,18 +31,42 @@ class Room {
 
   addUser(client_request) {
     const { user_id, added_user_id, room_name } = client_request;
+    if (!user_id)
+    {
+            throw new Error(
+        `No user_id, request was: ${JSON.stringify(
+          client_request
+        )}`)
+    }
     if (room_name != this.room_name) {
       console.error(
         `Room name doesn't match the requested name, request was: ${JSON.stringify(
           client_request
         )}`
       );
-      throw Error(
+      throw new Error(
         `Room name doesn't match the requested name, request was: ${JSON.stringify(
           client_request
         )}`
       );
     }
+    
+    if (!added_user_id) {
+      console.log(
+        `missing added_user_id, request was: ${JSON.stringify(client_request)}`
+      );
+      return {
+        status: httpStatus.BAD_REQUEST,
+        recipients: [user_id],
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text:
+          "Room " +
+          requestedroom +
+          " doesn't exist or user_id " +
+          room_name +
+          "isnt in it.",
+      };
+    }    
     if (!this.isUserInThisRoom(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
@@ -52,7 +76,8 @@ class Room {
       return {
         status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
-        error:
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text:
           "Room " +
           requestedroom +
           " doesn't exist or user_id " +
@@ -66,7 +91,7 @@ class Room {
         recipients: [user_id],
         func_name: process.env.FUNC_POPUP_TEXT,
         room_name: this.room_name,
-        message: `User ${user_id} already in room ${room_name}.`,
+        message: `User ${added_user_id} already in room ${room_name}.`,
       };
     this.users.push(added_user_id);
     return {
@@ -101,7 +126,8 @@ class Room {
       return {
         status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
-        error:
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text:
           "Room " +
           requestedroom +
           " doesn't exist or user_id " +
@@ -150,13 +176,16 @@ class ChatRooms {
       return {
         status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
-        error: "No room_name given.",
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text:"No room_name given.",
       };
     let room = new Room(room_name);
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
       return {
+        status: httpStatus.ALREADY_REPORTED,
         recipients: [user_id],
-        error: "Room already exists.",
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text: "Room already exists.",
       };
     room.users.push(user_id);
     room.allowedUsers.push(user_id);
@@ -179,21 +208,19 @@ class ChatRooms {
   }
 
   sendMessage(client_request) {
-    const user_id = client_request.user_id;
-    const room_name = client_request.room_name;
-    const message = client_request.message;
+    const { user_id, room_name, message } = client_request;
     if (!user_id || !room_name || !message)
-      return {
-        status: httpStatus.NOT_FOUND,
-        recipients: user_id,
-        error: "Missing user_id, room_name or message argument.",
-      };
+    {
+      console.error("request missing fields, request was:" + client_request);
+      return ;
+    }
     let targetRoom = this.rooms.find((room) => room_name === room.room_name);
     if (targetRoom == undefined)
       return {
         status: httpStatus.NOT_FOUND,
-        recipients: user_id,
-        error: "Room " + room_name + " doesn't exist.",
+        recipients: [user_id],
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text:"Room " + room_name + " doesn't exist.",
       };
 
     return targetRoom.sendMessage(client_request);
@@ -205,8 +232,9 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         status: httpStatus.NOT_FOUND,
-        recipients: user_id,
-        error: "Room " + room_name + " doesn't exist.",
+        recipients: [user_id],
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text:"Room " + room_name + " doesn't exist.",
       };
 
     return targetRoom.addUser(client_request);

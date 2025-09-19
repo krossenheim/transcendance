@@ -99,7 +99,11 @@
 
         const { func_name, func_args } = parsed;
 
-        if (!func_name || !handlers[func_name]) {
+        if (!func_name) {
+          console.warn("can't unpack func_name from parsed");
+          return;
+        }
+          if (!handlers[func_name]) {
           console.warn("Unknown function:", func_name);
           return;
         }
