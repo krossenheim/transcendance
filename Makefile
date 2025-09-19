@@ -59,7 +59,7 @@ clean:
 	rm -rf "$(VOLUMES_DIR)"
 
 babylon:
-	 docker cp "$(PROJECT_ROOT)srcs/nginx/staticfiles/babylontest.html" nginx:/var/www/html/babylontest.html
+	 docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/ nginx:/var/www/html/
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"

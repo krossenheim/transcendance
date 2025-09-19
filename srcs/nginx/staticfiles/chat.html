@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chat Window</title>
+    <style>
+      #chatWindow {
+        width: 400px;
+        height: 500px;
+        border: 1px solid #ccc;
+        display: flex;
+        flex-direction: column;
+        resize: both;
+        overflow: hidden;
+      }
+      #chatBox {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        background: #f9f9f9;
+        font-family: sans-serif;
+        font-size: 14px;
+      }
+      #inputBar {
+        display: flex;
+        border-top: 1px solid #ccc;
+      }
+      #messageInput {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        outline: none;
+        font-size: 14px;
+      }
+      #sendButton {
+        padding: 8px 12px;
+        border: none;
+        background: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+      #sendButton:hover {
+        background: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    { "endpoint" : "/api/chat/add_room","room_name":"a"} { "endpoint" :
+    "/api/chat/add_to_room" , "user_to_add":"jo","room_name":"a"} { "endpoint" :
+    "/api/chat/send_message" , "message":"Jolly connotat","room_name":"a"}
+    <div id="chatWindow">
+      <div id="chatBox" class="chat-room" data-room-name="a"></div>
+      <div id="inputBar">
+        <input type="text" id="messageInput" placeholder="Type a message..." />
+        <button id="sendButton">Send</button>
+      </div>
+      <div id="inputBar">
+        <input
+          type="text"
+          id="createRoomInput"
+          placeholder="Type a message..."
+        />
+        <button id="createRoomButton">Send</button>
+      </div>
+      <div id="inputBar">
+        <input type="text" id="addUserInput" placeholder="Type a message..." />
+        <button id="addUserButton">Send</button>
+      </div>
+    </div>
+
+    <script type="module">
+      const handlers = {
+        chatAddMessageToRoom: (parsedEventData) => {
+          const { room_name, message } = parsedEventData;
+          if (!room_name || !message) {
+            console.log(
+              "Missing arguments to call " + parsedEventData.func_name
+            );
+            return;
+          }
+          addMessageToRoom(room_name, message);
+        },
+        // add more functions here...
+      };
+      import ws from "/static/websocket.js";
+
+      ws.addEventListener("open", () => {
+        console.log("Connected to server.");
+      });
+
+      ws.addEventListener("message", (event) => {
+        let parsed;
+        try {
+          parsed = JSON.parse(event.data);
+        } catch (e) {
+          console.error("Invalid JSON:", event.data);
+          return;
+        }
+
+        const { func_name, func_args } = parsed;
+
+        if (!func_name || !handlers[func_name]) {
+          console.warn("Unknown function:", func_name);
+          return;
+        }
+
+        handlers[func_name](func_args);
+      });
+
+      ws.addEventListener("close", () => {
+        addMessage("Connection closed.");
+      });
+
+      function addMessageToRoom(room_name, user_name, message) {
+        const chatBox = document.getElementById("chatBox");
+        if (chatBox.dataset.room_name != room_name) {
+        }
+        const msg = document.createElement("div");
+        msg.textContent = `(room ${room_name})${message}`;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight; // auto-scroll
+      }
+
+      function addMessage(text) {
+        const chatBox = document.getElementById("chatBox");
+        const msg = document.createElement("div");
+        msg.textContent = text;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight; // auto-scroll
+      }
+
+      function sendMessage() {
+        const input = document.getElementById("messageInput");
+        const text = input.value.trim();
+        const tosend = JSON.stringify({
+          container: "chat",
+          endpoint: "/api/chat/send_message",
+          message: text,
+          room_name: document.getElementById("chatBox").dataset.room_name,
+        });
+        addMessage("Sending: " + tosend);
+        if (text && ws.readyState === WebSocket.OPEN) {
+          ws.send(tosend);
+          input.value = "";
+        }
+      }
+
+      function createRoom() {
+        const input = document.getElementById("createRoomInput");
+        const text = input.value.trim();
+        const tosend = JSON.stringify({
+          container: "chat",
+          endpoint: "/api/chat/add_room",
+          room_name: input,
+        });
+        addMessage("Sending: " + tosend);
+        if (text && ws.readyState === WebSocket.OPEN) {
+          ws.send(tosend);
+          input.value = "";
+        }
+      }
+
+      function addUserToRoom() {
+        const input = document.getElementById("addUserInput");
+        const text = input.value.trim();
+        const tosend = JSON.stringify({
+          container: "chat",
+          endpoint: "/api/chat/add_to_room",
+          room_name: input,
+        });
+        addMessage("Sending: " + tosend);
+        if (text && ws.readyState === WebSocket.OPEN) {
+          ws.send(tosend);
+          input.value = "";
+        }
+      }
+
+      document
+        .getElementById("sendButton")
+        .addEventListener("click", sendMessage);
+      document
+        .getElementById("createRoomButton")
+        .addEventListener("click", createRoom);
+      document
+        .getElementById("addUserButton")
+        .addEventListener("click", addUserToRoom);
+      document
+        .getElementById("messageInput")
+        .addEventListener("keypress", (e) => {
+          if (e.key === "Enter") sendMessage();
+        });
+      document
+        .getElementById("createRoomInput")
+        .addEventListener("keypress", (e) => {
+          if (e.key === "Enter") createRoom();
+        });
+      document
+        .getElementById("addUserInput")
+        .addEventListener("keypress", (e) => {
+          if (e.key === "Enter") addUserToRoom();
+        });
+    </script>
+  </body>
+</html>

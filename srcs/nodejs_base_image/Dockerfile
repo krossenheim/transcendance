@@ -1,7 +1,6 @@
-FROM debian:bullseye
+FROM node:24.8.0-bullseye-slim
 
-RUN apt-get update && apt-get install -y curl ca-certificates 
-RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && apt-get install -y nodejs
+RUN apt-get update && apt-get install -y curl
 
 RUN mkdir -p /appservice/
 

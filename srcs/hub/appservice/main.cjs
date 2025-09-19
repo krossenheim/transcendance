@@ -6,8 +6,6 @@ const {
   containersNameToIp,
   containersIpToName,
 } = require("/appservice/container_names.cjs");
-const { ClientRequest } = require("/appservice/client_request.cjs");
-const { MessageFromService } = require("/appservice/api_message.cjs");
 const {
   tasksForHub,
   servicesSubscribedToUsers,
@@ -81,33 +79,15 @@ function isAuthenticatedWebsocket(websocket, request, message) {
   return websocket.user_id !== undefined;
 }
 
-function parse_websocket_message(message, socket) {
+function parse_websocket_message(message) {
   let jsonOut;
   try {
     jsonOut = JSON.parse(message);
+    console.log("Parsed:" + JSON.stringify(jsonOut));
   } catch (e) {
-    console.log("Couldn't parse:" + message);
-    return;
+    return null;
   }
-  const endpoint = jsonOut.endpoint;
-  if (!endpoint) socket.send({ error: "No endpoint specified in message" });
-  const payload = jsonOut.payload;
-
-  let newEndpoint, targetContainer;
-  if (endpoint.startsWith("/api/public/")) {
-    targetContainer = endpoint.split("/")[3];
-    newEndpoint = "/api/public/" + endpoint.split("/").slice(4).join("/");
-  } else {
-    targetContainer = endpoint.split("/")[2];
-    newEndpoint = "/api/" + endpoint.split("/").slice(3).join("/");
-  }
-  const clientRequest = new ClientRequest(
-    newEndpoint,
-    payload,
-    socket.user_id,
-    targetContainer
-  );
-  return clientRequest;
+  return jsonOut;
 }
 
 function messageAuthenticatesSocket(message) {
@@ -120,6 +100,7 @@ function messageAuthenticatesSocket(message) {
 }
 
 let connectionCounttempid = 1; // global counter
+
 fastify.register(async function (instance) {
   fastify.addHook("onRequest", async (request, reply) => {
     const isWebSocket = request.raw.headers.upgrade === "websocket";
@@ -149,12 +130,20 @@ fastify.register(async function (instance) {
 
       socket.on("message", async (message) => {
         try {
-          const request = parse_websocket_message(message, socket);
-          if (!request) {
+          const jsonOut = parse_websocket_message(message);
+          if (!jsonOut) {
             console.log("Message cant be parsed: " + message);
+            socket.send("Expected to parse message to JSON." + message);
             return;
           }
-          if (!request.endpoint.startsWith("/api/public/")) {
+          if (!jsonOut.endpoint || !jsonOut.endpoint.startsWith("/api/")) {
+            console.log("Expected endpoint field would start with /api/");
+            socket.send("Expected endpoint field would start with /api/");
+            return;
+          }
+          let target_container;
+          if (!jsonOut.endpoint.startsWith("/api/public/")) {
+            target_container = jsonOut.endpoint.split("/")[2];
             if (!isAuthenticatedWebsocket(socket, req, message)) {
               const user_id = messageAuthenticatesSocket(message);
               if (false && !user_id) {
@@ -166,42 +155,43 @@ fastify.register(async function (instance) {
               // request.user_id = uuser_id;
               // openUserIdToSocket.set(socket.user_id, socket);
             }
+          } else {
+            target_container = jsonOut.endpoint.split("/")[1];
           }
-
-          let uuser_id = openSocketToUserID.get(socket).user_id;
-          request.user_id = uuser_id;
-
-          request.printInfo();
-          if (!containersNameToIp.has(request.targetContainer)) {
+          if (!containersNameToIp.has(target_container)) {
+            console.error(
+              "Invalid container name in endpoint: " + jsonOut.endpoint
+            );
             socket.send(
               JSON.stringify({
                 error:
                   'Invalid container name "' +
-                  request.targetContainer +
+                  target_container +
                   '" in endpoint for target: ' +
-                  request.targetContainer,
+                  target_container,
               })
             );
             return;
           }
-
-          const wsToContainer = interContainerNameToWebsockets.get(
-            request.targetContainer
+          jsonOut.endpoint = jsonOut.endpoint.replace(
+            "/" + target_container,
+            ""
           );
+          const user_id = openSocketToUserID.get(socket).user_id;
+          if (!user_id) {
+            throw new Error("Wut? No user id for socket. ");
+          }
+          jsonOut.user_id = user_id;
+
+          const wsToContainer =
+            interContainerNameToWebsockets.get(target_container);
           if (!wsToContainer) {
-            throw new Error(
-              "Socket to reach container name " +
-                request.targetContainer +
-                " is not listed as ever having opened."
-            );
+            throw new Error(target_container + " has not opened a socket.");
           }
           console.log(
-            "sending to " +
-              request.targetContainer +
-              ": " +
-              JSON.stringify(request)
+            "sending to " + target_container + ": " + JSON.stringify(jsonOut)
           );
-          wsToContainer.send(JSON.stringify(request));
+          wsToContainer.send(JSON.stringify(jsonOut));
         } catch (err) {
           console.error("WebSocket message error:", err);
           socket.send(JSON.stringify({ error: err.message }));
@@ -233,31 +223,54 @@ fastify.register(async function (instance) {
   });
 });
 
+function debugMessageToAllUserSockets(message) {
+  console.log(`message all users: ${message})`);
+  for (const [user_id, socket] of openUserIdToSocket) {
+    if (socket.readyState == socket.CLOSED) {
+      console.log("you should clean up closed sockets.");
+    }
+    socket.send(message);
+  }
+}
+
 fastify.register(async function () {
   fastify.post("/inter_api/subscribe_online_status", async (req, reply) => {
-    const customMessage = req.body;
-    customMessage.containerFrom = containersIpToName.get(
+    const { users_subscribed } = req.body;
+    if (!users_subscribed) throw new Error("users_subscribed unset.");
+
+    const container_name = containersIpToName.get(
       req.socket.remoteAddress.startsWith("::ffff:")
         ? req.socket.remoteAddress.slice(7)
         : req.socket.remoteAddress
     );
+    const arguments_for_handler = {
+      container_name: container_name,
+      users_subscribed: users_subscribed,
+    };
     const result = await tasksForHub["SUBSCRIBE_ONLINE_STATUS"].handler(
-      customMessage
+      arguments_for_handler
     );
     console.log("Result:" + result);
     reply.code(result.httpStatus).send(result);
   });
 
   fastify.post("/inter_api/unsubscribe_online_status", async (req, reply) => {
-    const customMessage = req.body;
-    customMessage.containerFrom = containersIpToName.get(
+    const { users_unsubscribed } = req.body;
+    if (!users_unsubscribed) throw new Error("users_unsubscribed unset.");
+
+    const container_name = containersIpToName.get(
       req.socket.remoteAddress.startsWith("::ffff:")
         ? req.socket.remoteAddress.slice(7)
         : req.socket.remoteAddress
     );
+    const arguments_for_handler = {
+      container_name: container_name,
+      users_unsubscribed: users_unsubscribed,
+    };
     const result = await tasksForHub["UNSUBSCRIBE_ONLINE_STATUS"].handler(
-      customMessage
+      arguments_for_handler
     );
+    console.log("Result:" + result);
     reply.code(result.httpStatus).send(result);
   });
 
@@ -294,57 +307,43 @@ fastify.register(async function () {
         );
       }
       socket.on("message", async (ws_input) => {
-        let messageFromService;
+        debugMessageToAllUserSockets(JSON.stringify({ debug: "received" + ws_input}));
+        let parsed;
         try {
-          const parsed = JSON.parse(ws_input);
-          Object.setPrototypeOf(parsed, MessageFromService.prototype);
-          messageFromService = parsed;
-          messageFromService.containerFrom = containerName;
-          console.log("Parsed " + messageFromService);
+          parsed = JSON.parse(ws_input);
         } catch (e) {
-          console.error("Exception (" + e.message + ") parsing message " + ws_input);
+          console.error(`Could not parse, message was: " + ${ws_input}`);
+          debugMessageToAllUserSockets(JSON.stringify({ debug: "Cant parse:" + ws_input}));
           return;
         }
-        if (messageFromService.isForHub()) {
-          const handler_output = await getHubTaskOutput(messageFromService);
-          const socketToService =
-            interContainerNameToWebsockets.get(containerName);
-          if (!socketToService) {
-            console.error(
-              "Socket to container_name:'" +
-                containerName +
-                "' isn't in our Map() of known services."
+        const { recipients } = parsed;
+        if (!Array.isArray(recipients)) {
+          debugMessageToAllUserSockets(JSON.stringify({ debug: "Recipients should be array."}));
+          return;
+        }
+        if (!recipients) {
+          debugMessageToAllUserSockets(
+            `Received no recipients, message was: " + ${ws_input}`
+          ); // ID "SYS" ?
+          return;
+        }
+        delete parsed.recipients;
+        for (const user_id of recipients || []) {
+          // Crash if its not iterable. its either an list with 0 to n users, a SYS user
+          const socketToUser = openUserIdToSocket.get(user_id);
+          if (!socketToUser) {
+            debugMessageToAllUserSockets("Clean dead ws? ID Was: " +user_id);
+            continue ;
+          }
+          if (socketToUser)
+            console.log(
+              "Sending to userID:" +
+                user_id +
+                "message:" +
+                JSON.stringify(parsed)
             );
-          }
-          console.log("Sent message: " + messageFromService.toString());
-          socketToService.send(handler_output);
-        } else if (messageFromService.isForUsers()) {
-          const recipients = messageFromService.recipients;
-          delete messageFromService.recipients;
-          if (!recipients)
-          {
-            throw new Error("Message with a non-null, empty Array of recipients was parsed, message was: " + messageFromService + ".\n websocket received ws_input:" + ws_input);
-          }
-          for (const user_id of recipients || []) {
-            const socketToUser = openUserIdToSocket.get(user_id);
-            if (socketToUser) {
-              console.log(
-                "Sending to userID:" +
-                  user_id +
-                  "message:" +
-                  JSON.stringify(messageFromService)
-              );
-              socketToUser.send(
-                "container '" +
-                  messageFromService.containerFrom +
-                  "' sent out:" +
-                  JSON.stringify(messageFromService)
-              );
-            }
-          }
-        } else {
-          console.error(
-            "A message wasn't meant for hub or users, message was:\n" + message
+          socketToUser.send(
+              JSON.stringify(parsed)
           );
         }
       });
@@ -363,8 +362,6 @@ fastify.register(async function () {
             reason
         );
       });
-      // MessageFromService
-      // Chatroom says to container/userlist in MessageFromService send payload in MessageFromService
     },
   });
 });

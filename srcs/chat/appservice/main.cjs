@@ -1,8 +1,6 @@
 'use strict'
 const { g_myContainerName } = require('/appservice/container_names.cjs');
 const { ClientRequest } = require('/appservice/client_request.cjs');
-const { ErrorPayload } = require('/appservice/error_payload.cjs');
-const { MessageFromService } = require('/appservice/api_message.cjs');
 const { httpStatus } = require('/appservice/httpStatusEnum.cjs');
 const axios = require('axios');
 const fastify = require('fastify')({
@@ -27,39 +25,9 @@ const { ChatRooms } = require("./roomClass.cjs");
 
 const singletonChatRooms = new ChatRooms();
 
-async function t1(requestbody) {
-  try {
-    const response = await axios.post(
-      `http://` + process.env.HUB_NAME + `:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api/subscribe_online_status`,
-      { subscribe: [1, 2, 3] }
-    );
-    const res = new MessageFromService(httpStatus.OK, null, 't1 test', { unsubscribe: response.data });
-    return (res);
-  } catch (err) {
-    const res = new MessageFromService(httpStatus.BAD_REQUEST, null, 't1 test', new ErrorPayload("Error", err.message));
-    return (res);
-  }
-
-}
-
-async function t2(requestbody) {
-  try {
-    const response = await axios.post(
-      `http://` + process.env.HUB_NAME + `:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api/unsubscribe_online_status`,
-      { subscribe: [1, 2, 3] }
-    );
-    const res = new MessageFromService(httpStatus.OK, null, 't2 test', { unsubscribe: response.data });
-    return (res);
-  } catch (err) {
-    const res = new MessageFromService(httpStatus.BAD_REQUEST, null, 't2 test', new ErrorPayload("Error", err.message));
-    return (res);
-  }
-
-}
-
 const chatRoomTasks = {
   'ADD_A_NEW_ROOM': {
-    url: '/api/new_room',
+    url: '/api/add_room',
     handler: singletonChatRooms.addRoom.bind(singletonChatRooms),
     method: 'POST',
   },
@@ -76,16 +44,6 @@ const chatRoomTasks = {
   'ADD_USER_TO_ROOM': {
     url: '/api/add_to_room',
     handler: singletonChatRooms.addUserToRoom.bind(singletonChatRooms),
-    method: 'POST',
-  },
-  'T1': {
-    url: '/api/t1',
-    handler: t1,
-    method: 'POST',
-  },
-  'T2': {
-    url: '/api/t2',
-    handler: t2,
     method: 'POST',
   },
 };

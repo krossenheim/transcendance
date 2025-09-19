@@ -19,7 +19,8 @@ server {
 	ssl_certificate_key /etc/nginx/ssl/${SERVER_NAME}.key;
 
 	ssl_protocols TLSv1.3;
-
+	
+    include /etc/nginx/mime.types;
 
 	location /health_check {
 		keepalive_timeout 0;
@@ -89,5 +90,10 @@ server {
 	location /debug {
 		alias /var/www/html;
 		try_files /debug.html =404;
+    }
+
+	location /test {
+		alias /var/www/html;
+		try_files /chat.html =404;
     }
 }

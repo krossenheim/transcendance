@@ -30,7 +30,7 @@ function setSocketOnMessageHandler(socket, { tasks }) {
       clientRequest = JSON.parse(data);
     } catch (e) {
       console.log(
-        "Received malformed message from socket to backend: '" + data + "'"
+        `Couldnt parse to json:${data}`
       );
       return;
     }
@@ -55,13 +55,11 @@ function setSocketOnMessageHandler(socket, { tasks }) {
         return;
       }
     }
-
     console.log(
       "No matching task for URL:",
       clientRequest.endpoint,
-      "and method:",
-      clientRequest.method
     );
+    socket.send(JSON.stringify({error : "Unknown endpoint: " + clientRequest.endpoint}));
   });
 }
 

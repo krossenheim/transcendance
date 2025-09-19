@@ -10,7 +10,7 @@
 
 <div>
   <div>
-    <input id="jsonNewRoom" type="text" value='{"endpoint":"/api/chat/new_room","payload":{"roomName":"a"}}' size="80">
+    <input id="jsonNewRoom" type="text" value='{"endpoint":"/api/chat/add_room","payload":{"roomName":"a"}}' size="80">
     <button onclick='sendPredefined(JSON.parse(document.getElementById("jsonNewRoom").value))'>Send New Room</button>
   </div>
 
@@ -140,25 +140,23 @@
         alert('WebSocket is not connected.');
       }
     }
-
     function sendAddRoom() {
-      const room = document.getElementById('roomName').value;
-      ws.send('addRoom:' + room);
+      const room = document.getElementById('roomName2').value;
+      ws.send({endpoint :'/api/chat/add_room', room_name: room})
     }
 
     function sendAddToRoom() {
-      const userAdds = document.getElementById('userAdds').value;
-      const roomToAdd = document.getElementById('roomToAdd').value;
-      const userToAdd = document.getElementById('userToAdd').value;
-      ws.send('addToRoom:' + userAdds + ':' + roomToAdd + ':' + userToAdd);
+      const room_name = document.getElementById('roomName2').value;
+      const user_to_add = document.getElementById('messageSent').value;
+      ws.send({endpoint :'/api/chat/send_message', user_to_add: user_to_add, room_name : room_name})
     }
 
     function sendMessage() {
-      const fromUser = document.getElementById('fromUser').value;
-      const roomName = document.getElementById('roomName2').value;
-      const messageSent = document.getElementById('messageSent').value;
-      ws.send('sendMessage:' + fromUser + ':' + roomName + ':' + messageSent);
+      const room_name = document.getElementById('roomName2').value;
+      const message = document.getElementById('messageSent').value;
+      ws.send({endpoint :'/api/chat/send_message', message: message, room_name : room_name})
     }
+
   </script>
 </body>
 
