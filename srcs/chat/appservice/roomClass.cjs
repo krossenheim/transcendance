@@ -60,7 +60,7 @@ class Room {
         pop_up_text: "No or bad added_user_id field found",
       };
     }
-    if (!this.isUserInThisRoom(user_id)) {
+    if (!this.users.includes(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
           this.room_name
@@ -78,7 +78,7 @@ class Room {
           "isnt in it.",
       };
     }
-    if (this.isUserInThisRoom(added_user_id))
+    if (this.users.includes(added_user_id))
       return {
         status: httpStatus.ALREADY_REPORTED,
         recipients: [user_id],
@@ -86,12 +86,13 @@ class Room {
         room_name: this.room_name,
         message: `User ${added_user_id} already in room ${room_name}.`,
       };
+    this.users.push(added_user_id);
     return {
       status: httpStatus.OK,
       recipients: this.users,
       func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
       room_name: this.room_name,
-      message: `User ${user_id} has invited ${added_user_id}`,
+      message: `User ${user_id} has added ${added_user_id}`,
     };
   }
 
@@ -99,17 +100,9 @@ class Room {
     this.users = this.users.filter((u) => u !== user);
   }
 
-  getUserCount() {
-    return this.users.length;
-  }
-
-  isUserInThisRoom(user) {
-    return this.users.includes(user);
-  }
-
   sendMessage(client_request) {
     const { message, room_name, user_id } = client_request;
-    if (!this.isUserInThisRoom(user_id)) {
+    if (!this.users.includes(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
           this.room_name
