@@ -11,9 +11,10 @@ if (!ws || ws.readyState === WebSocket.CLOSED) {
     console.log('Connected to ' + wsUrl);
   });
 
-  ws.addEventListener('message', (event) => {
-    console.log('Message from server:', event.data);
-  });
+  // add one of these after each import for each context. pong, chat. i hope.
+  // ws.addEventListener('message', (event) => {
+  //   console.log('Message from server:', event.data);
+  // });
 
   ws.addEventListener('close', () => {
     console.log('Disconnected from WebSocket server');

@@ -302,9 +302,6 @@ fastify.register(async function () {
         interContainerNameToWebsockets.set(containerName, socket);
         interContainerWebsocketsToName.set(socket, containerName);
         console.log("Socket from " + containerName + " established.");
-        socket.send(
-          "Hello from " + process.env.HUB_NAME + ", " + containerName
-        );
       }
       socket.on("message", async (ws_input) => {
         debugMessageToAllUserSockets(JSON.stringify({ debug: "received" + ws_input}));

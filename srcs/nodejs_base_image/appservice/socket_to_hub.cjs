@@ -59,7 +59,7 @@ function setSocketOnMessageHandler(socket, { tasks }) {
       "No matching task for URL:",
       clientRequest.endpoint,
     );
-    socket.send(JSON.stringify({error : "Unknown endpoint: " + clientRequest.endpoint}));
+    socket.send(JSON.stringify({info : "No task for endpoint: " + clientRequest.endpoint}));
   });
 }
 

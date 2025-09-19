@@ -18,13 +18,11 @@ NODEJS_BASE_IMAGE_DIR =$(PROJECT_ROOT)srcs/nodejs_base_image
 
 $(NAME): all
 
-all: build
+all: down build
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
 dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
-
-re: down all
 
 down:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
@@ -54,12 +52,12 @@ create_shared_volume_folder:
 		mkdir -p "$(VOLUMES_DIR)"; \
 	fi
 
-clean:
+clean: down
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
 babylon:
-	 docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/ nginx:/var/www/html/
+	 docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/ nginx:/var/www/html
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"

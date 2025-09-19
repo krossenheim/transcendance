@@ -45,9 +45,6 @@
     </style>
   </head>
   <body>
-    { "endpoint" : "/api/chat/add_room","room_name":"a"} { "endpoint" :
-    "/api/chat/add_to_room" , "user_to_add":"jo","room_name":"a"} { "endpoint" :
-    "/api/chat/send_message" , "message":"Jolly connotat","room_name":"a"}
     <div id="chatWindow">
       <div id="chatBox" class="chat-room" data-room-name="a"></div>
       <div id="inputBar">
@@ -138,7 +135,7 @@
         const text = input.value.trim();
         const tosend = JSON.stringify({
           container: "chat",
-          endpoint: "/api/chat/send_message",
+          endpoint: "/api/chat/send_message_to_room",
           message: text,
           room_name: document.getElementById("chatBox").dataset.room_name,
         });
@@ -154,7 +151,7 @@
         const text = input.value.trim();
         const tosend = JSON.stringify({
           container: "chat",
-          endpoint: "/api/chat/add_room",
+          endpoint: "/api/chat/add_a_new_room",
           room_name: input,
         });
         addMessage("Sending: " + tosend);

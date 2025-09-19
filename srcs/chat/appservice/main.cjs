@@ -27,7 +27,7 @@ const singletonChatRooms = new ChatRooms();
 
 const chatRoomTasks = {
   'ADD_A_NEW_ROOM': {
-    url: '/api/add_room',
+    url: '/api/add_a_new_room',
     handler: singletonChatRooms.addRoom.bind(singletonChatRooms),
     method: 'POST',
   },

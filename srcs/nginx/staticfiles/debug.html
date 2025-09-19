@@ -1,170 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Per-Action Inputs with WebSocket Output</title>
+  </head>
+  <body>
+    <!-- Buttons + inputs will be generated here -->
+    <div id="actions"></div>
 
-<head>
-  <title>WebSocket Test</title>
-</head>
+    <!-- WebSocket output -->
+    <h3>WebSocket Output</h3>
+    <div
+      id="outputBox"
+      style="
+        width: 100%;
+        height: 200px;
+        border: 1px solid #ccc;
+        overflow: auto;
+        padding: 5px;
+        font-family: monospace;
+        background: #f9f9f9;
+      "
+    ></div>
 
-<body>
-    <table width="100%" height="100%" cellspacing="0" cellpadding="0" border="0">
-    <tr>
-      <td width="50%" valign="top">
-  <h1>WebSocket Test</h1>
+    <script type="module">
+      import ws from "/static/websocket.js"; // Replace with your real WebSocket
 
-<div>
-  <div>
-    <input id="jsonNewRoom" type="text" value='{"endpoint":"/api/chat/add_room", "room_name": "a"}' size="80">
-    <button onclick='sendPredefined(JSON.parse(document.getElementById("jsonNewRoom").value))'>Send New Room</button>
-  </div>
+      ws.addEventListener("message", (event) => {
+        console.log("Message from server:", event.data);
+        logOutput(event.data);
+      });
 
-  <div>
-    <input id="jsonAddToRoom" type="text" value='{"endpoint":"/api/chat/add_room", "room_name": "a", "user_to_add" : 3}' size="80">
-    <button onclick='sendPredefined(JSON.parse(document.getElementById("jsonAddToRoom").value))'>Send Add to Room</button>
-  </div>
+      function logOutput(message) {
+        const box = document.getElementById("outputBox");
+        box.innerHTML += message + "<br>";
+        box.scrollTop = box.scrollHeight;
+      }
 
-  <div>
-    <input id="jsonSendMessage" type="text" value='{"endpoint":"/api/chat/send_message_to_room","room_name":"a","message":"B"}' size="80">
-    <button onclick='sendPredefined(JSON.parse(document.getElementById("jsonSendMessage").value))'>Send Message</button>
-  </div>
-</div>
+      const actions = [
+        {
+          name: "sendAddRoom",
+          label: "Add Room",
+          endpoint: "/api/chat/add_a_new_room",
+          fields: { room_name: "Room Name" },
+        },
+        {
+          name: "sendAddToRoom",
+          label: "Add To Room",
+          endpoint: "/api/chat/add_to_room",
+          fields: { room_name: "Room Name", added_user_id: "User ID" },
+        },
+        {
+          name: "sendMessage",
+          label: "Send Message",
+          endpoint: "/api/chat/send_message_to_room",
+          fields: { room_name: "Room Name", message: "Message" },
+        },
+      ];
 
-  <br>
-  <input id="myInput" type="text" placeholder="Type raw message" />
-  <button id="sendBtn">Send Raw</button>
-  <button onclick="reconnectSocket()">Reconnect</button>
+      const container = document.getElementById("actions");
 
-  <h2>Commands</h2>
-  <div>
-    <button onclick="ws.send('info')">Info</button>
-    <button onclick="ws.send('barf')">Barf</button>
-  </div>
+      actions.forEach((action, index) => {
+        const row = document.createElement("div");
+        row.style.margin = "8px 0";
 
-  <div>
-    <input id="roomName" placeholder="Room name" />
-    <button onclick="sendAddRoom()">Add Room</button>
-  </div>
+        // inputs for this action
+        const inputs = {};
+        for (const [field, label] of Object.entries(action.fields)) {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.placeholder = label;
+          input.style.marginRight = "6px";
+          row.appendChild(input);
+          inputs[field] = input;
+        }
 
-  <div>
-    <button onclick="ws.send('listRooms:')">List Rooms</button>
-  </div>
-
-  <div>
-    <input id="userAdds" placeholder="User adding" />
-    <input id="roomToAdd" placeholder="Room to add to" />
-    <input id="userToAdd" placeholder="User to add" />
-    <button onclick="sendAddToRoom()">Add To Room</button>
-  </div>
-
-  <div>
-    <input id="fromUser" placeholder="From user" />
-    <input id="roomName2" placeholder="Room name" />
-    <input id="messageSent" placeholder="Message" />
-    <button onclick="sendMessage()">Send Message</button>
-  </div>
-
-  <div id="status">Init...</div>
-  <button onclick="document.getElementById('messages').innerHTML = ''">Clear Output</button>
-  <div id="messages"></div>
-      </td>
-      <td width="50%">
-  <!-- <iframe src="/static/chat.html" width="800" height="600"></iframe> -->
-<!-- two socket classes in these files. move socket.on('example').handlers to websocket.js -->
-</td>
-  <script>
-    let ws;
-    let user_id = null;
-
-    function connectSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = protocol + '//' + window.location.host + '/ws';
-      console.log("Open ws: " + wsUrl);
-      document.getElementById('status').textContent = 'Connecting to ' + wsUrl;
-
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        updateStatus();
-      };
-
-      ws.onmessage = (event) => {
-        const p = document.createElement('p');
-        p.textContent = 'Server says: ' + event.data;
-        document.getElementById('messages').appendChild(p);
-
-        // Check for {user_id: ...} message
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.user_id !== undefined) {
-            user_id = msg.user_id;
-            updateStatus();
+        // button for this action
+        const btn = document.createElement("button");
+        btn.textContent = action.label;
+        btn.onclick = () => {
+          const payload = { endpoint: action.endpoint };
+          for (const [field, input] of Object.entries(inputs)) {
+            payload[field] = input.value;
           }
-        } catch { /* ignore if not JSON */ }
-      };
+          ws.send(JSON.stringify(payload));
+        };
+        row.appendChild(btn);
 
-      ws.onerror = (err) => {
-        document.getElementById('status').textContent = 'Error: ' + err.message;
-      };
-
-      ws.onclose = () => {
-        document.getElementById('status').textContent = 'Disconnected';
-      };
-    }
-
-    function updateStatus() {
-      if (ws.readyState === WebSocket.OPEN) {
-        document.getElementById('status').textContent = 'Connected!' + (user_id !== null ? ' (USER ID: ' + user_id + ')' : '');
-      } else {
-        document.getElementById('status').textContent = 'Connecting...';
-      }
-    }
-
-    // Call on page load
-    connectSocket();
-
-    function sendInput() {
-      const val = document.getElementById('myInput').value;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(val);
-      } else {
-        alert('WebSocket is not connected.');
-      }
-    }
-
-    function reconnectSocket() {
-      if (ws) ws.close();
-      connectSocket();
-    }
-
-    document.getElementById('sendBtn').addEventListener('click', sendInput);
-    document.getElementById('myInput').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') sendInput();
-    });
-
-    function sendPredefined(obj) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(obj));
-      } else {
-        alert('WebSocket is not connected.');
-      }
-    }
-    function sendAddRoom() {
-      const room = document.getElementById('roomName2').value;
-      ws.send({endpoint :'/api/chat/add_room', room_name: room})
-    }
-
-    function sendAddToRoom() {
-      const room_name = document.getElementById('roomName2').value;
-      const user_to_add = document.getElementById('messageSent').value;
-      ws.send({endpoint :'/api/chat/send_message', user_to_add: user_to_add, room_name : room_name})
-    }
-
-    function sendMessage() {
-      const room_name = document.getElementById('roomName2').value;
-      const message = document.getElementById('messageSent').value;
-      ws.send({endpoint :'/api/chat/send_message', message: message, room_name : room_name})
-    }
-
-  </script>
-</body>
-
+        container.appendChild(row);
+      });
+    </script>
+  </body>
 </html>

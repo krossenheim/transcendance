@@ -127,7 +127,7 @@ class Room {
       );
       return {
         status: httpStatus.OK,
-        recipients: this.users,
+        recipients: this.users || [],
         func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
         room_name: this.room_name,
         message: message,
