@@ -1,6 +1,14 @@
 const { httpStatus } = require("/appservice/httpStatusEnum.cjs");
 const { ErrorPayload } = require("/appservice/error_payload.cjs");
 
+function toInt(value) {
+  const num = Number(value);
+  if (!Number.isInteger(num)) {
+    throw new TypeError(`Cannot convert "${value}" to integer`);
+  }
+  return num;
+}
+
 class FixedSizeList {
   constructor(maxSize = 10) {
     this.maxSize = maxSize;
@@ -8,7 +16,7 @@ class FixedSizeList {
   }
 
   add(item) {
-    this.list.push(item);
+    this.list.push(toInt(item));
 
     if (this.list.length > this.maxSize) {
       this.list.shift();
@@ -24,7 +32,6 @@ class Room {
   constructor(room_name) {
     this.room_name = room_name;
     this.users = new Array();
-    this.users.push(); // for testing
     this.messages = new FixedSizeList(20);
     this.allowedUsers = new Array();
   }
@@ -72,7 +79,7 @@ class Room {
         func_name: process.env.FUNC_POPUP_TEXT,
         pop_up_text:
           "Room " +
-          requestedroom +
+          room_name +
           " doesn't exist or user_id " +
           room_name +
           "isnt in it.",
@@ -86,7 +93,7 @@ class Room {
         room_name: this.room_name,
         message: `User ${added_user_id} already in room ${room_name}.`,
       };
-    this.users.push(added_user_id);
+    this.users.push(toInt(added_user_id));
     return {
       status: httpStatus.OK,
       recipients: this.users,
@@ -106,7 +113,7 @@ class Room {
       console.log(
         `Userid ${user_id} is not in room ${
           this.room_name
-        }, request was: ${JSON.stringify(client_request)}`
+        },users in it are: [${this.users.join(', ')}], request was: ${JSON.stringify(client_request)}`
       );
       return {
         status: httpStatus.BAD_REQUEST,
@@ -114,7 +121,7 @@ class Room {
         func_name: process.env.FUNC_POPUP_TEXT,
         pop_up_text:
           "Room " +
-          requestedroom +
+          room_name +
           " doesn't exist or user_id " +
           room_name +
           "isnt in it.",
@@ -172,8 +179,8 @@ class ChatRooms {
         func_name: process.env.FUNC_POPUP_TEXT,
         pop_up_text: "Room already exists.",
       };
-    room.users.push(user_id);
-    room.allowedUsers.push(user_id);
+    room.users.push(toInt(user_id));
+    room.allowedUsers.push(toInt(user_id));
     this.rooms.push(room);
     return {
       status: httpStatus.OK,
