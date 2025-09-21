@@ -1,4 +1,4 @@
-const { run_bash_command } = require('/appservice/run_bash_command.cjs');
+const { run_bash_command } = require('/appservice/run_bash_command.js');
 
 if (process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS === false)
 {

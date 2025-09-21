@@ -1,4 +1,4 @@
-const { g_myContainerName } = require('/appservice/container_names.cjs');
+const { g_myContainerName } = require('/appservice/container_names.js');
 
 const WebSocket = require("ws");
 const socketToHub = new WebSocket(

@@ -1,7 +1,7 @@
 
-const container_names = require("/appservice/container_names.cjs");
-const { httpStatus } = require("/appservice/httpStatusEnum.cjs");
-const { MessageFromService } = require("/appservice/api_message.cjs");
+const container_names = require("/appservice/container_names.js");
+const { httpStatus } = require("/appservice/httpStatusEnum.js");
+const { MessageFromService } = require("/appservice/api_message.js");
 
 const servicesSubscribedToUsers = new Map();
 // servicesSubscribedToUsers[container name here] = user ids to notify of online status changes

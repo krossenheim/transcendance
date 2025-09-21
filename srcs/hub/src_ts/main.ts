@@ -1,15 +1,15 @@
 "use strict";
 const axios = require("axios");
-const { httpStatus } = require("/appservice/httpStatusEnum.cjs");
+const { httpStatus } = require("/appservice/httpStatusEnum.js");
 const {
   g_myContainerName,
   containersNameToIp,
   containersIpToName,
-} = require("/appservice/container_names.cjs");
+} = require("/appservice/container_names.js");
 const {
   tasksForHub,
   servicesSubscribedToUsers,
-} = require("/appservice/hub_tasks.cjs");
+} = require("/appservice/hub_tasks.js");
 
 // Maps holding user to websocket and containername to websocket relationships
 const openSocketToUserID = new Map();
@@ -17,7 +17,7 @@ const openUserIdToSocket = new Map();
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
 
-const proxyRequest = require("/appservice/proxyRequest.cjs");
+const proxyRequest = require("/appservice/proxyRequest.js");
 
 const fastify = require("fastify")({
   logger: {
