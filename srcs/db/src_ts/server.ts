@@ -1,4 +1,6 @@
-const fastify = require('fastify')({ logger: true });
+import Fastify from 'fastify';
+
+const fastify = Fastify({ logger: true });
 
 const Database = require('./database');
 const db = new Database('/etc/database_data/users.db');

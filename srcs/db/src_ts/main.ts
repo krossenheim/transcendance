@@ -1,9 +1,12 @@
-const fastify = require('fastify')({ logger: true });
+// const fastify = require('fastify')({ logger: true });
+import Fastify from 'fastify';
+import Database from './database.js';
 
-const Database = require('./database');
+const fastify = Fastify({ logger: true });
 const db = new Database('/etc/database_data/users.db');
-const users = require('./routes/users.js');
-fastify.register(users, { prefix: '/api/users', database: db });
+
+import userRoutes from './routes/users.js';
+fastify.register(userRoutes, { prefix: '/api/users', database: db });
 
 // fastify.register(async function (fastify) {
 // 	fastify.route({

@@ -18,8 +18,18 @@ NODEJS_BASE_IMAGE_DIR =$(PROJECT_ROOT)srcs/nodejs_base_image
 
 $(NAME): all
 
-all: down build
+
+all: ensure_npx down build
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
+
+ensure_npx:
+
+
+	@if ! [ -x "$$(command -v npx)" ]; then \
+		echo "Attempting to install npx." >&2; \
+		npm install typescript @types/node --save-dev; \
+		exit 1; \
+	fi
 
 dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
@@ -45,11 +55,11 @@ pass_global_envs_test_to_nodejs_containers:
 		>> ${NODEJS_BASE_IMAGE_DIR}/appservice/check_global_envs.sh
 
 compile_ts_to_cjs:
-	npx tsc --project srcs/auth/tsconfig.auth.json || echo "hey"
-	npx tsc --project srcs/chat/tsconfig.chat.json|| echo "hey"
-	npx tsc --project srcs/db/tsconfig.db.json|| echo "hey"
-	npx tsc --project srcs/hub/tsconfig.hub.json|| echo "hey"
-	npx tsc --project srcs/nodejs_base_image/tsconfig.nodejs_base_image.json|| echo "hey"
+	npx tsc --project srcs/auth/tsconfig.auth.json || echo "Ignoring issues bad but whatever for now"
+	npx tsc --project srcs/chat/tsconfig.chat.json || echo "Ignoring issues bad but whatever for now"
+	npx tsc --project srcs/db/tsconfig.db.json || echo "Ignoring issues bad but whatever for now"
+	npx tsc --project srcs/hub/tsconfig.hub.json || echo "Ignoring issues bad but whatever for now"
+	npx tsc --project srcs/nodejs_base_image/tsconfig.nodejs_base_image.json || echo "Ignoring issues bad but whatever for now"
 
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \

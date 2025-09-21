@@ -1,68 +1,101 @@
-const { DatabaseSync } = require('node:sqlite');
+import { DatabaseSync } from 'node:sqlite';
+import { z } from 'zod';
+import Schema from './api/service/db_interfaces.js';
+
+// // Optional: extract TypeScript types from schema (recommended)
+type GameResult = z.infer<typeof Schema.GameResultSchema>;
+type User = z.infer<typeof Schema.UserSchema>;
+type FullUser = z.infer<typeof Schema.FullUserSchema>;
 
 class Database {
-	constructor(dbPath = 'inception.db') {
+	private db: DatabaseSync;
+
+	constructor(dbPath: string = 'inception.db') {
 		this.db = new DatabaseSync(dbPath);
 		this._initializeTables();
 
 		this.db.exec('PRAGMA foreign_keys = ON');
 	}
 
-	_initializeTables() {
+	private _initializeTables(): void {
 		this.db.exec(`
-			CREATE TABLE IF NOT EXISTS users (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-				username TEXT NOT NULL UNIQUE,
-				email TEXT NOT NULL UNIQUE,
-				passwordHash TEXT DEFAULT NULL
-			) STRICT;
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE,
+        passwordHash TEXT DEFAULT NULL
+      ) STRICT;
 
-			CREATE TABLE IF NOT EXISTS player_game_results (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				userId INTEGER NOT NULL,
-				score INTEGER NOT NULL,
-				rank INTEGER NOT NULL,
-				FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
-			) STRICT;
-		`);
+      CREATE TABLE IF NOT EXISTS player_game_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId INTEGER NOT NULL,
+        score INTEGER NOT NULL,
+        rank INTEGER NOT NULL,
+        FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+      ) STRICT;
+    `);
 	}
 
-	fetchAllUsers() {
-		const stmt = this.db.prepare('SELECT users.id, createdAt, username, email, score, rank FROM users INNER JOIN player_game_results ON users.id = player_game_results.userId');
-		return stmt.all();
+	fetchAllUsers(): FullUser[] {
+		const result = z.array(Schema.UserSchema).safeParse(this.db.prepare(`
+			SELECT id, createdAt, username, email FROM users
+		`).all());
+
+		if (!result.success) {
+			console.error('Failed to fetch users:', result.error);
+			return [];
+		}
+
+		return result.data.map((user: User) => ({
+			...user,
+			gameResults: this.fetchUserGameResults(user.id)
+		}));
 	}
 
-	fetchUserGameResults(userId) {
+	fetchUserGameResults(userId: number): GameResult[] {
 		const stmt = this.db.prepare(`SELECT * FROM player_game_results WHERE userId = ?`);
-		return stmt.all(userId);
+		const result = z.array(Schema.GameResultSchema).safeParse(stmt.all(userId));
+		if (!result.success) {
+			console.error('Failed to fetch user game results:', result.error);
+			return [];
+		}
+		return result.data;
 	}
 
-	fetchUserById(id) {
-		const stmt = this.db.prepare(`SELECT id, createdAt, username, email FROM users WHERE id = ?`);
+	fetchUserById(id: number): FullUser | undefined {
+		const stmt = this.db.prepare(`
+			SELECT id, createdAt, username, email FROM users WHERE id = ?
+		`);
+		const user = stmt.get(id) as User | undefined;
+
+		if (!user) return undefined;
+
 		return {
-			...stmt.get(id),
-			gameResults: this.fetchUserGameResults(id)
+			...user,
+			gameResults: this.fetchUserGameResults(id),
 		};
 	}
 
-	createNewUser(username, email, passwordHash) {
-		console.log("Creating user in database:", username, email);
-		const stmt = this.db.prepare('INSERT INTO users (username, email, passwordHash) VALUES (?, ?, ?)');
-		console.log("Prepared statement:", stmt);	
+	createNewUser(username: string, email: string, passwordHash: string | null): FullUser | undefined {
+		console.log('Creating user in database:', username, email);
+		const stmt = this.db.prepare(`
+			INSERT INTO users (username, email, passwordHash) VALUES (?, ?, ?)
+		`);
 		const info = stmt.run(username, email, passwordHash);
-		console.log("Insert info:", info);
-		return this.fetchUserById(info.lastInsertRowid);
+		return this.fetchUserById(Number(info.lastInsertRowid));
 	}
 
-	fetchUserFromCredentials(username, passwordHash) {
-		const stmt = this.db.prepare('SELECT * FROM users WHERE username = ? AND passwordHash = ?');
-		return stmt.get(username, passwordHash);
+	fetchUserFromCredentials(username: string, passwordHash: string): User | undefined {
+		const stmt = this.db.prepare(`
+			SELECT * FROM users WHERE username = ? AND passwordHash = ?
+		`);
+		return stmt.get(username, passwordHash) as User | undefined;
 	}
 
-	close() {
+	close(): void {
 		this.db.close();
 	}
 }
 
-module.exports = Database;
+export default Database;

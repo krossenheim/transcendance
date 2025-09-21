@@ -7,7 +7,8 @@
     "ip": "latest",
     "jsonwebtoken": "latest",
     "axios": "latest",
-    "pino-pretty": "latest"
+    "pino-pretty": "latest",
+    "zod": "latest"
   }
 }
 

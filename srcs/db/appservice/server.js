@@ -1,5 +1,5 @@
-"use strict";
-const fastify = require('fastify')({ logger: true });
+import Fastify from 'fastify';
+const fastify = Fastify({ logger: true });
 const Database = require('./database');
 const db = new Database('/etc/database_data/users.db');
 fastify.register(require('./routes/users.js'), { prefix: '/api/users', database: db });

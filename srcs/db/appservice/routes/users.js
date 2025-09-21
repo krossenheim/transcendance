@@ -1,12 +1,12 @@
-"use strict";
-const fastify = require('fastify')({ logger: true });
+import Fastify from 'fastify';
+const fastify = Fastify({ logger: true });
 async function userRoutes(fastify, options) {
     fastify.get('/users', async (request, reply) => {
         console.log(request);
         console.log(1);
-        return options.database.fetchAllUsers();
+        return reply.status(200).send(options.database.fetchAllUsers());
     });
-    fastify.post('/validate', async (request, reply) => {
+    fastify.post('/validate./', async (request, reply) => {
         const { username, password } = request.body;
         if (!username || !password) {
             return reply.status(400).send({ error: 'Username and password are required' });
@@ -44,4 +44,4 @@ async function userRoutes(fastify, options) {
         reply.status(201).send(user);
     });
 }
-module.exports = userRoutes;
+export default userRoutes;
