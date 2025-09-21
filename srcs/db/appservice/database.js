@@ -1,4 +1,5 @@
 const { DatabaseSync } = require('node:sqlite');
+const { User } = require('./user.cjs');
 
 class Database {
 	constructor(dbPath = 'inception.db') {
@@ -30,7 +31,8 @@ class Database {
 
 	fetchAllUsers() {
 		const stmt = this.db.prepare('SELECT users.id, createdAt, username, email, score, rank FROM users INNER JOIN player_game_results ON users.id = player_game_results.userId');
-		return stmt.all();
+		const rows = stmt.all();
+		return rows.map(row => new User(row));
 	}
 
 	fetchUserGameResults(userId) {
@@ -40,10 +42,8 @@ class Database {
 
 	fetchUserById(id) {
 		const stmt = this.db.prepare(`SELECT id, createdAt, username, email FROM users WHERE id = ?`);
-		return {
-			...stmt.get(id),
-			gameResults: this.fetchUserGameResults(id)
-		};
+		const user = stmt.get(id);
+		return user ? new User(user) : null;
 	}
 
 	createNewUser(username, email, passwordHash) {
@@ -57,7 +57,8 @@ class Database {
 
 	fetchUserFromCredentials(username, passwordHash) {
 		const stmt = this.db.prepare('SELECT * FROM users WHERE username = ? AND passwordHash = ?');
-		return stmt.get(username, passwordHash);
+		const row = stmt.get(username, passwordHash);
+		return row ? new User(row) : null;
 	}
 
 	close() {

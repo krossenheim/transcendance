@@ -1,8 +1,25 @@
+const { containers } = require('/appservice/inter_communication_protocol.cjs');
+
+class LoginResponse {
+	...
+}
+
+login_response = await containers.database.post('/users/validate', {
+	username: username,
+	password: password
+});
+
+
 const fastify = require('fastify')({ logger: true });
+const bycrypt = require('bcrypt');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
+
+function hash_string(password) {
+	return (bycrypt.hashSync(password, 10));
+}
 
 fastify.post('/api/login', async (request, reply) => {
 	const { username, password } = request.body;
@@ -10,11 +27,22 @@ fastify.post('/api/login', async (request, reply) => {
 		return reply.status(400).send({ error: 'Username and password are required' });
 	}
 
+	login_response = await containers.database.post('/users/validate', {
+		username: username,
+		password: password
+	});
+
+	if (login_response.status === 200) {
+		return reply.status(200).send({ message: 'Login successful', result: login_response.data });
+	} else {
+		return reply.status(login_response.status).send({ error: 'Invalid credentials' });
+	}
+
 	try {
 		let response;
 		try {
 			response = await axios.post(
-				`http://database_service:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/api/users/validate`,
+				`http://${process.env.DATABASE_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/api/users/validate`,
 				{ username, password }
 			);
 		} catch (err) {
@@ -25,7 +53,7 @@ fastify.post('/api/login', async (request, reply) => {
 		}
 
 		console.log(`Login attempt for user: ${username}`);
-		return reply.status(200).send({ message: 'Login successful' }, { token: jwt.sign({ userId: user.id }, secretKey), user: response.body });
+		return reply.status(200).send({ message: 'Login successful' }, { token: jwt.sign({ userId: 1 }, secretKey), user: response.body });
 	
 	} catch (error) {
 		console.error('Error validating user credentials:', error);

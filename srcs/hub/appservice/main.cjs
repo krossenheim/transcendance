@@ -220,9 +220,9 @@ fastify.register(async function (instance) {
     });
 
   fastify.all("/api/:dest/*", async (req, reply) => {
-    if (!isAuthenticatedHttp(req)) {
-      return reply.code(httpStatus.UNAUTHORIZED);
-    }
+    // if (!isAuthenticatedHttp(req)) {
+    //   return reply.code(httpStatus.UNAUTHORIZED);
+    // }
     const { dest } = req.params;
     const restOfUrl = req.url.replace(`${dest}/`, "");
     const url =

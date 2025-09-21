@@ -2,7 +2,11 @@ const fastify = require('fastify')({ logger: true });
 
 const Database = require('./database');
 const db = new Database('/etc/database_data/users.db');
+const login = require('./routes/login.cjs');
 const users = require('./routes/users.js');
+
+fastify.register(login, { prefix: '/internal_api/auth', database: db });
+fastify.register(login, { prefix: '/api/auth', database: db });
 fastify.register(users, { prefix: '/api/users', database: db });
 
 // fastify.register(async function (fastify) {
