@@ -1,5 +1,5 @@
-const { httpStatus } = require("/appservice/httpStatusEnum.cjs");
-const { ErrorPayload } = require("/appservice/error_payload.cjs");
+const { httpStatus } = require("/appservice/httpStatusEnum.js");
+const { ErrorPayload } = require("/appservice/error_payload.js");
 
 function toInt(value) {
   const num = Number(value);

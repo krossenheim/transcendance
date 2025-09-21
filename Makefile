@@ -27,7 +27,7 @@ dnginx:
 down:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
-build: pass_global_envs_test_to_nodejs_containers build_base_nodejs create_shared_volume_folder
+build: pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build 
 
 build_base_nodejs:
@@ -44,8 +44,12 @@ pass_global_envs_test_to_nodejs_containers:
 		awk -F= '{print "if [ -z \"$${" $$1 "}\" ]; then echo \"ERROR: " $$1 " is not set\" >&2; exit 1; fi"}' \
 		>> ${NODEJS_BASE_IMAGE_DIR}/appservice/check_global_envs.sh
 
-	
-
+compile_ts_to_cjs:
+	npx tsc --project srcs/auth/tsconfig.auth.json || echo "hey"
+	npx tsc --project srcs/chat/tsconfig.chat.json|| echo "hey"
+	npx tsc --project srcs/db/tsconfig.db.json|| echo "hey"
+	npx tsc --project srcs/hub/tsconfig.hub.json|| echo "hey"
+	npx tsc --project srcs/nodejs_base_image/tsconfig.nodejs_base_image.json|| echo "hey"
 
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \

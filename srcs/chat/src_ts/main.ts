@@ -1,7 +1,7 @@
 'use strict'
-const { g_myContainerName } = require('/appservice/container_names.cjs');
-const { ClientRequest } = require('/appservice/client_request.cjs');
-const { httpStatus } = require('/appservice/httpStatusEnum.cjs');
+const { g_myContainerName } = require('/appservice/container_names.js');
+const { ClientRequest } = require('/appservice/client_request.js');
+const { httpStatus } = require('/appservice/httpStatusEnum.js');
 const axios = require('axios');
 const fastify = require('fastify')({
   logger: {
@@ -19,7 +19,7 @@ const fastify = require('fastify')({
 fastify.register(require('@fastify/websocket'))
 // Setup above
 
-const { ChatRooms } = require("./roomClass.cjs");
+const { ChatRooms } = require("./roomClass.js");
 
 // Room class above
 
@@ -50,7 +50,7 @@ const chatRoomTasks = {
 
 //
 
-const { socketToHub, setSocketOnMessageHandler } = require("/appservice/socket_to_hub.cjs");
+const { socketToHub, setSocketOnMessageHandler } = require("/appservice/socket_to_hub.js");
 // ws handler
 setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
 // http handling
