@@ -54,7 +54,26 @@ pass_global_envs_test_to_nodejs_containers:
 		awk -F= '{print "if [ -z \"$${" $$1 "}\" ]; then echo \"ERROR: " $$1 " is not set\" >&2; exit 1; fi"}' \
 		>> ${NODEJS_BASE_IMAGE_DIR}/appservice/check_global_envs.sh
 
-compile_ts_to_cjs:
+
+install_nodejs:
+	@if ! node -v >/dev/null 2>&1; then \
+		if ! grep -qi 'debian\|ubuntu' /etc/os-release; then \
+			echo "nodejs needs to be installed."; \
+			exit 1; \
+		fi; \
+		curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -; \
+		sudo apt install -y nodejs; \
+	fi
+
+npm_install_tsc:
+	@if ! npm list typescript >/dev/null 2>&1; then \
+		npm install typescript --save-dev @types/node; \
+	fi
+
+
+ensure_tsc: install_nodejs npm_install_tsc
+	
+compile_ts_to_cjs: ensure_tsc
 	npx tsc --project srcs/auth/tsconfig.auth.json || echo "Ignoring issues bad but whatever for now"
 	npx tsc --project srcs/chat/tsconfig.chat.json || echo "Ignoring issues bad but whatever for now"
 	npx tsc --project srcs/db/tsconfig.db.json || echo "Ignoring issues bad but whatever for now"
