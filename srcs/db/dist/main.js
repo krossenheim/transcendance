@@ -5,11 +5,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 // const fastify = require('fastify')({ logger: true });
 const fastify_1 = __importDefault(require("fastify"));
-const database_js_1 = __importDefault(require("./database.js"));
-const fastify = (0, fastify_1.default)({ logger: true });
-const db = new database_js_1.default('/etc/database_data/users.db');
-const users_js_1 = __importDefault(require("./routes/users.js"));
-fastify.register(users_js_1.default, { prefix: '/api/users', database: db });
+const fastify_type_provider_zod_1 = require("fastify-type-provider-zod");
+const database_1 = __importDefault(require("./database"));
+const zodFastify = (options = { logger: true }) => {
+    const server = (0, fastify_1.default)(options);
+    server.setValidatorCompiler(fastify_type_provider_zod_1.validatorCompiler);
+    server.setSerializerCompiler(fastify_type_provider_zod_1.serializerCompiler);
+    return server;
+};
+const fastify = zodFastify();
+const db = new database_1.default('/etc/database_data/users.db');
+const users_1 = __importDefault(require("./routes/users"));
+fastify.register(users_1.default, { prefix: '/api/users', database: db });
 // fastify.register(async function (fastify) {
 // 	fastify.route({
 // 		method: 'POST',

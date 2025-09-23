@@ -8,6 +8,6 @@ exports.LoginRequestBodySchema = zod_1.z.object({
 });
 exports.CreateAccountRequestBodySchema = zod_1.z.object({
     username: zod_1.z.string(),
-    email: zod_1.z.string().email(),
+    email: zod_1.z.email(),
     password: zod_1.z.string(),
 });

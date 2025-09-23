@@ -1,10 +1,7 @@
+import { User, FullUser, RawUser, FullUserType, UserType, RawUserType } from './utils/api/service/db/user';
+import { GameResult, GameResultType } from './utils/api/service/db/gameResult';
 import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
-import Schema from './utils/api/service/db_interfaces.js';
-
-type GameResult = z.infer<typeof Schema.GameResultSchema>;
-type User = z.infer<typeof Schema.UserSchema>;
-type FullUser = z.infer<typeof Schema.FullUserSchema>;
 
 class Database {
 	private db: DatabaseSync;
@@ -36,8 +33,8 @@ class Database {
     `);
 	}
 
-	fetchAllUsers(): FullUser[] {
-		const result = z.array(Schema.UserSchema).safeParse(this.db.prepare(`
+	fetchAllUsers(): FullUserType[] {
+		const result = z.array(User).safeParse(this.db.prepare(`
 			SELECT id, createdAt, username, email FROM users
 		`).all());
 
@@ -46,15 +43,15 @@ class Database {
 			return [];
 		}
 
-		return result.data.map((user: User) => ({
+		return result.data.map((user: UserType) => ({
 			...user,
 			gameResults: this.fetchUserGameResults(user.id)
 		}));
 	}
 
-	fetchUserGameResults(userId: number): GameResult[] {
+	fetchUserGameResults(userId: number): GameResultType[] {
 		const stmt = this.db.prepare(`SELECT * FROM player_game_results WHERE userId = ?`);
-		const result = z.array(Schema.GameResultSchema).safeParse(stmt.all(userId));
+		const result = z.array(GameResult).safeParse(stmt.all(userId));
 		if (!result.success) {
 			console.error('Failed to fetch user game results:', result.error);
 			return [];
@@ -62,20 +59,20 @@ class Database {
 		return result.data;
 	}
 
-	fetchUserById(id: number): FullUser | undefined {
+	fetchUserById(id: number): FullUserType | undefined {
 		const stmt = this.db.prepare(`
 			SELECT id, createdAt, username, email FROM users WHERE id = ?
 		`);
-		const user = Schema.UserSchema.safeParse(stmt.get(id));
+		const user = User.safeParse(stmt.get(id));
 		if (!user.success) return undefined;
 
-		return Schema.FullUserSchema.safeParse({
+		return FullUser.safeParse({
 			...user.data,
 			gameResults: this.fetchUserGameResults(id),
 		}).data;
 	}
 
-	createNewUser(username: string, email: string, passwordHash: string | null): FullUser | undefined {
+	createNewUser(username: string, email: string, passwordHash: string | null): FullUserType | undefined {
 		console.log('Creating user in database:', username, email);
 		const stmt = this.db.prepare(`
 			INSERT INTO users (username, email, passwordHash) VALUES (?, ?, ?)
@@ -84,11 +81,11 @@ class Database {
 		return this.fetchUserById(Number(info.lastInsertRowid));
 	}
 
-	fetchUserFromCredentials(username: string, passwordHash: string): User | undefined {
+	fetchUserFromUsername(username: string): RawUserType | undefined {
 		const stmt = this.db.prepare(`
-			SELECT * FROM users WHERE username = ? AND passwordHash = ?
+			SELECT * FROM users WHERE username = ?
 		`);
-		return Schema.UserSchema.safeParse(stmt.get(username, passwordHash)).data;
+		return RawUser.safeParse(stmt.get(username)).data;
 	}
 
 	close(): void {

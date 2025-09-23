@@ -8,7 +8,9 @@
     "jsonwebtoken": "latest",
     "axios": "latest",
     "pino-pretty": "latest",
-    "zod": "latest"
+    "zod": "latest",
+    "fastify-type-provider-zod": "latest",
+    "bcrypt": "latest"
   }
 }
 
