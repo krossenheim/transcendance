@@ -1,6 +1,6 @@
-const { execSync } = require("child_process");
+import {execSync} from 'child_process';
 
-function run_bash_command(bash_input) {
+function run_bash_command(bash_input : string) :string {
     if (typeof bash_input !== "string") {
         throw new Error("Pass a string to execute as a bash command.");
     }
@@ -8,10 +8,10 @@ function run_bash_command(bash_input) {
     try {
         const stdout = execSync(bash_input, { encoding: "utf8" });
         return stdout.trim();
-    } catch (error) {
-        console.error("Error:", error.message);
-        return null;
+    } catch (err : any) {
+        console.error("Error:", err.message);
+        return 'error';
     }
 }
 
-module.exports = { run_bash_command };
+export default run_bash_command;

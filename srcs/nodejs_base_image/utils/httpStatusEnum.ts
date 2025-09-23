@@ -1,4 +1,4 @@
-const httpStatus = {
+export const httpStatus = {
   // 1xx Informational
   CONTINUE: 100,
   SWITCHING_PROTOCOLS: 101,
