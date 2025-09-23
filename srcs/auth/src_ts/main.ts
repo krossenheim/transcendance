@@ -1,15 +1,17 @@
-const fastify = require('fastify')({ logger: true });
-const axios = require('axios');
-const jwt = require('jsonwebtoken');
+import { LoginRequestBody, LoginRequestBodySchema } from './utils/api/service/auth_interfaces.js';
+import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import axios from 'axios';
+
+const fastify: FastifyInstance = Fastify({ logger: true });
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
 
-fastify.post('/api/login', async (request, reply) => {
-	const { username, password } = request.body;
-	if (!username || !password) {
-		return reply.status(400).send({ error: 'Username and password are required' });
+fastify.post('/api/login', {
+	schema: {
+		body: LoginRequestBodySchema
 	}
-
+}, async (request: FastifyRequest<{ Body: LoginRequestBody }>, reply: FastifyReply) => {
+	const { username, password } = request.body;
 	try {
 		let response;
 		try {
@@ -18,14 +20,14 @@ fastify.post('/api/login', async (request, reply) => {
 				{ username, password }
 			);
 		} catch (err) {
-			if (err.response && err.response.status === 401) {
+			if (response && response.status === 401) {
 				return reply.status(401).send({ error: 'Invalid credentials' });
 			}
 			throw err;
 		}
 
 		console.log(`Login attempt for user: ${username}`);
-		return reply.status(200).send({ message: 'Login successful' }, { token: jwt.sign({ userId: user.id }, secretKey), user: response.body });
+		return reply.status(200).send({ message: 'Login successful' });
 	
 	} catch (error) {
 		console.error('Error validating user credentials:', error);
@@ -33,7 +35,10 @@ fastify.post('/api/login', async (request, reply) => {
 	}
 });
 
-fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.AUTH_BIND_TO }, (err, address) => {
+const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
+const host = process.env.AUTH_BIND_TO || '0.0.0.0';
+
+fastify.listen({ port, host }, (err, address) => {
 	if (err) {
 		fastify.log.error(err);
 		process.exit(1);
