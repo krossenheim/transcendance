@@ -3,47 +3,83 @@
 <head>
   <meta charset="UTF-8">
   <title>Babylon.js Pong Game - Enhanced</title>
-<style>
-  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-  #renderCanvas { width: 100%; height: 100%; touch-action: none; z-index: 0; position: absolute; top: 0; left: 0; }
-  #ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-family: Arial, sans-serif; font-size: 24px; z-index: 100; }
-  #controls { position: absolute; bottom: 20px; left: 20px; color: white; font-family: Arial, sans-serif; font-size: 14px; z-index: 100; }
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
 
-  /* Login/Register UI overlay */
-  #authUI {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 200;           /* above the canvas and other UI */
-    background: rgba(0, 0, 0, 0.7); /* semi-transparent background */
-    padding: 20px;
-    border-radius: 10px;
-    color: white;
-    display: block;
-  }
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      z-index: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: none;
+    }
 
-  #authUI input {
-    display: block;
-    margin: 5px 0;
-    padding: 5px;
-  }
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 24px;
+      z-index: 100;
+      display: none;
+    }
 
-  #authUI button {
-    margin: 5px 5px 0 0;
-    padding: 5px 10px;
-  }
-</style>
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      z-index: 100;
+      display: none;
+    }
 
+    /* Login/Register UI overlay */
+    #authUI {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      color: white;
+      display: block;
+    }
+
+    #authUI input {
+      display: block;
+      margin: 5px 0;
+      padding: 5px;
+    }
+
+    #authUI button {
+      margin: 5px 5px 0 0;
+      padding: 5px 10px;
+    }
+  </style>
 </head>
 <body>
-  <canvas id="renderCanvas" style="display:none;"></canvas>
 
-  <div id="ui" style="display:none;">
+  <canvas id="renderCanvas"></canvas>
+
+  <div id="ui">
     <div>Player 1: <span id="leftScore">0</span> | Player 2: <span id="rightScore">0</span></div>
   </div>
 
-  <div id="controls" style="display:none;">
+  <div id="controls">
     <div>Player 1: W/S keys | Player 2: ↑/↓ keys</div>
   </div>
 
@@ -53,11 +89,35 @@
     <input id="password" placeholder="Password" type="password">
     <button onclick="registerUser(username.value, password.value)">Register</button>
     <button onclick="loginUser(username.value, password.value)">Login</button>
+    <button onclick="bypassLogin()">Bypass (Dev Only)</button> <!-- ✅ Added -->
   </div>
 
-  <!-- ✅ Scripts loaded once, in proper order -->
+  <!-- ✅ Scripts loaded in proper order -->
   <script src="auth.js"></script>
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
   <script src="pong.js"></script>
+
+  <!-- ✅ Bypass login logic -->
+  <script>
+    function bypassLogin() {
+  console.log("Bypass clicked");
+  document.getElementById("authUI").style.display = "none";
+  document.getElementById("renderCanvas").style.display = "block";
+  document.getElementById("ui").style.display = "block";
+  document.getElementById("controls").style.display = "block";
+
+  window.currentUser = {
+    username: "dev_user",
+    bypass: true
+  };
+
+  if (typeof startGame === "function") {
+    startGame();
+  } else {
+    console.warn("startGame is not defined!");
+  }
+}
+  </script>
+
 </body>
 </html>
