@@ -1,19 +1,21 @@
-const fastify = require('fastify')({ logger: true });
+import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
-async function userRoutes(fastify, options) {
-	fastify.get('/users', async (request, reply) => {
+const fastify = Fastify({ logger: true });
+
+async function userRoutes(fastify: FastifyInstance, options: any) {
+	fastify.get('/users', async (request: FastifyRequest, reply: FastifyReply) => {
 		console.log(request);
 		console.log(1);
-		return options.database.fetchAllUsers();
+		return reply.status(200).send({ message: 'User list fetched successfully' });
 	});
 
-	fastify.get('/:id', async (request, reply) => {
+	fastify.get('/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
 		console.log(request);
 		console.log(2);
 		const id = parseInt(request.params.id);
 		const user = options.database.fetchUserById(id);
 		if (user) {
-			return user;
+			return reply.status(200).send(user);
 		} else {
 			reply.status(404).send({ error: 'User not found' });
 		}

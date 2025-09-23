@@ -1,8 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
-import Schema from './api/service/db_interfaces.js';
+import Schema from './utils/api/service/db_interfaces.js';
 
-// // Optional: extract TypeScript types from schema (recommended)
 type GameResult = z.infer<typeof Schema.GameResultSchema>;
 type User = z.infer<typeof Schema.UserSchema>;
 type FullUser = z.infer<typeof Schema.FullUserSchema>;
@@ -67,14 +66,13 @@ class Database {
 		const stmt = this.db.prepare(`
 			SELECT id, createdAt, username, email FROM users WHERE id = ?
 		`);
-		const user = stmt.get(id) as User | undefined;
+		const user = Schema.UserSchema.safeParse(stmt.get(id));
+		if (!user.success) return undefined;
 
-		if (!user) return undefined;
-
-		return {
-			...user,
+		return Schema.FullUserSchema.safeParse({
+			...user.data,
 			gameResults: this.fetchUserGameResults(id),
-		};
+		}).data;
 	}
 
 	createNewUser(username: string, email: string, passwordHash: string | null): FullUser | undefined {
@@ -90,7 +88,7 @@ class Database {
 		const stmt = this.db.prepare(`
 			SELECT * FROM users WHERE username = ? AND passwordHash = ?
 		`);
-		return stmt.get(username, passwordHash) as User | undefined;
+		return Schema.UserSchema.safeParse(stmt.get(username, passwordHash)).data;
 	}
 
 	close(): void {

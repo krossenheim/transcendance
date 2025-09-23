@@ -1,13 +1,15 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
 // const fastify = require('fastify')({ logger: true });
-import Fastify from 'fastify';
-import Database from './database.js';
-
-const fastify = Fastify({ logger: true });
-const db = new Database('/etc/database_data/users.db');
-
-import userRoutes from './routes/users.js';
-fastify.register(userRoutes, { prefix: '/api/users', database: db });
-
+const fastify_1 = __importDefault(require("fastify"));
+const database_js_1 = __importDefault(require("./database.js"));
+const fastify = (0, fastify_1.default)({ logger: true });
+const db = new database_js_1.default('/etc/database_data/users.db');
+const users_js_1 = __importDefault(require("./routes/users.js"));
+fastify.register(users_js_1.default, { prefix: '/api/users', database: db });
 // fastify.register(async function (fastify) {
 // 	fastify.route({
 // 		method: 'POST',
@@ -24,14 +26,13 @@ fastify.register(userRoutes, { prefix: '/api/users', database: db });
 // 		},
 // 	});
 // });
-
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
 const host = process.env.AUTH_BIND_TO || '0.0.0.0';
-
 fastify.listen({ port, host }, (err, address) => {
-	if (err) {
-		fastify.log.error(err);
-		process.exit(1);
-	}
-	fastify.log.info(`Server listening at ${address}`);
+    if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+    }
+    fastify.log.info(`Server listening at ${address}`);
 });
+//# sourceMappingURL=main.js.map

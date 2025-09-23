@@ -7,7 +7,10 @@ const db = new Database('/etc/database_data/users.db');
 
 fastify.register(require('./routes/users.js'), { prefix: '/api/users', database: db });
 
-fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.DATABASE_BIND_TO }, (err, address) => {
+const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
+const host = process.env.AUTH_BIND_TO || '0.0.0.0';
+
+fastify.listen({ port, host }, (err, address) => {
 	if (err) {
 		fastify.log.error(err);
 		process.exit(1);
