@@ -1,4 +1,5 @@
-function startPongGame() {
+function startGame() {
+  console.log("✅ Pong game starting..."); // ✅ Log 3
   const canvas = document.getElementById("renderCanvas");
   const engine = new BABYLON.Engine(canvas, true);
   const scene = new BABYLON.Scene(engine);
@@ -25,6 +26,7 @@ function startPongGame() {
     cameraShakeDuration: 0.1,
     cameraShakeIntensity: 0
   };
+
 
   // ===== Video Background =====
   const backgroundPlane = BABYLON.MeshBuilder.CreatePlane("backgroundPlane", { width: 40, height: 25 }, scene);
@@ -406,4 +408,4 @@ function startPongGame() {
   });
 }
 
-// Do NOT call startPongGame() automatically here!
+ // Do NOT call startPongGame() automatically here!
