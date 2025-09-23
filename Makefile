@@ -67,7 +67,7 @@ install_nodejs:
 
 npm_install_tsc:
 	@if ! npm list typescript >/dev/null 2>&1; then \
-		npm install typescript --save-dev @types/node; \
+		npm install --save-dev typescript @types/node --prefix ${PROJECT_ROOT}; \
 		npm install; \
 	fi
 

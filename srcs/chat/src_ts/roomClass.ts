@@ -1,5 +1,4 @@
-const { httpStatus } = require("/appservice/httpStatusEnum.js");
-const { ErrorPayload } = require("/appservice/error_payload.js");
+import httpStatus from "./utils/httpStatusEnum";
 
 function toInt(value) {
   const num = Number(value);
@@ -237,4 +236,4 @@ class ChatRooms {
   }
 }
 
-module.exports = { ChatRooms };
+export default ChatRooms ;
