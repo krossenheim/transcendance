@@ -1,6 +1,6 @@
-import httpStatus from "./utils/httpStatusEnum";
+import httpStatus from "./utils/httpStatusEnum.js";
 
-function toInt(value) {
+function toInt(value : string) {
   const num = Number(value);
   if (!Number.isInteger(num)) {
     throw new TypeError(`Cannot convert "${value}" to integer`);
@@ -9,12 +9,15 @@ function toInt(value) {
 }
 
 class FixedSizeList {
+	public list: Array<number>;
+	public maxSize: number;
   constructor(maxSize = 10) {
     this.maxSize = maxSize;
     this.list = [];
   }
 
-  add(item) {
+  add(item: string) {
+
     this.list.push(toInt(item));
 
     if (this.list.length > this.maxSize) {
@@ -28,14 +31,19 @@ class FixedSizeList {
 }
 
 class Room {
-  constructor(room_name) {
+	public room_name: string;
+	public users: Array<number>;
+	public messages: FixedSizeList;
+	public allowedUsers: Array<any>;
+
+  constructor(room_name: string) {
     this.room_name = room_name;
     this.users = new Array();
     this.messages = new FixedSizeList(20);
     this.allowedUsers = new Array();
   }
 
-  addUser(client_request) {
+  addUser(client_request: any) {
     const { user_id, added_user_id, room_name } = client_request;
     if (!user_id) {
       throw new Error(
@@ -102,11 +110,11 @@ class Room {
     };
   }
 
-  removeUser(user) {
+  removeUser(user: any) {
     this.users = this.users.filter((u) => u !== user);
   }
 
-  sendMessage(client_request) {
+  sendMessage(client_request : any) {
     const { message, room_name, user_id } = client_request;
     if (!this.users.includes(user_id)) {
       console.log(
@@ -141,27 +149,31 @@ class Room {
     }
   }
 
-  equals(otherRoom) {
+  equals(otherRoom : any) {
     return otherRoom && this.room_name == otherRoom.room_name;
   }
 }
 
 class ChatRooms {
+	private rooms: Array<Room>;
+	public static instance: ChatRooms;
+
   constructor() {
+		  this.rooms = new Array();
+
     if (ChatRooms.instance) {
       return ChatRooms.instance;
     }
 
     // Initialize your ChatRooms properties here
-    this.rooms = new Array();
 
-    // Cache the instance
+    // Cache the instancefco
     ChatRooms.instance = this;
 
     return this;
   }
 
-  addRoom(client_request) {
+  addRoom(client_request : any) {
     const { room_name, user_id } = client_request;
     if (!room_name)
       return {
@@ -198,7 +210,7 @@ class ChatRooms {
     return returnedValues;
   }
 
-  sendMessage(client_request) {
+  sendMessage(client_request : any) {
     const { user_id, room_name, message } = client_request;
     if (!user_id || !room_name || !message) {
       console.error("request missing fields, request was:" + client_request);
@@ -216,7 +228,7 @@ class ChatRooms {
     return targetRoom.sendMessage(client_request);
   }
 
-  addUserToRoom(client_request) {
+  addUserToRoom(client_request : any) {
     
     const {user_id, room_name} = client_request;
     if (!user_id)

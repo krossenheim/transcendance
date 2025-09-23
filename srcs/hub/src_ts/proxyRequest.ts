@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-async function proxyRequest(req, reply, method, url) {
+async function proxyRequest(req: any, reply: any, method: string, url: string) {
   console.log(`Proxying ${method} request to: ${url}`);
   console.log(req.headers);
   console.log(req.body);
@@ -19,10 +19,10 @@ async function proxyRequest(req, reply, method, url) {
       validateStatus: () => true,
     });
     reply.code(response.status).send(response.data);
-  } catch (error) {
+  } catch (error : any) {
     console.error("Error proxying request:", error);
     reply.code(500).send({ error: "Internal Server Error: " + error.message });
   }
 }
 
-module.exports = proxyRequest;
+export default proxyRequest;

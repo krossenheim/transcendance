@@ -1,9 +1,9 @@
 'use strict'
-const { g_myContainerName } = require('/appservice/container_names.js');
-const { ClientRequest } = require('/appservice/client_request.js');
-const { httpStatus } = require('/appservice/httpStatusEnum.js');
-const axios = require('axios');
-const fastify = require('fastify')({
+import type { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
+import { socketToHub, setSocketOnMessageHandler } from "./utils/socket_to_hub.js";
+import fastifus from 'fastify';
+
+const fastify = fastifus({
   logger: {
     level: 'info', // or 'debug' for more verbosity
     transport: {
@@ -16,59 +16,60 @@ const fastify = require('fastify')({
     }
   }
 })
-fastify.register(require('@fastify/websocket'))
+import websocketPlugin from '@fastify/websocket';
+
+fastify.register(websocketPlugin);
 // Setup above
 
-const { ChatRooms } = require("./roomClass.js");
+import ChatRooms from './roomClass.js';
 
 // Room class above
 
 const singletonChatRooms = new ChatRooms();
 
+
 const chatRoomTasks = {
-  'ADD_A_NEW_ROOM': {
-    url: '/api/add_a_new_room',
+  ADD_A_NEW_ROOM: {
+    url: "/api/add_a_new_room",
     handler: singletonChatRooms.addRoom.bind(singletonChatRooms),
-    method: 'POST',
+    method: "POST",
   },
-  'LIST_ROOMS': {
-    url: '/api/list_rooms',
+  LIST_ROOMS: {
+    url: "/api/list_rooms",
     handler: singletonChatRooms.listRooms.bind(singletonChatRooms),
-    method: 'GET',
+    method: "GET",
   },
-  'SEND_MESSAGE_TO_ROOM': {
-    url: '/api/send_message_to_room',
+  SEND_MESSAGE_TO_ROOM: {
+    url: "/api/send_message_to_room",
     handler: singletonChatRooms.sendMessage.bind(singletonChatRooms),
-    method: 'POST',
+    method: "POST",
   },
-  'ADD_USER_TO_ROOM': {
-    url: '/api/add_to_room',
+  ADD_USER_TO_ROOM: {
+    url: "/api/add_to_room",
     handler: singletonChatRooms.addUserToRoom.bind(singletonChatRooms),
-    method: 'POST',
+    method: "POST",
   },
 };
 
-//
-
-const { socketToHub, setSocketOnMessageHandler } = require("/appservice/socket_to_hub.js");
-// ws handler
+// Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
-// http handling
-for (const taskKey in chatRoomTasks) {
-  fastify.register(async function (fastify) {
+
+// HTTP route registration function
+function registerChatRoomRoutes(fastify: FastifyInstance) {
+  // Iterate entries (key and value) instead of keys only
+  for (const [taskKey, task] of Object.entries(chatRoomTasks)) {
     fastify.route({
-      method: chatRoomTasks[taskKey].method,
-      url: chatRoomTasks[taskKey].url,
-      handler: (req, reply) => {
-        const client_request = ClientRequest.fromHTTP(req, 666);
-        const result = chatRoomTasks[taskKey].handler(client_request);
-        return reply.status(result.httpStatus).send(result.payload);
+      method: task.method,
+      url: task.url,
+      handler: async (req: FastifyRequest, reply: FastifyReply) => {
+        const result = await task.handler(req);
+        return reply.status(333).send({"hehe" : "Hihi"});
       },
     });
-  });
+  }
 }
 
-fastify.listen({ port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS, host: process.env.CHATROOM_BIND_TO }, err => {
+fastify.listen({ port: parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "-666"),  host: process.env.CHATROOM_BIND_TO || "-643543"}, (err : any) => {
   if (err) {
     fastify.log.error(err)
     process.exit(1)

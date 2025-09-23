@@ -1,15 +1,11 @@
 "use strict";
-const axios = require("axios");
-const { httpStatus } = require("/appservice/httpStatusEnum.js");
-const {
+import axios from 'axios';
+import httpStatus from "./utils/httpStatusEnum.js";
+import  {
   g_myContainerName,
   containersNameToIp,
   containersIpToName,
-} = require("/appservice/container_names.js");
-const {
-  tasksForHub,
-  servicesSubscribedToUsers,
-} = require("/appservice/hub_tasks.js");
+} from "./utils/container_names.js";
 
 // Maps holding user to websocket and containername to websocket relationships
 const openSocketToUserID = new Map();
@@ -17,9 +13,11 @@ const openUserIdToSocket = new Map();
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
 
-const proxyRequest = require("/appservice/proxyRequest.js");
+import proxyRequest from "./proxyRequest.js";
+import fastifus from 'fastify';
+import websocketPlugin from '@fastify/websocket';
 
-const fastify = require("fastify")({
+const fastify = fastifus({
   logger: {
     level: "info", // or 'debug' for more verbosity
     transport: {
@@ -31,17 +29,15 @@ const fastify = require("fastify")({
     },
   },
 });
+fastify.register(websocketPlugin);
 
-fastify.register(require("@fastify/websocket"));
 
-function isAuthenticatedHttp(request) {
+
+function isAuthenticatedHttp(request : any) {
   return true;
-  const token = request.headers["authorization"] || null;
-  const existsToken = authentication_tokenExists(token);
-  return existsToken === true;
 }
 
-async function authentication_getUserIdFromToken(token) {
+async function authentication_getUserIdFromToken(token : any) {
   try {
     const response = await axios({
       method: "GET",
@@ -61,7 +57,7 @@ async function authentication_getUserIdFromToken(token) {
   }
 }
 
-function parseTokenFromMessage(message) {
+function parseTokenFromMessage(message : any) {
   const msgStr = message.toString();
   if (msgStr.startsWith("Authorization: Bearer: ")) {
     const token = msgStr.split(":")[2].trim();
@@ -70,7 +66,7 @@ function parseTokenFromMessage(message) {
   return undefined;
 }
 
-function isAuthenticatedWebsocket(websocket, request, message) {
+function isAuthenticatedWebsocket(websocket : any, request : any, message : any) {
   if (websocket.user_id === undefined) {
     const token = parseTokenFromMessage(message);
     if (token) {
@@ -80,7 +76,7 @@ function isAuthenticatedWebsocket(websocket, request, message) {
   return websocket.user_id !== undefined;
 }
 
-function parse_websocket_message(message) {
+function parse_websocket_message(message : any) {
   let jsonOut;
   try {
     jsonOut = JSON.parse(message);
@@ -91,7 +87,7 @@ function parse_websocket_message(message) {
   return jsonOut;
 }
 
-function messageAuthenticatesSocket(message) {
+function messageAuthenticatesSocket(message : any) {
   const token = parseTokenFromMessage(message);
   if (token) {
     const user_id = authentication_getUserIdFromToken(token);
@@ -102,8 +98,8 @@ function messageAuthenticatesSocket(message) {
 
 let connectionCounttempid = 1; // global counter
 
-fastify.register(async function (instance) {
-  fastify.addHook("onRequest", async (request, reply) => {
+fastify.register(async function (instance : any) {
+  fastify.addHook("onRequest", async (request : any, reply : any) => {
     const isWebSocket = request.raw.headers.upgrade === "websocket";
     const isPublic = request.raw.url.startsWith("/api/public/");
 
@@ -117,10 +113,7 @@ fastify.register(async function (instance) {
     }
   });
   fastify.get("/ws", {
-    handler: (req, reply) => {
-      return reply.redirect(httpStatus.SEE_OTHER, "/"); // or any other appropriate action
-    },
-    wsHandler: (socket, req) => {
+    websocket: (socket : any, req : any) => {
       if (!openSocketToUserID.has(socket)) {
         openSocketToUserID.set(socket, { user_id: connectionCounttempid });
         openUserIdToSocket.set(connectionCounttempid, socket);
@@ -129,7 +122,7 @@ fastify.register(async function (instance) {
         connectionCounttempid++;
       }
 
-      socket.on("message", async (message) => {
+      socket.on("message", async (message : any) => {
         try {
           const jsonOut = parse_websocket_message(message);
           if (!jsonOut) {
@@ -193,14 +186,14 @@ fastify.register(async function (instance) {
             "sending to " + target_container + ": " + JSON.stringify(jsonOut)
           );
           wsToContainer.send(JSON.stringify(jsonOut));
-        } catch (err) {
+        } catch (err : any) {
           console.error("WebSocket message error:", err);
           socket.send(JSON.stringify({ error: err.message }));
         }
       });
     },
   }),
-    fastify.all("/api/public/:dest/*", async (req, reply) => {
+    fastify.all("/api/public/:dest/*", async (req : any, reply : any) => {
       const { dest } = req.params;
       const restOfUrl = req.url.replace(`${dest}/`, "");
       const url =
@@ -210,7 +203,7 @@ fastify.register(async function (instance) {
       await proxyRequest(req, reply, req.method, url);
     });
 
-  fastify.all("/api/:dest/*", async (req, reply) => {
+  fastify.all("/api/:dest/*", async (req : any, reply : any) => {
     if (!isAuthenticatedHttp(req)) {
       return reply.code(httpStatus.UNAUTHORIZED);
     }
@@ -224,7 +217,7 @@ fastify.register(async function (instance) {
   });
 });
 
-function debugMessageToAllUserSockets(message) {
+function debugMessageToAllUserSockets(message : any) {
   console.log(`message all users: ${message})`);
   for (const [user_id, socket] of openUserIdToSocket) {
     if (socket.readyState == socket.CLOSED) {
@@ -234,50 +227,8 @@ function debugMessageToAllUserSockets(message) {
   }
 }
 
-fastify.register(async function () {
-  fastify.post("/inter_api/subscribe_online_status", async (req, reply) => {
-    const { users_subscribed } = req.body;
-    if (!users_subscribed) throw new Error("users_subscribed unset.");
-
-    const container_name = containersIpToName.get(
-      req.socket.remoteAddress.startsWith("::ffff:")
-        ? req.socket.remoteAddress.slice(7)
-        : req.socket.remoteAddress
-    );
-    const arguments_for_handler = {
-      container_name: container_name,
-      users_subscribed: users_subscribed,
-    };
-    const result = await tasksForHub["SUBSCRIBE_ONLINE_STATUS"].handler(
-      arguments_for_handler
-    );
-    console.log("Result:" + result);
-    reply.code(result.httpStatus).send(result);
-  });
-
-  fastify.post("/inter_api/unsubscribe_online_status", async (req, reply) => {
-    const { users_unsubscribed } = req.body;
-    if (!users_unsubscribed) throw new Error("users_unsubscribed unset.");
-
-    const container_name = containersIpToName.get(
-      req.socket.remoteAddress.startsWith("::ffff:")
-        ? req.socket.remoteAddress.slice(7)
-        : req.socket.remoteAddress
-    );
-    const arguments_for_handler = {
-      container_name: container_name,
-      users_unsubscribed: users_unsubscribed,
-    };
-    const result = await tasksForHub["UNSUBSCRIBE_ONLINE_STATUS"].handler(
-      arguments_for_handler
-    );
-    console.log("Result:" + result);
-    reply.code(result.httpStatus).send(result);
-  });
-
   fastify.get("/inter_api", {
-    handler: (req, reply) => {},
-    wsHandler: (socket, req) => {
+    websocket: (socket : any, req : any) => {
       if (socket.ipv6_to_ipv4_address === undefined)
         //
         socket.ipv6_to_ipv4_address = req.socket.remoteAddress.startsWith(
@@ -304,7 +255,7 @@ fastify.register(async function () {
         interContainerWebsocketsToName.set(socket, containerName);
         console.log("Socket from " + containerName + " established.");
       }
-      socket.on("message", async (ws_input) => {
+      socket.on("message", async (ws_input: string) => {
         debugMessageToAllUserSockets(JSON.stringify({ debug: "received" + ws_input}));
         let parsed;
         try {
@@ -345,7 +296,7 @@ fastify.register(async function () {
           );
         }
       });
-      socket.on("close", (code, reason) => {
+      socket.on("close", (code : number, reason: string) => {
         if (!interContainerWebsocketsToName.has(containerName)) {
           return;
         }
@@ -362,17 +313,13 @@ fastify.register(async function () {
       });
     },
   });
-});
 
-fastify.listen(
-  {
-    port: process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS,
-    host: process.env.BACKEND_HUB_BIND_TO,
-  },
-  (err) => {
+fastify.listen({ port: parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "-666"),  host: process.env.BACKEND_HUB_BIND_TO || "-643543"}, (err : any) => {
+
+  (err : any) => {
     if (err) {
       fastify.log.error(err);
       process.exit(1);
     }
   }
-);
+});
