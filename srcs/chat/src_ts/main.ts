@@ -1,9 +1,9 @@
 'use strict'
 import type { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
 import { socketToHub, setSocketOnMessageHandler } from "./utils/socket_to_hub.js";
-import fastifus from 'fastify';
+import Fastify from "fastify";
 
-const fastify = fastifus({
+const fastify = Fastify({
   logger: {
     level: 'info', // or 'debug' for more verbosity
     transport: {
@@ -69,9 +69,13 @@ function registerChatRoomRoutes(fastify: FastifyInstance) {
   }
 }
 
-fastify.listen({ port: parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "-666"),  host: process.env.CHATROOM_BIND_TO || "-643543"}, (err : any) => {
-  if (err) {
-    fastify.log.error(err)
-    process.exit(1)
-  }
-})
+const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
+const host = process.env.AUTH_BIND_TO || '0.0.0.0';
+
+fastify.listen({ port, host }, (err, address) => {
+	if (err) {
+		console.error(err);
+		process.exit(1);
+	}
+	console.info(`Server listening at ${address}`);
+});

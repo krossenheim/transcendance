@@ -1,19 +1,8 @@
-const { g_myContainerName } = require('.utils/container_names');
-
 import WebSocket from 'ws';
 
 export const socketToHub = new WebSocket(
   "ws://" + process.env.HUB_NAME + ":" + process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS + "/inter_api"
 );
-
-socketToHub.on("open", () => {
-  console.log(g_myContainerName + ":Websocket connection open");
-  socketToHub.send(g_myContainerName + ":Websocket connection open");
-});
-
-socketToHub.on("close", () => {
-  console.log(g_myContainerName + ":Websocket connection closed");
-});
 
 socketToHub.on("error", (err : Error) => {
   console.error("Error:", err);

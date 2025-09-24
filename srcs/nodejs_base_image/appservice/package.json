@@ -1,6 +1,7 @@
 {
   "name": "fastifytranscendance",
   "version": "1.0.0",
+  "type" : "module",
   "dependencies": {
     "fastify": "latest",
     "@fastify/websocket": "latest",

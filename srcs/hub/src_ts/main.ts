@@ -8,9 +8,13 @@ import {
   UserRequestSchema,
   UserAuthenticationRequestSchema,
   PayloadToUsersSchema,
+  ForwardToContainerSchema,
 } from "./utils/api/service/hub_interfaces.js";
 import { containersIpToName } from "./utils/container_names.js";
+import z from "zod";
 import type { ZodType } from "zod";
+import { request } from "http";
+import { debug } from "console";
 
 const fastify: FastifyInstance = Fastify();
 
@@ -68,14 +72,24 @@ function disconnectSocket(socket: WebSocket) {
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
 
-function forwardToContainer(target_container: string, parsed: any) {
+function forwardToContainer(
+  target_container: string,
+  forwarded: z.infer<typeof ForwardToContainerSchema>
+) {
   const wsToContainer = interContainerNameToWebsockets.get(target_container);
   if (!wsToContainer) {
-    console.error(target_container + " has not opened a socket.")
+    console.error(target_container + " has not opened a socket.");
     throw new Error("Socket to container not launched.");
   }
-  console.log("sending to " + target_container + ": " + JSON.stringify(parsed));
-  wsToContainer.send(JSON.stringify(parsed));
+  if (forwarded.endpoint)
+  forwarded.endpoint = forwarded.endpoint.replace(
+    `/${target_container}/`,
+    "/"
+  );
+  console.log(
+    "sending to " + target_container + ": " + JSON.stringify(forwarded)
+  );
+  wsToContainer.send(JSON.stringify(forwarded));
 }
 
 const returnType = {
@@ -167,10 +181,12 @@ fastify.get(
         return;
       }
       const passToUsers = PayloadToUsersSchema.safeParse(parsed);
-      if (passToUsers.success)
-      {
-        forwardPayloadToUsers(passToUsers.data.recipients, parsed.data?.payload);
-        return ;
+      if (passToUsers.success) {
+        forwardPayloadToUsers(
+          passToUsers.data.recipients,
+          parsed.data?.payload
+        );
+        return;
       }
 
       console.error("Unhandled input, input was: " + rawDataToString(message));
@@ -233,7 +249,18 @@ fastify.get(
       } else {
         target_container = parsed.endpoint.split("/")[3];
       }
-      forwardToContainer(target_container, parsed);
+      type RequestWithMetaData = z.infer<typeof ForwardToContainerSchema>;
+
+      // Create a valid instance
+      const forwarded: RequestWithMetaData = {
+        user_id: socket_id,
+        target_container: target_container,
+        endpoint: parsed.endpoint,
+        payload: parsed.payload,
+      };
+
+      // Op
+      forwardToContainer(target_container, forwarded);
     });
 
     socket.on("close", () => {
@@ -242,14 +269,17 @@ fastify.get(
   }
 );
 
-const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || 'no', 10);
-const host = process.env.BACKEND_HUB_BIND_TO || 'crash';
+const port = parseInt(
+  process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "no",
+  10
+);
+const host = process.env.BACKEND_HUB_BIND_TO || "crash";
 
 console.log(`Listening to port / host: ${port}/${host}`);
 fastify.listen({ port, host }, (err, address) => {
-	if (err) {
-		console.error(err);
-		process.exit(1);
-	}
-	console.log(`Server listening at ${address}`);
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+  console.log(`Server listening at ${address}`);
 });
