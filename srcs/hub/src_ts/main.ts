@@ -203,12 +203,12 @@ fastify.get(
     list_new_connection(socket);
     socket.on("message", (message: WebSocket.RawData) => {
       let parsed: any;
+      const str = rawDataToString(message);
+      if (!str) {
+        console.log("Empty message from $( some info here )");
+        return;
+      }
       try {
-        const str = rawDataToString(message);
-        if (!str) {
-          console.log("Empty message from $( some info here )");
-          return;
-        }
         parsed = JSON.parse(str);
       } catch (e) {
         console.log("Unrecognized message from $( some info here )");
@@ -216,29 +216,29 @@ fastify.get(
       }
       const socket_id = openSocketToUserID.get(socket);
       const has_logged_in = authenticatedSockets.has(socket_id);
-
       const { endpoint, ...payload } = parsed;
       console.log("Endpoint: " + endpoint);
       let target_container;
       if (!endpoint.startsWith("/api/public/") && !has_logged_in) {
-        target_container = endpoint.split("/")[2];
         if (!authenticate) {
           socket.send("authenticate before using non public features.");
           disconnectSocket(socket);
           return;
         }
+        target_container = endpoint.split("/")[2];
       } else {
         target_container = endpoint.split("/")[3];
       }
+      // will validate target_container.
       const request: T_ForwardToContainer = {
-        payload: payload,
-        endpoint: endpoint,
-        user_id: socket_id,
-        target_container: target_container,
+        payload: payload, // z.any();
+        endpoint: endpoint, // endpoint will be validated here.
+        user_id: socket_id, // no real validation other than be a number
+        target_container: target_container, // no real validation othe rthan be a string.
       };
 
-      const user_request_parse = ForwardToContainerSchema.safeParse(request);
-      if (!user_request_parse.success) {
+      const valid_request = ForwardToContainerSchema.safeParse(request);
+      if (!valid_request.success) {
         console.log("Invalid request: " + JSON.stringify(parsed));
         const userauth_attempt =
           UserAuthenticationRequestSchema.safeParse(parsed);

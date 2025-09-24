@@ -2,6 +2,7 @@ import {
   ForwardToContainerSchema,
   PayloadToUsersSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
+
 import {
   AddRoomSchema,
   AddUserToRoomPayloadSchema,
@@ -9,7 +10,7 @@ import {
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
-import type { ZodError } from "zod";
+import { formatZodError } from "./utils/formatZodError.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -22,26 +23,6 @@ function toInt(value: string) {
 type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
 
-function formatZodError(
-  recipients: number[],
-  error: ZodError
-): T_PayloadToUsers {
-  const formatted: Record<string, string> = {};
-
-  for (const issue of error.issues) {
-    const path = issue.path.join(".") || "(root)";
-    formatted[path] = issue.message;
-  }
-
-  return {
-    recipients: recipients,
-    payload: {
-      status: httpStatus.UNPROCESSABLE_ENTITY,
-      func_name: process.env.FUNC_POPUP_TEXT,
-      pop_up_text: formatted,
-    },
-  };
-}
 
 class FixedSizeList {
   public list: Array<number>;
