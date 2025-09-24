@@ -286,7 +286,7 @@ class ChatRooms {
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const { room_name, message } = client_request.payload;
+    const { room_name } = client_request.payload;
     if (!user_id) {
       throw Error("Service called with no user id behind it.");
     }

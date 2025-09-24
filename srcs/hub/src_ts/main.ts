@@ -122,7 +122,7 @@ function listIncomingContainerWebsocket(
   return returnType.ADDED;
 }
 
-function debugMessageToAllUserSockets(message: any) {
+function debugMessageToAllUserSockets(message: string) {
   console.log(`message all users: ${message})`);
   for (const [user_id, socket] of openUserIdToSocket) {
     if (socket.readyState == socket.CLOSED) {
@@ -168,7 +168,7 @@ fastify.get(
           console.log("Empty message from $( some info here )");
           return;
         }
-        debugMessageToAllUserSockets(message);
+        debugMessageToAllUserSockets(str);
         parsed = JSON.parse(str);
       } catch (e) {
         console.log("Unrecognized message from $( some info here )");
