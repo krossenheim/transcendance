@@ -1,11 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const auth_interfaces_js_1 = require("../utils/api/service/auth_interfaces.js");
-const fastify_1 = __importDefault(require("fastify"));
-const fastify = (0, fastify_1.default)({ logger: true });
+const auth_interfaces_1 = require("../utils/api/service/auth_interfaces");
 async function userRoutes(fastify, options) {
     fastify.get('/users', async (request, reply) => {
         console.log(request);
@@ -14,7 +9,7 @@ async function userRoutes(fastify, options) {
     });
     fastify.post('/validate', {
         schema: {
-            body: auth_interfaces_js_1.LoginRequestBodySchema
+            body: auth_interfaces_1.LoginRequestBodySchema
         }
     }, async (request, reply) => {
         const { username, password } = request.body;
@@ -30,15 +25,15 @@ async function userRoutes(fastify, options) {
         }
     });
     fastify.get('/:id', {
-        schema: {
-            params: {
-                type: 'object',
-                properties: {
-                    id: { type: 'string' },
-                },
-                required: ['id'],
-            },
-        }
+    // schema: {
+    // 	params: {
+    // 		type: 'object',
+    // 		properties: {
+    // 			id: { type: 'string' },
+    // 		},
+    // 		required: ['id'],
+    // 	},
+    // }
     }, async (request, reply) => {
         const id = parseInt(request.params.id);
         const user = options.database.fetchUserById(id);
@@ -51,7 +46,7 @@ async function userRoutes(fastify, options) {
     });
     fastify.post('/create', {
         schema: {
-            body: auth_interfaces_js_1.CreateAccountRequestBodySchema
+            body: auth_interfaces_1.CreateAccountRequestBodySchema
         }
     }, async (request, reply) => {
         const { username, email, password } = request.body;

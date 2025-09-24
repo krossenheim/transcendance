@@ -1,8 +1,19 @@
-import { LoginRequestBody, LoginRequestBodySchema, CreateAccountRequestBodySchema, CreateAccountRequestBody } from '../utils/api/service/auth_interfaces.js';
+import { CreateUser, CreateUserType } from '../utils/api/service/auth/createUser';
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { LoginUser, LoginUserType } from '../utils/api/service/auth/loginUser';
 import Database from '../database';
+import bcrypt from 'bcrypt';
+import { UserType } from '../utils/api/service/db/user';
 
-const fastify = Fastify({ logger: true });
+const SALT_ROUNDS = 10;
+
+async function hashPassword(plainPassword: string): Promise<string> {
+	return await bcrypt.hash(plainPassword, SALT_ROUNDS);
+}
+
+async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
+	return await bcrypt.compare(plainPassword, hashedPassword);
+}
 
 async function userRoutes(fastify: FastifyInstance, options: { database: Database }) {
 	fastify.get('/users', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -13,31 +24,28 @@ async function userRoutes(fastify: FastifyInstance, options: { database: Databas
 
 	fastify.post('/validate', {
 		schema: {
-			body: LoginRequestBodySchema
+			body: LoginUser
 		}
-	}, async (request: FastifyRequest<{ Body: LoginRequestBody }>, reply: FastifyReply) => {
-		 const { username, password } = request.body;
-		if (!username || !password) {
-			return reply.status(400).send({ error: 'Username and password are required' });
-		}
-		const user = options.database.fetchUserFromCredentials(username, password);
-		if (user) {
-			return { success: true, user: user };
+	}, async (request: FastifyRequest<{ Body: LoginUserType }>, reply: FastifyReply) => {
+		const { username, password } = request.body;
+		const user = options.database.fetchUserFromUsername(username);
+		if (user && await verifyPassword(password, user.passwordHash || '')) {
+			return reply.status(200).send({ user });
 		} else {
-			return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+			return reply.status(401).send({ user: undefined });
 		}
 	});
 
 	fastify.get('/:id', {
-		schema: {
-			params: {
-				type: 'object',
-				properties: {
-					id: { type: 'string' },
-				},
-				required: ['id'],
-			},
-		}
+		// schema: {
+		// 	params: {
+		// 		type: 'object',
+		// 		properties: {
+		// 			id: { type: 'string' },
+		// 		},
+		// 		required: ['id'],
+		// 	},
+		// }
 	}, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
 		const id = parseInt(request.params.id);
 		const user = options.database.fetchUserById(id);
@@ -50,16 +58,16 @@ async function userRoutes(fastify: FastifyInstance, options: { database: Databas
 
 	fastify.post('/create', {
 		schema: {
-			body: CreateAccountRequestBodySchema
+			body: CreateUser
 		}
-	}, async (request: FastifyRequest<{ Body: CreateAccountRequestBody }>, reply: FastifyReply) => {
+	}, async (request: FastifyRequest<{ Body: CreateUserType }>, reply: FastifyReply) => {
 		const { username, email, password } = request.body;
 		if (!username || !email || !password) {
 			reply.status(400).send({ error: 'Username, email, and password are required' });
 			return;
 		}
 		console.log("Creating user:", username, email);
-		const user = options.database.createNewUser(username, email, password);
+		const user = options.database.createNewUser(username, email, await hashPassword(password));
 		reply.status(201).send(user);
 	});
 }
