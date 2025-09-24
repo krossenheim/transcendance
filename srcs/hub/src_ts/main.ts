@@ -9,17 +9,17 @@ import {
   UserAuthenticationRequestSchema,
   PayloadToUsersSchema,
   ForwardToContainerSchema,
-} from "./utils/api/service/hub_interfaces.js";
+} from "./utils/api/service/hub/hub_interfaces.js";
 import { containersIpToName } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
-import z from "zod";
+import { z } from "zod";
 
 const fastify: FastifyInstance = Fastify();
 
 // Register the WebSocket plugin
 await fastify.register(websocketPlugin);
 
-const openSocketToUserID = new Map(); 
+const openSocketToUserID = new Map();
 const openUserIdToSocket = new Map();
 let connectionCounttempid = 1;
 
@@ -187,7 +187,9 @@ fastify.get(
     });
 
     socket.on("close", () => {
-      console.log(`Service disconnected:${interContainerWebsocketsToName.get(socket)}`);
+      console.log(
+        `Service disconnected:${interContainerWebsocketsToName.get(socket)}`
+      );
     });
   }
 );

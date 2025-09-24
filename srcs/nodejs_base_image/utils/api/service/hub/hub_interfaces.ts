@@ -25,7 +25,7 @@ export const UserAuthenticationRequestSchema = z
 export const PayloadToUsersSchema = z
   .object({
     recipients: z.array(z.number()),
-    payload: z.object(),
+    payload: z.any(),
   })
   .strict();
 
@@ -41,6 +41,6 @@ export const ForwardToContainerSchema = z
           message: `endpoint must be one of: ${allowedEndpoints.join(", ")}`,
         }
       ),
-    payload: z.object(),
+    payload: z.any(), //!!! fill in all schemas?? 
   })
   .strict();

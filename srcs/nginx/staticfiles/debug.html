@@ -48,7 +48,7 @@
           name: "sendAddToRoom",
           label: "Add To Room",
           endpoint: "/api/chat/add_to_room",
-          fields: { room_name: "Room Name", added_user_id: "User ID" },
+          fields: { room_name: "Room Name", user_to_add: "User ID" },
         },
         {
           name: "sendMessage",
@@ -81,7 +81,11 @@
         btn.onclick = () => {
           const payload = { endpoint: action.endpoint };
           for (const [field, input] of Object.entries(inputs)) {
-            payload[field] = input.value;
+            const raw = input.value;
+            const num = Number(raw);
+
+            // Check if conversion succeeded (not NaN)
+            payload[field] = !isNaN(num) && raw !== "" ? num : raw;
           }
           ws.send(JSON.stringify(payload));
         };

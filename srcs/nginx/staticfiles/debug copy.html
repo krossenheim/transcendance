@@ -18,7 +18,7 @@
   </div>
 
   <div>
-    <input id="jsonAddToRoom" type="text" value='{"endpoint":"/api/chat/add_to_room", "room_name": "a", "added_user_id " : 3}' size="80">
+    <input id="jsonAddToRoom" type="text" value='{"endpoint":"/api/chat/add_to_room", "room_name": "a", "user_to_add " : 3}' size="80">
     <button onclick='sendPredefined(JSON.parse(document.getElementById("jsonAddToRoom").value))'>Send Add to Room</button>
   </div>
 
@@ -154,8 +154,8 @@
 
     function sendAddToRoom() {
       const room_name = document.getElementById('roomName2').value;
-      const added_user_id  = document.getElementById('messageSent').value;
-      ws.send({endpoint :'/api/chat/add_to_room', added_user_id : added_user_id , room_name : room_name})
+      const user_to_add  = document.getElementById('messageSent').value;
+      ws.send({endpoint :'/api/chat/add_to_room', user_to_add : user_to_add , room_name : room_name})
     }
 
     function sendMessage() {
@@ -172,7 +172,7 @@
   {
     name: "sendAddToRoom",
     endpoint: "/api/chat/add_to_room",
-    fields: { room_name: "Council of Chambers", added_user_id: 4 }
+    fields: { room_name: "Council of Chambers", user_to_add: 4 }
   },
   {
     name: "sendMessage",

@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { ForwardToContainerSchema } from "./api/service/hub_interfaces.js";
+import { ForwardToContainerSchema } from "./api/service/hub/hub_interfaces.js";
 import { rawDataToString } from "./raw_data_to_string.js";
 
 export const socketToHub = new WebSocket(
