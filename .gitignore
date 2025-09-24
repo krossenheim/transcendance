@@ -14,4 +14,4 @@ package-lock.json
 *.js.map
 *.d.ts.map
 *.js
-dist/*.js
+**/dist/
