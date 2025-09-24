@@ -13,10 +13,6 @@ import {
 import { containersIpToName } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
 import z from "zod";
-import type { ZodType } from "zod";
-import { request } from "http";
-import { debug } from "console";
-import { parse } from "path";
 
 const fastify: FastifyInstance = Fastify();
 
@@ -180,7 +176,7 @@ fastify.get(
       }
       const passToUsers = PayloadToUsersSchema.safeParse(parsed);
       if (passToUsers.success) {
-        forwardPayloadToUsers(passToUsers.data.recipients, parsed.data.payload);
+        forwardPayloadToUsers(parsed.recipients, parsed.payload);
         return;
       }
 

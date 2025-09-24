@@ -6,8 +6,6 @@ out/
 chatroom_exec
 objs/
 check_global_envs.env
-srcs/*/appservice/**/*.js
-srcs/*/dist/
 node_modules/
 package-lock.json
 *.d.ts

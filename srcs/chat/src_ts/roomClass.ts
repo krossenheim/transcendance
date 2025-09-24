@@ -72,10 +72,12 @@ class Room {
         )}`
       );
       return {
-        status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text: "No or bad added_user_id field found",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "No or bad added_user_id field found",
+        },
       };
     }
     if (!this.users.includes(user_id)) {
@@ -85,32 +87,38 @@ class Room {
         }, request was: ${JSON.stringify(client_request)}`
       );
       return {
-        status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text:
-          "Room " +
-          room_name +
-          " doesn't exist or user_id " +
-          room_name +
-          "isnt in it.",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text:
+            "A room " +
+            room_name +
+            " doesn't exist or user_id " +
+            room_name +
+            "isnt in it.",
+        },
       };
     }
     if (this.users.includes(added_user_id))
       return {
-        status: httpStatus.ALREADY_REPORTED,
         recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        room_name: this.room_name,
-        message: `User ${added_user_id} already in room ${room_name}.`,
+        payload: {
+          status: httpStatus.ALREADY_REPORTED,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          room_name: this.room_name,
+          message: `User ${added_user_id} already in room ${room_name}.`,
+        },
       };
     this.users.push(toInt(added_user_id));
     return {
-      status: httpStatus.OK,
       recipients: this.users,
-      func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
-      room_name: this.room_name,
-      message: `User ${user_id} has added ${added_user_id}`,
+      payload: {
+        status: httpStatus.OK,
+        func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
+        room_name: this.room_name,
+        message: `User ${user_id} has added ${added_user_id}`,
+      },
     };
   }
 
@@ -119,7 +127,8 @@ class Room {
   }
 
   sendMessage(client_request: any) {
-    const { message, room_name, user_id } = client_request.payload;
+    const { user_id } = client_request;
+    const { message, room_name } = client_request.payload;
     if (!this.users.includes(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
@@ -129,15 +138,17 @@ class Room {
         )}], request was: ${JSON.stringify(client_request)}`
       );
       return {
-        status: httpStatus.BAD_REQUEST,
         recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text:
-          "Room " +
-          room_name +
-          " doesn't exist or user_id " +
-          room_name +
-          "isnt in it.",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text:
+            "Room " +
+            room_name +
+            " doesn't exist or user_id " +
+            room_name +
+            "isnt in it.",
+        },
       };
     } else {
       console.log(
@@ -146,11 +157,13 @@ class Room {
         }, request was: ${JSON.stringify(client_request)}`
       );
       return {
-        status: httpStatus.OK,
         recipients: this.users || [],
-        func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
-        room_name: this.room_name,
-        message: message,
+        payload: {
+          status: httpStatus.OK,
+          func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
+          room_name: this.room_name,
+          message: message,
+        },
       };
     }
   }
@@ -195,19 +208,23 @@ class ChatRooms {
     let room = new Room(room_name);
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
       return {
-        status: httpStatus.ALREADY_REPORTED,
         recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text: "Room already exists.",
+        payload: {
+          status: httpStatus.ALREADY_REPORTED,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "Room already exists.",
+        },
       };
     room.users.push(user_id);
     room.allowedUsers.push(user_id);
     this.rooms.push(room);
     return {
-      status: httpStatus.OK,
       recipients: [user_id],
-      func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
-      room_name: room.room_name,
+      payload: {
+        status: httpStatus.OK,
+        func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
+        room_name: room.room_name,
+      },
     };
   }
 
@@ -231,9 +248,11 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         status: httpStatus.NOT_FOUND,
-        recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text: "Room " + room_name + " doesn't exist.",
+        payload: {
+          recipients: [user_id],
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "Room " + room_name + " doesn't exist.",
+        },
       };
 
     return targetRoom.sendMessage(client_request);
@@ -249,9 +268,11 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         status: httpStatus.NOT_FOUND,
-        recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text: "Room " + room_name + " doesn't exist.",
+        payload: {
+          recipients: [user_id],
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "Room " + room_name + " doesn't exist.",
+        },
       };
 
     return targetRoom.addUser(client_request);
