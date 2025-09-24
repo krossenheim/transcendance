@@ -1,8 +1,8 @@
 import { ForwardToContainerSchema } from "./utils/api/service/hub_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
-import z from 'zod';
+import z from "zod";
 
-function toInt(value : string) {
+function toInt(value: string) {
   const num = Number(value);
   if (!Number.isInteger(num)) {
     throw new TypeError(`Cannot convert "${value}" to integer`);
@@ -11,15 +11,14 @@ function toInt(value : string) {
 }
 
 class FixedSizeList {
-	public list: Array<number>;
-	public maxSize: number;
+  public list: Array<number>;
+  public maxSize: number;
   constructor(maxSize = 10) {
     this.maxSize = maxSize;
     this.list = [];
   }
 
   add(item: string) {
-
     this.list.push(toInt(item));
 
     if (this.list.length > this.maxSize) {
@@ -33,10 +32,10 @@ class FixedSizeList {
 }
 
 class Room {
-	public room_name: string;
-	public users: Array<number>;
-	public messages: FixedSizeList;
-	public allowedUsers: Array<any>;
+  public room_name: string;
+  public users: Array<number>;
+  public messages: FixedSizeList;
+  public allowedUsers: Array<any>;
 
   constructor(room_name: string) {
     this.room_name = room_name;
@@ -46,7 +45,8 @@ class Room {
   }
 
   addUser(client_request: any) {
-    const { user_id, added_user_id, room_name } = client_request;
+    const { user_id } = client_request;
+    const { added_user_id, room_name } = client_request.payload;
     if (!user_id) {
       throw new Error(
         `No user_id, request was: ${JSON.stringify(client_request)}`
@@ -67,7 +67,9 @@ class Room {
 
     if (!added_user_id || added_user_id === user_id) {
       console.log(
-        `missing or bad added_user_id, request was: ${JSON.stringify(client_request)}`
+        `missing or bad added_user_id, request was: ${JSON.stringify(
+          client_request
+        )}`
       );
       return {
         status: httpStatus.BAD_REQUEST,
@@ -116,13 +118,15 @@ class Room {
     this.users = this.users.filter((u) => u !== user);
   }
 
-  sendMessage(client_request : any) {
-    const { message, room_name, user_id } = client_request;
+  sendMessage(client_request: any) {
+    const { message, room_name, user_id } = client_request.payload;
     if (!this.users.includes(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
           this.room_name
-        },users in it are: [${this.users.join(', ')}], request was: ${JSON.stringify(client_request)}`
+        },users in it are: [${this.users.join(
+          ", "
+        )}], request was: ${JSON.stringify(client_request)}`
       );
       return {
         status: httpStatus.BAD_REQUEST,
@@ -151,7 +155,7 @@ class Room {
     }
   }
 
-  equals(otherRoom : any) {
+  equals(otherRoom: any) {
     return otherRoom && this.room_name == otherRoom.room_name;
   }
 }
@@ -159,11 +163,11 @@ class Room {
 type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 
 class ChatRooms {
-	private rooms: Array<Room>;
-	public static instance: ChatRooms;
+  private rooms: Array<Room>;
+  public static instance: ChatRooms;
 
   constructor() {
-		  this.rooms = new Array();
+    this.rooms = new Array();
 
     if (ChatRooms.instance) {
       return ChatRooms.instance;
@@ -177,18 +181,15 @@ class ChatRooms {
     return this;
   }
 
-
-  addRoom(forwarded : T_ForwardToContainer) {
+  addRoom(forwarded: T_ForwardToContainer) {
     const validation = ForwardToContainerSchema.safeParse(forwarded);
-    if (!validation.success)
-    {
-      console.log("Received invalid arguments to add room.")
-      return ;
+    if (!validation.success) {
+      console.log("Received invalid arguments to add room.");
+      return;
     }
     const { room_name } = forwarded.payload;
-    const user_id  = forwarded.user_id;
-    if (!room_name)
-    {
+    const user_id = forwarded.user_id;
+    if (!room_name) {
       throw Error("Should be zod validated already.");
     }
     let room = new Room(room_name);
@@ -219,8 +220,9 @@ class ChatRooms {
     return returnedValues;
   }
 
-  sendMessage(client_request : any) {
-    const { user_id, room_name, message } = client_request;
+  sendMessage(client_request: any) {
+    const { user_id } = client_request;
+    const { room_name, message } = client_request.payload;
     if (!user_id || !room_name || !message) {
       console.error("request missing fields, request was:" + client_request);
       return;
@@ -237,11 +239,10 @@ class ChatRooms {
     return targetRoom.sendMessage(client_request);
   }
 
-  addUserToRoom(client_request : any) {
-    
-    const {user_id, room_name} = client_request;
-    if (!user_id)
-    {
+  addUserToRoom(client_request: any) {
+    const { user_id } = client_request;
+    const { room_name } = client_request.payload;
+    if (!user_id) {
       throw new Error("No userid for request");
     }
     let targetRoom = this.rooms.find((room) => room_name === room.room_name);
@@ -257,4 +258,4 @@ class ChatRooms {
   }
 }
 
-export default ChatRooms ;
+export default ChatRooms;
