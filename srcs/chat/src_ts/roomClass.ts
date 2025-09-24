@@ -1,4 +1,6 @@
+import { ForwardToContainerSchema } from "./utils/api/service/hub_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
+import z from 'zod';
 
 function toInt(value : string) {
   const num = Number(value);
@@ -154,6 +156,8 @@ class Room {
   }
 }
 
+type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
+
 class ChatRooms {
 	private rooms: Array<Room>;
 	public static instance: ChatRooms;
@@ -173,15 +177,20 @@ class ChatRooms {
     return this;
   }
 
-  addRoom(client_request : any) {
-    const { room_name, user_id } = client_request;
+
+  addRoom(forwarded : T_ForwardToContainer) {
+    const validation = ForwardToContainerSchema.safeParse(forwarded);
+    if (!validation.success)
+    {
+      console.log("Received invalid arguments to add room.")
+      return ;
+    }
+    const { room_name } = forwarded.payload;
+    const user_id  = forwarded.user_id;
     if (!room_name)
-      return {
-        status: httpStatus.BAD_REQUEST,
-        recipients: [user_id],
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text: "No room_name given.",
-      };
+    {
+      throw Error("Should be zod validated already.");
+    }
     let room = new Room(room_name);
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
       return {
@@ -190,8 +199,8 @@ class ChatRooms {
         func_name: process.env.FUNC_POPUP_TEXT,
         pop_up_text: "Room already exists.",
       };
-    room.users.push(toInt(user_id));
-    room.allowedUsers.push(toInt(user_id));
+    room.users.push(user_id);
+    room.allowedUsers.push(user_id);
     this.rooms.push(room);
     return {
       status: httpStatus.OK,

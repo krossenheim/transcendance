@@ -61,7 +61,7 @@ function registerChatRoomRoutes(fastify: FastifyInstance) {
     fastify.route({
       method: task.method,
       url: task.url,
-      handler: async (req: FastifyRequest, reply: FastifyReply) => {
+      handler: async (req: any, reply: FastifyReply) => {
         const result = await task.handler(req);
         return reply.status(333).send({"hehe" : "Hihi"});
       },
