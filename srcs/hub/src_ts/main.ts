@@ -128,7 +128,7 @@ function debugMessageToAllUserSockets(message: string) {
     if (socket.readyState == socket.CLOSED) {
       console.log("you should clean up closed sockets.");
     }
-    socket.send(message);
+    socket.send(`DEBUG:${message}`);
   }
 }
 

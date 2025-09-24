@@ -7,8 +7,6 @@ export const AddUserToRoomPayloadSchema = z
   })
   .strict();
 
-
-  
 export const SendMessageSchema = z
   .object({
     room_name: z.string(),
@@ -16,10 +14,20 @@ export const SendMessageSchema = z
   })
   .strict();
 
+const whitelistedPattern = /^[a-zA-Z0-9 ]+$/; 
 
-  export const AddRoomSchema = z
+const alphaNumAndSpaces = z.string()
+.min(3, { message: "String must be at least 3 characters long" }).max(50, { message : "Max 50 characters"} )
+  .refine((val) => val.replace(/\s/g, "").length >= 3, {
+    message: "Must contain at least 3 non-space characters",
+  })
+  .refine((val) => whitelistedPattern.test(val), {
+    message:
+      "String contains invalid characters; only alphanumerics are allowed",
+  });
+
+export const AddRoomSchema = z
   .object({
-    room_name: z.string(),
+    room_name: alphaNumAndSpaces,
   })
   .strict();
-
