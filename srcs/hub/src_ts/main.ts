@@ -67,10 +67,12 @@ function disconnectSocket(socket: WebSocket) {
 
 const interContainerWebsocketsToName = new Map();
 const interContainerNameToWebsockets = new Map();
+
 function forwardToContainer(target_container: string, parsed: any) {
   const wsToContainer = interContainerNameToWebsockets.get(target_container);
   if (!wsToContainer) {
-    throw new Error(target_container + " has not opened a socket.");
+    console.error(target_container + " has not opened a socket.")
+    throw new Error("Socket to container not launched.");
   }
   console.log("sending to " + target_container + ": " + JSON.stringify(parsed));
   wsToContainer.send(JSON.stringify(parsed));
@@ -231,10 +233,7 @@ fastify.get(
       } else {
         target_container = parsed.endpoint.split("/")[3];
       }
-
       forwardToContainer(target_container, parsed);
-
-      // socket.send(JSON.stringify({ received: message }));
     });
 
     socket.on("close", () => {
@@ -243,10 +242,14 @@ fastify.get(
   }
 );
 
-try {
-  await fastify.listen({ port: 3000 });
-  console.log("Server listening on ws://localhost:3000/ws");
-} catch (err) {
-  fastify.log.error(err);
-  process.exit(1);
-}
+const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || 'no', 10);
+const host = process.env.BACKEND_HUB_BIND_TO || 'crash';
+
+console.log(`Listening to port / host: ${port}/${host}`);
+fastify.listen({ port, host }, (err, address) => {
+	if (err) {
+		console.error(err);
+		process.exit(1);
+	}
+	console.log(`Server listening at ${address}`);
+});
