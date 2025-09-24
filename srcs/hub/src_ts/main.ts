@@ -6,9 +6,11 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type WebSocket from "ws";
 import {
   UserRequestSchema,
-  UserAuthenticationRequest,
+  UserAuthenticationRequestSchema,
+  PayloadToUsersSchema,
 } from "./utils/api/service/hub_interfaces.js";
 import { containersIpToName } from "./utils/container_names.js";
+import type { ZodType } from "zod";
 
 const fastify: FastifyInstance = Fastify();
 
@@ -74,7 +76,6 @@ function forwardToContainer(target_container: string, parsed: any) {
   wsToContainer.send(JSON.stringify(parsed));
 }
 
-
 const returnType = {
   UNKNOWN: -1,
   ADDED: 0,
@@ -82,12 +83,15 @@ const returnType = {
 } as const;
 
 // Type of all values: -1 | 0 | 1
-type ReturnType = typeof returnType[keyof typeof returnType];
+type ReturnType = (typeof returnType)[keyof typeof returnType];
 
-function listIncomingContainerWebsocket(socket: WebSocket, req: FastifyRequest) : ReturnType {
-  const incoming_ipv4_address =  req.ip.startsWith("::ffff:")
-      ? req.ip.slice(7)
-      : req.socket.remoteAddress;
+function listIncomingContainerWebsocket(
+  socket: WebSocket,
+  req: FastifyRequest
+): ReturnType {
+  const incoming_ipv4_address = req.ip.startsWith("::ffff:")
+    ? req.ip.slice(7)
+    : req.socket.remoteAddress;
   const containerName = containersIpToName.get(incoming_ipv4_address);
   if (containerName === undefined) {
     socket.send("Goodbye, unauthorized");
@@ -99,7 +103,7 @@ function listIncomingContainerWebsocket(socket: WebSocket, req: FastifyRequest) 
         "'"
     );
     socket.close(1008, "Unauthorized container");
-    return (returnType.UNKNOWN);
+    return returnType.UNKNOWN;
   }
 
   // handle reconnections here.
@@ -107,24 +111,71 @@ function listIncomingContainerWebsocket(socket: WebSocket, req: FastifyRequest) 
     interContainerNameToWebsockets.set(containerName, socket);
     interContainerWebsocketsToName.set(socket, containerName);
     console.log("Socket from " + containerName + " established.");
-    return (returnType.NOT_CHANGED);
+    return returnType.NOT_CHANGED;
   }
-  return (returnType.ADDED);
+  return returnType.ADDED;
+}
+
+function debugMessageToAllUserSockets(message: any) {
+  console.log(`message all users: ${message})`);
+  for (const [user_id, socket] of openUserIdToSocket) {
+    if (socket.readyState == socket.CLOSED) {
+      console.log("you should clean up closed sockets.");
+    }
+    socket.send(message);
+  }
+}
+
+function forwardPayloadToUsers(recipients: number[], payload: object) {
+  for (const user_id of recipients) {
+    // Crash if its not iterable. its either an list with 0 to n users, a SYS user
+    const socketToUser = openUserIdToSocket.get(user_id);
+    if (!socketToUser) {
+      debugMessageToAllUserSockets("Clean dead ws? ID Was: " + user_id);
+      continue;
+    }
+    if (socketToUser)
+      console.log(
+        "Sending to userID:" + user_id + "message:" + JSON.stringify(payload)
+      );
+    socketToUser.send(JSON.stringify(payload));
+  }
 }
 
 fastify.get(
   "/inter_api",
   { websocket: true },
   (socket: WebSocket, req: FastifyRequest) => {
-    if (listIncomingContainerWebsocket(socket, req) == returnType.UNKNOWN)
-    {
+    if (listIncomingContainerWebsocket(socket, req) == returnType.UNKNOWN) {
       console.log("Unknown remote.");
-      return ;
+      return;
     }
     socket.on("message", (message: WebSocket.RawData) => {
-      const parsed = JSON.parse(message)
-      const containerRequest = ContainerRequestSchema(parsed); 
-     });
+      let parsed;
+      try {
+        const str = rawDataToString(message);
+        if (!str) {
+          console.error("Empty message from $( some info here )");
+          return;
+        }
+        debugMessageToAllUserSockets(message);
+        parsed = JSON.parse(str);
+      } catch (e) {
+        console.log("Unrecognized message from $( some info here )");
+        return;
+      }
+      const passToUsers = PayloadToUsersSchema.safeParse(parsed);
+      if (passToUsers.success)
+      {
+        forwardPayloadToUsers(passToUsers.data.recipients, parsed.data?.payload);
+        return ;
+      }
+
+      console.error("Unhandled input, input was: " + rawDataToString(message));
+      throw new Error("Unhandled input.");
+      // const passToContainers = ContainerRequestSchema.safeParse(parsed);
+      // if both, error. one or the other.
+    });
 
     socket.on("close", () => {
       console.log("Client disconnected");
@@ -153,17 +204,18 @@ fastify.get(
       const socket_id = openSocketToUserID.get(socket);
       // Authenticate socket here,
       const has_logged_in = authenticatedSockets.has(socket_id);
-      const userRequest = UserRequestSchema.safeParse(parsed);
-      if (!userRequest.success) {
-        const userAuthAttempt = UserAuthenticationRequest.safeParse(parsed);
-        if (!userAuthAttempt) {
+      const user_request_parse = UserRequestSchema.safeParse(parsed);
+      if (!user_request_parse.success) {
+        const userauth_attempt =
+          UserAuthenticationRequestSchema.safeParse(parsed);
+        if (!userauth_attempt) {
           socket.send(
             "Greetings from debug land, your message was not one of userschema or userauthenticatiornequest"
           );
           disconnectSocket(socket);
           return;
         }
-        if (!authenticate(userAuthAttempt)) {
+        if (!authenticate(userauth_attempt)) {
           socket.send("Invalid token");
           return;
         }
@@ -186,7 +238,7 @@ fastify.get(
     });
 
     socket.on("close", () => {
-      console.log("Client disconnected");
+      disconnectSocket(socket);
     });
   }
 );
