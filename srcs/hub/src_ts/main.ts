@@ -1,325 +1,200 @@
-"use strict";
-import axios from 'axios';
-import httpStatus from "./utils/httpStatusEnum.js";
-import  {
-  g_myContainerName,
-  containersNameToIp,
-  containersIpToName,
-} from "./utils/container_names.js";
+// server.ts
+import Fastify from "fastify";
+import websocketPlugin from "@fastify/websocket";
+// Type-only imports
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import type WebSocket from "ws";
+import {
+  UserRequestSchema,
+  UserAuthenticationRequest,
+} from "./utils/api/service/hub_interfaces.js";
+import { containersIpToName } from "./utils/container_names.js";
 
-// Maps holding user to websocket and containername to websocket relationships
+const fastify: FastifyInstance = Fastify();
+
+// Register the WebSocket plugin
+await fastify.register(websocketPlugin);
+
 const openSocketToUserID = new Map();
 const openUserIdToSocket = new Map();
-const interContainerWebsocketsToName = new Map();
-const interContainerNameToWebsockets = new Map();
 
-import proxyRequest from "./proxyRequest.js";
-import fastifus from 'fastify';
-import websocketPlugin from '@fastify/websocket';
+function list_new_connection(socket: WebSocket) {
+  let connectionCounttempid = 1;
+  if (!openSocketToUserID.has(socket)) {
+    openSocketToUserID.set(socket, connectionCounttempid);
+    openUserIdToSocket.set(connectionCounttempid, socket);
+    socket.send(JSON.stringify({ user_id: connectionCounttempid }));
+    console.log("Added user id " + connectionCounttempid + " socket map.");
+    connectionCounttempid++;
+  }
+}
 
-const fastify = fastifus({
-  logger: {
-    level: "info", // or 'debug' for more verbosity
-    transport: {
-      target: "pino-pretty", // pretty-print logs in development
-      options: {
-        colorize: true,
-        translateTime: "HH:MM:ss Z",
-      },
-    },
-  },
-});
-fastify.register(websocketPlugin);
+function rawDataToString(data: WebSocket.RawData): string | undefined {
+  if (typeof data === "string") {
+    return data;
+  } else if (data instanceof Buffer) {
+    return data.toString();
+  } else if (data instanceof ArrayBuffer) {
+    return Buffer.from(data).toString();
+  } else if (Array.isArray(data)) {
+    return Buffer.concat(data).toString();
+  }
+  console.error("Unknown message type");
+  return undefined;
+}
 
+const authenticatedSockets = new Map();
 
-
-function isAuthenticatedHttp(request : any) {
+function authenticate(ws_parsed: any) {
+  // const user_authentication_request = UserAuthenticationRequest.safeParse(ws_parsed);
+  // if (!user_authentication_request)
+  //   return (false);
   return true;
 }
 
-async function authentication_getUserIdFromToken(token : any) {
-  try {
-    const response = await axios({
-      method: "GET",
-      url: "/authentication_service/token_exists",
-      headers: {
-        host: g_myContainerName,
-        connection: undefined,
-      },
-      data: { token: token },
-      params: null,
-      validateStatus: () => true,
-    });
-    return response.data.user_id; //verify what happens when no token-user exists
-  } catch (error) {
-    console.error("Error proxying request:", error);
-    return undefined;
+function disconnectSocket(socket: WebSocket) {
+  if (socket.readyState <= 1) {
+    socket.close();
   }
+  authenticatedSockets.delete(socket);
+  let socket_id: number;
+  socket_id = openSocketToUserID.get(socket);
+  if (socket_id > 0) openUserIdToSocket.delete(socket_id);
+  openSocketToUserID.delete(socket);
 }
 
-function parseTokenFromMessage(message : any) {
-  const msgStr = message.toString();
-  if (msgStr.startsWith("Authorization: Bearer: ")) {
-    const token = msgStr.split(":")[2].trim();
-    return token;
+const interContainerWebsocketsToName = new Map();
+const interContainerNameToWebsockets = new Map();
+function forwardToContainer(target_container: string, parsed: any) {
+  const wsToContainer = interContainerNameToWebsockets.get(target_container);
+  if (!wsToContainer) {
+    throw new Error(target_container + " has not opened a socket.");
   }
-  return undefined;
+  console.log("sending to " + target_container + ": " + JSON.stringify(parsed));
+  wsToContainer.send(JSON.stringify(parsed));
 }
 
-function isAuthenticatedWebsocket(websocket : any, request : any, message : any) {
-  if (websocket.user_id === undefined) {
-    const token = parseTokenFromMessage(message);
-    if (token) {
-      websocket.user_id = authentication_getUserIdFromToken(token);
+
+const returnType = {
+  UNKNOWN: -1,
+  ADDED: 0,
+  NOT_CHANGED: 1,
+} as const;
+
+// Type of all values: -1 | 0 | 1
+type ReturnType = typeof returnType[keyof typeof returnType];
+
+function listIncomingContainerWebsocket(socket: WebSocket, req: FastifyRequest) : ReturnType {
+  const incoming_ipv4_address =  req.ip.startsWith("::ffff:")
+      ? req.ip.slice(7)
+      : req.socket.remoteAddress;
+  const containerName = containersIpToName.get(incoming_ipv4_address);
+  if (containerName === undefined) {
+    socket.send("Goodbye, unauthorized");
+    console.error(
+      "Undefined container name, socket address was: " +
+        req.ip +
+        " parsed into : '" +
+        incoming_ipv4_address +
+        "'"
+    );
+    socket.close(1008, "Unauthorized container");
+    return (returnType.UNKNOWN);
+  }
+
+  // handle reconnections here.
+  if (!interContainerNameToWebsockets.has(containerName)) {
+    interContainerNameToWebsockets.set(containerName, socket);
+    interContainerWebsocketsToName.set(socket, containerName);
+    console.log("Socket from " + containerName + " established.");
+    return (returnType.NOT_CHANGED);
+  }
+  return (returnType.ADDED);
+}
+
+fastify.get(
+  "/inter_api",
+  { websocket: true },
+  (socket: WebSocket, req: FastifyRequest) => {
+    if (listIncomingContainerWebsocket(socket, req) == returnType.UNKNOWN)
+    {
+      console.log("Unknown remote.");
+      return ;
     }
+    socket.on("message", (message: WebSocket.RawData) => {
+      const parsed = JSON.parse(message)
+      const containerRequest = ContainerRequestSchema(parsed); 
+     });
+
+    socket.on("close", () => {
+      console.log("Client disconnected");
+    });
   }
-  return websocket.user_id !== undefined;
-}
+);
 
-function parse_websocket_message(message : any) {
-  let jsonOut;
-  try {
-    jsonOut = JSON.parse(message);
-    console.log("Parsed:" + JSON.stringify(jsonOut));
-  } catch (e) {
-    return null;
-  }
-  return jsonOut;
-}
-
-function messageAuthenticatesSocket(message : any) {
-  const token = parseTokenFromMessage(message);
-  if (token) {
-    const user_id = authentication_getUserIdFromToken(token);
-    return user_id;
-  }
-  return undefined;
-}
-
-let connectionCounttempid = 1; // global counter
-
-fastify.register(async function (instance : any) {
-  fastify.addHook("onRequest", async (request : any, reply : any) => {
-    const isWebSocket = request.raw.headers.upgrade === "websocket";
-    const isPublic = request.raw.url.startsWith("/api/public/");
-
-    if (false && !isPublic && !isWebSocket) {
-      if (!isAuthenticatedHttp(request)) {
-        reply
-          .code(httpStatus.UNAUTHORIZED)
-          .send({ error: "Unauthorized HTTP request" });
+fastify.get(
+  "/ws",
+  { websocket: true },
+  (socket: WebSocket, req: FastifyRequest) => {
+    list_new_connection(socket);
+    socket.on("message", (message: WebSocket.RawData) => {
+      let parsed: any;
+      try {
+        const str = rawDataToString(message);
+        if (!str) {
+          console.error("Empty message from $( some info here )");
+          return;
+        }
+        parsed = JSON.parse(str);
+      } catch (e) {
+        console.log("Unrecognized message from $( some info here )");
         return;
       }
-    }
-  });
-  fastify.get("/ws", {
-    websocket: (socket : any, req : any) => {
-      if (!openSocketToUserID.has(socket)) {
-        openSocketToUserID.set(socket, { user_id: connectionCounttempid });
-        openUserIdToSocket.set(connectionCounttempid, socket);
-        socket.send(JSON.stringify({ user_id: connectionCounttempid }));
-        console.log("Added user id " + connectionCounttempid + " socket map.");
-        connectionCounttempid++;
+      const socket_id = openSocketToUserID.get(socket);
+      // Authenticate socket here,
+      const has_logged_in = authenticatedSockets.has(socket_id);
+      const userRequest = UserRequestSchema.safeParse(parsed);
+      if (!userRequest.success) {
+        const userAuthAttempt = UserAuthenticationRequest.safeParse(parsed);
+        if (!userAuthAttempt) {
+          socket.send(
+            "Greetings from debug land, your message was not one of userschema or userauthenticatiornequest"
+          );
+          disconnectSocket(socket);
+          return;
+        }
+        if (!authenticate(userAuthAttempt)) {
+          socket.send("Invalid token");
+          return;
+        }
+      }
+      let target_container;
+      if (!parsed.endpoint.startsWith("/api/public/") && !has_logged_in) {
+        target_container = parsed.endpoint.split("/")[2];
+        if (!authenticate) {
+          socket.send("authenticate before using non public features.");
+          disconnectSocket(socket);
+          return;
+        }
+      } else {
+        target_container = parsed.endpoint.split("/")[3];
       }
 
-      socket.on("message", async (message : any) => {
-        try {
-          const jsonOut = parse_websocket_message(message);
-          if (!jsonOut) {
-            console.log("Message cant be parsed: " + message);
-            socket.send("Expected to parse message to JSON." + message);
-            return;
-          }
-          if (!jsonOut.endpoint || !jsonOut.endpoint.startsWith("/api/")) {
-            console.log("Expected endpoint field would start with /api/");
-            socket.send("Expected endpoint field would start with /api/");
-            return;
-          }
-          let target_container;
-          if (!jsonOut.endpoint.startsWith("/api/public/")) {
-            target_container = jsonOut.endpoint.split("/")[2];
-            if (!isAuthenticatedWebsocket(socket, req, message)) {
-              const user_id = messageAuthenticatesSocket(message);
-              if (false && !user_id) {
-                socket.send("Goodbye, unauthorized");
-                socket.close(1008, "Unauthorized");
-                return;
-              }
-              // let uuser_id = openSocketToUserID.get(socket).user_id;
-              // request.user_id = uuser_id;
-              // openUserIdToSocket.set(socket.user_id, socket);
-            }
-          } else {
-            target_container = jsonOut.endpoint.split("/")[1];
-          }
-          if (!containersNameToIp.has(target_container)) {
-            console.error(
-              "Invalid container name in endpoint: " + jsonOut.endpoint
-            );
-            socket.send(
-              JSON.stringify({
-                error:
-                  'Invalid container name "' +
-                  target_container +
-                  '" in endpoint for target: ' +
-                  target_container,
-              })
-            );
-            return;
-          }
-          jsonOut.endpoint = jsonOut.endpoint.replace(
-            "/" + target_container,
-            ""
-          );
-          const user_id = openSocketToUserID.get(socket).user_id;
-          if (!user_id) {
-            throw new Error("Wut? No user id for socket. ");
-          }
-          jsonOut.user_id = user_id;
+      forwardToContainer(target_container, parsed);
 
-          const wsToContainer =
-            interContainerNameToWebsockets.get(target_container);
-          if (!wsToContainer) {
-            throw new Error(target_container + " has not opened a socket.");
-          }
-          console.log(
-            "sending to " + target_container + ": " + JSON.stringify(jsonOut)
-          );
-          wsToContainer.send(JSON.stringify(jsonOut));
-        } catch (err : any) {
-          console.error("WebSocket message error:", err);
-          socket.send(JSON.stringify({ error: err.message }));
-        }
-      });
-    },
-  }),
-    fastify.all("/api/public/:dest/*", async (req : any, reply : any) => {
-      const { dest } = req.params;
-      const restOfUrl = req.url.replace(`${dest}/`, "");
-      const url =
-        `http://${dest}:` +
-        process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS +
-        `${restOfUrl}`;
-      await proxyRequest(req, reply, req.method, url);
+      // socket.send(JSON.stringify({ received: message }));
     });
 
-  fastify.all("/api/:dest/*", async (req : any, reply : any) => {
-    if (!isAuthenticatedHttp(req)) {
-      return reply.code(httpStatus.UNAUTHORIZED);
-    }
-    const { dest } = req.params;
-    const restOfUrl = req.url.replace(`${dest}/`, "");
-    const url =
-      `http://${dest}:` +
-      process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS +
-      `${restOfUrl}`;
-    await proxyRequest(req, reply, req.method, url);
-  });
-});
-
-function debugMessageToAllUserSockets(message : any) {
-  console.log(`message all users: ${message})`);
-  for (const [user_id, socket] of openUserIdToSocket) {
-    if (socket.readyState == socket.CLOSED) {
-      console.log("you should clean up closed sockets.");
-    }
-    socket.send(message);
+    socket.on("close", () => {
+      console.log("Client disconnected");
+    });
   }
+);
+
+try {
+  await fastify.listen({ port: 3000 });
+  console.log("Server listening on ws://localhost:3000/ws");
+} catch (err) {
+  fastify.log.error(err);
+  process.exit(1);
 }
-
-  fastify.get("/inter_api", {
-    websocket: (socket : any, req : any) => {
-      if (socket.ipv6_to_ipv4_address === undefined)
-        //
-        socket.ipv6_to_ipv4_address = req.socket.remoteAddress.startsWith(
-          "::ffff:"
-        )
-          ? req.socket.remoteAddress.slice(7)
-          : req.socket.remoteAddress;
-      const containerName = containersIpToName.get(socket.ipv6_to_ipv4_address);
-      if (containerName === undefined) {
-        socket.send("Goodbye, unauthorized");
-        console.error(
-          "Undefined container name, socket address was: " +
-            req.socket.remoteAddress +
-            " parsed into : '" +
-            socket.ipv6_to_ipv4_address +
-            "'"
-        );
-        socket.close(1008, "Unauthorized container");
-        return;
-      }
-
-      if (!interContainerNameToWebsockets.has(containerName)) {
-        interContainerNameToWebsockets.set(containerName, socket);
-        interContainerWebsocketsToName.set(socket, containerName);
-        console.log("Socket from " + containerName + " established.");
-      }
-      socket.on("message", async (ws_input: string) => {
-        debugMessageToAllUserSockets(JSON.stringify({ debug: "received" + ws_input}));
-        let parsed;
-        try {
-          parsed = JSON.parse(ws_input);
-        } catch (e) {
-          console.error(`Could not parse, message was: " + ${ws_input}`);
-          debugMessageToAllUserSockets(JSON.stringify({ debug: "Cant parse:" + ws_input}));
-          return;
-        }
-        const { recipients } = parsed;
-        if (!Array.isArray(recipients)) {
-          debugMessageToAllUserSockets(JSON.stringify({ debug: "Recipients should be array."}));
-          return;
-        }
-        if (!recipients) {
-          debugMessageToAllUserSockets(
-            `Received no recipients, message was: " + ${ws_input}`
-          ); // ID "SYS" ?
-          return;
-        }
-        delete parsed.recipients;
-        for (const user_id of recipients || []) {
-          // Crash if its not iterable. its either an list with 0 to n users, a SYS user
-          const socketToUser = openUserIdToSocket.get(user_id);
-          if (!socketToUser) {
-            debugMessageToAllUserSockets("Clean dead ws? ID Was: " +user_id);
-            continue ;
-          }
-          if (socketToUser)
-            console.log(
-              "Sending to userID:" +
-                user_id +
-                "message:" +
-                JSON.stringify(parsed)
-            );
-          socketToUser.send(
-              JSON.stringify(parsed)
-          );
-        }
-      });
-      socket.on("close", (code : number, reason: string) => {
-        if (!interContainerWebsocketsToName.has(containerName)) {
-          return;
-        }
-        interContainerNameToWebsockets.delete(containerName);
-        interContainerWebsocketsToName.delete(socket);
-        console.log(
-          "wSocket from " +
-            containerName +
-            " closed. Code: " +
-            code +
-            " Reason: " +
-            reason
-        );
-      });
-    },
-  });
-
-fastify.listen({ port: parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "-666"),  host: process.env.BACKEND_HUB_BIND_TO || "-643543"}, (err : any) => {
-
-  (err : any) => {
-    if (err) {
-      fastify.log.error(err);
-      process.exit(1);
-    }
-  }
-});
