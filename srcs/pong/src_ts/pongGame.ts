@@ -1,6 +1,6 @@
-import type { Vec2 } from './vector2.js'
-import { scale, normalize } from './vector2.js'
-import PlayerPaddle from './playerPaddle.js'
+import type { Vec2 } from "./vector2.js";
+import { scale, normalize } from "./vector2.js";
+import PlayerPaddle from "./playerPaddle.js";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
@@ -24,14 +24,14 @@ function generateCirclePoints(n: number, radius = 1, offset: Vec2): Vec2[] {
 
 class PongGame {
   private board_size: Vec2;
-  private num_players: number;
   private player_paddles: Array<PlayerPaddle>;
+  private balls_pos: Array<Vec2>;
 
   private constructor(board_size: Vec2, num_players: number) {
-    this.num_players = num_players;
     this.board_size = board_size;
+    this.balls_pos = [{ x: board_size.x / 2, y: board_size.y / 2 }];
     this.player_paddles = [];
-    this.initialize_board();
+    this.initialize_board(num_players);
   }
 
   static create(board_size: Vec2, num_players: number) {
@@ -42,9 +42,9 @@ class PongGame {
     return new PongGame(board_size, num_players);
   }
 
-  initialize_board() {
+  initialize_board(num_players : number) {
     const paddle_positions = generateCirclePoints(
-      this.num_players,
+      num_players,
       this.board_size.x * 0.95,
       { x: this.board_size.y, y: -this.board_size.x }
     );
@@ -52,7 +52,12 @@ class PongGame {
     for (const vector of paddle_positions) {
       this.player_paddles.push(new PlayerPaddle(vector, this.board_size));
     }
-    console.log(`Initialized ${this.num_players} paddles`);
+    console.log(`Initialized ${num_players} paddles`);
+  }
+
+  calculate_frame() {
+    for (const ball in this.balls_pos) {
+    }
   }
 }
 
