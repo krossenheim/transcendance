@@ -119,6 +119,9 @@ class PongGame {
     for (const paddle of this.player_paddles) {
       paddle.move(deltaFactor);
     }
+    for (const ball in this.balls_pos) {
+      ball.move(deltaFactor);
+    }
     setImmediate(this.gameLoop); // avoid stack overflows but is recursive, probably call this outside and passing args to gameLoop.
   }
 }
