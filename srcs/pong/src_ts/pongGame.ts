@@ -1,6 +1,8 @@
 import type { Vec2 } from "./vector2.js";
 import { scale, normalize } from "./vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
+import PongBall from "pongBall.js";
+import { isBoxedPrimitive } from "util/types";
 
 const FAKE_PLAYERID: number = 10;
 const MIN_PLAYERS: number = 2;
@@ -48,13 +50,13 @@ class PongGame {
   private board_size: Vec2;
   private player_paddles: Array<PlayerPaddle>;
   private players: Map<number, PlayerPaddle>;
-  private balls_pos: Array<Vec2>;
+  private balls_pos: Array<PongBall>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
 
   private constructor(board_size: Vec2, player_ids: Array<number>) {
     this.board_size = board_size;
-    this.balls_pos = [{ x: board_size.x / 2, y: board_size.y / 2 }];
+    this.balls_pos = [];
     this.player_paddles = [];
     this.players = new Map();
     this.last_frame_time = Date.now(); // initial timestamp in ms
@@ -81,8 +83,9 @@ class PongGame {
       { x: this.board_size.y, y: -this.board_size.x }
     );
 
+    let idxpaddle = 0;
     for (const player_id of player_ids) {
-      const vector = paddle_positions.pop();
+      const vector = paddle_positions[idxpaddle++];
       if (vector === undefined) {
         throw Error("There should be as many paddle positions as players.");
       }
@@ -91,6 +94,12 @@ class PongGame {
       this.players.set(player_id, paddle);
       this.player_paddles.push(paddle);
     }
+    this.balls_pos.push(
+      new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      )
+    );
     console.log(`Initialized ${player_ids.length} paddles`);
   }
 

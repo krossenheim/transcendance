@@ -37,4 +37,4 @@ export class PongBall {
     }
   }
 }
-export default PlayerPaddle;
+export default PongBall;
