@@ -39,7 +39,7 @@ export class PlayerPaddle {
   }
 
   move(deltaFactor: number) {
-    if (!this.is_moving_right === null) {
+    if (this.is_moving_right === null) {
       return;
     }
     const len = Math.hypot(this.dir.x, this.dir.y);

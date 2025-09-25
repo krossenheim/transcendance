@@ -1,7 +1,7 @@
 import type { Vec2 } from "./vector2.js";
 import { scale, normalize } from "./vector2.js";
 
-export class PlayerPaddle {
+export class PongBall {
   // private constants
   private readonly game_size: Vec2;
 
