@@ -1,3 +1,4 @@
+import { is } from "zod/locales";
 import GameResult from "./gameResult.js"
 import { z } from 'zod';
 
@@ -6,6 +7,7 @@ export const User = z.object({
 	createdAt: z.number(),
 	username: z.string(),
 	email: z.string(),
+	isGuest: z.number(),
 });
 
 export const FullUser = User.extend({

@@ -29,9 +29,9 @@ const fastify: FastifyInstance = zodFastify();
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
 
-function generateToken(userId: number): TokenDataType {
+function generateToken(user: UserType): TokenDataType {
 	return {
-		jwt: jwt.sign({ uid: userId }, secretKey, { expiresIn: '1h' }),
+		jwt: jwt.sign({ uid: user.id, isGuest: false }, secretKey, { expiresIn: '1h' }),
 		refresh: crypto.randomBytes(64).toString('hex'),
 	};
 }
@@ -58,7 +58,7 @@ fastify.post<{
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/api/users/validate', {
+	const response = await containers.db.post('/users/validate', {
 		username: request.body.username,
 		password: request.body.password,
 	});
@@ -80,11 +80,91 @@ fastify.post<{
 	}
 
 	const user: UserType = parse.data;
-	return reply.status(200).send({ user, tokens: generateToken(user.id) });
+	return reply.status(200).send({ user, tokens: generateToken(user) });
 });
 
-fastify.get('/api/ping', {}, async (request, response) => {
-	return response.status(200).send("Hello World!");
+type CreateAccountSchemama = {
+	Body: z.infer<typeof CreateUser>;
+	Reply: {
+		201: z.infer<typeof AuthResponse>;
+		400: z.infer<typeof ErrorResponse>;
+		500: z.infer<typeof ErrorResponse>;
+	};
+}
+
+fastify.post<{
+	Body: CreateAccountSchemama['Body'];
+	Reply: CreateAccountSchemama['Reply'];
+}>('/api/create/user', {
+	schema: {
+		body: CreateUser,
+		response: {
+			201: AuthResponse, // Created user
+			400: ErrorResponse, // Missing fields / User already exists
+			500: ErrorResponse, // Internal server error
+		}
+	}
+}, async (request, reply) => {
+	const response = await containers.db.post('/users/create/normal', request.body);
+
+	if (response === undefined) {
+		return reply.status(500).send({ message: 'User service unreachable' });
+	}
+	console.log("Response from user service:", response.status, response.data);
+
+	if (response.status === 400) {
+		return reply.status(400).send({ message: 'Invalid user data or user already exists' });
+	}
+
+	const parse = User.safeParse(response.data);
+	if (response.status !== 201 || !parse.success) {
+		console.error('Unexpected response from user service:', response.status, response.data);
+		console.error('Parsing error:', parse.error);
+		return reply.status(500).send({ message: 'User service dropping agreement' });
+	}
+
+	const user: UserType = parse.data;
+	return reply.status(201).send({ user, tokens: generateToken(user) });
+});
+
+type CreateGuestSchema = {
+	Reply: {
+		201: z.infer<typeof User>;
+		500: z.infer<typeof ErrorResponse>;
+	};
+}
+
+fastify.get<{
+	Reply: CreateGuestSchema['Reply'];
+}>('/api/create/guest', {
+	schema: {
+		response: {
+			201: User,
+			500: ErrorResponse,
+		}
+	}
+}, async (request, reply) => {
+	const response = await containers.db.get('/users/create/guest');
+
+	if (response === undefined) {
+		return reply.status(500).send({ message: 'User service unreachable' });
+	}
+	console.log("Response from user service:", response.status, response.data);
+
+	const newUserParse = User.safeParse(response.data);
+	if (response.status !== 201 || !newUserParse.success) {
+		console.error('Unexpected response from user service:', response.status, response.data);
+		if (!newUserParse.success)
+			console.error('Parsing error:', newUserParse.error);
+		return reply.status(500).send({ message: 'User service dropping agreement' });
+	}
+
+	const newUser: UserType = newUserParse.data;
+	return reply.status(201).send(newUser);
+});
+
+fastify.get('/api/ping', {}, async (request, reply) => {
+	return reply.status(200).send("Hello World!");
 })
 
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);

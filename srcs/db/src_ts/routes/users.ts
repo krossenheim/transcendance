@@ -1,5 +1,5 @@
-import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { CreateUserType } from '../utils/api/service/auth/createUser.js';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { LoginUserType } from '../utils/api/service/auth/loginUser.js';
 import { CreateUser } from '../utils/api/service/auth/createUser.js';
 import { LoginUser } from '../utils/api/service/auth/loginUser.js';
@@ -30,8 +30,14 @@ async function userRoutes(fastify: FastifyInstance, options: { database: Databas
 	}, async (request: FastifyRequest<{ Body: LoginUserType }>, reply: FastifyReply) => {
 		const { username, password } = request.body;
 		const user = options.database.fetchUserFromUsername(username);
-		if (user && await verifyPassword(password, user.passwordHash || '')) {
-			return reply.status(200).send({ user });
+		if (user && await verifyPassword(password, user.passwordHash || '') && !user.isGuest) {
+			return reply.status(200).send({
+				id: user.id,
+				createdAt: user.createdAt,
+				username: user.username,
+				email: user.email,
+				isGuest: user.isGuest
+			});
 		} else {
 			return reply.status(401).send({ user: undefined });
 		}
@@ -57,7 +63,7 @@ async function userRoutes(fastify: FastifyInstance, options: { database: Databas
 		}
 	});
 
-	fastify.post('/create', {
+	fastify.post('/create/normal', {
 		schema: {
 			body: CreateUser
 		}
@@ -68,8 +74,28 @@ async function userRoutes(fastify: FastifyInstance, options: { database: Databas
 			return;
 		}
 		console.log("Creating user:", username, email);
-		const user = options.database.createNewUser(username, email, await hashPassword(password));
-		reply.status(201).send(user);
+		
+		try {
+			const user = options.database.createNewUser(username, email, await hashPassword(password));
+
+			if (user === undefined) {
+				return reply.status(400).send({ error: 'User already exists' });
+			}
+			return reply.status(201).send(user);
+		} catch (error: any) {
+			console.error("Error creating user:", error);
+			return reply.status(400).send({ message: error.message || 'Internal server error' });
+		}
+	});
+
+	fastify.get('/create/guest', async (request: FastifyRequest, reply: FastifyReply) => {
+		const user = options.database.createNewGuestUser();
+
+		if (user === undefined) {
+			return reply.status(500).send({ error: 'Could not create guest user' });
+		} else {
+			return reply.status(201).send(user);
+		}
 	});
 }
 
