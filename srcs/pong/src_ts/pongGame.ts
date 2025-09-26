@@ -79,7 +79,7 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      this.board_size.x * 0.95,
+      this.board_size.x * 0.95, // min of boardsize.x/y
       { x: this.board_size.y, y: -this.board_size.x }
     );
 
@@ -114,11 +114,10 @@ class PongGame {
     paddle.setMoveOnNextFrame(move_right);
   }
 
-  gameLoop(forwarded_to_container: any) {
-    if (!payloadIsValid(forwarded_to_container)) {
-      return;
-    }
-
+  gameLoop() {
+    // if (!payloadIsValid(forwarded_to_container)) {
+    //   return;
+    // }
     const currentTime = Date.now();
     const deltaTime = (currentTime - this.last_frame_time) / 1000; // seconds elapsed
     this.last_frame_time = currentTime;
@@ -128,7 +127,7 @@ class PongGame {
     for (const paddle of this.player_paddles) {
       paddle.move(deltaFactor);
     }
-    for (const ball in this.balls_pos) {
+    for (const ball of this.balls_pos) {
       ball.move(deltaFactor);
     }
     setImmediate(this.gameLoop); // avoid stack overflows but is recursive, probably call this outside and passing args to gameLoop.

@@ -239,6 +239,7 @@ fastify.get(
 
       const valid_request = ForwardToContainerSchema.safeParse(request);
       if (!valid_request.success) {
+        console.error("Invalid request schema: " + valid_request.error);
         console.log("Invalid request: " + JSON.stringify(parsed));
         const userauth_attempt =
           UserAuthenticationRequestSchema.safeParse(parsed);

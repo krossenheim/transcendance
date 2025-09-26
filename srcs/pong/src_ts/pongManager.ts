@@ -3,6 +3,7 @@ import PongGame from "./pongGame.js";
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
 const PLAYER_NO_INPUT = undefined;
+
 function validateInputToPaddle(payload: any): boolean {
   if (payload.move === PLAYER_NO_INPUT) {
     throw Error("Received a message with no valid payload.");
@@ -16,6 +17,7 @@ function validateInputToPaddle(payload: any): boolean {
   }
   return true;
 }
+
 export class PongManager {
   private pong_instances: Map<number, PongGame>;
   public static instance: PongManager;

@@ -22,10 +22,21 @@
         background: #f9f9f9;
       "
     ></div>
-
+  <input id="myInput" type="text" placeholder="Type raw message" />
+  <button id="sendBtn">Send Raw</button>
     <script type="module">
       import ws from "/static/websocket.js"; // Replace with your real WebSocket
-
+    function sendInput() {
+      const val = document.getElementById('myInput').value;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(val);
+      } else {
+        alert('WebSocket is not connected.');
+      }
+    }
+    document.getElementById('myInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendInput();
+    });
       ws.addEventListener("message", (event) => {
         console.log("Message from server:", event.data);
         logOutput(event.data);
@@ -41,7 +52,7 @@
         {
           name: "sendAddRoom",
           label: "Add Room",
-          endpoint: "/api/chat/add_a_new_room",
+          endpoint: "/apis/chat/add_a_new_room",
           fields: { room_name: "Room Name" },
         },
         {

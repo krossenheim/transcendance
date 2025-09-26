@@ -66,7 +66,7 @@
   <button onclick="document.getElementById('messages').innerHTML = ''">Clear Output</button>
   <div id="messages"></div>
       </td>
-      <td width="50%">
+      <td width="50%">fra
   <!-- <iframe src="/static/chat.html" width="800" height="600"></iframe> -->
 <!-- two socket classes in these files. move socket.on('example').handlers to websocket.js -->
 </td>
@@ -129,6 +129,9 @@
         alert('WebSocket is not connected.');
       }
     }
+    document.getElementById('myInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendInput();
+    });
 
     function reconnectSocket() {
       if (ws) ws.close();
@@ -136,9 +139,6 @@
     }
 
     document.getElementById('sendBtn').addEventListener('click', sendInput);
-    document.getElementById('myInput').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') sendInput();
-    });
 
     function sendPredefined(obj) {
       if (ws && ws.readyState === WebSocket.OPEN) {
