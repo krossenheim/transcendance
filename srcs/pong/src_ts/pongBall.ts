@@ -1,5 +1,15 @@
-import type { Vec2 } from "./vector2.js";
-import { scale, normalize } from "./vector2.js";
+import type { Vec2 } from "./utils/api/service/common/vector2.js";
+// import { scale, normalize, toward } from "./utils/api/service/common/vector2.js";
+
+  function randomAvoidAxes(): Vec2 {
+    // pick a random angle between 0 and 2π, avoiding multiples of π/2
+    let angle: number;
+    do {
+      angle = Math.random() * Math.PI * 2;
+    } while (Math.abs(angle % (Math.PI/2)) < 0.05); // tiny epsilon to skip axes
+    return  {x: Math.cos(angle), y: Math.sin(angle);
+  }
+}
 
 export class PongBall {
   // private constants
@@ -9,10 +19,10 @@ export class PongBall {
   public dir: Vec2;
   private speed: number;
 
-  constructor(start_pos: Vec2, game_size: Vec2, speed = 0.1) {
+  constructor(start_pos: Vec2, game_size: Vec2, speed = 250) {
     this.game_size = game_size;
     this.pos = { ...start_pos };
-    this.dir = { x: game_size.y / 2, y: game_size.x / 2 };
+    this.dir = randomAvoidAxes();
     this.speed = speed;
   }
 

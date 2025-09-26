@@ -13,3 +13,4 @@ package-lock.json
 *.d.ts.map
 *.js
 **/dist/
+*.tsbuildinfo

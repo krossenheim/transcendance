@@ -1,7 +1,7 @@
-import type { Vec2 } from "./vector2.js";
-import { scale, normalize } from "./vector2.js";
+import type { Vec2 } from "./utils/api/service/common/vector2.js";
+import { scale, toward } from "./utils/api/service/common/vector2.js";
 
-const DEFAULT_PADDLE_SPEED = 10;
+const DEFAULT_PADDLE_SPEED = 500;
 
 export class PlayerPaddle {
   // private constants
@@ -13,6 +13,7 @@ export class PlayerPaddle {
   public player_ID: number;
   private is_moving_right: boolean | null;
   private paddle_speed: number;
+  public length: number;
 
   constructor(
     start_pos: Vec2,
@@ -23,10 +24,11 @@ export class PlayerPaddle {
     this.start_pos = start_pos;
     this.game_size = game_size;
     this.pos = { ...start_pos };
-    this.dir = { x: game_size.y / 2, y: game_size.x / 2 };
+    this.dir = toward(this.pos, { x: game_size.y / 2, y: game_size.x / 2 });
     this.player_ID = player_id;
     this.is_moving_right = null;
     this.paddle_speed = paddle_speed;
+    this.length = Math.min(game_size.y, game_size.x) * 0.25;
   }
 
   // applyPlayerInput(player_input: any, deltaFactor: number) {
@@ -34,7 +36,7 @@ export class PlayerPaddle {
   //   this.moveLateral(distance, to_right);
   // }
 
-  setMoveOnNextFrame(toRight: boolean) {
+  setMoveOnNextFrame(toRight: boolean | null) {
     this.is_moving_right = toRight;
   }
 
@@ -42,6 +44,7 @@ export class PlayerPaddle {
     if (this.is_moving_right === null) {
       return;
     }
+    console.log("Moving");
     const len = Math.hypot(this.dir.x, this.dir.y);
     const d =
       len === 0 ? { x: 0, y: 0 } : { x: this.dir.x / len, y: this.dir.y / len };
@@ -53,7 +56,6 @@ export class PlayerPaddle {
     const distance = deltaFactor * this.paddle_speed;
     this.pos.x += lateral.x * distance;
     this.pos.y += lateral.y * distance;
-    this.is_moving_right = null;
   }
 }
 

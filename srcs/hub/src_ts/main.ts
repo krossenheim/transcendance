@@ -142,7 +142,8 @@ function forwardPayloadToUsers(recipients: number[], payload: object) {
     // Crash if its not iterable. its either an list with 0 to n users, a SYS user
     const socketToUser = openUserIdToSocket.get(user_id);
     if (!socketToUser) {
-      debugMessageToAllUserSockets("No socket open to user: " + user_id);
+      // debugMessageToAllUserSockets("No socket open to user: " + user_id);
+      console.log("No socket open to user: ", user_id);
       continue;
     }
     if (socketToUser)
@@ -162,7 +163,7 @@ fastify.get(
       return;
     }
     socket.on("message", (message: WebSocket.RawData) => {
-      let parsed;
+    let parsed;
 	  let str;
       try {
         str = rawDataToString(message);
@@ -170,7 +171,7 @@ fastify.get(
           console.log("Empty message from $( some info here )");
           return;
         }
-        debugMessageToAllUserSockets(str);
+        // debugMessageToAllUserSockets(str);
         parsed = JSON.parse(str);
       } catch (e) {
         console.log(`Unrecognized message: ${str}`);

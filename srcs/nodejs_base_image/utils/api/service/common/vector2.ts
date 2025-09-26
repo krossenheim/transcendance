@@ -12,3 +12,6 @@ export function scale(factor: number, vector: Vec2): Vec2 {
   return { x: vector.x * factor, y: vector.y * factor };
 }
 
+export function toward(from: Vec2, to: Vec2): Vec2 {
+  return normalize({ x: to.x - from.x, y: to.y - from.y });
+}

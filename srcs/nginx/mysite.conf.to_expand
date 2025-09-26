@@ -99,5 +99,11 @@ location /static
 		alias /var/www/html;
 		try_files /chat.html =404;
     }
+
+	location /favicon.ico {
+		alias /var/www/html;
+		try_files /fish.jpg =404;
+    }
+	
 }
 
