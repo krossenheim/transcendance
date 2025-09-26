@@ -7,9 +7,9 @@ import type { Vec2 } from "./utils/api/service/common/vector2.js";
     do {
       angle = Math.random() * Math.PI * 2;
     } while (Math.abs(angle % (Math.PI/2)) < 0.05); // tiny epsilon to skip axes
-    return  {x: Math.cos(angle), y: Math.sin(angle);
+    return  {x: Math.cos(angle), y: Math.sin(angle)};
   }
-}
+
 
 export class PongBall {
   // private constants

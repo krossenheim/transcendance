@@ -6,9 +6,8 @@
   <input type="number" id="boardId" min="1" value="1">
   <p>Press "W" to move up/left and "S" to move down/right.</p>
   <canvas id="c" width="800" height="480" style="background: #000"></canvas>
-  <script>
-    const url = "wss://localhost:4430/ws";
-    const ws = new WebSocket(url);
+  <script type="module">
+    import ws from "/static/websocket.js";
     const ctx = document.getElementById("c").getContext("2d");
 
     const backendWidth = 1000; // adjust to your server coordinate space

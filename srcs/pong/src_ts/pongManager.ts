@@ -110,12 +110,12 @@ export class PongManager {
       if (id !== board_id) {
         continue;
       }
-      if (!(user_id in game.players)) {
+      if (!game.players.includes(user_id)) {
         console.log(
           "User with id ",
           user_id,
           " not a player of game with id ",
-          id
+          id, " Its players are: ", game.players
         );
         return;
       }
