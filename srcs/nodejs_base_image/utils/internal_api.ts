@@ -11,7 +11,7 @@ class ContainerTarget {
 
 	async post(path: string, body: any): Promise<AxiosResponse<any> | undefined> {
 		try {
-			return await axios.post(`http://${this.target}:${this.port}/internal_api/${path}`, body, { validateStatus: () => true });
+			return await axios.post(`http://${this.target}:${this.port}/internal_api${path}`, body, { validateStatus: () => true });
 		} catch (error : any) {
 			console.error("Error in internal API POST request:", error);
 			return undefined;
@@ -20,7 +20,7 @@ class ContainerTarget {
 
 	async get(path: string): Promise<AxiosResponse<any> | undefined> {
 		try {
-			return await axios.get(`http://${this.target}:${this.port}/internal_api/${path}`, { validateStatus: () => true });
+			return await axios.get(`http://${this.target}:${this.port}/internal_api${path}`, { validateStatus: () => true });
 		} catch (error : any) {
 			console.error("Error in internal API GET request:", error);
 			return undefined;

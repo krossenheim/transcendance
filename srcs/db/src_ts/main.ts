@@ -1,7 +1,8 @@
 // const fastify = require('fastify')({ logger: true });
-import Fastify, { FastifyInstance, FastifyRequest, FastifyReply, FastifyServerOptions } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyServerOptions } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import Database from './database';
+import Database from './database.js';
+import Fastify from 'fastify';
 
 const zodFastify = (
 	options: FastifyServerOptions = { logger: true }
@@ -15,7 +16,8 @@ const zodFastify = (
 const fastify: FastifyInstance = zodFastify();
 const db = new Database('/etc/database_data/users.db');
 
-import userRoutes from './routes/users';
+import userRoutes from './routes/users.js';
+fastify.register(userRoutes, { prefix: '/internal_api/users', database: db });
 fastify.register(userRoutes, { prefix: '/api/users', database: db });
 
 // fastify.register(async function (fastify) {
