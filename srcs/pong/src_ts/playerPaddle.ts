@@ -13,6 +13,7 @@ export class PlayerPaddle {
   public player_ID: number;
   private is_moving_right: boolean | null;
   private paddle_speed: number;
+  public length: number;
 
   constructor(
     start_pos: Vec2,
@@ -27,6 +28,7 @@ export class PlayerPaddle {
     this.player_ID = player_id;
     this.is_moving_right = null;
     this.paddle_speed = paddle_speed;
+    this.length = Math.min(game_size.y, game_size.x) * 0.25;
   }
 
   // applyPlayerInput(player_input: any, deltaFactor: number) {

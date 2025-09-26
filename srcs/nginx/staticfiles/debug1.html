@@ -25,21 +25,11 @@
     }
 
     function isBall(obj) {
-      return (
-        obj &&
-        typeof obj.x === "number" &&
-        typeof obj.y === "number" &&
-        typeof obj.l !== "number" // paddles have a 'l' property
-      );
+      return obj && typeof obj.x === "number" && typeof obj.y === "number";
     }
 
     function isPaddle(obj) {
-      return (
-        obj &&
-        typeof obj.x === "number" &&
-        typeof obj.y === "number" &&
-        typeof obj.l === "number"
-      );
+      return obj && typeof obj.x === "number" && typeof obj.y === "number";
     }
 
     ws.onmessage = (e) => {
@@ -72,9 +62,18 @@
 
       paddles.forEach((p) => {
         const { cx, cy } = mapToCanvas(p.x, p.y);
-        const len = p.l * (canvas.height / backendHeight); // scale length to canvas
+        const len = p.l * (canvas.height / backendHeight); // scale length
+        const width = 8; // paddle width in canvas pixels
+
+        // Compute angle from forward vector
+        const angle = Math.atan2(p.dy, p.dx);
+
+        ctx.save();
+        ctx.translate(cx, cy); // move origin to paddle center
+        ctx.rotate(angle); // rotate canvas to align with (dx,dy)
         ctx.fillStyle = "blue";
-        ctx.fillRect(cx - 4, cy - len / 2, 8, len);
+        ctx.fillRect(-width / 2, -len / 2, width, len); // draw rectangle centered at origin
+        ctx.restore();
       });
 
       requestAnimationFrame(draw);

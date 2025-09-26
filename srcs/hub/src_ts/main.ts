@@ -163,7 +163,7 @@ fastify.get(
       return;
     }
     socket.on("message", (message: WebSocket.RawData) => {
-      let parsed;
+    let parsed;
 	  let str;
       try {
         str = rawDataToString(message);
@@ -171,7 +171,7 @@ fastify.get(
           console.log("Empty message from $( some info here )");
           return;
         }
-        debugMessageToAllUserSockets(str);
+        // debugMessageToAllUserSockets(str);
         parsed = JSON.parse(str);
       } catch (e) {
         console.log(`Unrecognized message: ${str}`);

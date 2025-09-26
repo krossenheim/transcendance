@@ -69,17 +69,17 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      this.board_size.x * 0.20, // min of boardsize.x/y
-      { x: this.board_size.y, y: -this.board_size.x }
+      this.board_size.x * 0.48, // min of boardsize.x/y
+      { x: this.board_size.y/2, y: this.board_size.x/2 }
     );
 
     let idxpaddle = 0;
     for (const player_id of player_ids) {
-		console.log("hi" + player_id);
       const vector = paddle_positions[idxpaddle++];
       if (vector === undefined) {
         throw Error("There should be as many paddle positions as players.");
       }
+      console.log("Placing paddle at: " , vector.x, ",", vector.y);
 
       const paddle = new PlayerPaddle(vector, this.board_size, player_id);
       this.players.set(player_id, paddle);

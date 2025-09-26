@@ -41,7 +41,7 @@ setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 async function backgroundTask() {
   while (true) {
     for (const [game_id, game] of singletonPong.pong_instances) {
-		game.gameLoop();
+      game.gameLoop();
       const recipients = Array.from(game.players.keys());
       const payload: { balls: any[]; paddles: any[] } = {
         balls: [],
@@ -49,16 +49,27 @@ async function backgroundTask() {
       };
 
       for (const obj of game.balls_pos) {
-        payload.balls.push({x: obj.pos.x,y: obj.pos.y, dx:obj.dir.x, dy:obj.dir.y});
+        payload.balls.push({
+          x: obj.pos.x,
+          y: obj.pos.y,
+          dx: obj.dir.x,
+          dy: obj.dir.y,
+        });
       }
 
       for (const obj of game.player_paddles) {
-        payload.paddles.push({x: obj.pos.x,y: obj.pos.y, dx:obj.dir.x, dy:obj.dir.y});
+        payload.paddles.push({
+          x: obj.pos.x,
+          y: obj.pos.y,
+          dx: obj.dir.x,
+          dy: obj.dir.y,
+          l: obj.length,
+        });
       }
-	  const out = { recipients: recipients, payload: payload }
-    socketToHub.send(JSON.stringify(out));
-	}
-    await new Promise(resolve => setTimeout(resolve, 12));
+      const out = { recipients: recipients, payload: payload };
+      socketToHub.send(JSON.stringify(out));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 12));
   }
 }
 
