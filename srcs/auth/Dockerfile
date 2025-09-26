@@ -3,6 +3,7 @@ FROM nodejs_base_image:1.0
 WORKDIR /appservice/
 
 COPY appservice/ /appservice/
+COPY dist/ /appservice/
 RUN chmod 444 /appservice/*
 
 RUN cat /appservice/check_global_envs.sh /appservice/service_entryp.sh > /appservice/entrypoint.sh \

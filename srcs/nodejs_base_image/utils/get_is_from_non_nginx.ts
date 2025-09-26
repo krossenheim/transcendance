@@ -6,4 +6,6 @@ function isFromNginx(address:string)
 	return (normalized === process.env.NGINX_IPV4_ADDRESS)
 }
 
-module.exports = { isFromNginx };
+export default {
+	isFromNginx
+};

@@ -1,15 +1,20 @@
-import Fastify, { FastifyInstance, FastifyRequest, FastifyReply, FastifyServerOptions } from 'fastify';
+'use strict'
+import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyServerOptions } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { CreateUser, CreateUserType } from './utils/api/service/auth/createUser';
-import { LoginUser, LoginUserType } from './utils/api/service/auth/loginUser';
-import { TokenData, TokenDataType } from './utils/api/service/auth/tokenData';
-import { User, UserType } from './utils/api/service/db/user';
-
-import containers from './utils/internal_api'
+import type { CreateUserType } from './utils/api/service/auth/createUser.js';
+import type { TokenDataType } from './utils/api/service/auth/tokenData.js';
+import { AuthResponse } from './utils/api/service/auth/loginResponse.js';
+import { ErrorResponse } from './utils/api/service/common/error.js';
+import { CreateUser } from './utils/api/service/auth/createUser.js';
+import { LoginUser } from './utils/api/service/auth/loginUser.js';
+import type { UserType } from './utils/api/service/db/user.js';
+import  { User } from './utils/api/service/db/user.js';
+import containers from './utils/internal_api.js'
+import Fastify from 'fastify';
+import { z } from 'zod'
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import axios from 'axios';
 
 const zodFastify = (
 	options: FastifyServerOptions = { logger: true }
@@ -31,55 +36,56 @@ function generateToken(userId: number): TokenDataType {
 	};
 }
 
-fastify.post('/api/login', {
+type LoginSchema = {
+	Body: z.infer<typeof LoginUser>;
+	Reply: {
+		200: z.infer<typeof AuthResponse>;
+		401: z.infer<typeof ErrorResponse>;
+		500: z.infer<typeof ErrorResponse>;
+	};
+};
+
+fastify.post<{
+	Body: LoginSchema['Body'];
+	Reply: LoginSchema['Reply'];
+}>('/api/login', {
 	schema: {
-		body: LoginUser
+		body: LoginUser,
+		response: {
+			200: AuthResponse, // Login successful
+			401: ErrorResponse, // Username/Password don't match / don't exist
+			500: ErrorResponse, // Internal server error
+		}
 	}
-}, async (request: FastifyRequest<{ Body: LoginUserType }>, reply: FastifyReply) => {
-	const response = containers.db.post<UserType>('/api/users/validate', {
+}, async (request, reply) => {
+	const response = await containers.db.post('/api/users/validate', {
 		username: request.body.username,
 		password: request.body.password,
 	});
-
 	
-
-	)
-	try {
-		let response;
-		try {
-			response = await axios.post(
-				`http://db:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/api/users/validate`,
-				{ username: request.body.username, password: request.body.password },
-			);
-		} catch (err) {
-			if (response && response.status === 401) {
-				return reply.status(401).send({ error: 'Invalid credentials' });
-			}
-			throw err;
-		}
-
-		console.log(`Login attempt for user: ${request.body.username}`);
-		return reply.status(200).send({ message: 'Login successful', user: response.data.user, token: generateToken(response.data.user.id) });
-	
-	} catch (error) {
-		console.error('Error validating user credentials:', error);
-		return reply.status(500).send({ error: 'User service unavailable' });
+	if (response === undefined) {
+		return reply.status(500).send({ message: 'User service unreachable' });
 	}
+	console.log("Response from user service:", response.status, response.data);
+
+	if (response.status === 401) {
+		return reply.status(401).send({ message: 'Invalid credentials' });
+	}
+
+	const parse = User.safeParse(response.data);
+	if (response.status !== 200 || !parse.success) {
+		console.error('Unexpected response from user service:', response.status, response.data);
+		console.error('Parsing error:', parse.error);
+		return reply.status(500).send({ message: 'User service dropping agreement' });
+	}
+
+	const user: UserType = parse.data;
+	return reply.status(200).send({ user, tokens: generateToken(user.id) });
 });
 
-fastify.post('/api/create', {
-	schema: {
-		body: CreateUser
-	}
-}, async (request: FastifyRequest<{ Body: CreateUserType }>, reply: FastifyReply) => {
-	// try {
-	// 	let response;
-	// 	try {
-
-	// 	}
-	// }
-	return reply.status(501).send({ error: 'Not implemented' });
-});
+fastify.get('/api/ping', {}, async (request, response) => {
+	return response.status(200).send("Hello World!");
+})
 
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
 const host = process.env.AUTH_BIND_TO || '0.0.0.0';

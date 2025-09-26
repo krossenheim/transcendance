@@ -1,9 +1,10 @@
-import { CreateUser, CreateUserType } from '../utils/api/service/auth/createUser';
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { LoginUser, LoginUserType } from '../utils/api/service/auth/loginUser';
-import Database from '../database';
+import type { CreateUserType } from '../utils/api/service/auth/createUser.js';
+import type { LoginUserType } from '../utils/api/service/auth/loginUser.js';
+import { CreateUser } from '../utils/api/service/auth/createUser.js';
+import { LoginUser } from '../utils/api/service/auth/loginUser.js';
+import Database from '../database.js';
 import bcrypt from 'bcrypt';
-import { UserType } from '../utils/api/service/db/user';
 
 const SALT_ROUNDS = 10;
 

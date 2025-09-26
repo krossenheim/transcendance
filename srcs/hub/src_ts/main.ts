@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import websocketPlugin from "@fastify/websocket";
 // Type-only imports
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { proxyRequest } from "./proxyRequest.js";
 import type WebSocket from "ws";
 import {
   UserRequestSchema,
@@ -264,6 +265,16 @@ fastify.get(
     });
   }
 );
+
+import { containersNameToIp } from "./utils/container_names.js";
+
+fastify.all('/api/:container/*', async (req, reply) => {
+  const { container } = req.params as { container: string };
+  console.log("Container:", container);
+  console.log("Url: ", req.url);
+  const new_url = req.url.replace(`/api/${container}/`, '/api/');
+  await proxyRequest(req, reply, req.method, `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`);
+});
 
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "no",

@@ -1,5 +1,5 @@
-import { User, FullUser, RawUser, FullUserType, UserType, RawUserType } from './utils/api/service/db/user';
-import { GameResult, GameResultType } from './utils/api/service/db/gameResult';
+import { User, FullUser, RawUser, FullUserType, UserType, RawUserType } from './utils/api/service/db/user.js';
+import { GameResult, GameResultType } from './utils/api/service/db/gameResult.js';
 import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 

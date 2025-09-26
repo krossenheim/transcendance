@@ -1,21 +1,30 @@
-import { ApiResponse } from './api/service/common/response';
-import axios from 'axios';
+import axios, { Axios, type AxiosResponse } from 'axios';
 
 class ContainerTarget {
 	target: string;
 	port: string;
-
+	
 	constructor(target: string, port: string) {
 		this.target = target;
 		this.port = port;
 	}
 
-	async post<T>(path: string, body: any): Promise<ApiResponse<T>> {
-		return ApiResponse<T>(await axios.post<T>(`http://${this.target}:${this.port}/internal_api/${path}`, body));
+	async post(path: string, body: any): Promise<AxiosResponse<any> | undefined> {
+		try {
+			return await axios.post(`http://${this.target}:${this.port}/internal_api/${path}`, body, { validateStatus: () => true });
+		} catch (error : any) {
+			console.error("Error in internal API POST request:", error);
+			return undefined;
+		}
 	}
 
-	async get<T>(path: string): Promise<ApiResponse<T>> {
-		return ApiResponse<T>(await axios.get<T>(`http://${this.target}:${this.port}/internal_api/${path}`));
+	async get(path: string): Promise<AxiosResponse<any> | undefined> {
+		try {
+			return await axios.get(`http://${this.target}:${this.port}/internal_api/${path}`, { validateStatus: () => true });
+		} catch (error : any) {
+			console.error("Error in internal API GET request:", error);
+			return undefined;
+		}
 	}
 }
 

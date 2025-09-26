@@ -1,6 +1,6 @@
-const axios = require('axios');
+import axios from 'axios';
 
-async function proxyRequest(req: any, reply: any, method: string, url: string) {
+export async function proxyRequest(req: any, reply: any, method: string, url: string) {
   console.log(`Proxying ${method} request to: ${url}`);
   console.log(req.headers);
   console.log(req.body);

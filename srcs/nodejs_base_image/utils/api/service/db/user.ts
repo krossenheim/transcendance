@@ -1,4 +1,4 @@
-import GameResult from "./gameResult"
+import GameResult from "./gameResult.js"
 import { z } from 'zod';
 
 export const User = z.object({

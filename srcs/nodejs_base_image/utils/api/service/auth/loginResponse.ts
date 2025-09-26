@@ -1,5 +1,5 @@
-import { TokenData } from './tokenData';
-import { User } from '../db/user';
+import { TokenData } from './tokenData.js';
+import { User } from '../db/user.js';
 import { z } from 'zod';
 
 export const AuthResponse = z.object({

@@ -1,5 +1,5 @@
 import userRoutes from './routes/users.js';
-import Database from './database';
+import Database from './database.js';
 import Fastify from 'fastify';
 
 const fastify = Fastify({ logger: true });
