@@ -12,13 +12,20 @@
         flex-direction: column;
         resize: both;
         overflow: hidden;
+        font-family: sans-serif;
+      }
+      #roomSelect {
+        margin: 10px;
+        padding: 8px;
+        font-size: 14px;
+        width: calc(100% - 40px);
+        align-self: center;
       }
       #chatBox {
         flex: 1;
         padding: 10px;
         overflow-y: auto;
         background: #f9f9f9;
-        font-family: sans-serif;
         font-size: 14px;
       }
       #inputBar {
@@ -42,105 +49,173 @@
       #sendButton:hover {
         background: #0056b3;
       }
+      /* Additional input bars */
+      #createRoomInput,
+      #addUserInput {
+        flex: 1;
+        padding: 8px;
+        font-size: 14px;
+        border: none;
+        outline: none;
+      }
+      #createRoomButton,
+      #addUserButton {
+        padding: 8px 12px;
+        border: none;
+        background: #28a745;
+        color: white;
+        cursor: pointer;
+      }
+      #createRoomButton:hover,
+      #addUserButton:hover {
+        background: #1e7e34;
+      }
+      #inputBar:not(:last-child) {
+        border-bottom: 1px solid #ccc;
+      }
     </style>
   </head>
   <body>
     <div id="chatWindow">
+      <select id="roomSelect"></select>
+
       <div id="chatBox" class="chat-room" data-room-name="a"></div>
+
       <div id="inputBar">
         <input type="text" id="messageInput" placeholder="Type a message..." />
         <button id="sendButton">Send</button>
       </div>
+
       <div id="inputBar">
         <input
           type="text"
           id="createRoomInput"
-          placeholder="Type a message..."
+          placeholder="New room name..."
         />
-        <button id="createRoomButton">Send</button>
+        <button id="createRoomButton">Create Room</button>
       </div>
+
       <div id="inputBar">
-        <input type="text" id="addUserInput" placeholder="Type a message..." />
-        <button id="addUserButton">Send</button>
+        <input type="text" id="addUserInput" placeholder="User ID to add..." />
+        <button id="addUserButton">Add User to Room</button>
       </div>
     </div>
 
     <script type="module">
-      const handlers = {
-        chatAddMessageToRoom: (parsedEventData) => {
-          const { room_name, message } = parsedEventData;
-          if (!room_name || !message) {
-            console.log(
-              "Missing arguments to call " + parsedEventData.func_name
-            );
-            return;
-          }
-          addMessageToRoom(room_name, message);
-        },
-        // add more functions here...
-      };
       import ws from "/static/websocket.js";
 
+      // Track rooms and current room
+      let rooms = ["a"]; // default room
+      let currentRoom = "a";
+
+      const roomSelect = document.getElementById("roomSelect");
+      const chatBox = document.getElementById("chatBox");
+
+ function updateRoomDropdown() {
+  roomSelect.innerHTML = "";
+  rooms.forEach((room) => {
+    const option = document.createElement("option");
+    option.value = room;
+    option.textContent = "Room: " + room;
+    roomSelect.appendChild(option);
+  });
+
+  // If currentRoom is not in rooms array, reset to first room
+  if (!rooms.includes(currentRoom)) {
+    currentRoom = rooms.length > 0 ? rooms[0] : "";
+  }
+
+  roomSelect.value = currentRoom;
+  chatBox.dataset.room_name = currentRoom;
+  chatBox.innerHTML = ""; // clear chat on room switch
+}
+
+
+roomSelect.addEventListener("change", () => {
+  currentRoom = roomSelect.value;
+  updateRoomDropdown();
+  addMessage(`Switched to room: ${currentRoom}`);
+});
+
+      function addMessageToRoom(room_name, message) {
+        if (room_name !== currentRoom) return;
+        const msg = document.createElement("div");
+        msg.textContent = `(room ${room_name}) ${message}`;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function addMessage(text) {
+        const msg = document.createElement("div");
+        msg.textContent = text;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      const handlers = {
+        chatAddMessageToRoom: (func_args) => {
+          const { room_name, message } = func_args;
+          if (!room_name || !message) return;
+          addMessageToRoom(room_name, message);
+        },
+        chatRoomAdded: (func_args) => {
+          console.log("chatRoomAdded event received:", func_args);
+          const newRoom = func_args.room_name;
+          if (newRoom && !rooms.includes(newRoom)) {
+            console.log("Adding new room:", newRoom);
+            rooms.push(newRoom);
+            currentRoom = newRoom;
+            updateRoomDropdown();
+            addMessage(`Room created and switched to: ${newRoom}`);
+          } else {
+            console.log("Room already exists or invalid:", newRoom);
+          }
+        },
+        generalPopUpText: (func_args) => {
+          if (func_args.message) {
+            addMessage(`System: ${func_args.message}`);
+          }
+        },
+      };
+
       ws.addEventListener("open", () => {
-        console.log("Connected to server.");
+        addMessage("Connected to server.");
       });
 
       ws.addEventListener("message", (event) => {
         let parsed;
         try {
           parsed = JSON.parse(event.data);
-        } catch (e) {
-          console.error("Invalid JSON:", event.data);
+          console.log("WS message received:", parsed);
+        } catch {
+          addMessage("Received (non-JSON): " + event.data);
           return;
         }
-
-        const { func_name, func_args } = parsed;
-
-        if (!func_name) {
-          console.warn("can't unpack func_name from parsed");
-          return;
+        const { func_name, ...func_args } = parsed;
+        if (func_name && handlers[func_name]) {
+          handlers[func_name](func_args);
+        } else {
+          addMessage("Unknown message: " + event.data);
+          console.log("Unknown message func_name:", func_name);
         }
-          if (!handlers[func_name]) {
-          console.warn("Unknown function:", func_name);
-          return;
-        }
-
-        handlers[func_name](func_args);
       });
 
       ws.addEventListener("close", () => {
         addMessage("Connection closed.");
       });
 
-      function addMessageToRoom(room_name, user_name, message) {
-        const chatBox = document.getElementById("chatBox");
-        if (chatBox.dataset.room_name != room_name) {
-        }
-        const msg = document.createElement("div");
-        msg.textContent = `(room ${room_name})${message}`;
-        chatBox.appendChild(msg);
-        chatBox.scrollTop = chatBox.scrollHeight; // auto-scroll
-      }
-
-      function addMessage(text) {
-        const chatBox = document.getElementById("chatBox");
-        const msg = document.createElement("div");
-        msg.textContent = text;
-        chatBox.appendChild(msg);
-        chatBox.scrollTop = chatBox.scrollHeight; // auto-scroll
-      }
-
       function sendMessage() {
         const input = document.getElementById("messageInput");
         const text = input.value.trim();
+        if (!text) return;
         const tosend = JSON.stringify({
           container: "chat",
           endpoint: "/api/chat/send_message_to_room",
           message: text,
-          room_name: document.getElementById("chatBox").dataset.room_name,
+          room_name: currentRoom,
         });
         addMessage("Sending: " + tosend);
-        if (text && ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(tosend);
           input.value = "";
         }
@@ -149,13 +224,14 @@
       function createRoom() {
         const input = document.getElementById("createRoomInput");
         const text = input.value.trim();
+        if (!text) return;
         const tosend = JSON.stringify({
           container: "chat",
           endpoint: "/api/chat/add_a_new_room",
-          room_name: input,
+          room_name: text,
         });
         addMessage("Sending: " + tosend);
-        if (text && ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(tosend);
           input.value = "";
         }
@@ -164,13 +240,15 @@
       function addUserToRoom() {
         const input = document.getElementById("addUserInput");
         const text = input.value.trim();
+        if (!text) return;
         const tosend = JSON.stringify({
           container: "chat",
           endpoint: "/api/chat/add_to_room",
-          room_name: input,
+          room_name: currentRoom,
+          user_to_add: text,
         });
         addMessage("Sending: " + tosend);
-        if (text && ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.send(tosend);
           input.value = "";
         }
@@ -185,6 +263,7 @@
       document
         .getElementById("addUserButton")
         .addEventListener("click", addUserToRoom);
+
       document
         .getElementById("messageInput")
         .addEventListener("keypress", (e) => {
@@ -200,6 +279,9 @@
         .addEventListener("keypress", (e) => {
           if (e.key === "Enter") addUserToRoom();
         });
+
+      // Initialize UI
+      updateRoomDropdown();
     </script>
   </body>
 </html>
