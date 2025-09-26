@@ -1,10 +1,8 @@
 import type { Vec2 } from "./vector2.js";
 import { scale, normalize } from "./vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
-import PongBall from "pongBall.js";
-import { isBoxedPrimitive } from "util/types";
+import PongBall from "./pongBall.js";
 
-const FAKE_PLAYERID: number = 10;
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
 
@@ -25,11 +23,6 @@ function generateCirclePoints(n: number, radius = 1, offset: Vec2): Vec2[] {
   return points;
 }
 
-type PongUserInputType = {
-  user_id: number;
-  move_r: number;
-};
-
 function payloadIsValid(forwarded_to_container: any) {
   if (forwarded_to_container.user_id === undefined) {
     throw Error("No propery user_id for gameloop.");
@@ -48,14 +41,14 @@ function payloadIsValid(forwarded_to_container: any) {
 
 class PongGame {
   private board_size: Vec2;
-  private player_paddles: Array<PlayerPaddle>;
-  private players: Map<number, PlayerPaddle>;
-  private balls_pos: Array<PongBall>;
+  public player_paddles: Array<PlayerPaddle>;
+  public players: Map<number, PlayerPaddle>;
+  public balls_pos: Array<PongBall>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
 
-  private constructor(board_size: Vec2, player_ids: Array<number>) {
-    this.board_size = board_size;
+  private constructor(player_ids: Array<number>) {
+    this.board_size = { x: 1000, y:1000};
     this.balls_pos = [];
     this.player_paddles = [];
     this.players = new Map();
@@ -63,17 +56,14 @@ class PongGame {
     this.initializeBoard(player_ids);
   }
 
-  static create(board_size: Vec2, player_ids: Array<number>): PongGame | null {
+  static create(player_ids: Array<number>): PongGame | null {
     if (new Set(player_ids).size !== player_ids.length) {
       console.error("Non unique ids passed as player_ids");
       return null;
     }
     if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS)
       return null;
-    if (board_size.x < 1 || board_size.y < 1) {
-      return null;
-    }
-    return new PongGame(board_size, player_ids);
+    return new PongGame( player_ids);
   }
 
   initializeBoard(player_ids: Array<number>) {
@@ -85,6 +75,7 @@ class PongGame {
 
     let idxpaddle = 0;
     for (const player_id of player_ids) {
+		console.log("hi" + player_id);
       const vector = paddle_positions[idxpaddle++];
       if (vector === undefined) {
         throw Error("There should be as many paddle positions as players.");
@@ -94,12 +85,14 @@ class PongGame {
       this.players.set(player_id, paddle);
       this.player_paddles.push(paddle);
     }
+	console.log("Added players:", Array.from(this.players.keys()));
     this.balls_pos.push(
       new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
       )
     );
+	this.gameLoop();
     console.log(`Initialized ${player_ids.length} paddles`);
   }
 
@@ -130,7 +123,7 @@ class PongGame {
     for (const ball of this.balls_pos) {
       ball.move(deltaFactor);
     }
-    setImmediate(this.gameLoop); // avoid stack overflows but is recursive, probably call this outside and passing args to gameLoop.
+    // setImmediate(this.gameLoop); // avoid stack overflows but is recursive, probably call this outside and passing args to gameLoop.
   }
 }
 

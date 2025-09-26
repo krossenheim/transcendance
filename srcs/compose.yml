@@ -72,7 +72,22 @@ services:
     depends_on:
       hub:
         condition: service_healthy
-
+  pong:
+    container_name: ${PONG_NAME}
+    image: ${PONG_NAME}
+    env_file:
+      - ./globals.env
+      - ./${PONG_NAME}/service_env.env
+    build:
+      context: ./${PONG_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${PONG_IPV4_ADDRESS}
+        
 volumes:
   databases:
     name: databases

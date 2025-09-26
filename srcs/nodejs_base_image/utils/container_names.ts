@@ -30,6 +30,10 @@ if (!process.env.HUB_IPV4_ADDRESS)
       throw new Error("Env var HUB_IPV4_ADDRESS not set'");
 }
 
+if (!process.env.PONG_IPV4_ADDRESS)
+{
+      throw new Error("Env var PONG_IPV4_ADDRESS not set'");
+}
 export const containersIpToName = new Map();
 export const containersNameToIp = new Map();
 
@@ -40,6 +44,7 @@ containersIpToName.set(process.env.CHATROOM_IPV4_ADDRESS, process.env.CHATROOM_N
 containersIpToName.set(process.env.DATABASE_IPV4_ADDRESS, process.env.DATABASE_NAME);
 containersIpToName.set(process.env.AUTH_IPV4_ADDRESS, process.env.AUTH_NAME);
 containersIpToName.set(process.env.HUB_IPV4_ADDRESS, process.env.HUB_NAME);
+containersIpToName.set(process.env.PONG_IPV4_ADDRESS, process.env.PONG_NAME);
 // 
 
 export const my_address = run_bash_command("getent hosts ${HOSTNAME} | awk '{print $1}'");
@@ -53,14 +58,7 @@ if (!my_address)
 // give myself the name listed above.
 // Any container failing to do this should throw.
 
-export let g_myContainerName: string | false = false;
-
-for (const [ip, name] of containersIpToName.entries()) {
-  if (ip === my_address) {
-    g_myContainerName = name;
-    break;
-  }
-}
+export const g_myContainerName = containersIpToName.get(my_address);
 
 if (!g_myContainerName) {
   throw new Error(`Could not determine container name for IP: ${my_address}`);

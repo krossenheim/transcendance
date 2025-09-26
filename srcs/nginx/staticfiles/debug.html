@@ -2,17 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>the htmls</title>
-  </head>
-  <body>
-    <!-- Buttons + inputs will be generated here -->
-    <div id="actions"></div>
-
-    <!-- WebSocket output -->
-    <h3>WebSocket Output</h3>
-    <div
-      id="outputBox"
-      style="
+    <title>WebSocket Debug</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', sans-serif;
+        padding: 20px;
+        background: #f7f7f7;
+      }
+      #outputBox {
         width: 100%;
         height: 200px;
         border: 1px solid #ccc;
@@ -20,39 +17,54 @@
         padding: 5px;
         font-family: monospace;
         background: #f9f9f9;
-      "
-    ></div>
-  <input id="myInput" type="text" placeholder="Type raw message" />
-  <button id="sendBtn">Send Raw</button>
+        margin-bottom: 15px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      #actions div {
+        margin-bottom: 10px;
+      }
+      input[type="text"] {
+        padding: 6px 8px;
+        margin-right: 8px;
+        font-size: 14px;
+        width: 200px;
+      }
+      button {
+        padding: 6px 14px;
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        border-radius: 4px;
+        transition: background 0.2s ease;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>WebSocket Output</h3>
+    <div id="outputBox"></div>
+
+    <input id="myInput" type="text" placeholder="Type raw message" />
+    <button id="sendBtn">Send Raw</button>
+
+    <div id="actions"></div>
+
     <script type="module">
-      import ws from "/static/websocket.js"; // Replace with your real WebSocket
-    function sendInput() {
-      const val = document.getElementById('myInput').value;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(val);
-      } else {
-        alert('WebSocket is not connected.');
-      }
-    }
-    document.getElementById('myInput').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') sendInput();
-    });
-      ws.addEventListener("message", (event) => {
-        console.log("Message from server:", event.data);
-        logOutput(event.data);
-      });
+      import ws from "/static/websocket.js";
 
-      function logOutput(message) {
-        const box = document.getElementById("outputBox");
-        box.innerHTML += message + "<br>";
-        box.scrollTop = box.scrollHeight;
-      }
-
+      const outputBox = document.getElementById("outputBox");
+      const input = document.getElementById("myInput");
+      const sendBtn = document.getElementById("sendBtn");
       const actions = [
         {
           name: "sendAddRoom",
           label: "Add Room",
-          endpoint: "/apis/chat/add_a_new_room",
+          endpoint: "/api/chat/add_a_new_room",
           fields: { room_name: "Room Name" },
         },
         {
@@ -69,41 +81,65 @@
         },
       ];
 
+      function logOutput(message) {
+        outputBox.innerHTML += message + "\n";
+        outputBox.scrollTop = outputBox.scrollHeight;
+      }
+
+      sendBtn.addEventListener("click", () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(input.value);
+          logOutput("Sent raw: " + input.value);
+          input.value = "";
+        } else {
+          alert("WebSocket is not connected.");
+        }
+      });
+
+      ws.addEventListener("message", (event) => {
+        logOutput("Received: " + event.data);
+      });
+
       const container = document.getElementById("actions");
 
-      actions.forEach((action, index) => {
+      actions.forEach((action) => {
         const row = document.createElement("div");
-        row.style.margin = "8px 0";
 
-        // inputs for this action
+        // Create inputs for each field
         const inputs = {};
         for (const [field, label] of Object.entries(action.fields)) {
-          const input = document.createElement("input");
-          input.type = "text";
-          input.placeholder = label;
-          input.style.marginRight = "6px";
-          row.appendChild(input);
-          inputs[field] = input;
+          const inputEl = document.createElement("input");
+          inputEl.type = "text";
+          inputEl.placeholder = label;
+          row.appendChild(inputEl);
+          inputs[field] = inputEl;
         }
 
-        // button for this action
+        // Create button for action
         const btn = document.createElement("button");
         btn.textContent = action.label;
         btn.onclick = () => {
           const payload = { endpoint: action.endpoint };
-          for (const [field, input] of Object.entries(inputs)) {
-            const raw = input.value;
+          for (const [field, inputEl] of Object.entries(inputs)) {
+            const raw = inputEl.value;
             const num = Number(raw);
-
-            // Check if conversion succeeded (not NaN)
             payload[field] = !isNaN(num) && raw !== "" ? num : raw;
           }
-          ws.send(JSON.stringify(payload));
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(payload));
+            logOutput("Sent JSON: " + JSON.stringify(payload));
+            // Clear inputs after send
+            Object.values(inputs).forEach((el) => (el.value = ""));
+          } else {
+            alert("WebSocket is not connected.");
+          }
         };
         row.appendChild(btn);
 
         container.appendChild(row);
       });
     </script>
+	  <input id="myInput" type="text" placeholder="Type raw message" />
+  <button onclick="sendInput()">Send Raw</button>
   </body>
 </html>

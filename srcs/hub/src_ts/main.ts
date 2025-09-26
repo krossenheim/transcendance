@@ -142,7 +142,7 @@ function forwardPayloadToUsers(recipients: number[], payload: object) {
     // Crash if its not iterable. its either an list with 0 to n users, a SYS user
     const socketToUser = openUserIdToSocket.get(user_id);
     if (!socketToUser) {
-      debugMessageToAllUserSockets("Clean dead ws? ID Was: " + user_id);
+      debugMessageToAllUserSockets("No socket open to user: " + user_id);
       continue;
     }
     if (socketToUser)
@@ -163,8 +163,9 @@ fastify.get(
     }
     socket.on("message", (message: WebSocket.RawData) => {
       let parsed;
+	  let str;
       try {
-        const str = rawDataToString(message);
+        str = rawDataToString(message);
         if (!str) {
           console.log("Empty message from $( some info here )");
           return;
@@ -172,7 +173,7 @@ fastify.get(
         debugMessageToAllUserSockets(str);
         parsed = JSON.parse(str);
       } catch (e) {
-        console.log("Unrecognized message from $( some info here )");
+        console.log(`Unrecognized message: ${str}`);
         return;
       }
       const passToUsers = PayloadToUsersSchema.safeParse(parsed);
@@ -204,7 +205,8 @@ fastify.get(
     list_new_connection(socket);
     socket.on("message", (message: WebSocket.RawData) => {
       let parsed: any;
-      const str = rawDataToString(message);
+	  let str;
+      str = rawDataToString(message);
       if (!str) {
         console.log("Empty message from $( some info here )");
         return;
@@ -212,12 +214,17 @@ fastify.get(
       try {
         parsed = JSON.parse(str);
       } catch (e) {
-        console.log("Unrecognized message from $( some info here )");
+        console.log(`Unrecognized message: ${str}`);
         return;
       }
       const socket_id = openSocketToUserID.get(socket);
       const has_logged_in = authenticatedSockets.has(socket_id);
       const { endpoint, ...payload } = parsed;
+	  if (!endpoint)
+	  {
+		console.log("No endpoint on websoket message.");
+		return ;
+	  }
       console.log("Endpoint: " + endpoint);
       let target_container;
       if (!endpoint.startsWith("/api/public/") && !has_logged_in) {
