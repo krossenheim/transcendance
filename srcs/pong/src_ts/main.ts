@@ -1,10 +1,20 @@
 "use strict";
-import type { FastifyReply, FastifyInstance } from "fastify";
+// import type { FastifyReply, FastifyInstance } from "fastify";
 import {
   socketToHub,
   setSocketOnMessageHandler,
 } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
+import PongManager from "./pongManager.js";
+import websocketPlugin from "@fastify/websocket";
+import type {
+  TypePongBall,
+  TypePongPaddle,
+} from "./utils/api/service/pong/pong_interfaces.js";
+import {
+  PongBallSchema,
+  PongPaddleSchema,
+} from "./utils/api/service/pong/pong_interfaces.js";
 
 const fastify = Fastify({
   logger: {
@@ -19,18 +29,18 @@ const fastify = Fastify({
     },
   },
 });
-import websocketPlugin from "@fastify/websocket";
-
 fastify.register(websocketPlugin);
 
-import PongManager from "./pongManager.js";
-
 const singletonPong = new PongManager();
-
 const pongTasks = {
   START_A_NEW_GAME: {
     url: "/api/start_game",
     handler: singletonPong.startGame.bind(singletonPong),
+    method: "POST",
+  },
+  MOVE_PADDLE: {
+    url: "/api/move_paddle",
+    handler: singletonPong.movePaddle.bind(singletonPong),
     method: "POST",
   },
 };
@@ -42,7 +52,7 @@ async function backgroundTask() {
   while (true) {
     for (const [game_id, game] of singletonPong.pong_instances) {
       game.gameLoop();
-      const recipients = Array.from(game.players.keys());
+      const recipients = Array.from(game.player_to_paddle.keys());
       const payload: { balls: any[]; paddles: any[] } = {
         balls: [],
         paddles: [],

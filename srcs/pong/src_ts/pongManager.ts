@@ -1,12 +1,18 @@
 import PongGame from "./pongGame.js";
 import { formatZodError } from "./utils/formatZodError.js";
-import { StartNewPongGameSchema } from "./utils/api/service/pong/pong_interfaces.js";
 import {
   ForwardToContainerSchema,
   PayloadToUsersSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
 import { httpStatus } from "./utils/httpStatusEnum.js";
 import { z } from "zod";
+import {
+  MovePaddlePayloadScheme,
+  PongBallSchema,
+  PongPaddleSchema,
+  StartNewPongGameSchema,
+} from "./utils/api/service/pong/pong_interfaces.js";
+
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
 const PLAYER_NO_INPUT = undefined;
@@ -14,26 +20,12 @@ const PLAYER_NO_INPUT = undefined;
 type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
 
-function validateInputToPaddle(payload: any): boolean {
-  if (payload.move === PLAYER_NO_INPUT) {
-    throw Error("Received a message with no valid payload.");
-  }
-  const to_right = payload.move === payload_MOVE_RIGHT;
-  if (!to_right && payload_MOVE_LEFT !== payload.move) {
-    console.error(
-      `"Bad input request, payload.move wasnt one of:\n PLAYER_NO_INPUT:${PLAYER_NO_INPUT}, payload_MOVE_RIGHT:${payload_MOVE_RIGHT} or payload_MOVE_LEFT:${payload_MOVE_LEFT}`
-    );
-    return false;
-  }
-  return true;
-}
-
 export class PongManager {
   public pong_instances: Map<number, PongGame>;
   public static instance: PongManager;
   public debugGameID: number;
   constructor() {
-    this.debugGameID = 0;
+    this.debugGameID = 1;
     this.pong_instances = new Map();
     if (PongManager.instance) {
       return PongManager.instance;
@@ -56,19 +48,19 @@ export class PongManager {
       return formatZodError([user_id], valid_gamestart.error);
     }
 
-    const zodded = StartNewPongGameSchema.safeParse(client_request.payload);
+    const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);
     if (!zodded.success) {
       console.log("Invalid payload to start a game.: " + zodded.error);
-	return {
+      return {
         recipients: [user_id],
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
           pop_up_text: "could not start pong game.",
         },
-      }; 
+      };
     }
-    const { player_list } = client_request.payload;
+    const { player_list } = validation.data.payload;
     // const { user_id } = parsed;
     const pong_game = PongGame.create(player_list);
     if (!pong_game) {
@@ -98,12 +90,18 @@ export class PongManager {
     }
   }
 
-  sendInput(input: any) {
+  movePaddle(input: T_ForwardToContainer) {
     const { user_id, payload } = input;
-    if (!user_id || !payload) {
-      throw Error("No userid or payload fields.");
+    if (!user_id) {
+      throw Error("No userid field.");
     }
-    const { board_id } = payload;
+    const validate_input = MovePaddlePayloadScheme.safeParse(payload);
+    if (!validate_input.success) {
+      // 0 or null or 1
+      console.log(validate_input.error);
+      return ;
+    }
+    const board_id  = validate_input.data.b;
     if (!board_id) {
       console.error("Bad input, no board_id member.");
       return;
@@ -112,34 +110,41 @@ export class PongManager {
       if (id !== board_id) {
         continue;
       }
-      validateInputToPaddle(payload);
-      game.setInputOnPaddle(user_id, payload.move);
+      if (!(user_id in game.players)) {
+        console.log(
+          "User with id ",
+          user_id,
+          " not a player of game with id ",
+          id
+        );
+        return;
+      }
+      game.setInputOnPaddle(user_id, validate_input.data.m);
     }
   }
 
-//     sendOutput() : T_PayloadToUsers{
-//     for (const [game_id, game] of this.pong_instances)
-// 	{
-// 		const recipients = Object.keys(game.players).map(key => Number(key));
-// 	const payload: { balls: any[]; paddles: any[] } = {
-//   balls: [],
-//   paddles: []
-// };
+  //     sendOutput() : T_PayloadToUsers{
+  //     for (const [game_id, game] of this.pong_instances)
+  // 	{
+  // 		const recipients = Object.keys(game.players).map(key => Number(key));
+  // 	const payload: { balls: any[]; paddles: any[] } = {
+  //   balls: [],
+  //   paddles: []
+  // };
 
+  // 			for (const obj of game.balls_pos) {
+  // 			// extract values from each object and push to payload.list1
+  // 			payload.balls.push(obj.pos.x, obj.pos.y);
+  // 			}
 
-// 			for (const obj of game.balls_pos) {
-// 			// extract values from each object and push to payload.list1
-// 			payload.balls.push(obj.pos.x, obj.pos.y);
-// 			}
-
-// 			for (const obj of game.player_paddles) {
-// 			// extract values from each object and push to payload.list2
-// 			payload.paddles.push(obj.pos.x);
-// 			payload.paddles.push(obj.pos.y);
-// 			}
-// 	}
-// 	return ({recipients: recipients, payload:payload})
-//   }
+  // 			for (const obj of game.player_paddles) {
+  // 			// extract values from each object and push to payload.list2
+  // 			payload.paddles.push(obj.pos.x);
+  // 			payload.paddles.push(obj.pos.y);
+  // 			}
+  // 	}
+  // 	return ({recipients: recipients, payload:payload})
+  //   }
 }
 
 export default PongManager;

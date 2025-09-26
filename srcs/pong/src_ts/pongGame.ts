@@ -2,6 +2,7 @@ import type { Vec2 } from "./utils/api/service/common/vector2.js";
 import { scale, normalize } from "./utils/api/service/common/vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
+// import user from "./utils/api/service/db/user.js";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
@@ -42,16 +43,18 @@ function payloadIsValid(forwarded_to_container: any) {
 class PongGame {
   private board_size: Vec2;
   public player_paddles: Array<PlayerPaddle>;
-  public players: Map<number, PlayerPaddle>;
+  public player_to_paddle: Map<number, PlayerPaddle>;
+  public players: Array<number>;
   public balls_pos: Array<PongBall>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
 
   private constructor(player_ids: Array<number>) {
+    this.players = player_ids;
     this.board_size = { x: 1000, y:1000};
     this.balls_pos = [];
     this.player_paddles = [];
-    this.players = new Map();
+    this.player_to_paddle = new Map();
     this.last_frame_time = Date.now(); // initial timestamp in ms
     this.initializeBoard(player_ids);
   }
@@ -63,7 +66,7 @@ class PongGame {
     }
     if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS)
       return null;
-    return new PongGame( player_ids);
+    return new PongGame(player_ids);
   }
 
   initializeBoard(player_ids: Array<number>) {
@@ -82,10 +85,10 @@ class PongGame {
       console.log("Placing paddle at: " , vector.x, ",", vector.y);
 
       const paddle = new PlayerPaddle(vector, this.board_size, player_id);
-      this.players.set(player_id, paddle);
+      this.player_to_paddle.set(player_id, paddle);
       this.player_paddles.push(paddle);
     }
-	console.log("Added players:", Array.from(this.players.keys()));
+	console.log("Added players:", Array.from(this.player_to_paddle.keys()));
     this.balls_pos.push(
       new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
@@ -114,13 +117,10 @@ class PongGame {
     console.log(`Initialized ${player_ids.length} paddles`);
   }
 
-  setInputOnPaddle(user_id: number, move_right: boolean) {
-    const paddle = this.players.get(user_id);
+  setInputOnPaddle(user_id: number, move_right: boolean | null) {
+    const paddle = this.player_to_paddle.get(user_id);
     if (!paddle) {
-      console.log(
-        `User ID ${user_id} not in this game. Participants are: ${this.players.keys()}`
-      );
-      return;
+      throw new Error("Should not be trying to find a player that isnt in this.players.");
     }
     paddle.setMoveOnNextFrame(move_right);
   }
