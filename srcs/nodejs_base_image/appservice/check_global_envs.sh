@@ -9,6 +9,8 @@ if [ -z "${CHATROOM_IPV4_ADDRESS}" ]; then echo "ERROR: CHATROOM_IPV4_ADDRESS is
 if [ -z "${DATABASE_IPV4_ADDRESS}" ]; then echo "ERROR: DATABASE_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${AUTH_IPV4_ADDRESS}" ]; then echo "ERROR: AUTH_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${HUB_IPV4_ADDRESS}" ]; then echo "ERROR: HUB_IPV4_ADDRESS is not set" >&2; exit 1; fi
+if [ -z "${PONG_IPV4_ADDRESS}" ]; then echo "ERROR: PONG_IPV4_ADDRESS is not set" >&2; exit 1; fi
+if [ -z "${PONG_NAME}" ]; then echo "ERROR: PONG_NAME is not set" >&2; exit 1; fi
 if [ -z "${NGINX_NAME}" ]; then echo "ERROR: NGINX_NAME is not set" >&2; exit 1; fi
 if [ -z "${CHATROOM_NAME}" ]; then echo "ERROR: CHATROOM_NAME is not set" >&2; exit 1; fi
 if [ -z "${DATABASE_NAME}" ]; then echo "ERROR: DATABASE_NAME is not set" >&2; exit 1; fi

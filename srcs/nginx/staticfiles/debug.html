@@ -22,8 +22,7 @@
         background: #f9f9f9;
       "
     ></div>
-  <input id="myInput" type="text" placeholder="Type raw message" />
-  <button id="sendBtn">Send Raw</button>
+
     <script type="module">
       import ws from "/static/websocket.js"; // Replace with your real WebSocket
     function sendInput() {
@@ -52,7 +51,7 @@
         {
           name: "sendAddRoom",
           label: "Add Room",
-          endpoint: "/apis/chat/add_a_new_room",
+          endpoint: "/api/chat/add_a_new_room",
           fields: { room_name: "Room Name" },
         },
         {
@@ -105,5 +104,7 @@
         container.appendChild(row);
       });
     </script>
+	  <input id="myInput" type="text" placeholder="Type raw message" />
+  <button onclick="sendInput()">Send Raw</button>
   </body>
 </html>

@@ -24,7 +24,8 @@ export const UserAuthenticationRequestSchema = z
 
 export const PayloadToUsersSchema = z
   .object({
-    recipients: z.array(z.number()),
+      recipients: z.array(z.number())
+    .nonempty({ message: "Recipients array cannot be empty" }),
     payload: z.any(),
   })
   .strict();
