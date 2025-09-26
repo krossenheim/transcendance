@@ -1,5 +1,5 @@
-import type { Vec2 } from "./vector2.js";
-import { scale, normalize } from "./vector2.js";
+import type { Vec2 } from "./utils/api/service/common/vector2.js";
+import { scale, normalize } from "./utils/api/service/common/vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
 
@@ -69,7 +69,7 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      this.board_size.x * 0.95, // min of boardsize.x/y
+      this.board_size.x * 0.20, // min of boardsize.x/y
       { x: this.board_size.y, y: -this.board_size.x }
     );
 
@@ -88,6 +88,24 @@ class PongGame {
 	console.log("Added players:", Array.from(this.players.keys()));
     this.balls_pos.push(
       new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      ),      new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      ),      new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      ),      new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      ),      new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      ),      new PongBall(
+        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+        this.board_size
+      ),      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
       )

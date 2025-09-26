@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>Pong Balls Viewer</title>
+  <canvas id="c" width="800" height="480" style="background: #000"></canvas>
+  <script>
+    const url = "wss://localhost:4430/ws";
+    const ws = new WebSocket(url);
+    const ctx = document.getElementById("c").getContext("2d");
+
+    const backendWidth = 1000; // adjust to your server coordinate space
+    const backendHeight = 1000;
+
+    const canvas = document.getElementById("c");
+    let paddles = [];
+    let balls = [];
+    // map backend coordinates to canvas
+    function mapToCanvas(x, y) {
+      const scaleX = canvas.width / backendWidth;
+      const scaleY = canvas.height / backendHeight;
+      return {
+        cx: x * scaleX,
+        cy: y * scaleY,
+      };
+    }
+
+    function isBall(obj) {
+      return (
+        obj &&
+        typeof obj.x === "number" &&
+        typeof obj.y === "number" &&
+        typeof obj.l !== "number" // paddles have a 'l' property
+      );
+    }
+
+    function isPaddle(obj) {
+      return (
+        obj &&
+        typeof obj.x === "number" &&
+        typeof obj.y === "number" &&
+        typeof obj.l === "number"
+      );
+    }
+
+    ws.onmessage = (e) => {
+      try {
+        if (!e.data.includes("DEBUG")) console.log(e.data);
+        const data = JSON.parse(e.data);
+
+        if (data && Array.isArray(data.balls)) {
+          balls = data.balls.filter(isBall);
+        }
+
+        if (data && Array.isArray(data.paddles)) {
+          paddles = data.paddles.filter(isPaddle);
+        }
+      } catch (err) {
+        if (!e.data.includes("DEBUG")) console.error(err);
+      }
+    };
+
+    function draw() {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      balls.forEach((b) => {
+        const { cx, cy } = mapToCanvas(b.x, b.y);
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = "yellow";
+        ctx.fill();
+      });
+
+      paddles.forEach((p) => {
+        const { cx, cy } = mapToCanvas(p.x, p.y);
+        const len = p.l * (canvas.height / backendHeight); // scale length to canvas
+        ctx.fillStyle = "blue";
+        ctx.fillRect(cx - 4, cy - len / 2, 8, len);
+      });
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</html>

@@ -1,5 +1,5 @@
 import { xid, z } from "zod";
-import type { Vec2 } from "./vector2.js";
+import type { Vec2 } from "../common/vector2.js";
 
 export const StartNewPongGameSchema = z.object({
   player_list: z.array(z.number()).refine((arr) => {

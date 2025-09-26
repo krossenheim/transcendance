@@ -1,5 +1,5 @@
-import type { Vec2 } from "./vector2.js";
-import { scale, normalize } from "./vector2.js";
+import type { Vec2 } from "./utils/api/service/common/vector2.js";
+import { scale, toward } from "./utils/api/service/common/vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 10;
 
@@ -23,7 +23,7 @@ export class PlayerPaddle {
     this.start_pos = start_pos;
     this.game_size = game_size;
     this.pos = { ...start_pos };
-    this.dir = { x: game_size.y / 2, y: game_size.x / 2 };
+    this.dir = toward(this.pos, { x: game_size.y / 2, y: game_size.x / 2 });
     this.player_ID = player_id;
     this.is_moving_right = null;
     this.paddle_speed = paddle_speed;
