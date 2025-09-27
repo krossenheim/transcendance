@@ -1,50 +1,101 @@
+import type PlayerPaddle from "playerPaddle.js";
 import type { Vec2 } from "./utils/api/service/common/vector2.js";
 // import { scale, normalize, toward } from "./utils/api/service/common/vector2.js";
 
-  function randomAvoidAxes(): Vec2 {
-    // pick a random angle between 0 and 2π, avoiding multiples of π/2
-    let angle: number;
-    do {
-      angle = Math.random() * Math.PI * 2;
-    } while (Math.abs(angle % (Math.PI/2)) < 0.05); // tiny epsilon to skip axes
-    return  {x: Math.cos(angle), y: Math.sin(angle)};
-  }
+function randomAvoidAxes(epsilon = 0.05): number {
+  const quarter = Math.PI / 2;
 
+  const quarterIndex = Math.floor(Math.random() * 4);
+  // pick a random angle inside the quarter, avoiding epsilon at edges
+  const r =
+    quarterIndex * quarter + epsilon + Math.random() * (quarter - 2 * epsilon);
+  return r;
+}
 
 export class PongBall {
   // private constants
   private readonly game_size: Vec2;
 
   public pos: Vec2;
-  public dir: Vec2;
-  private speed: number;
+  public r: number;
+  public d: Vec2;
+  private s: number;
 
   constructor(start_pos: Vec2, game_size: Vec2, speed = 250) {
     this.game_size = game_size;
     this.pos = { ...start_pos };
-    this.dir = randomAvoidAxes();
-    this.speed = speed;
+    this.r = randomAvoidAxes();
+    this.s = speed;
+    this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
+  }
+
+  updateTheta() {
+    this.d.x = Math.cos(this.r);
+    this.d.y = Math.sin(this.r);
+  }
+
+  reflectX() {
+    this.r = Math.PI - this.r; // update angle
+    this.d.x = Math.cos(this.r); // update direction vector
+    this.d.y = Math.sin(this.r);
+  }
+
+  reflectY() {
+    this.r = -this.r; // update angle
+    this.d.x = Math.cos(this.r); // update direction vector
+    this.d.y = Math.sin(this.r);
   }
 
   move(deltaFactor: number) {
-    this.pos.x += this.dir.x * this.speed * deltaFactor;
-    this.pos.y += this.dir.y * this.speed * deltaFactor;
+    this.pos.x += this.d.x * deltaFactor * this.s;
+    this.pos.y += this.d.y * deltaFactor * this.s;
 
     if (this.pos.x < 0) {
       this.pos.x = 0;
-      this.dir.x *= -1;
+      this.reflectX();
     } else if (this.pos.x > this.game_size.x) {
       this.pos.x = this.game_size.x;
-      this.dir.x *= -1;
+      this.reflectX();
     }
 
     if (this.pos.y < 0) {
       this.pos.y = 0;
-      this.dir.y *= -1;
+      this.reflectY();
     } else if (this.pos.y > this.game_size.y) {
       this.pos.y = this.game_size.y;
-      this.dir.y *= -1;
+      this.reflectY();
     }
+  }
+
+  collides_with_rectangle(
+    r: number,
+    rectPos: Vec2,
+    length: number,
+    width: number
+  ): boolean {
+    const closestX = Math.max(
+      rectPos.x - length / 2,
+      Math.min(this.pos.x, rectPos.x + length / 2)
+    );
+    const closestY = Math.max(
+      rectPos.y - width / 2,
+      Math.min(this.pos.y, rectPos.y + width / 2)
+    );
+
+    // todo: rotate the coordinate system by -θ so the rectangle becomes axis-aligned in local space.
+
+    const dx = this.pos.x - closestX;
+    const dy = this.pos.y - closestY;
+
+    const px = length / 2 + r - Math.abs(dx);
+    const py = width / 2 + r - Math.abs(dy);
+
+    if (px < py) {
+      this.reflectX();
+    } else {
+      this.reflectY();
+    }
+    return dx * dx + dy * dy <= r * r;
   }
 }
 export default PongBall;

@@ -66,8 +66,7 @@ async function backgroundTask() {
         payload.balls.push({
           x: truncateDecimals(obj.pos.x),
           y: truncateDecimals(obj.pos.y),
-          dx: truncateDecimals(obj.dir.x),
-          dy: truncateDecimals(obj.dir.y),
+          r: truncateDecimals(obj.theta),
         });
       }
 
@@ -75,8 +74,7 @@ async function backgroundTask() {
         payload.paddles.push({
           x: truncateDecimals(obj.pos.x),
           y: truncateDecimals(obj.pos.y),
-          dx: truncateDecimals(obj.dir.x),
-          dy: truncateDecimals(obj.dir.y),
+          r: truncateDecimals(obj.theta),
           l: truncateDecimals(obj.length),
         });
       }

@@ -1,5 +1,5 @@
 import type { Vec2 } from "./utils/api/service/common/vector2.js";
-import { scale, toward } from "./utils/api/service/common/vector2.js";
+import { scale, getAngle } from "./utils/api/service/common/vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 500;
 
@@ -8,33 +8,30 @@ export class PlayerPaddle {
   private readonly start_pos: Vec2;
   private readonly game_size: Vec2;
 
-  public pos: Vec2;
-  public dir: Vec2;
+  public readonly pos: Vec2;
+  public readonly d: Vec2; // direction and rotation dont change on the fly
+  public readonly r: number; // direction and rotation don't change on the fly
   public player_ID: number;
   private is_moving_right: boolean | null;
-  private paddle_speed: number;
+  private s: number;
   public length: number;
 
   constructor(
     start_pos: Vec2,
     game_size: Vec2,
     player_id: number,
-    paddle_speed = DEFAULT_PADDLE_SPEED
+    pladdle_speed = DEFAULT_PADDLE_SPEED
   ) {
     this.start_pos = start_pos;
     this.game_size = game_size;
     this.pos = { ...start_pos };
-    this.dir = toward(this.pos, { x: game_size.y / 2, y: game_size.x / 2 });
+    this.r = getAngle(this.pos, this.game_size);
+    this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
     this.player_ID = player_id;
     this.is_moving_right = null;
-    this.paddle_speed = paddle_speed;
+    this.s = pladdle_speed;
     this.length = Math.min(game_size.y, game_size.x) * 0.25;
   }
-
-  // applyPlayerInput(player_input: any, deltaFactor: number) {
-
-  //   this.moveLateral(distance, to_right);
-  // }
 
   setMoveOnNextFrame(toRight: boolean | null) {
     this.is_moving_right = toRight;
@@ -44,17 +41,13 @@ export class PlayerPaddle {
     if (this.is_moving_right === null) {
       return;
     }
-    const len = Math.hypot(this.dir.x, this.dir.y);
-    const d =
-      len === 0 ? { x: 0, y: 0 } : { x: this.dir.x / len, y: this.dir.y / len };
 
     const lateral = this.is_moving_right
-      ? { x: d.y, y: -d.x } // right 
-      : { x: -d.y, y: d.x }; // left
+      ? { x: this.d.y, y: -this.d.x } // right
+      : { x: -this.d.y, y: this.d.x }; // left
 
-    const distance = deltaFactor * this.paddle_speed;
-    this.pos.x += lateral.x * distance;
-    this.pos.y += lateral.y * distance;
+    this.pos.x += lateral.x * deltaFactor * this.s;
+    this.pos.y += lateral.y * deltaFactor * this.s;
   }
 }
 

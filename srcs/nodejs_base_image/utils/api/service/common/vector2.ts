@@ -15,3 +15,18 @@ export function scale(factor: number, vector: Vec2): Vec2 {
 export function toward(from: Vec2, to: Vec2): Vec2 {
   return normalize({ x: to.x - from.x, y: to.y - from.y });
 }
+
+export function rotate(vec: Vec2, angle: number) : Vec2 {
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+  return {
+    x: vec.x * cosA - vec.y * sinA,
+    y: vec.x * sinA + vec.y * cosA,
+  };
+}
+
+export function getAngle(a: Vec2, b: Vec2): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return Math.atan2(dy, dx);
+}
