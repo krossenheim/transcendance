@@ -44,7 +44,6 @@ export class PlayerPaddle {
     if (this.is_moving_right === null) {
       return;
     }
-    console.log("Moving");
     const len = Math.hypot(this.dir.x, this.dir.y);
     const d =
       len === 0 ? { x: 0, y: 0 } : { x: this.dir.x / len, y: this.dir.y / len };

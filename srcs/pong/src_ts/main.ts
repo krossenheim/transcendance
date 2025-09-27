@@ -79,7 +79,7 @@ async function backgroundTask() {
       const out = { recipients: recipients, payload: payload };
       socketToHub.send(JSON.stringify(out));
     }
-    await new Promise((resolve) => setTimeout(resolve, 12));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
 
