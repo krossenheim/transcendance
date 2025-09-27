@@ -1,28 +1,11 @@
 import type { Vec2 } from "./utils/api/service/common/vector2.js";
-import { scale, normalize } from "./utils/api/service/common/vector2.js";
+// import { scale, normalize } from "./utils/api/service/common/vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
 // import user from "./utils/api/service/db/user.js";
-
+import generateCirclePoints from "./generateCirclePoints.js";
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-
-function generateCirclePoints(n: number, radius = 1, offset: Vec2): Vec2[] {
-  if (n < 2 || n > 8) throw new Error("n must be between 2 and 8");
-
-  const points: Vec2[] = [];
-  const angleStep = (2 * Math.PI) / n; // step in radians
-
-  for (let i = 0; i < n; i++) {
-    const angle = i * angleStep;
-    points.push({
-      x: Math.cos(angle) * radius + offset.x,
-      y: Math.sin(angle) * radius + offset.y,
-    });
-  }
-
-  return points;
-}
 
 function payloadIsValid(forwarded_to_container: any) {
   if (forwarded_to_container.user_id === undefined) {
@@ -47,7 +30,7 @@ class PongGame {
   public players: Array<number>;
   public balls_pos: Array<PongBall>;
   private last_frame_time: number;
-  private readonly timefactor: number = 1;
+  private readonly timefactor: number = 0.1;
 
   private constructor(player_ids: Array<number>) {
     this.players = player_ids;
@@ -72,7 +55,7 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      this.board_size.x * 0.48, // min of boardsize.x/y
+      Math.min(this.board_size.x ,this.board_size.y) * 0.48, 
       { x: this.board_size.y/2, y: this.board_size.x/2 }
     );
 
@@ -126,22 +109,18 @@ class PongGame {
   }
 
   gameLoop() {
-    // if (!payloadIsValid(forwarded_to_container)) {
-    //   return;
-    // }
     const currentTime = Date.now();
-    const deltaTime = (currentTime - this.last_frame_time) / 1000; // seconds elapsed
+    const deltaTime = (currentTime - this.last_frame_time) / 1000; // 0.5 = half a second
     this.last_frame_time = currentTime;
 
-    // Example: move object at this.timefactor units per second
     const deltaFactor = this.timefactor * deltaTime;
+
     for (const paddle of this.player_paddles) {
       paddle.move(deltaFactor);
     }
     for (const ball of this.balls_pos) {
       ball.move(deltaFactor);
     }
-    // setImmediate(this.gameLoop); // avoid stack overflows but is recursive, probably call this outside and passing args to gameLoop.
   }
 }
 
