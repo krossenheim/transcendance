@@ -48,6 +48,10 @@ const pongTasks = {
 // Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
+function truncateDecimals(num: number): number {
+  return Math.trunc(num * 10) / 10;
+}
+
 async function backgroundTask() {
   while (true) {
     for (const [game_id, game] of singletonPong.pong_instances) {
@@ -60,20 +64,20 @@ async function backgroundTask() {
 
       for (const obj of game.balls_pos) {
         payload.balls.push({
-          x: obj.pos.x,
-          y: obj.pos.y,
-          dx: obj.dir.x,
-          dy: obj.dir.y,
+          x: truncateDecimals(obj.pos.x),
+          y: truncateDecimals(obj.pos.y),
+          dx: truncateDecimals(obj.dir.x),
+          dy: truncateDecimals(obj.dir.y),
         });
       }
 
       for (const obj of game.player_paddles) {
         payload.paddles.push({
-          x: obj.pos.x,
-          y: obj.pos.y,
-          dx: obj.dir.x,
-          dy: obj.dir.y,
-          l: obj.length,
+          x: truncateDecimals(obj.pos.x),
+          y: truncateDecimals(obj.pos.y),
+          dx: truncateDecimals(obj.dir.x),
+          dy: truncateDecimals(obj.dir.y),
+          l: truncateDecimals(obj.length),
         });
       }
       const out = { recipients: recipients, payload: payload };
