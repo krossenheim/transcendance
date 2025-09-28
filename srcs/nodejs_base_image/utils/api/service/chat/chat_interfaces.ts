@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { number, z } from "zod";
 
 const NAME_MIN_LENTH = 3;
 const NAME_MAX_LENGTH = 50;
@@ -45,6 +45,15 @@ export const SendMessageSchema = z
   .object({
     room_name: roomNameRule,
     message: messageRule,
+  })
+  .strict();
+
+  export const OutgoingMessageSchema = z
+  .object({
+    room_name: roomNameRule,
+    message: messageRule,
+	user_id: z.number().positive(),
+	timestamp : z.number().positive(),
   })
   .strict();
 

@@ -1,5 +1,5 @@
 import type { Vec2 } from "./utils/api/service/common/vector2.js";
-// import { scale, normalize } from "./utils/api/service/common/vector2.js";
+import { scale, multiply } from "./utils/api/service/common/vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
 // import user from "./utils/api/service/db/user.js";
@@ -34,7 +34,7 @@ class PongGame {
 
   private constructor(player_ids: Array<number>) {
     this.players = player_ids;
-    this.board_size = { x: 1000, y:1000};
+    this.board_size = { x: 1000, y: 1000 };
     this.balls_pos = [];
     this.player_paddles = [];
     this.player_to_paddle = new Map();
@@ -55,8 +55,8 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      Math.min(this.board_size.x ,this.board_size.y) * 0.48, 
-      { x: this.board_size.y/2, y: this.board_size.x/2 }
+      Math.min(this.board_size.x, this.board_size.y) * 0.48,
+      { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
 
     let idxpaddle = 0;
@@ -65,45 +65,53 @@ class PongGame {
       if (vector === undefined) {
         throw Error("There should be as many paddle positions as players.");
       }
-      console.log("Placing paddle at: " , vector.x, ",", vector.y);
+      console.log("Placing paddle at: ", vector.x, ",", vector.y);
 
       const paddle = new PlayerPaddle(vector, this.board_size, player_id);
       this.player_to_paddle.set(player_id, paddle);
       this.player_paddles.push(paddle);
     }
-	console.log("Added players:", Array.from(this.player_to_paddle.keys()));
+    console.log("Added players:", Array.from(this.player_to_paddle.keys()));
     this.balls_pos.push(
       new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
-      ),      new PongBall(
+      ),
+      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
-      ),      new PongBall(
+      ),
+      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
-      ),      new PongBall(
+      ),
+      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
-      ),      new PongBall(
+      ),
+      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
-      ),      new PongBall(
+      ),
+      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
-      ),      new PongBall(
+      ),
+      new PongBall(
         { x: this.board_size.x / 2, y: this.board_size.y / 2 },
         this.board_size
       )
     );
-	this.gameLoop();
+    this.gameLoop();
     console.log(`Initialized ${player_ids.length} paddles`);
   }
 
   setInputOnPaddle(user_id: number, move_right: boolean | null) {
     const paddle = this.player_to_paddle.get(user_id);
     if (!paddle) {
-      throw new Error("Should not be trying to find a player that isnt in this.players.");
+      throw new Error(
+        "Should not be trying to find a player that isnt in this.players."
+      );
     }
     paddle.setMoveOnNextFrame(move_right);
   }
@@ -115,10 +123,18 @@ class PongGame {
 
     const deltaFactor = this.timefactor * deltaTime;
 
-    for (const paddle of this.player_paddles) {
-      paddle.move(deltaFactor);
-    }
+    // for (const paddle of this.player_paddles) {
+    //   paddle.move(deltaFactor);
+    // }
     for (const ball of this.balls_pos) {
+      const movement = multiply(ball.d, deltaFactor * ball.s);
+      // Check collision
+      for (const paddle of this.player_paddles) {
+        paddle.move(deltaFactor);
+		// paddle.get
+      }
+      ball.d.x += ball.d.x * deltaFactor * ball.s;
+      ball.d.y += ball.d.y * deltaFactor * ball.s;
       ball.move(deltaFactor);
     }
   }

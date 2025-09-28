@@ -30,3 +30,21 @@ export function getAngle(a: Vec2, b: Vec2): number {
   const dy = b.y - a.y;
   return Math.atan2(dy, dx);
 }
+
+export function add(a: Vec2, b: Vec2): Vec2 {
+  const dx = b.x + a.x;
+  const dy = b.y = a.y;
+  return { x: dy, y: dx};
+}
+
+export function multiply(a: Vec2, n: number): Vec2 {
+  const dx = n * a.x;
+  const dy = n * a.y;
+  return { x: dy, y: dx};
+}
+
+export function subs(a: Vec2, b: Vec2): Vec2 {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return { x: dy, y: dx};
+}

@@ -19,7 +19,7 @@ export class PongBall {
   public pos: Vec2;
   public r: number;
   public d: Vec2;
-  private s: number;
+  public s: number;
 
   constructor(start_pos: Vec2, game_size: Vec2, speed = 250) {
     this.game_size = game_size;
@@ -67,35 +67,23 @@ export class PongBall {
     }
   }
 
-  collides_with_rectangle(
-    r: number,
-    rectPos: Vec2,
-    length: number,
-    width: number
-  ): boolean {
-    const closestX = Math.max(
-      rectPos.x - length / 2,
-      Math.min(this.pos.x, rectPos.x + length / 2)
-    );
-    const closestY = Math.max(
-      rectPos.y - width / 2,
-      Math.min(this.pos.y, rectPos.y + width / 2)
-    );
+  collidesWithEdges(edges : CollidableEdges[], deltaTime: number)
+  {
+	for (const collidable_edge of edges)
+	{
+		const a = collidable_edge.a;
+		const b = collidable_edge.b;
+		const direction = collidable_edge.direction;
 
-    // todo: rotate the coordinate system by -θ so the rectangle becomes axis-aligned in local space.
-
-    const dx = this.pos.x - closestX;
-    const dy = this.pos.y - closestY;
-
-    const px = length / 2 + r - Math.abs(dx);
-    const py = width / 2 + r - Math.abs(dy);
-
-    if (px < py) {
-      this.reflectX();
-    } else {
-      this.reflectY();
-    }
-    return dx * dx + dy * dy <= r * r;
+		const line = a + deltaTime * direction;
+	}
   }
 }
+
+type CollidableEdges = {
+  a: Vec2;
+  b: Vec2;
+  direction: Vec2;
+};
+
 export default PongBall;

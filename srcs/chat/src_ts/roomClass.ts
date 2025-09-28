@@ -7,6 +7,7 @@ import {
   AddRoomSchema,
   AddUserToRoomPayloadSchema,
   SendMessageSchema,
+  OutgoingMessageSchema,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
@@ -22,6 +23,7 @@ function toInt(value: string) {
 
 type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
+type T_OutgoingMessageSchema = z.infer<typeof OutgoingMessageSchema>;
 
 
 class FixedSizeList {
@@ -44,6 +46,21 @@ class FixedSizeList {
     return this.list;
   }
 }
+//     room_name: roomNameRule,
+//     message: messageRule,
+// 	user_id: z.number().positive(),
+// 	timestamp : z.number().positive(),
+//   })
+  function composeOutgoing(user_id, room_name, message, timestamp) : T_OutgoingMessageSchema
+  {
+	const payload = {
+        user_id: user_id,
+        room_name: room_name,
+        message: message,
+		timestamp: timestamp
+      }
+	  return (payload);
+  }
 
 class Room {
   public room_name: string;
@@ -133,7 +150,10 @@ class Room {
     this.users = this.users.filter((u) => u !== user);
   }
 
+
+  
   sendMessage(client_request: T_ForwardToContainer): T_PayloadToUsers {
+	let payload ; 
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
