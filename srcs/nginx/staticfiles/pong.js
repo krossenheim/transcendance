@@ -32,7 +32,7 @@ function startGame() {
   const backgroundPlane = BABYLON.MeshBuilder.CreatePlane("backgroundPlane", { width: 40, height: 25 }, scene);
   backgroundPlane.position.z = 8;
 
-  const videoTexture = new BABYLON.VideoTexture("videoTexture", ["https://localhost:4430/static/catground.mp4"], scene, true, true);
+  const videoTexture = new BABYLON.VideoTexture("videoTexture", ["https://localhost:443/static/catground.mp4"], scene, true, true);
   videoTexture.video.loop = true;
   videoTexture.video.muted = true;
   videoTexture.video.autoplay = true;
