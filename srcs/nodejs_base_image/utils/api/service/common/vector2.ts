@@ -16,7 +16,7 @@ export function toward(from: Vec2, to: Vec2): Vec2 {
   return normalize({ x: to.x - from.x, y: to.y - from.y });
 }
 
-export function rotate(vec: Vec2, angle: number) : Vec2 {
+export function rotate(vec: Vec2, angle: number): Vec2 {
   const cosA = Math.cos(angle);
   const sinA = Math.sin(angle);
   return {
@@ -33,18 +33,26 @@ export function getAngle(a: Vec2, b: Vec2): number {
 
 export function add(a: Vec2, b: Vec2): Vec2 {
   const dx = b.x + a.x;
-  const dy = b.y = a.y;
-  return { x: dy, y: dx};
+  const dy = (b.y = a.y);
+  return { x: dy, y: dx };
 }
 
 export function multiply(a: Vec2, n: number): Vec2 {
   const dx = n * a.x;
   const dy = n * a.y;
-  return { x: dy, y: dx};
+  return { x: dy, y: dx };
 }
 
-export function subs(a: Vec2, b: Vec2): Vec2 {
+export function sub(a: Vec2, b: Vec2): Vec2 {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
-  return { x: dy, y: dx};
+  return { x: dy, y: dx };
+}
+
+export function crossp(a: Vec2, b: Vec2) {
+  return a.x * b.y - a.y * b.x;
+}
+
+export function dotp(a: Vec2, b: Vec2) {
+  return a.x * b.x + a.y * b.y;
 }
