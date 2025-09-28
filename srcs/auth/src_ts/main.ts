@@ -7,8 +7,8 @@ import { AuthResponse } from './utils/api/service/auth/loginResponse.js';
 import { ErrorResponse } from './utils/api/service/common/error.js';
 import { CreateUser } from './utils/api/service/auth/createUser.js';
 import { LoginUser } from './utils/api/service/auth/loginUser.js';
-import type { UserType } from './utils/api/service/db/user.js';
-import  { User } from './utils/api/service/db/user.js';
+import type { FullUserType } from './utils/api/service/db/user.js';
+import  { FullUser, User } from './utils/api/service/db/user.js';
 import containers from './utils/internal_api.js'
 import Fastify from 'fastify';
 import { z } from 'zod'
@@ -29,7 +29,7 @@ const fastify: FastifyInstance = zodFastify();
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
 
-function generateToken(user: UserType): TokenDataType {
+function generateToken(user: FullUserType): TokenDataType {
 	return {
 		jwt: jwt.sign({ uid: user.id, isGuest: false }, secretKey, { expiresIn: '1h' }),
 		refresh: crypto.randomBytes(64).toString('hex'),
@@ -72,14 +72,14 @@ fastify.post<{
 		return reply.status(401).send({ message: 'Invalid credentials' });
 	}
 
-	const parse = User.safeParse(response.data);
+	const parse = FullUser.safeParse(response.data);
 	if (response.status !== 200 || !parse.success) {
 		console.error('Unexpected response from user service:', response.status, response.data);
 		console.error('Parsing error:', parse.error);
 		return reply.status(500).send({ message: 'User service dropping agreement' });
 	}
 
-	const user: UserType = parse.data;
+	const user: FullUserType = parse.data;
 	return reply.status(200).send({ user, tokens: generateToken(user) });
 });
 
@@ -116,20 +116,20 @@ fastify.post<{
 		return reply.status(400).send({ message: 'Invalid user data or user already exists' });
 	}
 
-	const parse = User.safeParse(response.data);
+	const parse = FullUser.safeParse(response.data);
 	if (response.status !== 201 || !parse.success) {
 		console.error('Unexpected response from user service:', response.status, response.data);
 		console.error('Parsing error:', parse.error);
 		return reply.status(500).send({ message: 'User service dropping agreement' });
 	}
 
-	const user: UserType = parse.data;
+	const user: FullUserType = parse.data;
 	return reply.status(201).send({ user, tokens: generateToken(user) });
 });
 
 type CreateGuestSchema = {
 	Reply: {
-		201: z.infer<typeof User>;
+		201: z.infer<typeof FullUser>;
 		500: z.infer<typeof ErrorResponse>;
 	};
 }
@@ -139,7 +139,7 @@ fastify.get<{
 }>('/api/create/guest', {
 	schema: {
 		response: {
-			201: User,
+			201: FullUser,
 			500: ErrorResponse,
 		}
 	}
@@ -151,7 +151,7 @@ fastify.get<{
 	}
 	console.log("Response from user service:", response.status, response.data);
 
-	const newUserParse = User.safeParse(response.data);
+	const newUserParse = FullUser.safeParse(response.data);
 	if (response.status !== 201 || !newUserParse.success) {
 		console.error('Unexpected response from user service:', response.status, response.data);
 		if (!newUserParse.success)
@@ -159,7 +159,7 @@ fastify.get<{
 		return reply.status(500).send({ message: 'User service dropping agreement' });
 	}
 
-	const newUser: UserType = newUserParse.data;
+	const newUser: FullUserType = newUserParse.data;
 	return reply.status(201).send(newUser);
 });
 

@@ -31,13 +31,11 @@ async function userRoutes(fastify: FastifyInstance, options: { database: Databas
 		const { username, password } = request.body;
 		const user = options.database.fetchUserFromUsername(username);
 		if (user && await verifyPassword(password, user.passwordHash || '') && !user.isGuest) {
-			return reply.status(200).send({
-				id: user.id,
-				createdAt: user.createdAt,
-				username: user.username,
-				email: user.email,
-				isGuest: user.isGuest
-			});
+			const outUser = options.database.fetchUserById(user.id);
+			if (outUser === undefined) {
+				return reply.status(500).send({ user: undefined });
+			}
+			return reply.status(200).send({ user: outUser });
 		} else {
 			return reply.status(401).send({ user: undefined });
 		}

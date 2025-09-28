@@ -1,9 +1,14 @@
-import type { FullUserType, UserType, RawUserType } from './utils/api/service/db/user.js';
+import type { FullUserType, UserType, FriendType, UserAuthDataType } from './utils/api/service/db/user.js';
+import { User, FullUser, Friend, UserAuthData } from './utils/api/service/db/user.js';
 import type { GameResultType } from './utils/api/service/db/gameResult.js';
-import { User, FullUser, RawUser } from './utils/api/service/db/user.js';
 import { GameResult } from './utils/api/service/db/gameResult.js';
 import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
+
+function createGuestUsername(): string {
+	const randomStr = Math.random().toString(36).substring(2, 10);
+	return `guest_${randomStr}`;
+}
 
 class Database {
 	private db: DatabaseSync;
@@ -18,6 +23,7 @@ class Database {
 	private _initializeTables(): void {
 		this.db.exec(`
 			DROP TABLE IF EXISTS player_game_results;
+			DROP TABLE IF EXISTS user_friendships;
 			DROP TABLE IF EXISTS users;
 		`);
 
@@ -26,8 +32,9 @@ class Database {
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 				username TEXT NOT NULL UNIQUE,
+				alias TEXT DEFAULT NULL,
 				email TEXT NOT NULL UNIQUE,
-				passwordHash TEXT,
+				passwordHash TEXT DEFAULT NULL,
 				isGuest INTEGER
 			) STRICT;
 
@@ -38,18 +45,44 @@ class Database {
 				rank INTEGER NOT NULL,
 				FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
 			) STRICT;
+
+			CREATE TABLE IF NOT EXISTS user_friendships (
+				userId INTEGER NOT NULL,
+				friendId INTEGER NOT NULL,
+				createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+				PRIMARY KEY (userId, friendId),
+				FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+				FOREIGN KEY(friendId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+			)
     	`);
 
 		this.db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_user_username ON users(username);
 			CREATE INDEX IF NOT EXISTS idx_user_email ON users(email);
 			CREATE INDEX IF NOT EXISTS idx_game_results_userId ON player_game_results(userId);
+			CREATE INDEX IF NOT EXISTS idx_user_friendships ON user_friendships(userId);
 		`);
+	}
+
+	fetchUserFriendlist(user: UserType): FriendType[] {
+		const result = z.array(Friend).safeParse(this.db.prepare(`
+			SELECT u.id, u.username, u.alias
+			FROM users u
+			JOIN user_friendships uf ON u.id = uf.friendId
+			WHERE uf.userId = ?
+		`).all(user.id));
+		console.log(result);
+
+		if (!result.success) {
+			console.error(result.error);
+			return [];
+		}
+		return result.data || [];
 	}
 
 	fetchAllUsers(): FullUserType[] {
 		const result = z.array(User).safeParse(this.db.prepare(`
-			SELECT id, createdAt, username, email, isGuest FROM users
+			SELECT id, createdAt, username, alias, email, isGuest FROM users
 		`).all());
 
 		if (!result.success) {
@@ -59,7 +92,7 @@ class Database {
 
 		return result.data.map((user: UserType) => ({
 			...user,
-			gameResults: this.fetchUserGameResults(user.id)
+			friends: this.fetchUserFriendlist(user),
 		}));
 	}
 
@@ -75,14 +108,16 @@ class Database {
 
 	fetchUserById(id: number): FullUserType | undefined {
 		const stmt = this.db.prepare(`
-			SELECT id, createdAt, username, email, isGuest FROM users WHERE id = ?
+			SELECT id, createdAt, username, alias, email, isGuest FROM users WHERE id = ?
 		`);
+		console.log(stmt);
 		const user = User.safeParse(stmt.get(id));
+		console.log(user);
 		if (!user.success) return undefined;
 
 		return FullUser.safeParse({
 			...user.data,
-			gameResults: this.fetchUserGameResults(id),
+			friends: this.fetchUserFriendlist(user.data),
 		}).data;
 	}
 
@@ -96,11 +131,10 @@ class Database {
 	}
 
 	createNewGuestUser(): FullUserType | undefined {
-		const current_time = Date.now();
 		let max_tries = 5;
 
 		while (max_tries-- > 0) {
-			const username = `guest_${current_time}`;
+			const username = createGuestUsername();
 			const stmt = this.db.prepare(`
 				INSERT INTO users (username, email, passwordHash, isGuest) VALUES (?, ?, ?, ?)
 			`);
@@ -113,11 +147,11 @@ class Database {
 		return undefined;
 	}
 
-	fetchUserFromUsername(username: string): RawUserType | undefined {
+	fetchUserFromUsername(username: string): UserAuthDataType | undefined {
 		const stmt = this.db.prepare(`
-			SELECT * FROM users WHERE username = ?
+			SELECT id, passwordHash FROM users WHERE username = ?
 		`);
-		return RawUser.safeParse(stmt.get(username)).data;
+		return UserAuthData.safeParse(stmt.get(username)).data;
 	}
 
 	close(): void {

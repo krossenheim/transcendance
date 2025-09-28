@@ -1,10 +1,10 @@
 import { TokenData } from './tokenData.js';
-import { User } from '../db/user.js';
+import { FullUser } from '../db/user.js';
 import { z } from 'zod';
 
 export const AuthResponse = z.object({
 	tokens: TokenData,
-	user: User,
+	user: FullUser,
 });
 
 export type AuthResponseType = z.infer<typeof AuthResponse>;
