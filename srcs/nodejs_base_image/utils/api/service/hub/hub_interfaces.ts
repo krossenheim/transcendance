@@ -49,3 +49,7 @@ export const ForwardToContainerSchema = z
     payload: z.any(), //!!! fill in all schemas?? 
   })
   .strict();
+
+  export type T_PayloadToUsersSchema = z.infer<typeof ForwardToContainerSchema>;
+  export type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
+

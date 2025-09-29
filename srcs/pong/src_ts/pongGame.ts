@@ -4,20 +4,20 @@ import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
 // import user from "./utils/api/service/db/user.js";
 import generateCirclePoints from "./generateCirclePoints.js";
+import { ForwardToContainerSchema } from "utils/api/service/hub/hub_interfaces.js";
+import type { T_ForwardToContainer } from "utils/api/service/hub/hub_interfaces.js";
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
 
-function payloadIsValid(forwarded_to_container: any) {
-  if (forwarded_to_container.user_id === undefined) {
+function payloadIsValid(pong_to_world: T_ForwardToContainer) {
+  if (pong_to_world.user_id === undefined) {
     throw Error("No propery user_id for gameloop.");
   }
-  if (forwarded_to_container.payload === undefined) {
+  if (pong_to_world.payload === undefined) {
     throw Error("Received input from undefined user.");
   }
-  if (forwarded_to_container.payload.move_r === undefined) {
-    console.error(
-      "Received empty input from user " + forwarded_to_container.user_id
-    );
+  if (pong_to_world.payload.move_r === undefined) {
+    console.error("Received empty input from user " + pong_to_world.user_id);
     return false;
   }
   return true;
@@ -131,7 +131,7 @@ class PongGame {
       // Check collision
       for (const paddle of this.player_paddles) {
         paddle.move(deltaFactor);
-		// paddle.get
+        // paddle.get
       }
       ball.d.x += ball.d.x * deltaFactor * ball.s;
       ball.d.y += ball.d.y * deltaFactor * ball.s;
