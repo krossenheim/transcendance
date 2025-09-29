@@ -31,7 +31,7 @@ export const PayloadToUsersSchema = z
       recipients: z.array(z.number())
     .nonempty({ message: "Recipients array cannot be empty" }),
     payload: z.any(),
-	endpoint: z.string(),
+	endpoint: z.string().optional(),
   })
   .strict();
 

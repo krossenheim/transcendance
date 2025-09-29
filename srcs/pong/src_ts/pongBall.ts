@@ -1,6 +1,6 @@
 import type PlayerPaddle from "playerPaddle.js";
 import type { Vec2 } from "./vector2.js";
-// import { scale, normalize, toward } from "./vector2.js";
+import { normalize } from "./vector2.js";
 
 function randomAvoidAxes(epsilon = 0.05): number {
   const quarter = Math.PI / 2;
@@ -18,15 +18,17 @@ export class PongBall {
 
   public pos: Vec2;
   public r: number;
+  public radius: number;
   public d: Vec2;
   public s: number;
 
   constructor(start_pos: Vec2, game_size: Vec2, speed = 250) {
     this.game_size = game_size;
     this.pos = { ...start_pos };
+    this.radius = 4;
     this.r = randomAvoidAxes();
     this.s = speed;
-    this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
+    this.d = normalize({ x: Math.cos(this.r), y: Math.sin(this.r) });
   }
 
   updateTheta() {
@@ -46,7 +48,7 @@ export class PongBall {
     this.d.y = Math.sin(this.r);
   }
 
-  move(deltaFactor: number) {
+  getMove(deltaFactor: number) {
     this.pos.x += this.d.x * deltaFactor * this.s;
     this.pos.y += this.d.y * deltaFactor * this.s;
 
@@ -66,24 +68,6 @@ export class PongBall {
       this.reflectY();
     }
   }
-
-  collidesWithEdges(edges : CollidableEdges[], deltaTime: number)
-  {
-	for (const collidable_edge of edges)
-	{
-		const a = collidable_edge.a;
-		const b = collidable_edge.b;
-		const direction = collidable_edge.direction;
-
-		const line = a + deltaTime * direction;
-	}
-  }
 }
-
-type CollidableEdges = {
-  a: Vec2;
-  b: Vec2;
-  direction: Vec2;
-};
 
 export default PongBall;

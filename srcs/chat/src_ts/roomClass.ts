@@ -51,16 +51,16 @@ class FixedSizeList {
 // 	user_id: z.number().positive(),
 // 	timestamp : z.number().positive(),
 //   })
-  function composeOutgoing(user_id, room_name, message, timestamp) : T_OutgoingMessageSchema
-  {
-	const payload = {
-        user_id: user_id,
-        room_name: room_name,
-        message: message,
-		timestamp: timestamp
-      }
-	  return (payload);
-  }
+  // function composeOutgoing(user_id, room_name, message, timestamp) : T_OutgoingMessageSchema
+  // {
+	// const payload = {
+  //       user_id: user_id,
+  //       room_name: room_name,
+  //       message: message,
+	// 	timestamp: timestamp
+  //     }
+	//   return (payload);
+  // }
 
 class Room {
   public room_name: string;

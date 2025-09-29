@@ -1,6 +1,4 @@
-import {
-  PayloadToUsersSchema,
-} from "./api/service/hub/hub_interfaces.js";
+import { PayloadToUsersSchema } from "./api/service/hub/hub_interfaces.js";
 import { httpStatus } from "./httpStatusEnum.js";
 import type { ZodError } from "zod";
 import type { z } from "zod";
@@ -20,6 +18,7 @@ export function formatZodError(
 
   return {
     recipients: recipients,
+    endpoint: "Chihuaha ouch ",
     payload: {
       status: httpStatus.UNPROCESSABLE_ENTITY,
       func_name: process.env.FUNC_POPUP_TEXT,

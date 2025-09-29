@@ -49,7 +49,7 @@ const pongTasks = {
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
 function truncateDecimals(num: number): number {
-  return Math.trunc(num * 10) / 10;
+  return Math.trunc(num * 1000) / 1000;
 }
 
 async function backgroundTask() {
@@ -66,7 +66,9 @@ async function backgroundTask() {
         payload.balls.push({
           x: truncateDecimals(obj.pos.x),
           y: truncateDecimals(obj.pos.y),
-          r: truncateDecimals(obj.theta),
+          dx: truncateDecimals(obj.d.x),
+          dy: truncateDecimals(obj.d.y),
+          r: truncateDecimals(obj.radius),
         });
       }
 
@@ -74,14 +76,15 @@ async function backgroundTask() {
         payload.paddles.push({
           x: truncateDecimals(obj.pos.x),
           y: truncateDecimals(obj.pos.y),
-          r: truncateDecimals(obj.theta),
+          r: truncateDecimals(obj.r),
           l: truncateDecimals(obj.length),
+          w: truncateDecimals(obj.width),
         });
       }
       const out = { recipients: recipients, payload: payload };
       socketToHub.send(JSON.stringify(out));
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 45));
   }
 }
 

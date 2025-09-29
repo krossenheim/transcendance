@@ -26,10 +26,11 @@ function getEarliestContactMoment(
   if (discriminant > 0) {
     const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
     const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
-    // the sign of a decides if t1 < t2 or t1 > t2
-    // point 'goes through' the segment
+    console.log("Discriminant has two pierces");
     return Math.min(t1, t2);
   } else if (discriminant == 0) {
+    console.log("Discriminant has 1 instant");
+
     return -b / (2 * a); // exact intersection at moment time
   }
   // else { IF we want to know distance at closest approach and its moment this is nice.

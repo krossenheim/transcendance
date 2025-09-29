@@ -7,7 +7,6 @@ import { proxyRequest } from "./proxyRequest.js";
 import type WebSocket from "ws";
 import {
   UserRequestSchema,
-  UserAuthenticationRequestSchema,
   PayloadToUsersSchema,
   ForwardToContainerSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
@@ -243,15 +242,14 @@ fastify.get(
         payload: payload, // z.any();
         endpoint: endpoint, // endpoint will be validated here.
         user_id: socket_id, // no real validation other than be a number
-        target_container: target_container, // no real validation othe rthan be a string.
       };
 
       const valid_request = ForwardToContainerSchema.safeParse(request);
       if (!valid_request.success) {
         console.error("Invalid request schema: " + valid_request.error);
         console.log("Invalid request: " + JSON.stringify(parsed));
-        const userauth_attempt =
-          UserAuthenticationRequestSchema.safeParse(parsed);
+        const userauth_attempt = true;
+         // UserAuthenticationRequestSchema.safeParse(parsed);
         if (!userauth_attempt) {
           socket.send(
             "Greetings from debug land, your message was not one of userschema or userauthenticatiornequest"
