@@ -54,9 +54,8 @@ export function getHit(
     throw new Error("Bad polygon with only < 2 sides.");
   }
   let hit: false | hit = false;
-  const polygon_stationary: boolean = !(
-    rel_polygon_dir.x == 0 && rel_polygon_dir.y == 0
-  );
+  const polygon_stationary: boolean =
+    rel_polygon_dir.x == 0 && rel_polygon_dir.y == 0;
 
   const segments_rel_v = sub(rel_polygon_dir, ball.d);
   for (let i = 1; i < numsides; i++) {
