@@ -2,8 +2,6 @@ import type { Vec2 } from "./vector2.js";
 import { add, sub, crossp, dotp, normalize } from "./vector2.js";
 import type PongBall from "pongBall.js";
 
-
-
 function getCoefficients(
   c_vel: Vec2,
   e: Vec2,
@@ -57,8 +55,7 @@ export function getHit(
     throw new Error("Bad polygon with only < 2 sides.");
   }
   let hit: false | hit = false;
-  const polygon_stationary: boolean =
-    polygon_vel.x == 0 && polygon_vel.y == 0;
+  const polygon_stationary: boolean = polygon_vel.x == 0 && polygon_vel.y == 0;
 
   const segments_rel_v = sub(polygon_vel, ball.d);
   for (let i = 1; i < numsides; i++) {
@@ -89,10 +86,10 @@ function circleTouchesSegment(
   seg_a: Vec2,
   seg_b: Vec2
 ): hit | false {
-  const e: Vec2 = sub(seg_b, seg_a); //e: relative vector from seg_b to seg_ a
-  const w0: Vec2 = sub(c_start_pos, seg_a); //
+  const seg_vec: Vec2 = sub(seg_b, seg_a); //e: vector from seg_a to seg_b
+  const w0: Vec2 = sub(c_start_pos, seg_a); // vector from seg_a to c_start_pos;
 
-  const [a, b, c] = getCoefficients(c_vel, e, w0, sweep_radius);
+  const [a, b, c] = getCoefficients(c_vel, seg_vec, w0, sweep_radius);
 
   let moment: number | null = getEarliestContactMoment(a, b, c);
   // moment is 'alpha' its a magnitude from 0 to 1 between two moments
@@ -100,8 +97,8 @@ function circleTouchesSegment(
     return false;
   }
   const hitPoint: Vec2 = {
-    x: seg_a.x + e.x * moment,
-    y: seg_a.y + e.y * moment,
+    x: seg_a.x + seg_vec.x * moment,
+    y: seg_a.y + seg_vec.y * moment,
   };
   const normal: Vec2 = normalize({
     x: c_start_pos.x + c_vel.x * moment - hitPoint.x,
