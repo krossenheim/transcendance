@@ -1,5 +1,5 @@
-import type { Vec2 } from "./utils/api/service/common/vector2.js";
-import { scale, getAngle } from "./utils/api/service/common/vector2.js";
+import type { Vec2 } from "./vector2.js";
+import { scale, getAngle } from "./vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 500;
 

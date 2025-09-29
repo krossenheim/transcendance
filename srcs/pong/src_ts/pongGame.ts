@@ -1,5 +1,5 @@
-import type { Vec2 } from "./utils/api/service/common/vector2.js";
-import { scale, multiply } from "./utils/api/service/common/vector2.js";
+import type { Vec2 } from "./vector2.js";
+import { scale } from "./vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
 // import user from "./utils/api/service/db/user.js";
@@ -127,7 +127,7 @@ class PongGame {
     //   paddle.move(deltaFactor);
     // }
     for (const ball of this.balls_pos) {
-      const movement = multiply(ball.d, deltaFactor * ball.s);
+      const movement = scale(deltaFactor * ball.s, ball.d);
       // Check collision
       for (const paddle of this.player_paddles) {
         paddle.move(deltaFactor);

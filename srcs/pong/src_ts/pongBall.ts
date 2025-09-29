@@ -1,6 +1,6 @@
 import type PlayerPaddle from "playerPaddle.js";
-import type { Vec2 } from "./utils/api/service/common/vector2.js";
-// import { scale, normalize, toward } from "./utils/api/service/common/vector2.js";
+import type { Vec2 } from "./vector2.js";
+// import { scale, normalize, toward } from "./vector2.js";
 
 function randomAvoidAxes(epsilon = 0.05): number {
   const quarter = Math.PI / 2;
