@@ -2,11 +2,7 @@ import type { Vec2 } from "./vector2.js";
 import { add, sub, crossp, dotp, normalize } from "./vector2.js";
 import type PongBall from "pongBall.js";
 
-type hit = {
-  alpha: number;
-  point: Vec2;
-  normal: Vec2;
-};
+
 
 function getCoefficients(
   c_vel: Vec2,
@@ -33,6 +29,7 @@ function getEarliestContactMoment(
     const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
     const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
     // the sign of a decides if t1 < t2 or t1 > t2
+    // point 'goes through' the segment
     return Math.min(t1, t2);
   } else if (discriminant == 0) {
     return -b / (2 * a); // exact intersection at moment time
@@ -44,10 +41,16 @@ function getEarliestContactMoment(
   return null;
 }
 
+type hit = {
+  alpha: number;
+  point: Vec2;
+  normal: Vec2;
+};
+
 export function getHit(
   ball: PongBall,
   polygon: Vec2[],
-  rel_polygon_dir: Vec2
+  polygon_vel: Vec2
 ): hit | false {
   const numsides = polygon.length;
   if (numsides < 2) {
@@ -55,9 +58,9 @@ export function getHit(
   }
   let hit: false | hit = false;
   const polygon_stationary: boolean =
-    rel_polygon_dir.x == 0 && rel_polygon_dir.y == 0;
+    polygon_vel.x == 0 && polygon_vel.y == 0;
 
-  const segments_rel_v = sub(rel_polygon_dir, ball.d);
+  const segments_rel_v = sub(polygon_vel, ball.d);
   for (let i = 1; i < numsides; i++) {
     const seg_a = polygon[i - 1]!; // Ignoring TS warning ;
     const seg_b = polygon[i]!; // ignoring !
@@ -87,7 +90,7 @@ function circleTouchesSegment(
   seg_b: Vec2
 ): hit | false {
   const e: Vec2 = sub(seg_b, seg_a); //e: relative vector from seg_b to seg_ a
-  const w0: Vec2 = sub({ x: 0, y: 0 }, seg_a); //
+  const w0: Vec2 = sub(c_start_pos, seg_a); //
 
   const [a, b, c] = getCoefficients(c_vel, e, w0, sweep_radius);
 
