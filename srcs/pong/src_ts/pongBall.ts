@@ -22,10 +22,10 @@ export class PongBall {
   public d: Vec2;
   public s: number;
 
-  constructor(start_pos: Vec2, game_size: Vec2, speed = 250) {
+  constructor(start_pos: Vec2, game_size: Vec2, speed = 25) {
     this.game_size = game_size;
     this.pos = { ...start_pos };
-    this.radius = 4;
+    this.radius = 15;
     this.r = randomAvoidAxes();
     this.s = speed;
     this.d = normalize({ x: Math.cos(this.r), y: Math.sin(this.r) });

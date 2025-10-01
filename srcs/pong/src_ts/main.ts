@@ -53,44 +53,60 @@ function truncateDecimals(num: number): number {
 }
 
 async function backgroundTask() {
-  while (true) {
-    for (const [game_id, game] of singletonPong.pong_instances) {
-      game.gameLoop();
-      const recipients = Array.from(game.player_to_paddle.keys());
-      const payload: { balls: any[]; paddles: any[] } = {
-        balls: [],
-        paddles: [],
-      };
+  try {
+    while (true) {
+      for (const [game_id, game] of singletonPong.pong_instances) {
+        game.gameLoop();
+        const recipients = Array.from(game.player_to_paddle.keys());
+        const payload: { balls: any[]; paddles: any[] } = {
+          balls: [],
+          paddles: [],
+        };
 
-      for (const obj of game.balls_pos) {
-        payload.balls.push({
-          x: truncateDecimals(obj.pos.x),
-          y: truncateDecimals(obj.pos.y),
-          dx: truncateDecimals(obj.d.x),
-          dy: truncateDecimals(obj.d.y),
-          r: truncateDecimals(obj.radius),
-        });
-      }
+        for (const obj of game.balls_pos) {
+          payload.balls.push({
+            x: truncateDecimals(obj.pos.x),
+            y: truncateDecimals(obj.pos.y),
+            dx: truncateDecimals(obj.d.x),
+            dy: truncateDecimals(obj.d.y),
+            r: truncateDecimals(obj.radius),
+          });
+        }
 
-      for (const obj of game.player_paddles) {
-        payload.paddles.push({
-          x: truncateDecimals(obj.pos.x),
-          y: truncateDecimals(obj.pos.y),
-          r: truncateDecimals(obj.r),
-          l: truncateDecimals(obj.length),
-          w: truncateDecimals(obj.width),
-        });
+        for (const obj of game.player_paddles) {
+          payload.paddles.push({
+            x: truncateDecimals(obj.pos.x),
+            y: truncateDecimals(obj.pos.y),
+            r: truncateDecimals(obj.r),
+            a1: truncateDecimals(obj.polygon[0]!.x),
+            a2: truncateDecimals(obj.polygon[0]!.y),
+            b1: truncateDecimals(obj.polygon[1]!.x),
+            b2: truncateDecimals(obj.polygon[1]!.y),
+            c1: truncateDecimals(obj.polygon[2]!.x),
+            c2: truncateDecimals(obj.polygon[2]!.y),
+            d1: truncateDecimals(obj.polygon[3]!.x),
+            d2: truncateDecimals(obj.polygon[3]!.y),
+          });
+        }
+        const out = { recipients: recipients, payload: payload };
+        socketToHub.send(JSON.stringify(out));
       }
-      const out = { recipients: recipients, payload: payload };
-      socketToHub.send(JSON.stringify(out));
+      await new Promise((resolve) => setTimeout(resolve, 45));
     }
-    await new Promise((resolve) => setTimeout(resolve, 45));
+  } catch (e: any) {
+    console.log("Exception:", e.error);
+    while (true) {}
   }
 }
 
 // Start the background task without awaiting it
 backgroundTask();
-
+const bogus = {
+  user_id: 2,
+  endpoint: "/api/bogus",
+  payload: { player_list: [2, 3, 4, 5, 6] },
+};
+singletonPong.startGame(bogus);
 // HTTP route registration function
 // function registerChatRoomRoutes(fastify: FastifyInstance) {
 //   // Iterate entries (key and value) instead of keys only

@@ -15,9 +15,9 @@ socketToHub.on("error", (err: Error) => {
 });
 
 function isAsync(fn: (...args: any[]) => any): boolean {
-  console.log(
-    "Functions may or may not be async, fix it to make them all awaitable and get rid of this annoying log message.\n:)\n\n:)!"
-  );
+  // console.log(
+  //   "Functions may or may not be async, fix it to make them all awaitable and get rid of this annoying log message.\n:)\n\n:)!"
+  // );
   return fn.constructor.name === "AsyncFunction";
 }
 

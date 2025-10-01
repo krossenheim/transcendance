@@ -1,7 +1,7 @@
 import type { Vec2 } from "./vector2.js";
-import { scale, getAngle } from "./vector2.js";
+import { scale, getAngle, normalize } from "./vector2.js";
 
-const DEFAULT_PADDLE_SPEED = 500;
+const DEFAULT_PADDLE_SPEED = 700;
 
 function makeRectangle(
   pos: Vec2,
@@ -10,24 +10,21 @@ function makeRectangle(
   length: number
 ): Vec2[] {
   // dir should be normalized at this stage.
-  let forward = {
-    x: dir.x,
-    y: dir.y,
-  };
+  let forward = normalize(dir)
 
   // perpendicular (rotate 90° CCW)
   let right = {
-    x: -forward.y,
-    y: forward.x,
+    x: forward.y,
+    y: -forward.x,
   };
 
   // half extents
-  let halfL = length / 2;
-  let halfW = width / 2;
+  let halfW = length / 2;
+  let halfL = width / 2;
 
   // scale vectors
-  let f = { x: forward.x * halfL, y: forward.y * halfL };
-  let r = { x: right.x * halfW, y: right.y * halfW };
+  let r = { x: forward.x * halfL, y: forward.y * halfL };
+  let f = { x: right.x * halfW, y: right.y * halfW };
 
   // 4 corners
   let p1 = { x: pos.x + f.x + r.x, y: pos.y + f.y + r.y };

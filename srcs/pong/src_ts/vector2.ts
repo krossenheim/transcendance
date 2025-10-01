@@ -32,15 +32,11 @@ export function getAngle(a: Vec2, b: Vec2): number {
 }
 
 export function add(a: Vec2, b: Vec2): Vec2 {
-  const dx = b.x + a.x;
-  const dy = (b.y = a.y);
-  return { x: dy, y: dx };
+  return { x: a.x + b.x, y: a.y + b.y };
 }
 
 export function sub(a: Vec2, b: Vec2): Vec2 {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  return { x: dy, y: dx };
+  return { x: a.x - b.x, y: a.y - b.y };
 }
 
 export function crossp(a: Vec2, b: Vec2) {
@@ -49,4 +45,8 @@ export function crossp(a: Vec2, b: Vec2) {
 
 export function dotp(a: Vec2, b: Vec2) {
   return a.x * b.x + a.y * b.y;
+}
+
+export function mag(v: Vec2): number {
+  return Math.hypot(v.x, v.y);
 }
