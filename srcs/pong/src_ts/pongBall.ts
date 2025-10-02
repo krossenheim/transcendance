@@ -109,7 +109,10 @@ export class PongBall {
 
     const AB = sub(B, A);
     const AB_len2 = dotp(AB, AB);
-    if (AB_len2 < 1e-8) return null; // degenerate segment
+    if (AB_len2 < 1e-8)
+      throw Error(
+        "Checking a collision between a very small segment, point-like small."
+      );
 
     const AP = sub(ballPos, A);
 
@@ -123,7 +126,7 @@ export class PongBall {
 
     if (dist2 <= effectiveRadius * effectiveRadius + 1e-8) {
       // Already overlapping at t = 0
-      return 0;
+      return -1;
     }
     const a = dotp(movementRel, movementRel);
     if (a < 1e-8) return null;
@@ -180,7 +183,7 @@ export class PongBall {
 
     for (const paddle of paddles) {
       const effective_radius = this.radius + paddle.width + 1e-8; // effective radius
-      const MAX_UNITS = 4;
+      const MAX_UNITS = Math.min(this.radius * 1.5, 1);
 
       // Compute the magnitude of movement_vec
       const mag = Math.hypot(movement_vec.x, movement_vec.y);
@@ -193,7 +196,6 @@ export class PongBall {
         x: movement_vec.x / steps,
         y: movement_vec.y / steps,
       };
-      console.log("Steps:",steps);
       let col_time_slice = null;
       let temp_pos = { ...this.pos };
 
@@ -215,9 +217,14 @@ export class PongBall {
         if (col_time_slice !== null) break;
       }
       if (col_time_slice !== null) {
-        console.log("timslice 0 1?:", col_time_slice);
-
         this.dir = scale(-1, this.dir);
+        if (col_time_slice === -1) {
+          console.log("pushy");
+          const push_away = scale(5, normalize(sub(paddle.pos, this.pos)));
+          this.pos.x -= push_away.x;
+          this.pos.y -= push_away.y;
+
+        }
         // Handle multiple bounces in one frame, then return
         return;
       }
