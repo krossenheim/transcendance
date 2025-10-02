@@ -78,10 +78,18 @@ async function backgroundTask() {
             x: truncateDecimals(obj.pos.x),
             y: truncateDecimals(obj.pos.y),
             r: truncateDecimals(obj.r),
-            a1: truncateDecimals(obj.segment[0]!.x),
-            a2: truncateDecimals(obj.segment[0]!.y),
-            b1: truncateDecimals(obj.segment[1]!.x),
-            b2: truncateDecimals(obj.segment[1]!.y),
+            a1: truncateDecimals(
+              obj.segment[0]!.x + game.pong_balls[0]!.radius
+            ),
+            a2: truncateDecimals(
+              obj.segment[0]!.y + game.pong_balls[0]!.radius
+            ),
+            b1: truncateDecimals(
+              obj.segment[1]!.x + game.pong_balls[0]!.radius
+            ),
+            b2: truncateDecimals(
+              obj.segment[1]!.y + game.pong_balls[0]!.radius
+            ),
             w: obj.width,
           });
         }

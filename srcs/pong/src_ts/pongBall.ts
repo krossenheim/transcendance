@@ -14,7 +14,7 @@ function randomAvoidAxes(epsilon = 0.05): number {
 }
 
 function solveQuadratic(a: number, b: number, c: number): number | null {
-  if (a < 1e-12) {
+  if (a < 1e-6) {
     return null;
   }
 
@@ -40,7 +40,7 @@ export class PongBall {
   public dir: Vec2;
   public speed: number;
 
-  constructor(start_pos: Vec2, game_size: Vec2, speed = 25) {
+  constructor(start_pos: Vec2, game_size: Vec2, speed = 40) {
     this.game_size = game_size;
     this.pos = { ...start_pos };
     this.radius = 15;
@@ -72,9 +72,9 @@ export class PongBall {
     // Quadratic for |(C - v t) - X|^2 = rEff^2
     const movementRel = sub(paddleMovement, ballMovement);
     const diff = sub(ballPos, vertex);
-    if (len(diff) <= effectiveRadius + 1e-12) return null;
+    if (len(diff) <= effectiveRadius + 1e-6) return null;
     const a = dotp(movementRel, movementRel);
-    if (a < +1e-12) return null;
+    if (a < +1e-6) return null;
     const b = -2 * dotp(movementRel, diff);
     const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
 

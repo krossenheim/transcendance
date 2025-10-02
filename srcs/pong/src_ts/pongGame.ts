@@ -71,36 +71,15 @@ class PongGame {
       this.player_paddles.push(paddle);
     }
     console.log("Added players:", Array.from(this.player_to_paddle.keys()));
-    this.pong_balls.push(
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      ),
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      ),
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      ),
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      ),
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      ),
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      ),
-      new PongBall(
-        { x: this.board_size.x / 2, y: this.board_size.y / 2 },
-        this.board_size
-      )
-    );
+    for (let i = 0; i < 25; i++) {
+      this.pong_balls.push(
+        new PongBall(
+          { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+          this.board_size
+        )
+      );
+    }
+
     console.log(`Initialized ${player_ids.length} paddles`);
   }
 
