@@ -3,38 +3,21 @@ import { scale, getAngle, normalize } from "./vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 700;
 
-function makeRectangle(
-  pos: Vec2,
-  dir: Vec2,
-  width: number,
-  length: number
-): Vec2[] {
-  // dir should be normalized at this stage.
-  let forward = normalize(dir)
+function makeSegment(pos: Vec2, dir: Vec2, length: number): Vec2[] {
+  const forward = normalize(dir); // unit vector along dir
+  // perpendicular vector (+90° rotation)
+  const perp = { x: -forward.y, y: forward.x };
 
-  // perpendicular (rotate 90° CCW)
-  let right = {
-    x: forward.y,
-    y: -forward.x,
-  };
+  // offset along the perpendicular
+  const halfL = length / 2;
+  const offset = { x: perp.x * halfL, y: perp.y * halfL };
 
-  // half extents
-  let halfW = length / 2;
-  let halfL = width / 2;
+  const p1 = { x: pos.x + offset.x, y: pos.y + offset.y };
+  const p2 = { x: pos.x - offset.x, y: pos.y - offset.y };
 
-  // scale vectors
-  let r = { x: forward.x * halfL, y: forward.y * halfL };
-  let f = { x: right.x * halfW, y: right.y * halfW };
-
-  // 4 corners
-  let p1 = { x: pos.x + f.x + r.x, y: pos.y + f.y + r.y };
-  let p2 = { x: pos.x + f.x - r.x, y: pos.y + f.y - r.y };
-  let p3 = { x: pos.x - f.x - r.x, y: pos.y - f.y - r.y };
-  let p4 = { x: pos.x - f.x + r.x, y: pos.y - f.y + r.y };
-
-  let rectangle = [p1, p2, p3, p4];
-  return rectangle;
+  return [p1, p2];
 }
+
 
 export class PlayerPaddle {
   // private constants
@@ -49,7 +32,7 @@ export class PlayerPaddle {
   public s: number;
   public length: number;
   public width: number;
-  public polygon: Vec2[];
+  public segment: Vec2[];
   public lastMovement: Vec2;
   constructor(
     start_pos: Vec2,
@@ -57,7 +40,6 @@ export class PlayerPaddle {
     player_id: number,
     pladdle_speed = DEFAULT_PADDLE_SPEED
   ) {
-    
     this.start_pos = start_pos;
     this.game_size = game_size;
     this.pos = { ...start_pos };
@@ -68,7 +50,7 @@ export class PlayerPaddle {
     this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
     this.length = Math.min(game_size.y, game_size.x) * 0.25;
     this.width = this.length / 10;
-    this.polygon = makeRectangle(this.pos, this.d, this.width, this.length);
+    this.segment = makeSegment(this.pos, this.d, this.length);
     this.lastMovement = { x: 0, y: 0 };
     this.player_ID = player_id;
     this.is_moving_right = null;

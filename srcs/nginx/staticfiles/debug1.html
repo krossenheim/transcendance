@@ -52,20 +52,38 @@
       });
 
       // Draw paddles using polygon points a,b,c,d
+      // Draw paddles using a1, a2, w, h
       paddles.forEach((p) => {
-        const points = [
-          mapToCanvas(p.a1, p.a2),
-          mapToCanvas(p.b1, p.b2),
-          mapToCanvas(p.c1, p.c2),
-          mapToCanvas(p.d1, p.d2),
+        // points P and Q
+        const P = { x: p.a1, y: p.a2 };
+        const Q = { x: p.b1, y: p.b2 };
+
+        // direction from P to Q
+        const dir = { x: Q.x - P.x, y: Q.y - P.y };
+        const length = Math.hypot(dir.x, dir.y);
+        const unitDir = { x: dir.x / length, y: dir.y / length };
+
+        // perpendicular to dir
+        const perp = { x: -unitDir.y, y: unitDir.x };
+
+        // half width of paddle
+        const halfW = (p.w || 10) / 2;
+
+        // 4 corners of rectangle
+        const corners = [
+          { x: P.x + perp.x * halfW, y: P.y + perp.y * halfW },
+          { x: Q.x + perp.x * halfW, y: Q.y + perp.y * halfW },
+          { x: Q.x - perp.x * halfW, y: Q.y - perp.y * halfW },
+          { x: P.x - perp.x * halfW, y: P.y - perp.y * halfW },
         ];
 
         ctx.fillStyle = "blue";
         ctx.beginPath();
-        ctx.moveTo(points[0].cx, points[0].cy);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].cx, points[i].cy);
-        }
+        corners.forEach((c, i) => {
+          const { cx, cy } = mapToCanvas(c.x, c.y);
+          if (i === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        });
         ctx.closePath();
         ctx.fill();
       });

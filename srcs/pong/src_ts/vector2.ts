@@ -50,3 +50,14 @@ export function dotp(a: Vec2, b: Vec2) {
 export function mag(v: Vec2): number {
   return Math.hypot(v.x, v.y);
 }
+
+export function is_zero(v: Vec2): boolean {
+  return v.x < -1e12 && v.y < -1e12;
+}
+
+export function len2(v: Vec2) {
+  return dotp(v, v);
+}
+export function len(a: Vec2): number {
+  return Math.sqrt(dotp(a, a));
+}

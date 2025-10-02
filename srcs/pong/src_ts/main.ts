@@ -63,12 +63,12 @@ async function backgroundTask() {
           paddles: [],
         };
 
-        for (const obj of game.balls_pos) {
+        for (const obj of game.pong_balls) {
           payload.balls.push({
             x: truncateDecimals(obj.pos.x),
             y: truncateDecimals(obj.pos.y),
-            dx: truncateDecimals(obj.d.x),
-            dy: truncateDecimals(obj.d.y),
+            dx: truncateDecimals(obj.dir.x),
+            dy: truncateDecimals(obj.dir.y),
             r: truncateDecimals(obj.radius),
           });
         }
@@ -78,14 +78,11 @@ async function backgroundTask() {
             x: truncateDecimals(obj.pos.x),
             y: truncateDecimals(obj.pos.y),
             r: truncateDecimals(obj.r),
-            a1: truncateDecimals(obj.polygon[0]!.x),
-            a2: truncateDecimals(obj.polygon[0]!.y),
-            b1: truncateDecimals(obj.polygon[1]!.x),
-            b2: truncateDecimals(obj.polygon[1]!.y),
-            c1: truncateDecimals(obj.polygon[2]!.x),
-            c2: truncateDecimals(obj.polygon[2]!.y),
-            d1: truncateDecimals(obj.polygon[3]!.x),
-            d2: truncateDecimals(obj.polygon[3]!.y),
+            a1: truncateDecimals(obj.segment[0]!.x),
+            a2: truncateDecimals(obj.segment[0]!.y),
+            b1: truncateDecimals(obj.segment[1]!.x),
+            b2: truncateDecimals(obj.segment[1]!.y),
+            w: obj.width,
           });
         }
         const out = { recipients: recipients, payload: payload };
