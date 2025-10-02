@@ -24,13 +24,7 @@
       const scaleY = canvas.height / backendHeight;
       return { cx: x * scaleX, cy: y * scaleY };
     }
-    function mapToCanvas2(x, y, r) {
-      const scaleX = canvas.width / backendWidth;
-      const scaleY = canvas.height / backendHeight;
-      const cx = (x + r) * scaleX;
-      const cy = canvas.height - (y + r) * scaleY;
-      return { cx, cy };
-    }
+
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -41,7 +35,44 @@
         console.error(err);
       }
     };
+    function getNextColor(i, N, alpha = 1) {
+      // i = 0..N-1
+      // Scale i to 0..255*3 (simple linear mapping across RGB channels)
+      if (typeof i !== "number") i = Number(i);
+      const ratio = i / N;
 
+      // We'll walk through R->G->B linearly
+      const total = 3; // 3 channels
+      const step = ratio * total; // which channel section we're in
+
+      let r = 0,
+        g = 0,
+        b = 0;
+
+      if (step < 1) {
+        // Red decreasing, Green increasing
+        r = 255 * (1 - step);
+        g = 255 * step;
+        b = 0;
+      } else if (step < 2) {
+        // Green decreasing, Blue increasing
+        const t = step - 1;
+        r = 0;
+        g = 255 * (1 - t);
+        b = 255 * t;
+      } else {
+        // Blue decreasing, Red increasing
+        const t = step - 2;
+        r = 255 * t;
+        g = 0;
+        b = 255 * (1 - t);
+      }
+
+      // Round and return rgba string
+      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(
+        b
+      )},${alpha})`;
+    }
     // Keep track of previous velocities for balls
     // Track previous velocities
     const prevBallVel = new Map();
@@ -49,14 +80,17 @@
     const velChangeDots = [];
     const trails = new Map();
     const TRAIL_LENGTH = 3; // store last 3 positions
-    const TRAIL_LIFETIME = 100; // store last 3 positions
-
+    const TRAIL_LIFETIME = 50; // store last 3 positions
+    let maxid = -1;
+    let ballrad;
     function draw() {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Draw balls
       balls.forEach((b) => {
+        if (maxid < b.id) maxid = b.id;
+        ballrad = b.r;
         const { cx, cy } = mapToCanvas(b.x, b.y, b.r);
         const scaleX = canvas.width / backendWidth;
         const scaleY = canvas.height / backendHeight;
@@ -64,7 +98,7 @@
         // Ball circle
         ctx.beginPath();
         ctx.arc(cx, cy, b.r * Math.min(scaleX, scaleY), 0, Math.PI * 2);
-        ctx.fillStyle = "yellow";
+        ctx.fillStyle = getNextColor(b.id, maxid, 1);
         ctx.fill();
         // --- Update trail ---
         if (!trails.has(b.id)) trails.set(b.id, []);
@@ -75,6 +109,7 @@
         stack.push({ x: b.x, y: b.y, age: 0 });
 
         // Draw trail dots and increment age
+
         for (let i = stack.length - 1; i >= 0; i--) {
           const dot = stack[i];
           dot.age++;
@@ -84,10 +119,10 @@
           }
           const { cx: ox, cy: oy } = mapToCanvas(dot.x, dot.y);
           ctx.beginPath();
-          ctx.arc(ox, oy, b.r * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+          ctx.arc(ox, oy, 2 * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
           // Optional: fade color by age
           const alpha = 1 - dot.age / TRAIL_LIFETIME;
-          ctx.fillStyle = `rgba(255,0,255,${alpha})`;
+          ctx.strokeStyle = getNextColor(b.id, maxid, 1);
           ctx.fill();
         }
         // Check for velocity change
@@ -123,13 +158,18 @@
         const P = { x: p.a1, y: p.a2 };
         const Q = { x: p.b1, y: p.b2 };
 
+        // Segment direction
         const dir = { x: Q.x - P.x, y: Q.y - P.y };
         const length = Math.hypot(dir.x, dir.y);
         const unitDir = { x: dir.x / length, y: dir.y / length };
 
+        // Perpendicular vector
         const perp = { x: -unitDir.y, y: unitDir.x };
-        const halfW = (p.w || 10) / 2;
 
+        // Half width exactly as backend uses
+        const halfW =p.w / 2 + ballrad;
+
+        // Rectangle corners
         const corners = [
           { x: P.x + perp.x * halfW, y: P.y + perp.y * halfW },
           { x: Q.x + perp.x * halfW, y: Q.y + perp.y * halfW },
@@ -165,6 +205,13 @@
         ctx.moveTo(cx1, cy1);
         ctx.lineTo(cx2, cy2);
         ctx.stroke();
+        ctx.strokeStyle = "gray";
+        for (let x = 0; x <= backendWidth; x += 100) {
+          for (let y = 0; y <= backendHeight; y += 100) {
+            const { cx, cy } = mapToCanvas(x, y);
+            ctx.fillRect(cx - 2, cy - 2, 4, 4);
+          }
+        }
       });
 
       requestAnimationFrame(draw);

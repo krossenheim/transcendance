@@ -180,22 +180,44 @@ export class PongBall {
 
     for (const paddle of paddles) {
       const effective_radius = this.radius + paddle.width + 1e-8; // effective radius
-      col_time_slice = this.checkSegmentCollision(
-        paddle.segment[1]!,
-        paddle.segment[0]!,
-        paddle.lastMovement,
-        this.pos,
-        movement_vec,
-        effective_radius
-      );
+      const MAX_UNITS = 4;
+
+      // Compute the magnitude of movement_vec
+      const mag = Math.hypot(movement_vec.x, movement_vec.y);
+
+      // Determine how many sub-steps we need
+      const steps = Math.ceil(mag / MAX_UNITS);
+
+      // Compute the per-step vector
+      const step_vec = {
+        x: movement_vec.x / steps,
+        y: movement_vec.y / steps,
+      };
+      console.log("Steps:",steps);
+      let col_time_slice = null;
+      let temp_pos = { ...this.pos };
+
+      for (let i = 0; i < steps; i++) {
+        col_time_slice = this.checkSegmentCollision(
+          paddle.segment[0]!,
+          paddle.segment[1]!,
+          paddle.lastMovement,
+          temp_pos,
+          step_vec,
+          effective_radius
+        );
+
+        // Update temporary position along the step vector
+        temp_pos.x += step_vec.x;
+        temp_pos.y += step_vec.y;
+
+        // Stop early if collision detected
+        if (col_time_slice !== null) break;
+      }
       if (col_time_slice !== null) {
         console.log("timslice 0 1?:", col_time_slice);
 
         this.dir = scale(-1, this.dir);
-        if (col_time_slice <= 0) {
-          this.pos.x -= movement_vec.x;
-          this.pos.y -= movement_vec.y;
-        }
         // Handle multiple bounces in one frame, then return
         return;
       }
