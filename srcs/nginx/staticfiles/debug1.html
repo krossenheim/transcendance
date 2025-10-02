@@ -5,7 +5,7 @@
   <label for="boardId">Board ID:</label>
   <input type="number" id="boardId" min="1" value="1" />
   <p>Press "W" to move up/left and "S" to move down/right.</p>
-  <canvas id="c" width="600" height="600" style="background: #000"></canvas>
+  <canvas id="c" width="1000" height="1000" style="background: #000"></canvas>
 
   <script type="module">
     import ws from "/static/websocket.js";
@@ -24,7 +24,13 @@
       const scaleY = canvas.height / backendHeight;
       return { cx: x * scaleX, cy: y * scaleY };
     }
-
+    function mapToCanvas2(x, y, r) {
+      const scaleX = canvas.width / backendWidth;
+      const scaleY = canvas.height / backendHeight;
+      const cx = (x + r) * scaleX;
+      const cy = canvas.height - (y + r) * scaleY;
+      return { cx, cy };
+    }
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -36,40 +42,68 @@
       }
     };
 
+    // Keep track of previous velocities for balls
+    // Track previous velocities
+    const prevBallVel = new Map();
+    // Store persistent velocity-change dots
+    const velChangeDots = [];
+
     function draw() {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Draw balls
       balls.forEach((b) => {
-        const { cx, cy } = mapToCanvas(b.x, b.y);
-        ctx.beginPath();
+        const { cx, cy } = mapToCanvas(b.x, b.y, b.r);
         const scaleX = canvas.width / backendWidth;
         const scaleY = canvas.height / backendHeight;
+
+        // Ball circle
+        ctx.beginPath();
         ctx.arc(cx, cy, b.r * Math.min(scaleX, scaleY), 0, Math.PI * 2);
         ctx.fillStyle = "yellow";
         ctx.fill();
+
+        // Check for velocity change
+        const key = b.id ?? `${b.x}-${b.y}`;
+        const prev = prevBallVel.get(key);
+        if (prev) {
+          const prevVel = { x: prev.dx, y: prev.dy };
+          const currVel = { x: b.dx, y: b.dy };
+
+          const dot = prevVel.x * currVel.x + prevVel.y * currVel.y;
+
+          if (dot < 0) {
+            // Significant reversal, record dot
+            velChangeDots.push({ x: b.x, y: b.y, r: b.r });
+          }
+        }
+        prevBallVel.set(key, { dx: b.dx, dy: b.dy });
       });
 
-      // Draw paddles using polygon points a,b,c,d
-      // Draw paddles using a1, a2, w, h
+      // Draw persistent orange velocity-change dots
+      velChangeDots.forEach((dot) => {
+        const { cx, cy } = mapToCanvas(dot.x, dot.y);
+        const scaleX = canvas.width / backendWidth;
+        const scaleY = canvas.height / backendHeight;
+        ctx.beginPath();
+        ctx.arc(cx, cy, dot.r * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+        ctx.fillStyle = "orange";
+        ctx.fill();
+      });
+
+      // Draw paddles
       paddles.forEach((p) => {
-        // points P and Q
         const P = { x: p.a1, y: p.a2 };
         const Q = { x: p.b1, y: p.b2 };
 
-        // direction from P to Q
         const dir = { x: Q.x - P.x, y: Q.y - P.y };
         const length = Math.hypot(dir.x, dir.y);
         const unitDir = { x: dir.x / length, y: dir.y / length };
 
-        // perpendicular to dir
         const perp = { x: -unitDir.y, y: unitDir.x };
-
-        // half width of paddle
         const halfW = (p.w || 10) / 2;
 
-        // 4 corners of rectangle
         const corners = [
           { x: P.x + perp.x * halfW, y: P.y + perp.y * halfW },
           { x: Q.x + perp.x * halfW, y: Q.y + perp.y * halfW },
@@ -77,6 +111,7 @@
           { x: P.x - perp.x * halfW, y: P.y - perp.y * halfW },
         ];
 
+        // Paddle rectangle
         ctx.fillStyle = "blue";
         ctx.beginPath();
         corners.forEach((c, i) => {
@@ -86,7 +121,16 @@
         });
         ctx.closePath();
         ctx.fill();
-        // Draw red line connecting P and Q
+
+        // Paddle center dot (green)
+        const center = { x: (P.x + Q.x) / 2, y: (P.y + Q.y) / 2 };
+        const { cx: ccx, cy: ccy } = mapToCanvas(center.x, center.y);
+        ctx.beginPath();
+        ctx.arc(ccx, ccy, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "green";
+        ctx.fill();
+
+        // Red line connecting P and Q
         const { cx: cx1, cy: cy1 } = mapToCanvas(P.x, P.y);
         const { cx: cx2, cy: cy2 } = mapToCanvas(Q.x, Q.y);
         ctx.strokeStyle = "red";
@@ -99,6 +143,7 @@
 
       requestAnimationFrame(draw);
     }
+
     draw();
 
     // Track key states

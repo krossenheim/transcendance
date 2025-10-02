@@ -23,11 +23,12 @@ function randomAvoidAxes(epsilon = 0.05): number {
 }
 
 function solveQuadratic(a: number, b: number, c: number): number | null {
-  if (a < 1e-6) {
+  if (a < 1e-8) {
     return null;
   }
 
   const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0 && discriminant > -1e-8) return 0;
 
   if (discriminant > 0) {
     const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
@@ -48,9 +49,11 @@ export class PongBall {
   public radius: number;
   public dir: Vec2;
   public speed: number;
-
+  public id: number;
+  private static debugcountstatic: number = 0;
   constructor(start_pos: Vec2, game_size: Vec2, speed = 400) {
     this.game_size = game_size;
+    this.id = PongBall.debugcountstatic++;
     this.pos = { ...start_pos };
     this.radius = 15;
     const r = randomAvoidAxes();
@@ -81,11 +84,11 @@ export class PongBall {
     // Quadratic for |(C - v t) - X|^2 = rEff^2
     const movementRel = sub(paddleMovement, ballMovement);
     const diff = sub(ballPos, vertex);
-    if (len(diff) <= effectiveRadius + 1e-6) return 0;
+    if (len(diff) <= effectiveRadius + 1e-8) return 0;
     // Inside segment.. shouldnt happen but floating point and all.
-    // if (len(diff) <= effectiveRadius + 1e-6) return null;
+    // if (len(diff) <= effectiveRadius + 1e-8) return null;
     const a = dotp(movementRel, movementRel);
-    if (a < +1e-6) return null;
+    if (a < +1e-8) return null;
     const b = -2 * dotp(movementRel, diff);
     const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
 
@@ -106,31 +109,38 @@ export class PongBall {
 
     const AB = sub(B, A);
     const AB_len2 = dotp(AB, AB);
-    if (AB_len2 < 1e-12) return null; // degenerate segment
+    if (AB_len2 < 1e-8) return null; // degenerate segment
 
     const AP = sub(ballPos, A);
 
     // Project AP onto AB, clamped to segment
     const t_seg = Math.max(0, Math.min(1, dotp(AP, AB) / AB_len2));
-    const closest = add(A, scale(t_seg,AB)); // closest point on AB at t=0
+    const closest = add(A, scale(t_seg, AB)); // closest point on AB at t=0
 
     // Now treat as vertex collision with closest point
     const diff = sub(ballPos, closest);
+    const dist2 = dotp(diff, diff);
+
+    if (dist2 <= effectiveRadius * effectiveRadius + 1e-8) {
+      // Already overlapping at t = 0
+      return 0;
+    }
     const a = dotp(movementRel, movementRel);
-    if (a < 1e-12) return null;
+    if (a < 1e-8) return null;
     const b = -2 * dotp(movementRel, diff);
     const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
 
     const t = solveQuadratic(a, b, c);
     if (t === null) return null;
-    if (t < 0 || t > 1) return null;
+    if (t < -1e-8 || t > 1 + 1e-8) return null;
 
     // Optional: check that at collision time, the point is still within segment
     const closestAtT = add(closest, scale(t, movementRel));
     const proj = dotp(sub(closestAtT, A), AB) / AB_len2;
-    if (proj < 0 || proj > 1) return null;
-
-    return t;
+    if (proj >= -1e-8 && proj <= 1 + 1e-8) {
+      return t;
+    }
+    return null;
   }
 
   // closestPointRelativeToP(
@@ -169,17 +179,23 @@ export class PongBall {
     let col_time_slice: null | number = null;
 
     for (const paddle of paddles) {
-      const effective_radius = this.radius + paddle.width; // effective radius
+      const effective_radius = this.radius + paddle.width + 1e-8; // effective radius
       col_time_slice = this.checkSegmentCollision(
-        paddle.segment[0]!,
         paddle.segment[1]!,
+        paddle.segment[0]!,
         paddle.lastMovement,
         this.pos,
         movement_vec,
         effective_radius
       );
       if (col_time_slice !== null) {
+        console.log("timslice 0 1?:", col_time_slice);
+
         this.dir = scale(-1, this.dir);
+        if (col_time_slice <= 0) {
+          this.pos.x -= movement_vec.x;
+          this.pos.y -= movement_vec.y;
+        }
         // Handle multiple bounces in one frame, then return
         return;
       }
@@ -189,7 +205,7 @@ export class PongBall {
       //     paddle.lastMovement,
       //     this.pos,
       //     movement_vec,
-      //     effective_radius
+      //     this.radius
       //   );
       //   if (col_time_slice !== null) {
       //     this.dir = scale(-1, this.dir);

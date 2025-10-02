@@ -48,10 +48,6 @@ const pongTasks = {
 // Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
-function truncateDecimals(num: number): number {
-  return Math.trunc(num * 1000) / 1000;
-}
-
 async function backgroundTask() {
   try {
     while (true) {
@@ -70,29 +66,30 @@ async function backgroundTask() {
 
         for (const obj of game.pong_balls) {
           payload.balls.push({
-            x: truncateDecimals(obj.pos.x),
-            y: truncateDecimals(obj.pos.y),
-            dx: truncateDecimals(obj.dir.x),
-            dy: truncateDecimals(obj.dir.y),
-            r: truncateDecimals(obj.radius),
+            id: obj.id,
+            x: (obj.pos.x),
+            y: (obj.pos.y),
+            dx: (obj.dir.x),
+            dy: (obj.dir.y),
+            r: (obj.radius),
           });
         }
 
         for (const obj of game.player_paddles) {
           payload.paddles.push({
-            x: truncateDecimals(obj.pos.x),
-            y: truncateDecimals(obj.pos.y),
-            r: truncateDecimals(obj.r),
-            a1: truncateDecimals(
+            x: (obj.pos.x),
+            y: (obj.pos.y),
+            r: (obj.r),
+            a1: (
               obj.segment[0]!.x + game.pong_balls[0]!.radius
             ),
-            a2: truncateDecimals(
+            a2: (
               obj.segment[0]!.y + game.pong_balls[0]!.radius
             ),
-            b1: truncateDecimals(
+            b1: (
               obj.segment[1]!.x + game.pong_balls[0]!.radius
             ),
-            b2: truncateDecimals(
+            b2: (
               obj.segment[1]!.y + game.pong_balls[0]!.radius
             ),
             w: obj.width,
@@ -101,7 +98,7 @@ async function backgroundTask() {
         const out = { recipients: recipients, payload: payload };
         socketToHub.send(JSON.stringify(out));
       }
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     }
   } catch (err) {
     // TypeScript doesn’t know what `err` is, so check if it has `message`
