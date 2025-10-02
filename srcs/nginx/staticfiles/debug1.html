@@ -47,6 +47,9 @@
     const prevBallVel = new Map();
     // Store persistent velocity-change dots
     const velChangeDots = [];
+    const trails = new Map();
+    const TRAIL_LENGTH = 3; // store last 3 positions
+    const TRAIL_LIFETIME = 100; // store last 3 positions
 
     function draw() {
       ctx.fillStyle = "#000";
@@ -63,9 +66,32 @@
         ctx.arc(cx, cy, b.r * Math.min(scaleX, scaleY), 0, Math.PI * 2);
         ctx.fillStyle = "yellow";
         ctx.fill();
+        // --- Update trail ---
+        if (!trails.has(b.id)) trails.set(b.id, []);
+        const stack = trails.get(b.id);
 
+        // Push current position
+        // Push current position with age 0
+        stack.push({ x: b.x, y: b.y, age: 0 });
+
+        // Draw trail dots and increment age
+        for (let i = stack.length - 1; i >= 0; i--) {
+          const dot = stack[i];
+          dot.age++;
+          if (dot.age > TRAIL_LIFETIME) {
+            stack.splice(i, 1); // remove old dot
+            continue;
+          }
+          const { cx: ox, cy: oy } = mapToCanvas(dot.x, dot.y);
+          ctx.beginPath();
+          ctx.arc(ox, oy, b.r * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+          // Optional: fade color by age
+          const alpha = 1 - dot.age / TRAIL_LIFETIME;
+          ctx.fillStyle = `rgba(255,0,255,${alpha})`;
+          ctx.fill();
+        }
         // Check for velocity change
-        const key = b.id ?? `${b.x}-${b.y}`;
+        const key = b.id;
         const prev = prevBallVel.get(key);
         if (prev) {
           const prevVel = { x: prev.dx, y: prev.dy };
