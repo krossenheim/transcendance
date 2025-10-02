@@ -55,6 +55,11 @@ function truncateDecimals(num: number): number {
 async function backgroundTask() {
   try {
     while (true) {
+      if (socketToHub.readyState != socketToHub.OPEN)
+      {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        continue;
+      }
       for (const [game_id, game] of singletonPong.pong_instances) {
         game.gameLoop();
         const recipients = Array.from(game.player_to_paddle.keys());
@@ -96,10 +101,16 @@ async function backgroundTask() {
         const out = { recipients: recipients, payload: payload };
         socketToHub.send(JSON.stringify(out));
       }
-      await new Promise((resolve) => setTimeout(resolve, 45));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
-  } catch (e: any) {
-    console.log("Exception:", e.error);
+  } catch (err) {
+    // TypeScript doesn’t know what `err` is, so check if it has `message`
+    if (err instanceof Error) {
+      console.error("Caught exception:", err.message);
+    } else {
+      console.error("Caught unknown exception:", err);
+    }
+    console.log("INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES.");
     while (true) {}
   }
 }

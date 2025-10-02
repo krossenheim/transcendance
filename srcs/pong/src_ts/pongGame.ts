@@ -54,7 +54,7 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      Math.min(this.board_size.x, this.board_size.y) * 0.48,
+      Math.min(this.board_size.x, this.board_size.y) * 0.25,
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
 
