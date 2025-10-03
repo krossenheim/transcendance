@@ -31,7 +31,7 @@ export class PlayerPaddle {
   public is_moving_right: boolean | null;
   public s: number;
   public length: number;
-  public width: number;
+  public readonly width: number;
   public segment: Vec2[];
   public lastMovement: Vec2;
   constructor(
@@ -49,7 +49,7 @@ export class PlayerPaddle {
     });
     this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
     this.length = Math.min(game_size.y, game_size.x) * 0.25;
-    this.width = 1;
+    this.width = 20;
     this.segment = makeSegment(this.pos, this.d, this.length);
     this.lastMovement = { x: 0, y: 0 };
     this.player_ID = player_id;

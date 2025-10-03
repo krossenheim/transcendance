@@ -28,12 +28,15 @@ class PongGame {
   public player_to_paddle: Map<number, PlayerPaddle>;
   public players: Array<number>;
   public pong_balls: Array<PongBall>;
+  // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
 
   private constructor(player_ids: Array<number>) {
     this.players = player_ids;
     this.board_size = { x: 1000, y: 1000 };
+    // this.debug_play_field = generateCirclePoints(4,
+    //   Math.min(this.board_size.x, this.board_size.y) * 0.75), { x: this.board_size.y / 2, y: this.board_size.x / 2 });
     this.pong_balls = [];
     this.player_paddles = [];
     this.player_to_paddle = new Map();
@@ -71,7 +74,7 @@ class PongGame {
       this.player_paddles.push(paddle);
     }
     console.log("Added players:", Array.from(this.player_to_paddle.keys()));
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 1; i++) {
       this.pong_balls.push(
         new PongBall(
           { x: this.board_size.x / 2, y: this.board_size.y / 2 },

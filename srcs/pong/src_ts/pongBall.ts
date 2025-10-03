@@ -55,7 +55,7 @@ export class PongBall {
     this.game_size = game_size;
     this.id = PongBall.debugcountstatic++;
     this.pos = { ...start_pos };
-    this.radius = 15;
+    this.radius = 0.001;
     const r = randomAvoidAxes();
     this.speed = speed;
     this.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
@@ -74,29 +74,30 @@ export class PongBall {
     return wantedMove;
   }
 
-  checkEndpointCollision(
-    vertex: Vec2,
-    paddleMovement: Vec2,
-    ballPos: Vec2,
-    ballMovement: Vec2,
-    effectiveRadius: number
-  ): number | null {
-    // Quadratic for |(C - v t) - X|^2 = rEff^2
-    const movementRel = sub(paddleMovement, ballMovement);
-    const diff = sub(ballPos, vertex);
-    if (len(diff) <= effectiveRadius + 1e-8) return 0;
-    // Inside segment.. shouldnt happen but floating point and all.
-    // if (len(diff) <= effectiveRadius + 1e-8) return null;
-    const a = dotp(movementRel, movementRel);
-    if (a < +1e-8) return null;
-    const b = -2 * dotp(movementRel, diff);
-    const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
+  // checkEndpointCollision(
+  //   vertex: Vec2,
+  //   paddleMovement: Vec2,
+  //   ballPos: Vec2,
+  //   ballMovement: Vec2,
+  //   effectiveRadius: number
+  // ): number | null {
+  //   // Quadratic for |(C - v t) - X|^2 = rEff^2
+  //   const movementRel = sub(paddleMovement, ballMovement);
+  //   const diff = sub(ballPos, vertex);
+  //   if (len(diff) <= effectiveRadius + 1e-8) return 0;
+  //   // Inside segment.. shouldnt happen but floating point and all.
+  //   // if (len(diff) <= effectiveRadius + 1e-8) return null;
+  //   const a = dotp(movementRel, movementRel);
+  //   if (a < +1e-8) return null;
+  //   const b = -2 * dotp(movementRel, diff);
+  //   const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
 
-    const t = solveQuadratic(a, b, c); // Only returns tmin even if disc >= 0
-    if (t === null) return null;
-    if (t < 0 || t > 1) return null;
-    return t;
-  }
+  //   const t = solveQuadratic(a, b, c); // Only returns tmin even if disc >= 0
+  //   if (t === null) return null;
+  //   if (t < 0 || t > 1) return null;
+  //   return t;
+  // }
+
   checkSegmentCollision(
     A: Vec2,
     B: Vec2,
@@ -119,29 +120,37 @@ export class PongBall {
     // Project AP onto AB, clamped to segment
     const t_seg = Math.max(0, Math.min(1, dotp(AP, AB) / AB_len2));
     const closest = add(A, scale(t_seg, AB)); // closest point on AB at t=0
-
+    // SCALE(T_SEG,AB ) =
     // Now treat as vertex collision with closest point
     const diff = sub(ballPos, closest);
-    const dist2 = dotp(diff, diff);
+    const dist2 = dotp(diff, diff); // 5? 25
 
-    if (dist2 <= effectiveRadius * effectiveRadius + 1e-8) {
+    if (dist2 <= effectiveRadius * effectiveRadius) {
       // Already overlapping at t = 0
       return -1;
     }
+
+    // Get quadratic terms
     const a = dotp(movementRel, movementRel);
     if (a < 1e-8) return null;
     const b = -2 * dotp(movementRel, diff);
     const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
-
     const t = solveQuadratic(a, b, c);
+
     if (t === null) return null;
-    if (t < -1e-8 || t > 1 + 1e-8) return null;
+    if (t < 0 || t > 1) return null;
 
     // Optional: check that at collision time, the point is still within segment
     const closestAtT = add(closest, scale(t, movementRel));
     const proj = dotp(sub(closestAtT, A), AB) / AB_len2;
-    if (proj >= -1e-8 && proj <= 1 + 1e-8) {
+    // "Shadow of sub(closestat,a) on ab"
+    if (proj >= 0 && proj <= 1) {
       return t;
+    }
+    if (proj >= -this.radius && proj < 0) {
+      // its aE or aF
+    } else if (proj > 1 && proj <= this.radius) {
+      // its bE or bF
     }
     return null;
   }
@@ -182,67 +191,28 @@ export class PongBall {
     let col_time_slice: null | number = null;
 
     for (const paddle of paddles) {
-      const effective_radius = this.radius + paddle.width + 1e-8; // effective radius
-      const MAX_UNITS = Math.min(this.radius * 1.5, 1);
+      const effective_radius = this.radius + paddle.width / 2;
+      col_time_slice = this.checkSegmentCollision(
+        paddle.segment[0]!,
+        paddle.segment[1]!,
+        paddle.lastMovement,
+        this.pos,
+        movement_vec,
+        effective_radius
+      );
 
-      // Compute the magnitude of movement_vec
-      const mag = Math.hypot(movement_vec.x, movement_vec.y);
-
-      // Determine how many sub-steps we need
-      const steps = Math.ceil(mag / MAX_UNITS);
-
-      // Compute the per-step vector
-      const step_vec = {
-        x: movement_vec.x / steps,
-        y: movement_vec.y / steps,
-      };
-      let col_time_slice = null;
-      let temp_pos = { ...this.pos };
-
-      for (let i = 0; i < steps; i++) {
-        col_time_slice = this.checkSegmentCollision(
-          paddle.segment[0]!,
-          paddle.segment[1]!,
-          paddle.lastMovement,
-          temp_pos,
-          step_vec,
-          effective_radius
-        );
-
-        // Update temporary position along the step vector
-        temp_pos.x += step_vec.x;
-        temp_pos.y += step_vec.y;
-
-        // Stop early if collision detected
-        if (col_time_slice !== null) break;
-      }
-      if (col_time_slice !== null) {
-        this.dir = scale(-1, this.dir);
-        if (col_time_slice === -1) {
-          console.log("pushy");
-          const push_away = scale(5, normalize(sub(paddle.pos, this.pos)));
-          this.pos.x -= push_away.x;
-          this.pos.y -= push_away.y;
-
-        }
-        // Handle multiple bounces in one frame, then return
-        return;
-      }
-      // for (const vertex of paddle.segment) {
-      //   col_time_slice = this.checkEndpointCollision(
-      //     vertex,
-      //     paddle.lastMovement,
-      //     this.pos,
-      //     movement_vec,
-      //     this.radius
-      //   );
-      //   if (col_time_slice !== null) {
-      //     this.dir = scale(-1, this.dir);
-      //     // Handle multiple bounces in one frame, then return
-      //     return;
-      //   }
-      // }
+      if (col_time_slice !== null) break;
     }
+    if (col_time_slice !== null) {
+      this.dir = scale(-1, this.dir);
+      if (col_time_slice === -1) {
+        this.pos.x -= movement_vec.x;
+        this.pos.y -= movement_vec.y;
+      }
+      // Handle multiple bounces in one frame, then return
+      return;
+    }
+
     if (!(col_time_slice === null)) {
       throw Error("wat");
     }

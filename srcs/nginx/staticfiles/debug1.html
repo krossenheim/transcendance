@@ -148,7 +148,7 @@
         const scaleX = canvas.width / backendWidth;
         const scaleY = canvas.height / backendHeight;
         ctx.beginPath();
-        ctx.arc(cx, cy, dot.r * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+        ctx.arc(cx, cy, 5, 0, Math.PI * 2);
         ctx.fillStyle = "orange";
         ctx.fill();
       });

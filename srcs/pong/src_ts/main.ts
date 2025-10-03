@@ -15,6 +15,7 @@ import {
   PongBallSchema,
   PongPaddleSchema,
 } from "./utils/api/service/pong/pong_interfaces.js";
+import { truncate } from "fs";
 
 const fastify = Fastify({
   logger: {
@@ -48,11 +49,15 @@ const pongTasks = {
 // Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
+function truncDecimals(num: number, n: number = 8) {
+  const factor = Math.pow(10, n);
+  return Math.trunc(num * factor) / factor;
+}
+
 async function backgroundTask() {
   try {
     while (true) {
-      if (socketToHub.readyState != socketToHub.OPEN)
-      {
+      if (socketToHub.readyState != socketToHub.OPEN) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         continue;
       }
@@ -66,33 +71,25 @@ async function backgroundTask() {
 
         for (const obj of game.pong_balls) {
           payload.balls.push({
-            id: obj.id,
-            x: (obj.pos.x),
-            y: (obj.pos.y),
-            dx: (obj.dir.x),
-            dy: (obj.dir.y),
-            r: (obj.radius),
+            id: truncDecimals(obj.id),
+            x: truncDecimals(obj.pos.x),
+            y: truncDecimals(obj.pos.y),
+            dx: truncDecimals(obj.dir.x),
+            dy: truncDecimals(obj.dir.y),
+            r: truncDecimals(obj.radius),
           });
         }
 
         for (const obj of game.player_paddles) {
           payload.paddles.push({
-            x: (obj.pos.x),
-            y: (obj.pos.y),
-            r: (obj.r),
-            a1: (
-              obj.segment[0]!.x + game.pong_balls[0]!.radius
-            ),
-            a2: (
-              obj.segment[0]!.y + game.pong_balls[0]!.radius
-            ),
-            b1: (
-              obj.segment[1]!.x + game.pong_balls[0]!.radius
-            ),
-            b2: (
-              obj.segment[1]!.y + game.pong_balls[0]!.radius
-            ),
-            w: obj.width,
+            x: truncDecimals(obj.pos.x),
+            y: truncDecimals(obj.pos.y),
+            r: truncDecimals(obj.r),
+            a1: truncDecimals(obj.segment[0]!.x + game.pong_balls[0]!.radius),
+            a2: truncDecimals(obj.segment[0]!.y + game.pong_balls[0]!.radius),
+            b1: truncDecimals(obj.segment[1]!.x + game.pong_balls[0]!.radius),
+            b2: truncDecimals(obj.segment[1]!.y + game.pong_balls[0]!.radius),
+            w: truncDecimals(obj.width),
           });
         }
         const out = { recipients: recipients, payload: payload };
@@ -107,7 +104,9 @@ async function backgroundTask() {
     } else {
       console.error("Caught unknown exception:", err);
     }
-    console.log("INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES.");
+    console.log(
+      "INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES."
+    );
     while (true) {}
   }
 }
