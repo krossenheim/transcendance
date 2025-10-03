@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
-class Body {
-	data: z.ZodTypeAny;
+export const Body = <T extends z.ZodTypeAny>(dataType: T) => z.object({
+    userId: z.number().min(1),
+    data: dataType,
+}).strict();
 
-	constructor(data: z.ZodTypeAny) {
-		this.data = data;
-	}
+export type BodyType<T extends z.ZodTypeAny> = z.infer<typeof Body<T>>;
 
-
-}
+export default {
+	Body,
+};

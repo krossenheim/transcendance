@@ -13,7 +13,7 @@ import {
 } from "./utils/api/service/hub/hub_interfaces.js";
 import { containersIpToName } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
-import { z } from "zod";
+import { xid, z } from "zod";
 
 const fastify: FastifyInstance = Fastify();
 
@@ -104,10 +104,10 @@ function listIncomingContainerWebsocket(
     socket.send("Goodbye, unauthorized");
     console.log(
       "Undefined container name, socket address was: " +
-        req.ip +
-        " parsed into : '" +
-        incoming_ipv4_address +
-        "'"
+      req.ip +
+      " parsed into : '" +
+      incoming_ipv4_address +
+      "'"
     );
     socket.close(1008, "Unauthorized container");
     return returnType.UNKNOWN;
@@ -163,8 +163,8 @@ fastify.get(
       return;
     }
     socket.on("message", (message: WebSocket.RawData) => {
-    let parsed;
-	  let str;
+      let parsed;
+      let str;
       try {
         str = rawDataToString(message);
         if (!str) {
@@ -206,7 +206,7 @@ fastify.get(
     list_new_connection(socket);
     socket.on("message", (message: WebSocket.RawData) => {
       let parsed: any;
-	  let str;
+      let str;
       str = rawDataToString(message);
       if (!str) {
         console.log("Empty message from $( some info here )");
@@ -221,11 +221,10 @@ fastify.get(
       const socket_id = openSocketToUserID.get(socket);
       const has_logged_in = authenticatedSockets.has(socket_id);
       const { endpoint, ...payload } = parsed;
-	  if (!endpoint)
-	  {
-		console.log("No endpoint on websoket message.");
-		return ;
-	  }
+      if (!endpoint) {
+        console.log("No endpoint on websoket message.");
+        return;
+      }
       console.log("Endpoint: " + endpoint);
       let target_container;
       if (!endpoint.startsWith("/api/public/") && !has_logged_in) {
@@ -275,13 +274,57 @@ fastify.get(
 );
 
 import { containersNameToIp } from "./utils/container_names.js";
+import { Result } from "./utils/api/service/common/result.js";
+import { ErrorResponse, type ErrorResponseType } from "./utils/api/service/common/error.js";
+import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
+import containers from './utils/internal_api.js'
+
+async function isRequestAuthenticated(req: FastifyRequest): Promise<Result<number, ErrorResponseType>> {
+  const auth = req.headers.authorization;
+  const jwtToken = auth && auth.startsWith("Bearer ") ? auth.slice(7) : null;
+
+  if (!jwtToken)
+    return Result.Err({ message: 'Missing or invalid Authorization header' });
+
+  const response = await containers.auth.post('/token/validate', {
+    token: jwtToken
+  });
+
+  if (response === undefined)
+    return Result.Err({ message: 'Auth service unreachable' });
+
+  if (response.status === 200) {
+    const userId = z.number().safeParse(response.data);
+    if (!userId.success)
+      return Result.Err({ message: 'Auth service returned invalid data' });
+    return Result.Ok(userId.data);
+  }
+
+  const errorData = ErrorResponse.safeParse(response.data);
+  if (!errorData.success) {
+    console.error('Unexpected response from auth service:', response.status, response.data);
+    return Result.Err({ message: 'Error validating token' });
+  } else
+    return Result.Err(errorData.data);
+}
 
 fastify.all('/api/:container/*', async (req, reply) => {
+  const authResult = await isRequestAuthenticated(req);
+  if (authResult.isErr())
+    return reply.status(401).send(authResult.unwrapErr());
+  const userId = authResult.unwrap();
+  console.log("Authenticated user ID:", userId);
   const { container } = req.params as { container: string };
-  console.log("Container:", container);
-  console.log("Url: ", req.url);
   const new_url = req.url.replace(`/api/${container}/`, '/api/');
-  await proxyRequest(req, reply, req.method, `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`);
+  const body = AuthClientRequest(z.any()).parse({ userId: Number(userId), payload: req.body });
+  await proxyRequest(req, reply, 'POST', `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`, body);
+});
+
+fastify.all('/public_api/:container/*', async (req, reply) => {
+  const { container } = req.params as { container: string };
+  console.log("Url: ", req.url);
+  const new_url = req.url.replace(`/public_api/${container}/`, '/public_api/');
+  await proxyRequest(req, reply, req.method, `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`, req.body);
 });
 
 const port = parseInt(

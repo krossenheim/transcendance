@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export async function proxyRequest(req: any, reply: any, method: string, url: string) {
+export async function proxyRequest(req: any, reply: any, method: string, url: string, body: any) {
   console.log(`Proxying ${method} request to: ${url}`);
   console.log(req.headers);
   console.log(req.body);
@@ -13,15 +13,16 @@ export async function proxyRequest(req: any, reply: any, method: string, url: st
         ...req.headers,
         host: undefined,
         connection: undefined,
+        'content-length': undefined,
       },
-      data: req.body,
+      data: body,
       params: req.query,
       validateStatus: () => true,
     });
-    reply.code(response.status).send(response.data);
+    return reply.code(response.status).send(response.data);
   } catch (error : any) {
     console.error("Error proxying request:", error);
-    reply.code(500).send({ error: "Internal Server Error: " + error.message });
+    return reply.code(500).send({ error: "Internal Server Error: " + error.message });
   }
 }
 
