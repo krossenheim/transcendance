@@ -32,7 +32,7 @@ const zodFastify = (
 const fastify: FastifyInstance = zodFastify();
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
-const jwtExpiry = '1min'; // 1 min
+const jwtExpiry = '15min'; // 15 min
 
 async function generateToken(userId: number): Promise<Result<TokenDataType, ErrorResponseType>> {
 	const newRefreshToken = crypto.randomBytes(64).toString('hex');
