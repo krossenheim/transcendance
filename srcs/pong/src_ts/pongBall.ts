@@ -40,6 +40,14 @@ function solveQuadratic(a: number, b: number, c: number): number | null {
   }
   return null;
 }
+function ramdom_30rot(vec: Vec2) {
+  const cos = Math.cos(Math.random() * (Math.PI / 3)) - Math.PI / 6;
+  const sin = Math.sin(Math.random() * (Math.PI / 3)) - Math.PI / 6;
+  return {
+    x: vec.x * cos - vec.y * sin,
+    y: vec.x * sin + vec.y * cos,
+  };
+}
 
 export class PongBall {
   // private constants
@@ -51,11 +59,11 @@ export class PongBall {
   public speed: number;
   public id: number;
   private static debugcountstatic: number = 0;
-  constructor(start_pos: Vec2, game_size: Vec2, speed = 400) {
+  constructor(start_pos: Vec2, game_size: Vec2, speed = 300) {
     this.game_size = game_size;
     this.id = PongBall.debugcountstatic++;
     this.pos = { ...start_pos };
-    this.radius = 0.001;
+    this.radius = 18;
     const r = randomAvoidAxes();
     this.speed = speed;
     this.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
@@ -99,13 +107,17 @@ export class PongBall {
   // }
 
   checkSegmentCollision(
-    A: Vec2,
-    B: Vec2,
-    paddleMovement: Vec2,
+    // A: Vec2,
+    // B: Vec2,
+    // paddleMovement: Vec2,
+    paddle: PlayerPaddle,
     ballPos: Vec2,
     ballMovement: Vec2,
     effectiveRadius: number
   ): number | null {
+    const A = paddle.segment[0]!;
+    const B = paddle.segment[1]!;
+    const paddleMovement = paddle.lastMovement;
     const movementRel = sub(paddleMovement, ballMovement); // relative movement
 
     const AB = sub(B, A);
@@ -133,8 +145,8 @@ export class PongBall {
     // Get quadratic terms
     const a = dotp(movementRel, movementRel);
     if (a < 1e-8) return null;
-    const b = -2 * dotp(movementRel, diff);
-    const c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
+    let b = -2 * dotp(movementRel, diff);
+    let c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
     const t = solveQuadratic(a, b, c);
 
     if (t === null) return null;
@@ -144,13 +156,36 @@ export class PongBall {
     const closestAtT = add(closest, scale(t, movementRel));
     const proj = dotp(sub(closestAtT, A), AB) / AB_len2;
     // "Shadow of sub(closestat,a) on ab"
+
     if (proj >= 0 && proj <= 1) {
       return t;
     }
-    if (proj >= -this.radius && proj < 0) {
-      // its aE or aF
-    } else if (proj > 1 && proj <= this.radius) {
-      // its bE or bF
+    // Check if it hits short faces of the rectangle
+    if (
+      (proj > 1 && proj <= this.radius) ||
+      (proj >= -this.radius && proj < 0)
+    ) {
+      console.log(dotp(AP, AB) / AB_len2);
+
+      const is_either_side: boolean | null =
+        dotp(A, ballPos) === 0 ? null : dotp(A, ballPos) > 0;
+
+      if (is_either_side === null) {
+        console.log("perfect approach ??");
+        // perfectly aligned with AB, so certain bounce at t.
+        return t;
+      }
+      // left? right? who needs that, its either side:
+      const B_or_A = proj < 0.5 ? A : B;
+      const front_of_paddle = dotp(ballPos, paddle.d) > 0;
+      const direction = front_of_paddle ? scale(-1, paddle.d) : paddle.d;
+      const corner = add(B_or_A, scale(effectiveRadius, direction));
+      b = -2 * dotp(corner, movementRel);
+      c = dotp(corner, corner) - this.radius * this.radius;
+      const debug_t = solveQuadratic(a, b, c);
+      if (debug_t === null) return null; // Didnt hit the corner
+      console.log("corner hit.");
+      return t + debug_t; // FIX. Hit the corner at _some_ T not this.
     }
     return null;
   }
@@ -193,9 +228,10 @@ export class PongBall {
     for (const paddle of paddles) {
       const effective_radius = this.radius + paddle.width / 2;
       col_time_slice = this.checkSegmentCollision(
-        paddle.segment[0]!,
-        paddle.segment[1]!,
-        paddle.lastMovement,
+        paddle,
+        // paddle.segment[0]!,
+        // paddle.segment[1]!,
+        // paddle.lastMovement,
         this.pos,
         movement_vec,
         effective_radius

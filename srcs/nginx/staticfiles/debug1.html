@@ -151,6 +151,22 @@
         ctx.arc(cx, cy, 5, 0, Math.PI * 2);
         ctx.fillStyle = "orange";
         ctx.fill();
+
+        // perma trail
+        if (!trails.has(dot.id)) trails.set(dot.id, []);
+        const stack = trails.get(dot.id);
+        const dote = stack[stack.length - 2];
+        const dote2 = stack[stack.length -1];
+        if (dote && dote2) {
+          const { cx: ox, cy: oy } = mapToCanvas(dot.x, dot.y);
+          ctx.beginPath();
+          ctx.arc(ox, oy, 2 * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+          // Optional: fade color by age
+          const alpha = 1;
+          ctx.strokeStyle = getNextColor(b.id, maxid, 1);
+          ctx.fill();
+        }
+        //
       });
 
       // Draw paddles
@@ -167,7 +183,7 @@
         const perp = { x: -unitDir.y, y: unitDir.x };
 
         // Half width exactly as backend uses
-        const halfW =p.w / 2 + ballrad;
+        const halfW = p.w / 2 + ballrad;
 
         // Rectangle corners
         const corners = [

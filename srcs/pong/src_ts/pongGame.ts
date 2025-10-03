@@ -74,7 +74,7 @@ class PongGame {
       this.player_paddles.push(paddle);
     }
     console.log("Added players:", Array.from(this.player_to_paddle.keys()));
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 40; i++) {
       this.pong_balls.push(
         new PongBall(
           { x: this.board_size.x / 2, y: this.board_size.y / 2 },
