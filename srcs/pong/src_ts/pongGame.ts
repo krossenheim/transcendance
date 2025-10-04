@@ -89,9 +89,8 @@ class PongGame {
   setInputOnPaddle(user_id: number, move_right: boolean | null) {
     const paddle = this.player_to_paddle.get(user_id);
     if (!paddle) {
-      throw new Error(
-        "Should not be trying to find a player that isnt in this.players."
-      );
+      console.error("Couldnt find paddle for player id: ", user_id, "???");
+      return 
     }
     paddle.setMoveOnNextFrame(move_right);
   }
@@ -130,7 +129,11 @@ class PongGame {
         paddle.pos.x += p_movement.x;
         paddle.pos.y += p_movement.y;
         // regenerate segment from current pos and direction
-        paddle.segment = paddle.makeSegment(paddle.pos, paddle.d, paddle.length);
+        paddle.segment = paddle.makeSegment(
+          paddle.pos,
+          paddle.d,
+          paddle.length
+        );
       }
     }
     for (const pong_ball of this.pong_balls) {
