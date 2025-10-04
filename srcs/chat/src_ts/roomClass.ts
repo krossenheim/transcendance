@@ -94,6 +94,7 @@ class Room {
       );
       return {
         recipients: [user_id],
+        funcId: 'add_user_to_room',
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -109,6 +110,7 @@ class Room {
     if (this.users.includes(user_to_add))
       return {
         recipients: [user_id],
+        funcId: 'add_user_to_room',
         payload: {
           status: httpStatus.ALREADY_REPORTED,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -120,6 +122,7 @@ class Room {
     this.users.push(toInt(user_to_add));
     return {
       recipients: this.users,
+      funcId: 'add_user_to_room',
       payload: {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
@@ -158,6 +161,7 @@ class Room {
       );
       return {
         recipients: [user_id],
+        funcId: 'send_message_to_room',
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -177,6 +181,7 @@ class Room {
       );
       return {
         recipients: this.users || [],
+        funcId: 'send_message_to_room',
         payload: {
           status: httpStatus.OK,
           func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
@@ -232,6 +237,7 @@ class ChatRooms {
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
       return {
         recipients: [user_id],
+        funcId: 'add_room',
         payload: {
           status: httpStatus.ALREADY_REPORTED,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -243,6 +249,7 @@ class ChatRooms {
     this.rooms.push(room);
     return {
       recipients: [user_id],
+      funcId: 'add_room',
       payload: {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
@@ -268,6 +275,7 @@ class ChatRooms {
     }
     return {
         recipients: [user_id],
+        funcId: 'list_rooms',
         payload: {
           status: httpStatus.OK,
           func_name: process.env.FUNC_DISPLAY_ROOMS,
@@ -297,6 +305,7 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         recipients: [user_id],
+        funcId: 'send_message_to_room',
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -330,6 +339,7 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         recipients: [user_id],
+        funcId: 'add_user_to_room',
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,

@@ -27,7 +27,7 @@ export function setSocketOnMessageHandler(
 ) {
   const { tasks } = params;
   socket.on("message", async (data: WebSocket.RawData) => {
-    let parsed;
+    let parsed: any;
     let messageString = rawDataToString(data);
     if (!messageString) {
       console.log("Couldnt turn input to string.");
@@ -47,7 +47,7 @@ export function setSocketOnMessageHandler(
       return;
     }
     for (const taskKey in tasks) {
-      if (tasks[taskKey].url === parsed.endpoint) {
+      if (tasks[taskKey].url === parsed.funcId) {
         console.log("Executing task handler for: " + taskKey);
         let result;
         const handler = tasks[taskKey].handler;
@@ -66,7 +66,7 @@ export function setSocketOnMessageHandler(
         return;
       }
     }
-    console.log("No matching task for URL:", parsed.endpoint);
+    console.log("No matching task for URL:", parsed.funcId);
     // socket.send(
     //   JSON.stringify({ info: "No task for endpoint: " + parsed.endpoint })
     // );

@@ -1,3 +1,4 @@
+import { Result } from '../utils/api/service/common/result.js';
 import { DatabaseSync } from 'node:sqlite';
 
 export class TokenService {
@@ -21,13 +22,17 @@ export class TokenService {
 		}
 	}
 
-	fetchTokenHash(userId: number): string | null {
+	fetchUserIdFromToken(token: string): Result<number, string> {
 		try {
-			const row = this.db.prepare(`SELECT token FROM user_tokens WHERE userId = ?`).get(userId);
-			return row && typeof row.token === 'string' ? row.token : null;
+			const row = this.db.prepare(`SELECT userId FROM user_tokens WHERE token = ?`).get(token);
+			if (!row)
+				return Result.Err('Token not found');
+			if (typeof row.userId !== 'number' || row.userId < 1)
+				return Result.Err('Invalid user ID');
+			return Result.Ok(row.userId);
 		} catch (error) {
-			console.error('Failed to fetch token hash:', error);
-			return null;
+			console.error('Failed to fetch user from token:', error);
+			return Result.Err('Internal error');
 		}
 	}
 }

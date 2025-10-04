@@ -4,8 +4,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyServerOption
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { AuthClientRequest, type AuthClientRequestType } from './utils/api/service/common/clientRequest.js';
 import type { CreateUserType } from './utils/api/service/auth/createUser.js';
-import { AuthResponse } from './utils/api/service/auth/loginResponse.js';
-import { VerifyTokenPayload } from './utils/api/service/db/token.js';
+import { AuthResponse, type AuthResponseType } from './utils/api/service/auth/loginResponse.js';
+import { StoreTokenPayload, VerifyTokenPayload } from './utils/api/service/db/token.js';
 import { ErrorResponse, type ErrorResponseType } from './utils/api/service/common/error.js';
 import { CreateUser } from './utils/api/service/auth/createUser.js';
 import { LoginUser } from './utils/api/service/auth/loginUser.js';
@@ -18,7 +18,6 @@ import { z } from 'zod'
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { fa } from 'zod/locales';
 
 const zodFastify = (
 	options: FastifyServerOptions = { logger: true }
@@ -37,7 +36,7 @@ const jwtExpiry = '15min'; // 15 min
 async function generateToken(userId: number): Promise<Result<TokenDataType, ErrorResponseType>> {
 	const newRefreshToken = crypto.randomBytes(64).toString('hex');
 
-	const response = await containers.db.post('/tokens/store', VerifyTokenPayload.parse({
+	const response = await containers.db.post('/tokens/store', StoreTokenPayload.parse({
 		userId: userId,
 		token: newRefreshToken,
 	}));
@@ -235,23 +234,22 @@ fastify.post<ValidateJWTSchema>('/internal_api/token/validate', {
 type TokenRefreshSchema = {
 	Body: AuthClientRequestType<typeof SingleToken>,
 	Reply: {
-		200: TokenDataType,
+		200: AuthResponseType,
 		401: z.infer<typeof ErrorResponse>;
 		500: z.infer<typeof ErrorResponse>;
 	};
 }
 
-fastify.post<TokenRefreshSchema>('/api/token/refresh', {
+fastify.post<TokenRefreshSchema>('/public_api/token/refresh', {
 	schema: {
 		body: AuthClientRequest(SingleToken),
 		response: {
-			200: TokenData,
+			200: AuthResponse,
 			500: ErrorResponse,
 		}
 	}
 }, async (request, reply) => {
 	const response = await containers.db.post('/tokens/isValid', VerifyTokenPayload.parse({
-		userId: request.body.userId,
 		token: request.body.payload.token,
 	}));
 
@@ -259,9 +257,10 @@ fastify.post<TokenRefreshSchema>('/api/token/refresh', {
 		return reply.status(500).send({ message: 'Token service unreachable' });
 
 	if (response.status === 200) {
-		const newToken = await generateToken(request.body.userId);
+		const userParse = FullUser.parse(response.data);
+		const newToken = await generateToken(userParse.id);
 		if (newToken.isOk())
-			return reply.status(200).send(newToken.unwrap());
+			return reply.status(200).send({ user: userParse, tokens: newToken.unwrap() });
 		else
 			return reply.status(500).send(newToken.unwrapErr());
 	}
@@ -269,11 +268,7 @@ fastify.post<TokenRefreshSchema>('/api/token/refresh', {
 	if (response.status === 401)
 		return reply.status(401).send({ message: 'Invalid refresh token' });
 
-	const errorData = ErrorResponse.safeParse(response.data);
-	if (!errorData.success)
-		return reply.status(500).send({ message: 'Token service dropping agreement' });
-	else
-		return reply.status(500).send(errorData.data);
+	return reply.status(500).send(ErrorResponse.parse(response.data));
 });
 
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);

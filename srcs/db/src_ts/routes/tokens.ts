@@ -1,26 +1,26 @@
-import token, { VerifyTokenPayload, type VerifyTokenPayloadType } from '../utils/api/service/db/token.js';
+import token, { VerifyTokenPayload, type VerifyTokenPayloadType, StoreTokenPayload, type StoreTokenPayloadType } from '../utils/api/service/db/token.js';
 import type { ErrorResponseType } from '../utils/api/service/common/error.js';
+import { FullUser, type FullUserType } from '../utils/api/service/db/user.js';
 import { ErrorResponse } from '../utils/api/service/common/error.js';
+import { tokenService, userService } from '../main.js';
 import type { FastifyInstance } from 'fastify';
-import { tokenService } from '../main.js';
-import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { z } from 'zod';
 
-const SALT_ROUNDS = 10;
+const TokenSecretKey = "hfskjryfweuifhjsdkghdnfbvdbviuweryteiuwtwhejkrfhrskjd";
 
-async function hashToken(plainToken: string): Promise<string> {
-	return await bcrypt.hash(plainToken, SALT_ROUNDS);
-}
-
-async function verifyToken(plainToken: string, hashedToken: string): Promise<boolean> {
-	return await bcrypt.compare(plainToken, hashedToken);
+function hashToken(plainToken: string): string {
+	return crypto
+		.createHmac("sha256", TokenSecretKey)
+		.update(plainToken)
+		.digest("hex");
 }
 
 async function tokenRoutes(fastify: FastifyInstance) {
 	type VerifyTokenSchema = {
 		Body: VerifyTokenPayloadType,
 		Reply: {
-			200: null;
+			200: FullUserType;
 			401: ErrorResponseType;
 			500: ErrorResponseType;
 		}
@@ -30,27 +30,27 @@ async function tokenRoutes(fastify: FastifyInstance) {
 		schema: {
 			body: VerifyTokenPayload,
 			response: {
-				200: z.null(), // Token valid
+				200: FullUser, // Token valid
 				401: ErrorResponse, // Token invalid
 				500: ErrorResponse, // Internal server error
 			}
 		}
 	}, async (request, reply) => {
-		const { userId, token } = request.body;
-		const tokenHash = tokenService.fetchTokenHash(userId);
+		const hashedToken = hashToken(request.body.token);
+		const tokenResult = tokenService.fetchUserIdFromToken(hashedToken);
 
-		if (!tokenHash)
-			return reply.status(401).send({ message: 'Token not found' });
+		if (tokenResult.isErr())
+			return reply.status(401).send({ message: tokenResult.unwrapErr() });
 
-		const isValid = await verifyToken(token, tokenHash);
-		if (!isValid)
-			return reply.status(401).send({ message: 'Invalid token' });
+		const userResult = userService.fetchUserById(tokenResult.unwrap());
+		if (userResult.isErr())
+			return reply.status(500).send({ message: userResult.unwrapErr() });
 
-		return reply.status(200).send(null);
+		return reply.status(200).send(userResult.unwrap());
 	});
 
 	type StoreTokenSchema = {
-		Body: VerifyTokenPayloadType,
+		Body: StoreTokenPayloadType,
 		Reply: {
 			200: null;
 			500: ErrorResponseType;
@@ -59,7 +59,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 
 	fastify.post<StoreTokenSchema>('/store', {
 		schema: {
-			body: VerifyTokenPayload,
+			body: StoreTokenPayload,
 			response: {
 				200: z.null(), // Token stored
 				500: ErrorResponse, // Internal server error
@@ -67,7 +67,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 		}
 	}, async (request, reply) => {
 		const { userId, token } = request.body;
-		const tokenHash = await hashToken(token);
+		const tokenHash = hashToken(token);
 
 		const success = tokenService.storeToken(userId, tokenHash);
 		if (!success)

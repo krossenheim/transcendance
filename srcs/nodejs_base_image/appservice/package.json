@@ -11,7 +11,8 @@
     "pino-pretty": "latest",
     "zod": "latest",
     "fastify-type-provider-zod": "latest",
-    "bcrypt": "latest"
+    "bcrypt": "latest",
+    "crypto": "latest"
   }
 }
 

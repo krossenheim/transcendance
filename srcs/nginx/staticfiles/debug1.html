@@ -65,7 +65,7 @@
       paddles.forEach((p) => {
         const { cx, cy } = mapToCanvas(p.x, p.y);
         const len = p.l * (canvas.height / backendHeight); // scale length
-        const width = 8; // paddle width in canvas pixels
+        const width = p.w; // paddle width in canvas pixels
 
         // Compute angle from forward vector
         const angle = Math.atan2(p.dy, p.dx);
@@ -96,7 +96,7 @@
         if (key === "w") move = pressed ? false : null;
         if (key === "s") move = pressed ? true : null;
 
-        const payload = { endpoint: "/api/pong/move_paddle", b: boardId, m: move };        
+        const payload = { funcId: "/api/pong/move_paddle", b: boardId, m: move };        
         runMovePaddle(payload);
 
       }

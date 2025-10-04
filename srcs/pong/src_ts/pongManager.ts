@@ -53,6 +53,7 @@ export class PongManager {
       console.log("Invalid payload to start a game.: " + zodded.error);
       return {
         recipients: [user_id],
+        funcId: 'start_new_pong_game',
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -66,6 +67,7 @@ export class PongManager {
     if (!pong_game) {
       return {
         recipients: [user_id],
+        funcId: 'start_new_pong_game',
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -81,6 +83,7 @@ export class PongManager {
     {
       return {
         recipients: [user_id],
+        funcId: 'start_new_pong_game',
         payload: {
           status: httpStatus.OK,
           func_name: process.env.FUNC_POPUP_TEXT,

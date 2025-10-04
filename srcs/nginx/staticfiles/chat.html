@@ -209,7 +209,7 @@ roomSelect.addEventListener("change", () => {
         const text = input.value.trim();
         if (!text) return;
         const tosend = JSON.stringify({
-          endpoint: "/api/chat/send_message_to_room",
+          funcId: "/api/chat/send_message_to_room",
           message: text,
           room_name: currentRoom,
         });
@@ -225,7 +225,7 @@ roomSelect.addEventListener("change", () => {
         const text = input.value.trim();
         if (!text) return;
         const tosend = JSON.stringify({
-          endpoint: "/api/chat/add_a_new_room",
+          funcId: "/api/chat/add_a_new_room",
           room_name: text,
         });
 //        addMessage("Sending: " + tosend);
@@ -240,7 +240,7 @@ roomSelect.addEventListener("change", () => {
         const text = input.value.trim();
         if (!text) return;
         const tosend = JSON.stringify({
-          endpoint: "/api/chat/add_to_room",
+          funcId: "/api/chat/add_to_room",
           room_name: currentRoom,
           user_to_add: text,
         });

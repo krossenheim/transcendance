@@ -161,7 +161,7 @@
           let move = null;
           if (key === "w") move = pressed ? false : null;
           if (key === "s") move = pressed ? true : null;
-          const payload = { endpoint: "/api/pong/move_paddle", b: boardId, m: move };
+          const payload = { funcId: "/api/pong/move_paddle", b: boardId, m: move };
           runMovePaddle(payload);
         }
       }
