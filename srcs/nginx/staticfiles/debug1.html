@@ -143,54 +143,43 @@
       });
 
       // Draw persistent orange velocity-change dots
-      velChangeDots.forEach((dot) => {
-        const { cx, cy } = mapToCanvas(dot.x, dot.y);
-        const scaleX = canvas.width / backendWidth;
-        const scaleY = canvas.height / backendHeight;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-        ctx.fillStyle = "orange";
-        ctx.fill();
 
-        // perma trail
-        if (!trails.has(dot.id)) trails.set(dot.id, []);
-        const stack = trails.get(dot.id);
-        const dote = stack[stack.length - 2];
-        const dote2 = stack[stack.length -1];
-        if (dote && dote2) {
-          const { cx: ox, cy: oy } = mapToCanvas(dot.x, dot.y);
-          ctx.beginPath();
-          ctx.arc(ox, oy, 2 * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
-          // Optional: fade color by age
-          const alpha = 1;
-          ctx.strokeStyle = getNextColor(b.id, maxid, 1);
-          ctx.fill();
-        }
-        //
-      });
 
       // Draw paddles
       paddles.forEach((p) => {
-        const P = { x: p.a1, y: p.a2 };
-        const Q = { x: p.b1, y: p.b2 };
+        const paddle_pos = { x: p.x, y: p.y };
+        const paddle_dir = p.r;
+        const paddle_width = p.w;
+        const paddle_length = p.r;
 
-        // Segment direction
-        const dir = { x: Q.x - P.x, y: Q.y - P.y };
-        const length = Math.hypot(dir.x, dir.y);
-        const unitDir = { x: dir.x / length, y: dir.y / length };
+        // Direction vector along paddle
+        const dir = { x: Math.cos(paddle_dir), y: Math.sin(paddle_dir) };
 
         // Perpendicular vector
-        const perp = { x: -unitDir.y, y: unitDir.x };
+        const perp = { x: -Math.sin(paddle_dir), y: Math.cos(paddle_dir) };
 
-        // Half width exactly as backend uses
-        const halfW = p.w / 2 + ballrad;
+        // Half dimensions
+        const halfW = p.l / 2; // half width
+        const halfL = p.w / 2; // half length
 
-        // Rectangle corners
+        // Rectangle corners (clockwise order)
         const corners = [
-          { x: P.x + perp.x * halfW, y: P.y + perp.y * halfW },
-          { x: Q.x + perp.x * halfW, y: Q.y + perp.y * halfW },
-          { x: Q.x - perp.x * halfW, y: Q.y - perp.y * halfW },
-          { x: P.x - perp.x * halfW, y: P.y - perp.y * halfW },
+          {
+            x: paddle_pos.x + dir.x * halfL + perp.x * halfW,
+            y: paddle_pos.y + dir.y * halfL + perp.y * halfW,
+          },
+          {
+            x: paddle_pos.x + dir.x * halfL - perp.x * halfW,
+            y: paddle_pos.y + dir.y * halfL - perp.y * halfW,
+          },
+          {
+            x: paddle_pos.x - dir.x * halfL - perp.x * halfW,
+            y: paddle_pos.y - dir.y * halfL - perp.y * halfW,
+          },
+          {
+            x: paddle_pos.x - dir.x * halfL + perp.x * halfW,
+            y: paddle_pos.y - dir.y * halfL + perp.y * halfW,
+          },
         ];
 
         // Paddle rectangle
@@ -205,22 +194,13 @@
         ctx.fill();
 
         // Paddle center dot (green)
-        const center = { x: (P.x + Q.x) / 2, y: (P.y + Q.y) / 2 };
+        const center = { x: p.x, y: p.y };
         const { cx: ccx, cy: ccy } = mapToCanvas(center.x, center.y);
         ctx.beginPath();
         ctx.arc(ccx, ccy, 5, 0, Math.PI * 2);
         ctx.fillStyle = "green";
         ctx.fill();
 
-        // Red line connecting P and Q
-        const { cx: cx1, cy: cy1 } = mapToCanvas(P.x, P.y);
-        const { cx: cx2, cy: cy2 } = mapToCanvas(Q.x, Q.y);
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(cx1, cy1);
-        ctx.lineTo(cx2, cy2);
-        ctx.stroke();
         ctx.strokeStyle = "gray";
         for (let x = 0; x <= backendWidth; x += 100) {
           for (let y = 0; y <= backendHeight; y += 100) {

@@ -3,22 +3,6 @@ import { scale, getAngle, normalize } from "./vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 700;
 
-function makeSegment(pos: Vec2, dir: Vec2, length: number): Vec2[] {
-  const forward = normalize(dir); // unit vector along dir
-  // perpendicular vector (+90° rotation)
-  const perp = { x: -forward.y, y: forward.x };
-
-  // offset along the perpendicular
-  const halfL = length / 2;
-  const offset = { x: perp.x * halfL, y: perp.y * halfL };
-
-  const p1 = { x: pos.x + offset.x, y: pos.y + offset.y };
-  const p2 = { x: pos.x - offset.x, y: pos.y - offset.y };
-
-  return [p1, p2];
-}
-
-
 export class PlayerPaddle {
   // private constants
   private readonly start_pos: Vec2;
@@ -50,11 +34,25 @@ export class PlayerPaddle {
     this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
     this.length = Math.min(game_size.y, game_size.x) * 0.25;
     this.width = 20;
-    this.segment = makeSegment(this.pos, this.d, this.length);
+    this.segment = this.makeSegment(this.pos, this.d, this.length);
     this.lastMovement = { x: 0, y: 0 };
     this.player_ID = player_id;
     this.is_moving_right = null;
     this.s = pladdle_speed;
+  }
+  makeSegment(pos: Vec2, dir: Vec2, length: number): Vec2[] {
+    const forward = normalize(dir); // unit vector along dir
+    // perpendicular vector (+90° rotation)
+    const perp = { x: -forward.y, y: forward.x };
+
+    // offset along the perpendicular
+    const halfL = length / 2;
+    const offset = { x: perp.x * halfL, y: perp.y * halfL };
+
+    const p1 = { x: pos.x + offset.x, y: pos.y + offset.y };
+    const p2 = { x: pos.x - offset.x, y: pos.y - offset.y };
+
+    return [p1, p2];
   }
 
   setMoveOnNextFrame(toRight: boolean | null) {

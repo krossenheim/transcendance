@@ -126,12 +126,11 @@ class PongGame {
     for (const paddle of this.player_paddles) {
       const p_movement = paddle.getMove(deltaFactor);
       paddle.lastMovement = p_movement; // store for collision detection
-      if (is_zero(p_movement)) continue;
-      paddle.pos.x += p_movement.x;
-      paddle.pos.y += p_movement.y;
-      for (let i = 0; i < paddle.segment.length; i++) {
-        paddle.segment[i]!.x += p_movement.x;
-        paddle.segment[i]!.y += p_movement.y;
+      if (!is_zero(p_movement)) {
+        paddle.pos.x += p_movement.x;
+        paddle.pos.y += p_movement.y;
+        // regenerate segment from current pos and direction
+        paddle.segment = paddle.makeSegment(paddle.pos, paddle.d, paddle.length);
       }
     }
     for (const pong_ball of this.pong_balls) {

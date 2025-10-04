@@ -49,7 +49,7 @@ const pongTasks = {
 // Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
-function truncDecimals(num: number, n: number = 8) {
+function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
   return Math.trunc(num * factor) / factor;
 }
@@ -85,11 +85,8 @@ async function backgroundTask() {
             x: truncDecimals(obj.pos.x),
             y: truncDecimals(obj.pos.y),
             r: truncDecimals(obj.r),
-            a1: truncDecimals(obj.segment[0]!.x + game.pong_balls[0]!.radius),
-            a2: truncDecimals(obj.segment[0]!.y + game.pong_balls[0]!.radius),
-            b1: truncDecimals(obj.segment[1]!.x + game.pong_balls[0]!.radius),
-            b2: truncDecimals(obj.segment[1]!.y + game.pong_balls[0]!.radius),
             w: truncDecimals(obj.width),
+            l: truncDecimals(obj.length),
           });
         }
         const out = { recipients: recipients, payload: payload };
