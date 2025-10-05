@@ -56,32 +56,9 @@ async function backgroundTask() {
       }
       for (const [game_id, game] of singletonPong.pong_instances) {
         game.gameLoop();
+        const payload = game.getGameState();
         const recipients = Array.from(game.player_to_paddle.keys());
-        const payload: { balls: TypePongBall[]; paddles: TypePongPaddle[] } = {
-          balls: [],
-          paddles: [],
-        };
 
-        for (const obj of game.pong_balls) {
-          payload.balls.push({
-            id: truncDecimals(obj.id),
-            x: truncDecimals(obj.pos.x),
-            y: truncDecimals(obj.pos.y),
-            dx: truncDecimals(obj.dir.x),
-            dy: truncDecimals(obj.dir.y),
-            r: truncDecimals(obj.radius),
-          });
-        }
-
-        for (const obj of game.player_paddles) {
-          payload.paddles.push({
-            x: truncDecimals(obj.pos.x),
-            y: truncDecimals(obj.pos.y),
-            r: truncDecimals(obj.r),
-            w: truncDecimals(obj.width),
-            l: truncDecimals(obj.length),
-          });
-        }
         const out = {
           recipients: recipients,
           funcId: "pong_game",

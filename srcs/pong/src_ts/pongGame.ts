@@ -10,6 +10,11 @@ import {
 } from "./vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
+import type {
+  TypePongBall,
+  TypePongPaddle,
+  TypeGameStateSchema,
+} from "./utils/api/service/pong/pong_interfaces.js";
 // import user from "./utils/api/service/db/user.js";
 import generateCirclePoints from "./generateCirclePoints.js";
 const MIN_PLAYERS: number = 2;
@@ -20,6 +25,11 @@ type hit = {
   point: Vec2;
   normal: Vec2;
 };
+
+function truncDecimals(num: number, n: number = 6) {
+  const factor = Math.pow(10, n);
+  return Math.trunc(num * factor) / factor;
+}
 
 class PongGame {
   private board_size: Vec2;
@@ -89,7 +99,7 @@ class PongGame {
     const paddle = this.player_to_paddle.get(user_id);
     if (!paddle) {
       console.error("Couldnt find paddle for player id: ", user_id, "???");
-      return 
+      return;
     }
     paddle.setMoveOnNextFrame(move_right);
   }
@@ -112,6 +122,35 @@ class PongGame {
         ball.dir = scale(-1, ball.dir);
       }
     }
+  }
+
+  getGameState(): TypeGameStateSchema {
+    const payload: { balls: TypePongBall[]; paddles: TypePongPaddle[] } = {
+      balls: [],
+      paddles: [],
+    };
+
+    for (const obj of this.pong_balls) {
+      payload.balls.push({
+        id: truncDecimals(obj.id),
+        x: truncDecimals(obj.pos.x),
+        y: truncDecimals(obj.pos.y),
+        dx: truncDecimals(obj.dir.x),
+        dy: truncDecimals(obj.dir.y),
+        r: truncDecimals(obj.radius),
+      });
+    }
+
+    for (const obj of this.player_paddles) {
+      payload.paddles.push({
+        x: truncDecimals(obj.pos.x),
+        y: truncDecimals(obj.pos.y),
+        r: truncDecimals(obj.r),
+        w: truncDecimals(obj.width),
+        l: truncDecimals(obj.length),
+      });
+    }
+    return payload;
   }
 
   gameLoop() {

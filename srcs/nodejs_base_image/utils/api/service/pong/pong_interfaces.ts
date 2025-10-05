@@ -34,7 +34,14 @@ export const MovePaddlePayloadScheme = z.object({
   m: z.union([z.boolean(), z.null()]), // move right = yyes , left = no, not = null
 });
 
+export const GameStateSchema = z.object({
+  balls: z.array(PongBallSchema),
+  paddles: z.array(PongPaddleSchema),
+});
+
+
 export type TypeMovePaddlePayloadScheme = z.infer<typeof PongPaddleSchema>;
 export type TypeStartNewPongGame = z.infer<typeof PongPaddleSchema>;
+export type TypeGameStateSchema = z.infer<typeof GameStateSchema>;
 export type TypePongPaddle = z.infer<typeof PongPaddleSchema>;
 export type TypePongBall = z.infer<typeof PongBallSchema>;
