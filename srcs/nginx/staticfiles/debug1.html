@@ -26,14 +26,32 @@
     }
 
     ws.onmessage = (e) => {
+      let data = null;
       try {
-        const data = JSON.parse(e.data);
-
-        if (data && Array.isArray(data.balls)) balls = data.balls;
-        if (data && Array.isArray(data.paddles)) paddles = data.paddles;
+        data = JSON.parse(e.data);
+        if (!(data.source_container === "pong")) {
+          console.log("Not message for pong:", data.source_container);
+          console.log("Not message for data was:", e.data);
+          return;
+        }
       } catch (err) {
+        console.log("Tried to parse:", e.data);
         console.error(err);
       }
+      if (data.payload === undefined) {
+        console.error("Error no input in message.");
+        return;
+      }
+      if (!Array.isArray(data.payload.paddles)) {
+        console.error("No paddles in data.");
+        return;
+      }
+      if (!Array.isArray(data.payload.balls)) {
+        console.error("No balls in data.");
+        return;
+      }
+      paddles = data.payload.paddles;
+      balls = data.payload.balls;
     };
     function getNextColor(i, N, alpha = 1) {
       // i = 0..N-1
@@ -230,12 +248,12 @@
           m: move,
         };
         const schemashape = {
-          funcId: "/api/pong/move_paddle",
+          funcId: "/api/move_paddle",
           target_container: "pong",
           payload: payload,
         };
 
-        runMovePaddle(payload);
+        runMovePaddle(schemashape);
       }
     }
 
