@@ -66,7 +66,8 @@ async function backgroundTask() {
         };
         socketToHub.send(JSON.stringify(out));
       }
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      const getNextFrameTime = 30; // game.next_frame_when?
+      await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
     }
   } catch (err) {
     // TypeScript doesn’t know what `err` is, so check if it has `message`
@@ -75,7 +76,7 @@ async function backgroundTask() {
     } else {
       console.error("Caught unknown exception:", err);
     }
-    console.log(
+    console.error(
       "INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES."
     );
     while (true) {}
