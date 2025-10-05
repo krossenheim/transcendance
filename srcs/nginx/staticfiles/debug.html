@@ -64,30 +64,31 @@
         {
           name: "sendAddRoom",
           label: "Add Room",
-          target_container: "chat",
           funcId: "/api/chat/add_a_new_room",
-          payload: { room_name: "Room Name" },
+          target_container: "chat",
+          fields: { room_name: "Room Name" },
         },
         {
           name: "sendAddToRoom",
           label: "Add To Room",
-          target_container: "chat",
           funcId: "/api/chat/add_to_room",
-          payload: { room_name: "Room Name", user_to_add: "User ID" },
+          target_container: "chat",
+
+          fields: { room_name: "Room Name", user_to_add: "User ID" },
         },
         {
           name: "sendMessage",
           label: "Send Message",
-          target_container: "chat",
           funcId: "/api/chat/send_message_to_room",
-          payload: { room_name: "Room Name", message: "Message" },
+          target_container: "chat",
+          fields: { room_name: "Room Name", message: "Message" },
         },
         {
           name: "startGame",
           label: "startGame",
-          target_container: "pong",
           funcId: "/api/pong/start_game",
-          payload: { player_list: "player_list" },
+          target_container: "pong",
+          fields: { player_list: "player_list" },
         },
       ];
 
@@ -117,7 +118,7 @@
 
         // Create inputs for each field
         const inputs = {};
-        for (const [field, label] of Object.entries(action.payload)) {
+        for (const [field, label] of Object.entries(action.fields)) {
           const inputEl = document.createElement("input");
           inputEl.type = "text";
           inputEl.placeholder = label;
@@ -129,12 +130,42 @@
         const btn = document.createElement("button");
         btn.textContent = action.label;
         btn.onclick = () => {
-          const payload = { funcId: action.funcId, target_container: action.target_container, payload: action.payload };
+          const usertohubshaped = {
+            funcId: action.funcId,
+            target_container: action.target_container,
+            payload: {},
+          };
+          for (const [field, inputEl] of Object.entries(inputs)) {
+            const raw = inputEl.value.trim();
+
+            let val = raw;
+            // try number
+            const num = Number(raw);
+            if (!isNaN(num) && raw !== "") {
+              val = num;
+            }
+            // try array
+            else if (/^\[.*\]$/.test(raw)) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (
+                  Array.isArray(parsed) &&
+                  parsed.every((x) => typeof x === "number")
+                ) {
+                  val = parsed;
+                }
+              } catch {
+                // fall back to raw string if JSON.parse fails
+              }
+            }
+
+            usertohubshaped["payload"][field] = val;
+          }
           if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(payload));
-            logOutput("Sent JSON: " + JSON.stringify(payload));
+            ws.send(JSON.stringify(usertohubshaped));
+            logOutput("Sent JSON: " + JSON.stringify(usertohubshaped));
             // Clear inputs after send
-            Object.values(inputs).forEach((el) => (el.value = ""));
+            // Object.values(inputs).forEach((el) => (el.value = ""));
           } else {
             alert("WebSocket is not connected.");
           }

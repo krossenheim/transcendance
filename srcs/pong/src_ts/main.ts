@@ -15,6 +15,7 @@ import {
   PongBallSchema,
   PongPaddleSchema,
 } from "./utils/api/service/pong/pong_interfaces.js";
+import { truncate } from "fs";
 
 const fastify = Fastify({
   logger: {
@@ -34,84 +35,74 @@ fastify.register(websocketPlugin);
 const singletonPong = new PongManager();
 const pongTasks = {
   START_A_NEW_GAME: {
-    url: "/api/start_game",
+    funcId: "/api/start_game",
     handler: singletonPong.startGame.bind(singletonPong),
-    method: "POST",
   },
   MOVE_PADDLE: {
-    url: "/api/move_paddle",
+    funcId: "/api/move_paddle",
     handler: singletonPong.movePaddle.bind(singletonPong),
-    method: "POST",
   },
 };
 
 // Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
-function truncateDecimals(num: number): number {
-  return Math.trunc(num * 10) / 10;
+function truncDecimals(num: number, n: number = 6) {
+  const factor = Math.pow(10, n);
+  return Math.trunc(num * factor) / factor;
 }
 
 async function backgroundTask() {
-  while (true) {
-    for (const [game_id, game] of singletonPong.pong_instances) {
-      game.gameLoop();
-      const recipients = Array.from(game.player_to_paddle.keys());
-      const payload: { balls: any[]; paddles: any[] } = {
-        balls: [],
-        paddles: [],
-      };
-
-      for (const obj of game.balls_pos) {
-        payload.balls.push({
-          x: truncateDecimals(obj.pos.x),
-          y: truncateDecimals(obj.pos.y),
-          dx: truncateDecimals(obj.dir.x),
-          dy: truncateDecimals(obj.dir.y),
-        });
+  try {
+    while (true) {
+      if (socketToHub.readyState != socketToHub.OPEN) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        continue;
       }
+      for (const [game_id, game] of singletonPong.pong_instances) {
+        game.gameLoop();
+        const recipients = Array.from(game.player_to_paddle.keys());
+        const payload: { balls: any[]; paddles: any[] } = {
+          balls: [],
+          paddles: [],
+        };
 
-      for (const obj of game.player_paddles) {
-        payload.paddles.push({
-          x: truncateDecimals(obj.pos.x),
-          y: truncateDecimals(obj.pos.y),
-          dx: truncateDecimals(obj.dir.x),
-          dy: truncateDecimals(obj.dir.y),
-          l: truncateDecimals(obj.length),
-        });
+        for (const obj of game.pong_balls) {
+          payload.balls.push({
+            id: truncDecimals(obj.id),
+            x: truncDecimals(obj.pos.x),
+            y: truncDecimals(obj.pos.y),
+            dx: truncDecimals(obj.dir.x),
+            dy: truncDecimals(obj.dir.y),
+            r: truncDecimals(obj.radius),
+          });
+        }
+
+        for (const obj of game.player_paddles) {
+          payload.paddles.push({
+            x: truncDecimals(obj.pos.x),
+            y: truncDecimals(obj.pos.y),
+            r: truncDecimals(obj.r),
+            w: truncDecimals(obj.width),
+            l: truncDecimals(obj.length),
+          });
+        }
+        const out = { recipients: recipients, funcId: 'pong_game', payload: payload };
+        socketToHub.send(JSON.stringify(out));
       }
-      const out = { recipients: recipients, payload: payload };
-      socketToHub.send(JSON.stringify(out));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  } catch (err) {
+    // TypeScript doesn’t know what `err` is, so check if it has `message`
+    if (err instanceof Error) {
+      console.error("Caught exception:", err.message);
+    } else {
+      console.error("Caught unknown exception:", err);
+    }
+    console.log(
+      "INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES."
+    );
+    while (true) {}
   }
 }
-
-// Start the background task without awaiting it
 backgroundTask();
-
-// HTTP route registration function
-// function registerChatRoomRoutes(fastify: FastifyInstance) {
-//   // Iterate entries (key and value) instead of keys only
-//   for (const [taskKey, task] of Object.entries(pongTasks)) {
-//     fastify.route({
-//       method: task.method,
-//       url: task.url,
-//       handler: async (req: any, reply: FastifyReply) => {
-//         const result = await task.handler(req);
-//         return reply.status(333).send({"hehe" : "Hihi"});
-//       },
-//     });
-//   }
-// }
-
-// const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
-// const host = process.env.PONG_BIND_TO || '0.0.0.0';
-
-// fastify.listen({ port, host }, (err, address) => {
-// 	if (err) {
-// 		console.error(err);
-// 		process.exit(1);
-// 	}
-// 	console.info(`Server listening at ${address}`);
-// });

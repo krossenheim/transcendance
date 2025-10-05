@@ -1,32 +1,31 @@
-'use strict'
+"use strict";
 import type { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
-import { socketToHub, setSocketOnMessageHandler } from "./utils/socket_to_hub.js";
+import {
+  socketToHub,
+  setSocketOnMessageHandler,
+} from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
+import ChatRooms from "./roomClass.js";
+import websocketPlugin from "@fastify/websocket";
+import { UserToHubSchema } from "./utils/api/service/hub/hub_interfaces.js";
 
 const fastify = Fastify({
   logger: {
-    level: 'info', // or 'debug' for more verbosity
+    level: "info", // or 'debug' for more verbosity
     transport: {
-      target: 'pino-pretty', // pretty-print logs in development
+      target: "pino-pretty", // pretty-print logs in development
       options: {
         colorize: true,
-        translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname'
-      }
-    }
-  }
-})
-import websocketPlugin from '@fastify/websocket';
+        translateTime: "HH:MM:ss Z",
+        ignore: "pid,hostname",
+      },
+    },
+  },
+});
 
 fastify.register(websocketPlugin);
-// Setup above
-
-import ChatRooms from './roomClass.js';
-
-// Room class above
 
 const singletonChatRooms = new ChatRooms();
-
 
 const chatRoomTasks = {
   ADD_A_NEW_ROOM: {
@@ -61,21 +60,24 @@ function registerChatRoomRoutes(fastify: FastifyInstance) {
     fastify.route({
       method: task.method,
       url: task.url,
-      handler: async (req: any, reply: FastifyReply) => {
+      handler: async (req: FastifyRequest, reply: FastifyReply) => {
         const result = await task.handler(req);
-        return reply.status(333).send({"hehe" : "Hihi"});
+        return reply.status(333).send({ hehe: "Hihi" });
       },
     });
   }
 }
 
-const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
-const host = process.env.AUTH_BIND_TO || '0.0.0.0';
+const port = parseInt(
+  process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
+  10
+);
+const host = process.env.AUTH_BIND_TO || "0.0.0.0";
 
 fastify.listen({ port, host }, (err, address) => {
-	if (err) {
-		console.error(err);
-		process.exit(1);
-	}
-	console.info(`Server listening at ${address}`);
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+  console.info(`Server listening at ${address}`);
 });

@@ -53,7 +53,7 @@ export class PongManager {
       console.log("Invalid payload to start a game.: " + zodded.error);
       return {
         recipients: [user_id],
-        funcId: 'start_new_pong_game',
+        funcId: "start_pong",
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -67,7 +67,7 @@ export class PongManager {
     if (!pong_game) {
       return {
         recipients: [user_id],
-        funcId: 'start_new_pong_game',
+        funcId: "start_pong",
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -83,7 +83,7 @@ export class PongManager {
     {
       return {
         recipients: [user_id],
-        funcId: 'start_new_pong_game',
+        funcId: "start_pong",
         payload: {
           status: httpStatus.OK,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -102,9 +102,9 @@ export class PongManager {
     if (!validate_input.success) {
       // 0 or null or 1
       console.log(validate_input.error);
-      return ;
+      return;
     }
-    const board_id  = validate_input.data.b;
+    const board_id = validate_input.data.b;
     if (!board_id) {
       console.error("Bad input, no board_id member.");
       return;
@@ -118,7 +118,9 @@ export class PongManager {
           "User with id ",
           user_id,
           " not a player of game with id ",
-          id, " Its players are: ", game.players
+          id,
+          " Its players are: ",
+          game.players
         );
         return;
       }
@@ -126,28 +128,6 @@ export class PongManager {
     }
   }
 
-  //     sendOutput() : T_PayloadToUsers{
-  //     for (const [game_id, game] of this.pong_instances)
-  // 	{
-  // 		const recipients = Object.keys(game.players).map(key => Number(key));
-  // 	const payload: { balls: any[]; paddles: any[] } = {
-  //   balls: [],
-  //   paddles: []
-  // };
-
-  // 			for (const obj of game.balls_pos) {
-  // 			// extract values from each object and push to payload.list1
-  // 			payload.balls.push(obj.pos.x, obj.pos.y);
-  // 			}
-
-  // 			for (const obj of game.player_paddles) {
-  // 			// extract values from each object and push to payload.list2
-  // 			payload.paddles.push(obj.pos.x);
-  // 			payload.paddles.push(obj.pos.y);
-  // 			}
-  // 	}
-  // 	return ({recipients: recipients, payload:payload})
-  //   }
 }
 
 export default PongManager;

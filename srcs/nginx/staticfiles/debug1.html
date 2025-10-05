@@ -2,114 +2,248 @@
 <html lang="en">
   <meta charset="utf-8" />
   <title>Pong Balls Viewer</title>
-    <label for="boardId">Board ID:</label>
-  <input type="number" id="boardId" min="1" value="1">
+  <label for="boardId">Board ID:</label>
+  <input type="number" id="boardId" min="1" value="1" />
   <p>Press "W" to move up/left and "S" to move down/right.</p>
-  <canvas id="c" width="800" height="480" style="background: #000"></canvas>
+  <canvas id="c" width="1000" height="1000" style="background: #000"></canvas>
+
   <script type="module">
     import ws from "/static/websocket.js";
     const ctx = document.getElementById("c").getContext("2d");
+    const canvas = document.getElementById("c");
 
-    const backendWidth = 1000; // adjust to your server coordinate space
+    const backendWidth = 1000;
     const backendHeight = 1000;
 
-    const canvas = document.getElementById("c");
-    let paddles = [];
     let balls = [];
+    let paddles = [];
+
     // map backend coordinates to canvas
     function mapToCanvas(x, y) {
       const scaleX = canvas.width / backendWidth;
       const scaleY = canvas.height / backendHeight;
-      return {
-        cx: x * scaleX,
-        cy: y * scaleY,
-      };
-    }
-
-    function isBall(obj) {
-      return obj && typeof obj.x === "number" && typeof obj.y === "number";
-    }
-
-    function isPaddle(obj) {
-      return obj && typeof obj.x === "number" && typeof obj.y === "number";
+      return { cx: x * scaleX, cy: y * scaleY };
     }
 
     ws.onmessage = (e) => {
       try {
-        if (!e.data.includes("DEBUG")) console.log(e.data);
         const data = JSON.parse(e.data);
 
-        if (data && Array.isArray(data.balls)) {
-          balls = data.balls.filter(isBall);
-        }
-
-        if (data && Array.isArray(data.paddles)) {
-          paddles = data.paddles.filter(isPaddle);
-        }
+        if (data && Array.isArray(data.balls)) balls = data.balls;
+        if (data && Array.isArray(data.paddles)) paddles = data.paddles;
       } catch (err) {
-        if (!e.data.includes("DEBUG")) console.error(err);
+        console.error(err);
       }
     };
+    function getNextColor(i, N, alpha = 1) {
+      // i = 0..N-1
+      // Scale i to 0..255*3 (simple linear mapping across RGB channels)
+      if (typeof i !== "number") i = Number(i);
+      const ratio = i / N;
 
+      // We'll walk through R->G->B linearly
+      const total = 3; // 3 channels
+      const step = ratio * total; // which channel section we're in
+
+      let r = 0,
+        g = 0,
+        b = 0;
+
+      if (step < 1) {
+        // Red decreasing, Green increasing
+        r = 255 * (1 - step);
+        g = 255 * step;
+        b = 0;
+      } else if (step < 2) {
+        // Green decreasing, Blue increasing
+        const t = step - 1;
+        r = 0;
+        g = 255 * (1 - t);
+        b = 255 * t;
+      } else {
+        // Blue decreasing, Red increasing
+        const t = step - 2;
+        r = 255 * t;
+        g = 0;
+        b = 255 * (1 - t);
+      }
+
+      // Round and return rgba string
+      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(
+        b
+      )},${alpha})`;
+    }
+    // Keep track of previous velocities for balls
+    // Track previous velocities
+    const prevBallVel = new Map();
+    // Store persistent velocity-change dots
+    const velChangeDots = [];
+    const trails = new Map();
+    const TRAIL_LENGTH = 3; // store last 3 positions
+    const TRAIL_LIFETIME = 50; // store last 3 positions
+    let maxid = -1;
+    let ballrad;
     function draw() {
       ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw balls
       balls.forEach((b) => {
-        const { cx, cy } = mapToCanvas(b.x, b.y);
+        if (maxid < b.id) maxid = b.id;
+        ballrad = b.r;
+        const { cx, cy } = mapToCanvas(b.x, b.y, b.r);
+        const scaleX = canvas.width / backendWidth;
+        const scaleY = canvas.height / backendHeight;
+
+        // Ball circle
         ctx.beginPath();
-        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-        ctx.fillStyle = "yellow";
+        ctx.arc(cx, cy, b.r * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+        ctx.fillStyle = getNextColor(b.id, maxid, 1);
         ctx.fill();
+        // --- Update trail ---
+        if (!trails.has(b.id)) trails.set(b.id, []);
+        const stack = trails.get(b.id);
+
+        // Push current position
+        // Push current position with age 0
+        stack.push({ x: b.x, y: b.y, age: 0 });
+
+        // Draw trail dots and increment age
+
+        for (let i = stack.length - 1; i >= 0; i--) {
+          const dot = stack[i];
+          dot.age++;
+          if (dot.age > TRAIL_LIFETIME) {
+            stack.splice(i, 1); // remove old dot
+            continue;
+          }
+          const { cx: ox, cy: oy } = mapToCanvas(dot.x, dot.y);
+          ctx.beginPath();
+          ctx.arc(ox, oy, 2 * 0.5 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+          // Optional: fade color by age
+          const alpha = 1 - dot.age / TRAIL_LIFETIME;
+          ctx.strokeStyle = getNextColor(b.id, maxid, 1);
+          ctx.fill();
+        }
+        // Check for velocity change
+        const key = b.id;
+        const prev = prevBallVel.get(key);
+        if (prev) {
+          const prevVel = { x: prev.dx, y: prev.dy };
+          const currVel = { x: b.dx, y: b.dy };
+
+          const dot = prevVel.x * currVel.x + prevVel.y * currVel.y;
+
+          if (dot < 0) {
+            // Significant reversal, record dot
+            velChangeDots.push({ x: b.x, y: b.y, r: b.r });
+          }
+        }
+        prevBallVel.set(key, { dx: b.dx, dy: b.dy });
       });
 
+      // Draw persistent orange velocity-change dots
+
+      // Draw paddles
       paddles.forEach((p) => {
-        const { cx, cy } = mapToCanvas(p.x, p.y);
-        const len = p.l * (canvas.height / backendHeight); // scale length
-        const width = p.w; // paddle width in canvas pixels
+        const paddle_pos = { x: p.x, y: p.y };
+        const paddle_dir = p.r;
+        const paddle_width = p.w;
+        const paddle_length = p.r;
 
-        // Compute angle from forward vector
-        const angle = Math.atan2(p.dy, p.dx);
+        // Direction vector along paddle
+        const dir = { x: Math.cos(paddle_dir), y: Math.sin(paddle_dir) };
 
-        ctx.save();
-        ctx.translate(cx, cy); // move origin to paddle center
-        ctx.rotate(angle); // rotate canvas to align with (dx,dy)
+        // Perpendicular vector
+        const perp = { x: -Math.sin(paddle_dir), y: Math.cos(paddle_dir) };
+
+        // Half dimensions
+        const halfW = p.l / 2; // half width
+        const halfL = p.w / 2; // half length
+
+        // Rectangle corners (clockwise order)
+        const corners = [
+          {
+            x: paddle_pos.x + dir.x * halfL + perp.x * halfW,
+            y: paddle_pos.y + dir.y * halfL + perp.y * halfW,
+          },
+          {
+            x: paddle_pos.x + dir.x * halfL - perp.x * halfW,
+            y: paddle_pos.y + dir.y * halfL - perp.y * halfW,
+          },
+          {
+            x: paddle_pos.x - dir.x * halfL - perp.x * halfW,
+            y: paddle_pos.y - dir.y * halfL - perp.y * halfW,
+          },
+          {
+            x: paddle_pos.x - dir.x * halfL + perp.x * halfW,
+            y: paddle_pos.y - dir.y * halfL + perp.y * halfW,
+          },
+        ];
+
+        // Paddle rectangle
         ctx.fillStyle = "blue";
-        ctx.fillRect(-width / 2, -len / 2, width, len); // draw rectangle centered at origin
-        ctx.restore();
+        ctx.beginPath();
+        corners.forEach((c, i) => {
+          const { cx, cy } = mapToCanvas(c.x, c.y);
+          if (i === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        });
+        ctx.closePath();
+        ctx.fill();
+
+        // Paddle center dot (green)
+        const center = { x: p.x, y: p.y };
+        const { cx: ccx, cy: ccy } = mapToCanvas(center.x, center.y);
+        ctx.beginPath();
+        ctx.arc(ccx, ccy, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "green";
+        ctx.fill();
+
+        ctx.strokeStyle = "gray";
+        for (let x = 0; x <= backendWidth; x += 100) {
+          for (let y = 0; y <= backendHeight; y += 100) {
+            const { cx, cy } = mapToCanvas(x, y);
+            ctx.fillRect(cx - 2, cy - 2, 4, 4);
+          }
+        }
       });
 
       requestAnimationFrame(draw);
     }
+
     draw();
 
     // Track key states
     const keyState = { w: false, s: false };
 
-    // Handle key changes
     function handleKeyChange(boardId, key, pressed) {
       const prevState = keyState[key];
       keyState[key] = pressed;
 
       if (prevState !== pressed) {
-        // Determine move
         let move = null;
-        if (key === "w") move = pressed ? false : null;
-        if (key === "s") move = pressed ? true : null;
+        if (key === "w") move = pressed ? true : null;
+        if (key === "s") move = pressed ? false : null;
+        const payload = {
+          b: boardId,
+          m: move,
+        };
+        const schemashape = {
+          funcId: "/api/pong/move_paddle",
+          target_container: "pong",
+          payload: payload,
+        };
 
-        const payload = { funcId: "/api/pong/move_paddle", b: boardId, m: move };        
         runMovePaddle(payload);
-
       }
     }
 
-    // Example function to handle the move
     function runMovePaddle(payload) {
       console.log("Paddle move:", payload);
       ws.send(JSON.stringify(payload));
-      // Here you could send payload to server via WebSocket or fetch
     }
 
-    // Event listeners
     document.addEventListener("keydown", (e) => {
       if (e.key === "w" || e.key === "s") {
         const boardId = parseInt(document.getElementById("boardId").value, 10);
@@ -123,6 +257,5 @@
         handleKeyChange(boardId, e.key, false);
       }
     });
-  </script>
   </script>
 </html>

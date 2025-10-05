@@ -31,7 +31,7 @@ export function setSocketOnMessageHandler(
     let messageString = rawDataToString(data);
     if (!messageString) {
       console.log("Couldnt turn input to string.");
-      throw Error("Die!");
+      throw Error("Die! Misconfigured tasks.");
     }
     try {
       parsed = JSON.parse(messageString);
@@ -47,7 +47,7 @@ export function setSocketOnMessageHandler(
       return;
     }
     for (const taskKey in tasks) {
-      if (tasks[taskKey].url === parsed.funcId) {
+      if (tasks[taskKey].funcId === parsed.funcId) {
         console.log("Executing task handler for: " + taskKey);
         let result;
         const handler = tasks[taskKey].handler;
