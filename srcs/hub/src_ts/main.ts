@@ -281,7 +281,7 @@ async function handleWebsocketAuth(
   }
 
   // const user_id = authMessageResult.unwrap();
-  const user_id = DEBUGUSERID++;
+  const user_id = (DEBUGUSERID++ % 8) + 1;
   updateWebSocketConnection(socket, user_id);
   socket.send(JSON.stringify({ user_id: user_id }));
   console.log("Authenticated user id " + user_id + " socket map.");
