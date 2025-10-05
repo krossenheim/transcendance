@@ -13,18 +13,20 @@ export const StartNewPongGameSchema = z.object({
 });
 
 export const PongBallSchema = z.object({
+  id: z.number().gt(0),
   x: z.number().gt(0),
   y: z.number().gt(0),
   dx: z.number().min(-1).max(1),
   dy: z.number().min(-1).max(1),
+  r: z.number()
 });
 
 export const PongPaddleSchema = z.object({
   x: z.number().gt(0),
   y: z.number().gt(0),
-  dx: z.number().min(-1).max(1),
-  dy: z.number().min(-1).max(1),
   l: z.number().int().gt(0),
+  w: z.number().int().gt(0),
+  r: z.number(),
 });
 
 export const MovePaddlePayloadScheme = z.object({

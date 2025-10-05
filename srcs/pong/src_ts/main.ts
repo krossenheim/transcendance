@@ -11,11 +11,6 @@ import type {
   TypePongBall,
   TypePongPaddle,
 } from "./utils/api/service/pong/pong_interfaces.js";
-import {
-  PongBallSchema,
-  PongPaddleSchema,
-} from "./utils/api/service/pong/pong_interfaces.js";
-import { truncate } from "fs";
 
 const fastify = Fastify({
   logger: {
@@ -62,7 +57,7 @@ async function backgroundTask() {
       for (const [game_id, game] of singletonPong.pong_instances) {
         game.gameLoop();
         const recipients = Array.from(game.player_to_paddle.keys());
-        const payload: { balls: any[]; paddles: any[] } = {
+        const payload: { balls: TypePongBall[]; paddles: TypePongPaddle[] } = {
           balls: [],
           paddles: [],
         };
@@ -87,7 +82,11 @@ async function backgroundTask() {
             l: truncDecimals(obj.length),
           });
         }
-        const out = { recipients: recipients, funcId: 'pong_game', payload: payload };
+        const out = {
+          recipients: recipients,
+          funcId: "pong_game",
+          payload: payload,
+        };
         socketToHub.send(JSON.stringify(out));
       }
       await new Promise((resolve) => setTimeout(resolve, 30));
@@ -106,3 +105,8 @@ async function backgroundTask() {
   }
 }
 backgroundTask();
+singletonPong.startGame({
+  user_id: 2,
+  funcId: "/api/start_game",
+  payload: { player_list: [2, 3, 4, 5] },
+});
