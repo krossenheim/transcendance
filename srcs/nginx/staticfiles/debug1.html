@@ -30,8 +30,7 @@
       try {
         data = JSON.parse(e.data);
         if (!(data.source_container === "pong")) {
-          console.log("Not message for pong:", data.source_container);
-          console.log("Not message for data was:", e.data);
+          // console.log("Not message for pong:", data.source_container);
           return;
         }
       } catch (err) {
@@ -53,6 +52,7 @@
       paddles = data.payload.paddles;
       balls = data.payload.balls;
     };
+    
     function getNextColor(i, N, alpha = 1) {
       // i = 0..N-1
       // Scale i to 0..255*3 (simple linear mapping across RGB channels)
