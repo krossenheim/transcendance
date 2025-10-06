@@ -22,6 +22,7 @@ import { spawn } from "child_process";
 import { number } from "zod";
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
+const MAP_GAMEOVER_EDGES_WIDTH = 40;
 
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
@@ -239,14 +240,16 @@ class PongGame {
     for (const pong_ball of this.pong_balls) {
       const pb_movement = pong_ball.getMove(deltaFactor);
       for (let i = 0; i < this.map_polygon_edges.length - 1; i++) {
-        const segment_a = this.map_polygon_edges[i];
-        const segment_b = this.map_polygon_edges[i + 1];
+        const segment_a = this.map_polygon_edges[i]!;
+        const segment_b = this.map_polygon_edges[i + 1]!;
         const hits_wall = pong_ball.checkSegmentCollision(
           pong_ball.pos,
           segment_a,
           segment_b,
-          vector_zero(),
-          pong_ball
+          { x: 0, y: 0 },
+          pb_movement,
+          pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
+          MAP_GAMEOVER_EDGES_WIDTH
         );
       }
       //this.tempSquareBoundaries();

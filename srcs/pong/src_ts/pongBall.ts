@@ -9,6 +9,7 @@ import {
   len,
   scale,
   add,
+  crossp,
 } from "./vector2.js";
 
 type Collision = {
@@ -89,8 +90,7 @@ export class PongBall {
     segment_movement: Vec2,
     ballMovement: Vec2,
     effectiveRadius: number,
-    segment_normal: Vec2,
-    segment_width: number,
+    segment_width: number
   ): number | null {
     const movementRel = sub(segment_movement, ballMovement); // relative movement
 
@@ -147,9 +147,9 @@ export class PongBall {
       }
       // left? right? who needs that, its either side:
       const B_or_A = proj < 0.5 ? A : B;
-      const front_of_paddle = dotp(ballPos, segment_normal) > 0;
-      const direction = front_of_paddle ? scale(-1, segment_normal) : segment_normal;
-      const corner = add(B_or_A, scale(segment_width / 2, direction));
+      const normal = normalize(sub(ballPos, B_or_A));
+      const front_of_paddle = dotp(ballPos, normal) > 0;
+      const corner = add(B_or_A, scale(segment_width / 2, normal));
       const cornerRel = sub(ballPos, corner);
       b = -2 * dotp(movementRel, cornerRel);
       c = dotp(cornerRel, cornerRel) - this.radius * this.radius;
@@ -190,16 +190,14 @@ export class PongBall {
         paddle.lastMovement,
         movement_vec,
         effective_radius,
-        paddle.d,
-        paddle.width,
+        paddle.width
       );
 
       if (col_time_slice !== null) {
         this.lastCollidedWith = paddle;
         this.dir = this.getBounce(paddle);
         if (col_time_slice === -1) {
-              this.pos = scale(-1, movement_vec);
-
+          this.pos = scale(-1, movement_vec);
         }
         // Handle multiple bounces in one frame, then return
         return;
