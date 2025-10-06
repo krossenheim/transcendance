@@ -1,4 +1,5 @@
 import type { Vec2 } from "./vector2.js";
+import { Result } from "./utils/api/service/common/result.js";
 import {
   add,
   sub,
@@ -17,6 +18,8 @@ import type {
 } from "./utils/api/service/pong/pong_interfaces.js";
 // import user from "./utils/api/service/db/user.js";
 import generateCirclePoints from "./generateCirclePoints.js";
+import { spawn } from "child_process";
+import { number } from "zod";
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
 
@@ -27,37 +30,76 @@ function truncDecimals(num: number, n: number = 6) {
 
 class PongGame {
   private board_size: Vec2;
+  private map_polygon_edges: Vec2[];
   public player_paddles: Array<PlayerPaddle>;
-  public player_to_paddle: Map<number, PlayerPaddle>;
-  public players: Array<number>;
+  public player_id_to_paddle: Map<number, PlayerPaddle>;
+  public player_ids: Array<number>;
   public pong_balls: Array<PongBall>;
   // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
 
   private constructor(player_ids: Array<number>) {
-    this.players = player_ids;
+    this.player_ids = player_ids;
     this.board_size = { x: 1000, y: 1000 };
-    // this.debug_play_field = generateCirclePoints(4,
-    //   Math.min(this.board_size.x, this.board_size.y) * 0.75), { x: this.board_size.y / 2, y: this.board_size.x / 2 });
-    this.pong_balls = [];
-    this.player_paddles = [];
-    this.player_to_paddle = new Map();
+    this.pong_balls = this.spawn_balls(20);
+    this.player_id_to_paddle = this.spawn_paddles(player_ids);
+    this.player_paddles = Array.from(this.player_id_to_paddle.values());
+    this.map_polygon_edges = this.spawn_map_edges(player_ids.length);
     this.last_frame_time = Date.now(); // initial timestamp in ms
-    this.initializeBoard(player_ids);
   }
 
-  static create(player_ids: Array<number>): PongGame | null {
+  // function validateToken(token: string): Result<number, string> {
+  // 	let decoded: { uid: number; iat: number; exp: number; };
+  // 	try {
+  // 		decoded = jwt.verify(token, secretKey) as { uid: number; iat: number; exp: number; };
+  // 	} catch (err) {
+  // 		return Result.Err('Invalid JWT');
+  // 	}
+
+  // 	if (typeof decoded.exp !== 'number' || Date.now() >= decoded.exp * 1000) {
+  // 		return Result.Err('JWT expired');
+  // 	}
+
+  // 	if (typeof decoded.uid !== 'number' || decoded.uid < 1)
+  // 		return Result.Err('Invalid JWT payload');
+  // 	else
+  // 		return Result.Ok(decoded.uid);
+  // }
+
+  static create(player_ids: Array<number>): Result<PongGame, string> {
     if (new Set(player_ids).size !== player_ids.length) {
       console.error("Non unique ids passed as player_ids");
-      return null;
+      return Result.Err("Non unique ids passed as player_ids");
     }
-    if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS)
-      return null;
-    return new PongGame(player_ids);
+    if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS) {
+      console.error("Less or more than 2-8 players.");
+      return Result.Err("Less or more than 2-8 players.");
+    }
+    for (const player_id of player_ids) {
+      if (player_id < 1 || !Number.isInteger(player_id)) {
+        console.error("Player ID is less than one, or not an integer.");
+        return Result.Err("Player ID is less than one, or not an integer.");
+      }
+      const count = player_ids.filter((n) => n === player_id).length;
+      if (count < 1 && count > 2) {
+        console.error("Player ID appears more than twice.");
+        return Result.Err("Player ID appears more than twice.");
+      }
+    }
+    try {
+      return Result.Ok(new PongGame(player_ids));
+    } catch (e) {
+      console.error(
+        "Factory method failed to create new instance of PongGame, player list was: ",
+        player_ids
+      );
+      return Result.Err("Failed to create new instance of PongGame");
+    }
   }
 
-  initializeBoard(player_ids: Array<number>) {
+  private spawn_paddles(player_ids: Array<number>): Map<number, PlayerPaddle> {
+    const player_to_paddle_map: Map<number, PlayerPaddle> = new Map();
     const paddle_positions = generateCirclePoints(
       player_ids.length,
       Math.min(this.board_size.x, this.board_size.y) * 0.25,
@@ -68,29 +110,47 @@ class PongGame {
     for (const player_id of player_ids) {
       const vector = paddle_positions[idxpaddle++];
       if (vector === undefined) {
-        throw Error("There should be as many paddle positions as players.");
+        throw Error("Constructor failed to validate player ids.");
       }
-      console.log("Placing paddle at: ", vector.x, ",", vector.y);
-
       const paddle = new PlayerPaddle(vector, this.board_size, player_id);
-      this.player_to_paddle.set(player_id, paddle);
-      this.player_paddles.push(paddle);
+      console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.id}'`);
+      player_to_paddle_map.set(player_id, paddle);
     }
-    console.log("Added players:", Array.from(this.player_to_paddle.keys()));
-    for (let i = 0; i < 40; i++) {
-      this.pong_balls.push(
+    console.log("Added players:", Array.from(this.player_id_to_paddle.keys()));
+    return player_to_paddle_map;
+  }
+
+  private spawn_map_edges(player_count: number): Vec2[] {
+    const limits_of_the_map = generateCirclePoints(
+      player_count,
+      Math.min(this.board_size.x, this.board_size.y) * (0.25 + 0.05),
+      { x: this.board_size.y / 2, y: this.board_size.x / 2 }
+    );
+    const rotated_limits: Vec2[] = [];
+    // Rotate to match sides of player count
+
+    for (const vector of limits_of_the_map) {
+      const rotated_vector = vector;
+      rotated_limits.push(rotated_vector);
+    }
+    return rotated_limits;
+  }
+
+  private spawn_balls(count: number): Array<PongBall> {
+    const balls = [];
+    for (let i = 0; i < count; i++) {
+      balls.push(
         new PongBall(
           { x: this.board_size.x / 2, y: this.board_size.y / 2 },
           this.board_size
         )
       );
     }
-
-    console.log(`Initialized ${player_ids.length} paddles`);
+    return balls;
   }
 
   setInputOnPaddle(user_id: number, move_right: boolean | null) {
-    const paddle = this.player_to_paddle.get(user_id);
+    const paddle = this.player_id_to_paddle.get(user_id);
     if (!paddle) {
       console.error("Couldnt find paddle for player id: ", user_id, "???");
       return;
@@ -176,7 +236,21 @@ class PongGame {
       const pb_movement = pong_ball.getMove(deltaFactor);
       pong_ball.movePaddleAware(pb_movement, this.player_paddles);
     }
-    this.tempSquareBoundaries();
+    for (const pong_ball of this.pong_balls) {
+      const pb_movement = pong_ball.getMove(deltaFactor);
+      for (let i = 0; i < this.map_polygon_edges.length - 1; i++) {
+        const segment_a = this.map_polygon_edges[i];
+        const segment_b = this.map_polygon_edges[i + 1];
+        const hits_wall = pong_ball.checkSegmentCollision(
+          pong_ball.pos,
+          segment_a,
+          segment_b,
+          vector_zero(),
+          pong_ball
+        );
+      }
+      //this.tempSquareBoundaries();
+    }
   }
 }
 

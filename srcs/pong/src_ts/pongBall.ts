@@ -83,15 +83,16 @@ export class PongBall {
     // A: Vec2,
     // B: Vec2,
     // paddleMovement: Vec2,
-    paddle: PlayerPaddle,
     ballPos: Vec2,
+    A: Vec2,
+    B: Vec2,
+    segment_movement: Vec2,
     ballMovement: Vec2,
-    effectiveRadius: number
+    effectiveRadius: number,
+    segment_normal: Vec2,
+    segment_width: number,
   ): number | null {
-    const A = paddle.segment[0]!;
-    const B = paddle.segment[1]!;
-    const paddleMovement = paddle.lastMovement;
-    const movementRel = sub(paddleMovement, ballMovement); // relative movement
+    const movementRel = sub(segment_movement, ballMovement); // relative movement
 
     const AB = sub(B, A);
     const AB_len2 = dotp(AB, AB);
@@ -146,9 +147,9 @@ export class PongBall {
       }
       // left? right? who needs that, its either side:
       const B_or_A = proj < 0.5 ? A : B;
-      const front_of_paddle = dotp(ballPos, paddle.d) > 0;
-      const direction = front_of_paddle ? scale(-1, paddle.d) : paddle.d;
-      const corner = add(B_or_A, scale(paddle.width / 2, direction));
+      const front_of_paddle = dotp(ballPos, segment_normal) > 0;
+      const direction = front_of_paddle ? scale(-1, segment_normal) : segment_normal;
+      const corner = add(B_or_A, scale(segment_width / 2, direction));
       const cornerRel = sub(ballPos, corner);
       b = -2 * dotp(movementRel, cornerRel);
       c = dotp(cornerRel, cornerRel) - this.radius * this.radius;
@@ -160,14 +161,17 @@ export class PongBall {
   }
 
   getBounce(paddle: PlayerPaddle): Vec2 {
-    const newdir = normalize(sub(this.pos, paddle.pos));
-
+    const oppositepaddle = normalize(sub(this.pos, paddle.pos));
+    const factor = 0.05;
+    const newDir = normalize(
+      add(scale(1 - factor, oppositepaddle), scale(factor, paddle.d))
+    );
     // const bounced: Vec2 = {
     //   x: this.dir.x - 2 * dotp(this.dir, newdir) * newdir.x,
     //   y: this.dir.y - 2 * dotp(this.dir, newdir) * newdir.y,
     // };
 
-    return newdir;
+    return newDir;
   }
 
   movePaddleAware(movement_vec: Vec2, paddles: PlayerPaddle[]) {
@@ -180,18 +184,22 @@ export class PongBall {
       if (this.lastCollidedWith === paddle) continue;
       const effective_radius = this.radius + paddle.width / 2;
       col_time_slice = this.checkSegmentCollision(
-        paddle,
         this.pos,
+        paddle.segment[0]!,
+        paddle.segment[1]!,
+        paddle.lastMovement,
         movement_vec,
-        effective_radius
+        effective_radius,
+        paddle.d,
+        paddle.width,
       );
 
       if (col_time_slice !== null) {
         this.lastCollidedWith = paddle;
         this.dir = this.getBounce(paddle);
         if (col_time_slice === -1) {
-          this.pos.x -= movement_vec.x;
-          this.pos.y -= movement_vec.y;
+              this.pos = scale(-1, movement_vec);
+
         }
         // Handle multiple bounces in one frame, then return
         return;
@@ -201,8 +209,7 @@ export class PongBall {
     if (!(col_time_slice === null)) {
       throw Error("wat");
     }
-    this.pos.x += movement_vec.x;
-    this.pos.y += movement_vec.y;
+    this.pos = add(this.pos, movement_vec);
   }
 }
 

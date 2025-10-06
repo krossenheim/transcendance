@@ -56,7 +56,7 @@ async function backgroundTask() {
       for (const [game_id, game] of singletonPong.pong_instances) {
         game.gameLoop();
         const payload = game.getGameState();
-        const recipients = Array.from(game.player_to_paddle.keys());
+        const recipients = Array.from(game.player_id_to_paddle.keys());
 
         const out = {
           recipients: recipients,
