@@ -153,22 +153,21 @@ export class PongBall {
       b = -2 * dotp(movementRel, cornerRel);
       c = dotp(cornerRel, cornerRel) - this.radius * this.radius;
       const t_to_corner = solveQuadratic(a, b, c);
-      if (t_to_corner === null) return null; // Didnt hit the corner
+      if (t_to_corner === null) return null; // capsule hit
       return t + t_to_corner;
     }
     return null;
   }
 
-  getBounceDir(paddle: PlayerPaddle): Vec2 {
+  getBounce(paddle: PlayerPaddle): Vec2 {
     const newdir = normalize(sub(this.pos, paddle.pos));
 
-    // Reflect ball along chosen normal
-    const bounced: Vec2 = {
-      x: this.dir.x - 2 * dotp(this.dir, newdir) * newdir.x,
-      y: this.dir.y - 2 * dotp(this.dir, newdir) * newdir.y,
-    };
+    // const bounced: Vec2 = {
+    //   x: this.dir.x - 2 * dotp(this.dir, newdir) * newdir.x,
+    //   y: this.dir.y - 2 * dotp(this.dir, newdir) * newdir.y,
+    // };
 
-    return bounced;
+    return newdir;
   }
 
   movePaddleAware(movement_vec: Vec2, paddles: PlayerPaddle[]) {
@@ -189,7 +188,7 @@ export class PongBall {
 
       if (col_time_slice !== null) {
         this.lastCollidedWith = paddle;
-        this.dir = this.getBounceDir(paddle);
+        this.dir = this.getBounce(paddle);
         if (col_time_slice === -1) {
           this.pos.x -= movement_vec.x;
           this.pos.y -= movement_vec.y;
