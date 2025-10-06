@@ -108,11 +108,12 @@ class PongGame {
     }
     try {
       return Result.Ok(new PongGame(player_ids));
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(
         "Factory method failed to create new instance of PongGame, player list was: ",
         player_ids
       );
+      console.error("error: ", e);
       return Result.Err("Failed to create new instance of PongGame");
     }
   }
@@ -121,7 +122,7 @@ class PongGame {
     const player_to_paddle_map: Map<number, PlayerPaddle> = new Map();
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      Math.min(this.board_size.x, this.board_size.y) * 0.25,
+      Math.min(this.board_size.x, this.board_size.y) * 0.4,
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
 
@@ -135,7 +136,10 @@ class PongGame {
       console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.id}'`);
       player_to_paddle_map.set(player_id, paddle);
     }
-    console.log("Added players:", Array.from(this.player_id_to_paddle.keys()));
+    console.log(
+      "Spawned paddles for playerids:",
+      Array.from(player_to_paddle_map.keys())
+    );
     return player_to_paddle_map;
   }
 
@@ -149,9 +153,10 @@ class PongGame {
     }
     const limits_of_the_map = generateCirclePoints(
       player_count,
-      Math.min(this.board_size.x, this.board_size.y) * (0.25 + 0.05),
+      Math.min(this.board_size.x, this.board_size.y) * 0.8,
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
+    if (player_count <= 4) return limits_of_the_map;
     const rotated_limits: Vec2[] = rotatePolygon(
       limits_of_the_map,
       scale(0.5, this.board_size),
@@ -262,9 +267,10 @@ class PongGame {
     }
     for (const pong_ball of this.pong_balls) {
       const pb_movement = pong_ball.getMove(deltaFactor);
-      for (let i = 0; i < this.map_polygon_edges.length - 1; i++) {
+      for (let i = 0; i < this.map_polygon_edges.length; i++) {
         const segment_a = this.map_polygon_edges[i]!;
-        const segment_b = this.map_polygon_edges[i + 1]!;
+        const segment_b =
+          this.map_polygon_edges[(i + 1) % this.map_polygon_edges.length]!;
         const hits_wall = pong_ball.checkSegmentCollision(
           pong_ball.pos,
           segment_a,
@@ -274,8 +280,10 @@ class PongGame {
           pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
           MAP_GAMEOVER_EDGES_WIDTH
         );
+        if (!hits_wall) continue;
+        pong_ball.pos = scale(0.5, this.board_size);
       }
-      //this.tempSquareBoundaries();
+      this.tempSquareBoundaries();
     }
   }
 }
