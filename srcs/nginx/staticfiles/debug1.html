@@ -17,6 +17,7 @@
 
     let balls = [];
     let paddles = [];
+    let edges = [];
 
     // map backend coordinates to canvas
     function mapToCanvas(x, y) {
@@ -49,10 +50,15 @@
         console.error("No balls in data.");
         return;
       }
+      if (!Array.isArray(data.payload.edges)) {
+        console.error("No edges in data.");
+        return;
+      }
       paddles = data.payload.paddles;
       balls = data.payload.balls;
+      edges = data.payload.edges;
     };
-    
+
     function getNextColor(i, N, alpha = 1) {
       // i = 0..N-1
       // Scale i to 0..255*3 (simple linear mapping across RGB channels)
@@ -91,6 +97,7 @@
         b
       )},${alpha})`;
     }
+
     // Keep track of previous velocities for balls
     // Track previous velocities
     const prevBallVel = new Map();
@@ -104,7 +111,25 @@
     function draw() {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
 
+      if (!edges)
+        console.log("Error");
+      edges.forEach((p, i) => {
+        const next = edges[(i + 1) % edges.length]; // wrap around
+        if (!next)
+          console.log("error");
+
+        const { cx: x1, cy: y1 } = mapToCanvas(p.x, p.y);
+        const { cx: x2, cy: y2 } = mapToCanvas(next.x, next.y);
+        console.log("liness:",x1,x2,y1,y2);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+      });
+
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 5;
+      ctx.stroke();
       // Draw balls
       balls.forEach((b) => {
         if (maxid < b.id) maxid = b.id;

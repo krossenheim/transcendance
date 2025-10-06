@@ -18,7 +18,7 @@ export const PongBallSchema = z.object({
   y: z.number().gt(0),
   dx: z.number().min(-1).max(1),
   dy: z.number().min(-1).max(1),
-  r: z.number()
+  r: z.number(),
 });
 
 export const PongPaddleSchema = z.object({
@@ -29,6 +29,11 @@ export const PongPaddleSchema = z.object({
   r: z.number(),
 });
 
+const PongEdgeSchema = z.object({
+  x: z.number().gt(0),
+  y: z.number().gt(0),
+});
+
 export const MovePaddlePayloadScheme = z.object({
   b: z.number().int().positive(), //board id
   m: z.union([z.boolean(), z.null()]), // move right = yyes , left = no, not = null
@@ -37,11 +42,12 @@ export const MovePaddlePayloadScheme = z.object({
 export const GameStateSchema = z.object({
   balls: z.array(PongBallSchema),
   paddles: z.array(PongPaddleSchema),
+  edges: z.array(PongEdgeSchema),
 });
-
 
 export type TypeMovePaddlePayloadScheme = z.infer<typeof PongPaddleSchema>;
 export type TypeStartNewPongGame = z.infer<typeof PongPaddleSchema>;
 export type TypeGameStateSchema = z.infer<typeof GameStateSchema>;
+export type TypePongEdgeSchema = z.infer<typeof PongEdgeSchema>;
 export type TypePongPaddle = z.infer<typeof PongPaddleSchema>;
 export type TypePongBall = z.infer<typeof PongBallSchema>;

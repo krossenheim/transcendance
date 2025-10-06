@@ -16,6 +16,7 @@ import type {
   TypePongBall,
   TypePongPaddle,
   TypeGameStateSchema,
+  TypePongEdgeSchema,
 } from "./utils/api/service/pong/pong_interfaces.js";
 // import user from "./utils/api/service/db/user.js";
 import generateCirclePoints from "./generateCirclePoints.js";
@@ -122,7 +123,7 @@ class PongGame {
     const player_to_paddle_map: Map<number, PlayerPaddle> = new Map();
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      Math.min(this.board_size.x, this.board_size.y) * 0.4,
+      Math.min(this.board_size.x, this.board_size.y) * 0.3,
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
 
@@ -153,7 +154,7 @@ class PongGame {
     }
     const limits_of_the_map = generateCirclePoints(
       player_count,
-      Math.min(this.board_size.x, this.board_size.y) * 0.8,
+      Math.min(this.board_size.x, this.board_size.y) * 0.3 * 1.414,
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
     if (player_count <= 4) return limits_of_the_map;
@@ -212,9 +213,14 @@ class PongGame {
   }
 
   getGameState(): TypeGameStateSchema {
-    const payload: { balls: TypePongBall[]; paddles: TypePongPaddle[] } = {
+    const payload: {
+      balls: TypePongBall[];
+      paddles: TypePongPaddle[];
+      edges: TypePongEdgeSchema[];
+    } = {
       balls: [],
       paddles: [],
+      edges: [],
     };
 
     for (const obj of this.pong_balls) {
@@ -237,6 +243,7 @@ class PongGame {
         l: truncDecimals(obj.length),
       });
     }
+    payload.edges = this.map_polygon_edges;
     return payload;
   }
 

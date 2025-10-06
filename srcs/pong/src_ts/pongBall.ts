@@ -59,7 +59,7 @@ export class PongBall {
 
   private static debugcountstatic: number = 0;
   constructor(start_pos: Vec2, game_size: Vec2, speed = 300) {
-    this.lastCollidedWith = null;
+    this.lastCollidedWith = null; // more of a debug attribute can remove soon
     this.game_size = game_size;
     this.id = PongBall.debugcountstatic++;
     this.pos = { ...start_pos };
