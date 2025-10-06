@@ -122,7 +122,6 @@
 
         const { cx: x1, cy: y1 } = mapToCanvas(p.x, p.y);
         const { cx: x2, cy: y2 } = mapToCanvas(next.x, next.y);
-        console.log("liness:",x1,x2,y1,y2);
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
       });

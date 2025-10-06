@@ -24,7 +24,7 @@ import { spawn } from "child_process";
 import { number } from "zod";
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-const MAP_GAMEOVER_EDGES_WIDTH = 40;
+const MAP_GAMEOVER_EDGES_WIDTH = 10;
 
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
@@ -124,7 +124,7 @@ class PongGame {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
       Math.min(this.board_size.x, this.board_size.y) * 0.3,
-      { x: this.board_size.y / 2, y: this.board_size.x / 2 }
+      { x: this.board_size.x / 2, y: this.board_size.y / 2 }
     );
 
     let idxpaddle = 0;
@@ -145,23 +145,30 @@ class PongGame {
   }
 
   private spawn_map_edges(player_count: number): Vec2[] {
-    const side_length = this.player_paddles[0]!.length * 3;
+    // const side_length = this.player_paddles[0]!.length * 3;
 
-    let vertices_count = player_count * 2 - 1;
-    if (player_count === 3) vertices_count = 3;
-    else if (player_count === 2 || player_count === 4) {
+    let vertices_count = player_count;
+    if (player_count === 2) {
       vertices_count = 4;
     }
     const limits_of_the_map = generateCirclePoints(
-      player_count,
+      vertices_count,
       Math.min(this.board_size.x, this.board_size.y) * 0.3 * 1.414,
-      { x: this.board_size.y / 2, y: this.board_size.x / 2 }
+      { x: this.board_size.x / 2, y: this.board_size.y / 2 }
     );
-    if (player_count <= 4) return limits_of_the_map;
+
+    let rot_angle;
+    if (player_count === 3) {
+      rot_angle = (2 * Math.PI) / 6;
+    } else if (player_count === 2 || player_count === 4) {
+      rot_angle = (2 * Math.PI) / 8;
+    } else {
+      rot_angle = (2 * Math.PI) / this.player_ids.length / 2;
+    }
     const rotated_limits: Vec2[] = rotatePolygon(
       limits_of_the_map,
-      scale(0.5, this.board_size),
-      (2 * Math.PI) / this.player_paddles.length
+      { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+      rot_angle
     );
     return rotated_limits;
   }
