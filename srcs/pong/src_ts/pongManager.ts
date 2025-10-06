@@ -34,6 +34,50 @@ export class PongManager {
     return this;
   }
 
+  playerJoinInstance(client_request: T_ForwardToContainer): T_PayloadToUsers {
+    const validrequest = ForwardToContainerSchema.safeParse(client_request);
+    if (!validrequest.success) {
+      console.error(
+        "exact fields expected at this stage: :",
+        validrequest.error
+      );
+      throw Error("Data should be clean at this stage.");
+    }
+    const { game_id } = validrequest.data.payload;
+    const { user_id } = validrequest.data;
+    const gameInstance: PongGame | undefined = this.pong_instances.get(game_id);
+    if (!gameInstance) {
+      return {
+        recipients: [user_id],
+        funcId: "join_instance",
+        payload: {
+          status: httpStatus.UNPROCESSABLE_ENTITY,
+          game_id: game_id,
+          pop_up_text: "No game with given, or not in the list of players.",
+        },
+      };
+    }
+
+    // debug
+    // debug
+    for (const [id, instance] of this.pong_instances) {
+      if (instance !== gameInstance) {
+        this.pong_instances.delete(id);
+      }
+    }
+    // debug
+    // debug
+
+    return {
+      recipients: [user_id],
+      funcId: "join_instance",
+      payload: {
+        status: httpStatus.BAD_REQUEST,
+        func_name: process.env.FUNC_POPUP_TEXT,
+        pop_up_text: "Could not start pong game.",
+      },
+    };
+  }
   startGame(client_request: T_ForwardToContainer): T_PayloadToUsers {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
@@ -78,6 +122,7 @@ export class PongManager {
 
     const game_id = this.debugGameID;
     this.debugGameID++;
+    this.pong_instances.clear(); //debug debug debug
     this.pong_instances.set(game_id, pong_game);
     // Send the users the game id.
     {
@@ -127,7 +172,6 @@ export class PongManager {
       game.setInputOnPaddle(user_id, validate_input.data.m);
     }
   }
-
 }
 
 export default PongManager;
