@@ -8,6 +8,7 @@ import {
   normalize,
   scale,
   is_zero,
+  rotate,
 } from "./vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
@@ -27,6 +28,23 @@ const MAP_GAMEOVER_EDGES_WIDTH = 40;
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
   return Math.trunc(num * factor) / factor;
+}
+
+function rotatePolygon(
+  points: Vec2[], // array of vertices
+  center: Vec2, // point to rotate around
+  angleRad: number // rotation angle in radians
+): Vec2[] {
+  return points.map((p) => {
+    const dx = p.x - center.x;
+    const dy = p.y - center.y;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    return {
+      x: dx * cos - dy * sin + center.x,
+      y: dx * sin + dy * cos + center.y,
+    };
+  });
 }
 
 class PongGame {
@@ -122,6 +140,13 @@ class PongGame {
   }
 
   private spawn_map_edges(player_count: number): Vec2[] {
+    const side_length = this.player_paddles[0]!.length * 3;
+
+    let vertices_count = player_count * 2 - 1;
+    if (player_count === 3) vertices_count = 3;
+    else if (player_count === 2 || player_count === 4) {
+      vertices_count = 4;
+    }
     const limits_of_the_map = generateCirclePoints(
       player_count,
       Math.min(this.board_size.x, this.board_size.y) * (0.25 + 0.05),
@@ -134,6 +159,11 @@ class PongGame {
       const rotated_vector = vector;
       rotated_limits.push(rotated_vector);
     }
+    rotatePolygon(
+      rotated_limits,
+      scale(0.5, this.board_size),
+      (2 * Math.PI) / this.player_paddles.length
+    );
     return rotated_limits;
   }
 
