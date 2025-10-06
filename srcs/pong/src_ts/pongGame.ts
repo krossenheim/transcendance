@@ -152,15 +152,8 @@ class PongGame {
       Math.min(this.board_size.x, this.board_size.y) * (0.25 + 0.05),
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
-    const rotated_limits: Vec2[] = [];
-    // Rotate to match sides of player count
-
-    for (const vector of limits_of_the_map) {
-      const rotated_vector = vector;
-      rotated_limits.push(rotated_vector);
-    }
-    rotatePolygon(
-      rotated_limits,
+    const rotated_limits: Vec2[] = rotatePolygon(
+      limits_of_the_map,
       scale(0.5, this.board_size),
       (2 * Math.PI) / this.player_paddles.length
     );
