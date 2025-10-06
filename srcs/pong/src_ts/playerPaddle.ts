@@ -1,7 +1,7 @@
 import type { Vec2 } from "./vector2.js";
 import { scale, getAngle, normalize } from "./vector2.js";
 
-const DEFAULT_PADDLE_SPEED = 700;
+const DEFAULT_PADDLE_SPEED = 300;
 
 export class PlayerPaddle {
   // private constants

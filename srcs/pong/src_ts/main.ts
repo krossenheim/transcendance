@@ -46,11 +46,6 @@ const pongTasks = {
 // Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
-function truncDecimals(num: number, n: number = 6) {
-  const factor = Math.pow(10, n);
-  return Math.trunc(num * factor) / factor;
-}
-
 async function backgroundTask() {
   try {
     while (true) {

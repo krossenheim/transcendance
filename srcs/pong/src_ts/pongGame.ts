@@ -20,12 +20,6 @@ import generateCirclePoints from "./generateCirclePoints.js";
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
 
-type hit = {
-  alpha: number;
-  point: Vec2;
-  normal: Vec2;
-};
-
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
   return Math.trunc(num * factor) / factor;
@@ -66,7 +60,7 @@ class PongGame {
   initializeBoard(player_ids: Array<number>) {
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      Math.min(this.board_size.x, this.board_size.y) * 0.45,
+      Math.min(this.board_size.x, this.board_size.y) * 0.25,
       { x: this.board_size.y / 2, y: this.board_size.x / 2 }
     );
 
@@ -109,17 +103,21 @@ class PongGame {
       if (ball.pos.x < 0) {
         ball.pos.x = 0;
         ball.dir = scale(-1, ball.dir);
+        ball.lastCollidedWith = null;
       } else if (ball.pos.x > this.board_size.x) {
         ball.pos.x = this.board_size.x;
         ball.dir = scale(-1, ball.dir);
+        ball.lastCollidedWith = null;
       }
 
       if (ball.pos.y < 0) {
         ball.pos.y = 0;
         ball.dir = scale(-1, ball.dir);
+        ball.lastCollidedWith = null;
       } else if (ball.pos.y > this.board_size.y) {
         ball.pos.y = this.board_size.y;
         ball.dir = scale(-1, ball.dir);
+        ball.lastCollidedWith = null;
       }
     }
   }

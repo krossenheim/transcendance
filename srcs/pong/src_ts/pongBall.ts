@@ -1,4 +1,4 @@
-import type PlayerPaddle from "playerPaddle.js";
+import PlayerPaddle from "./playerPaddle.js";
 import type { Vec2 } from "./vector2.js";
 import {
   is_zero,
@@ -10,6 +10,11 @@ import {
   scale,
   add,
 } from "./vector2.js";
+
+type Collision = {
+  alpha: number;
+  normal: Vec2;
+};
 
 function randomAvoidAxes(epsilon = 0.05): number {
   const quarter = Math.PI / 2;
@@ -49,8 +54,11 @@ export class PongBall {
   public dir: Vec2;
   public speed: number;
   public id: number;
+  public lastCollidedWith: null | PlayerPaddle; // direction and rotation don't change on the fly
+
   private static debugcountstatic: number = 0;
   constructor(start_pos: Vec2, game_size: Vec2, speed = 300) {
+    this.lastCollidedWith = null;
     this.game_size = game_size;
     this.id = PongBall.debugcountstatic++;
     this.pos = { ...start_pos };
@@ -61,8 +69,6 @@ export class PongBall {
   }
 
   getMove(deltaFactor: number): Vec2 {
-    // this.pos.x += this.dir.x * deltaFactor * this.speed;
-    // this.pos.y += this.dir.y * deltaFactor * this.speed;
     const wantedMove = {
       x: this.dir.x * deltaFactor * this.speed,
       y: this.dir.y * deltaFactor * this.speed,
@@ -72,7 +78,6 @@ export class PongBall {
     }
     return wantedMove;
   }
-
 
   checkSegmentCollision(
     // A: Vec2,
@@ -147,12 +152,23 @@ export class PongBall {
       const cornerRel = sub(ballPos, corner);
       b = -2 * dotp(movementRel, cornerRel);
       c = dotp(cornerRel, cornerRel) - this.radius * this.radius;
-      const debug_t = solveQuadratic(a, b, c);
-      if (debug_t === null) return null; // Didnt hit the corner
-      console.log("corner hit. Also fix the line below me. than kyou.");
-      return t + debug_t; // FIX. Hit the corner at _some_ T not this.
+      const t_to_corner = solveQuadratic(a, b, c);
+      if (t_to_corner === null) return null; // Didnt hit the corner
+      return t + t_to_corner;
     }
     return null;
+  }
+
+  getBounceDir(paddle: PlayerPaddle): Vec2 {
+    const newdir = normalize(sub(this.pos, paddle.pos));
+
+    // Reflect ball along chosen normal
+    const bounced: Vec2 = {
+      x: this.dir.x - 2 * dotp(this.dir, newdir) * newdir.x,
+      y: this.dir.y - 2 * dotp(this.dir, newdir) * newdir.y,
+    };
+
+    return bounced;
   }
 
   movePaddleAware(movement_vec: Vec2, paddles: PlayerPaddle[]) {
@@ -162,6 +178,7 @@ export class PongBall {
     let col_time_slice: null | number = null;
 
     for (const paddle of paddles) {
+      if (this.lastCollidedWith === paddle) continue;
       const effective_radius = this.radius + paddle.width / 2;
       col_time_slice = this.checkSegmentCollision(
         paddle,
@@ -170,16 +187,16 @@ export class PongBall {
         effective_radius
       );
 
-      if (col_time_slice !== null) break;
-    }
-    if (col_time_slice !== null) {
-      this.dir = scale(-1, this.dir);
-      if (col_time_slice === -1) {
-        this.pos.x -= movement_vec.x;
-        this.pos.y -= movement_vec.y;
-      } 
-      // Handle multiple bounces in one frame, then return
-      return;
+      if (col_time_slice !== null) {
+        this.lastCollidedWith = paddle;
+        this.dir = this.getBounceDir(paddle);
+        if (col_time_slice === -1) {
+          this.pos.x -= movement_vec.x;
+          this.pos.y -= movement_vec.y;
+        }
+        // Handle multiple bounces in one frame, then return
+        return;
+      }
     }
 
     if (!(col_time_slice === null)) {
