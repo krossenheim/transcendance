@@ -23,7 +23,9 @@
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    },
     // Style Options
     // "noImplicitReturns": true,
     // "noImplicitOverride": true,
