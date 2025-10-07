@@ -196,8 +196,8 @@ export class PongBall {
       if (col_time_slice !== null) {
         this.lastCollidedWith = paddle;
         this.dir = this.getBounce(paddle);
-        if (col_time_slice === -1) {
-          this.pos = scale(-1, movement_vec);
+        if (col_time_slice > 0) {
+          this.pos = add(this.pos, scale(col_time_slice, movement_vec));
         }
         // Handle multiple bounces in one frame, then return
         return;
