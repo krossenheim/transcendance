@@ -11,6 +11,7 @@ import {
 import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
+import { Result } from "utils/api/service/common/result.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -22,7 +23,6 @@ function toInt(value: string) {
 
 type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
-
 
 class FixedSizeList {
   public list: Array<number>;
@@ -94,7 +94,7 @@ class Room {
       );
       return {
         recipients: [user_id],
-        funcId: 'add_user_to_room',
+        funcId: "add_user_to_room",
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -110,7 +110,7 @@ class Room {
     if (this.users.includes(user_to_add))
       return {
         recipients: [user_id],
-        funcId: 'add_user_to_room',
+        funcId: "add_user_to_room",
         payload: {
           status: httpStatus.ALREADY_REPORTED,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -119,10 +119,11 @@ class Room {
         },
       };
 
-    this.users.push(toInt(user_to_add));
+    const query_result: Result = db_interface_add_user();
+    if (query_result.isErr) this.users.push(toInt(user_to_add));
     return {
       recipients: this.users,
-      funcId: 'add_user_to_room',
+      funcId: "add_user_to_room",
       payload: {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
@@ -161,7 +162,7 @@ class Room {
       );
       return {
         recipients: [user_id],
-        funcId: 'send_message_to_room',
+        funcId: "send_message_to_room",
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -181,7 +182,7 @@ class Room {
       );
       return {
         recipients: this.users || [],
-        funcId: 'send_message_to_room',
+        funcId: "send_message_to_room",
         payload: {
           status: httpStatus.OK,
           func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
@@ -237,7 +238,7 @@ class ChatRooms {
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
       return {
         recipients: [user_id],
-        funcId: 'add_room',
+        funcId: "add_room",
         payload: {
           status: httpStatus.ALREADY_REPORTED,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -249,7 +250,7 @@ class ChatRooms {
     this.rooms.push(room);
     return {
       recipients: [user_id],
-      funcId: 'add_room',
+      funcId: "add_room",
       payload: {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
@@ -259,29 +260,28 @@ class ChatRooms {
   }
 
   listRooms(client_request: T_ForwardToContainer): T_PayloadToUsers {
-	const validation = ForwardToContainerSchema.safeParse(client_request);
+    const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
       throw Error("Data should be clean at this stage.");
     }
-	const { user_id } = client_request;
-	const list = [];
+    const { user_id } = client_request;
+    const list = [];
 
     for (const room of this.rooms) {
-		if (user_id in room.users)
-		{
-			list.push(room.room_name);
-		}
+      if (user_id in room.users) {
+        list.push(room.room_name);
+      }
     }
     return {
-        recipients: [user_id],
-        funcId: 'list_rooms',
-        payload: {
-          status: httpStatus.OK,
-          func_name: process.env.FUNC_DISPLAY_ROOMS,
-          room_list: list,
-        },
-      };
+      recipients: [user_id],
+      funcId: "list_rooms",
+      payload: {
+        status: httpStatus.OK,
+        func_name: process.env.FUNC_DISPLAY_ROOMS,
+        room_list: list,
+      },
+    };
   }
 
   sendMessage(client_request: T_ForwardToContainer): T_PayloadToUsers {
@@ -305,7 +305,7 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         recipients: [user_id],
-        funcId: 'send_message_to_room',
+        funcId: "send_message_to_room",
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -339,7 +339,7 @@ class ChatRooms {
     if (targetRoom == undefined)
       return {
         recipients: [user_id],
-        funcId: 'add_user_to_room',
+        funcId: "add_user_to_room",
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
