@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Debug4 Chat</title>
+  <style>
+    body { font-family: sans-serif; margin: 1rem; }
+    input { padding: 0.25rem; margin-right: 0.25rem; }
+    button { padding: 0.25rem 0.5rem; margin-right: 0.25rem; }
+    .chat-box { border: 1px solid #ccc; padding: 0.5rem; margin-top: 0.5rem; max-width: 500px; }
+    .chat-box .room-title { font-weight: bold; margin-bottom: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Debug4 Chat Interface</h1>
+  <div id="root"></div>
+
+  <script type="module">
+    import React from "https://esm.sh/react@18.3.1?dev";
+    import { createRoot } from "https://esm.sh/react-dom@18.3.1/client?dev";
+    import { z } from "https://esm.sh/zod@3.23.8";
+    import ws from "/static/websocket.js";
+
+    // --------------------------
+    // Zod Schemas
+    // --------------------------
+    const roomNameRule = z.string().min(1);
+    const messageRule = z.string().min(1);
+
+    const AddUserToRoomPayloadSchema = z.object({
+      room_name: roomNameRule,
+      user_to_add: z.number().int().positive()
+    }).strict();
+
+    const SendMessageSchema = z.object({
+      room_name: roomNameRule,
+      message: messageRule
+    }).strict();
+
+    const AddRoomSchema = z.object({
+      room_name: roomNameRule
+    }).strict();
+
+    const UserToHubSchema = z.object({
+      target_container: z.string(),
+      funcId: z.string(),
+      payload: z.any()
+    }).strict();
+
+    // --------------------------
+    // React Component
+    // --------------------------
+    function HubInterface() {
+      const [chat, setChat] = React.useState({});
+      const [newRoom, setNewRoom] = React.useState("");
+      const [room, setRoom] = React.useState("");
+      const [message, setMessage] = React.useState("");
+
+      // WebSocket onmessage handler
+      React.useEffect(() => {
+        ws.onmessage = (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            const parsed = UserToHubSchema.safeParse(data);
+            if (!parsed.success) return;
+
+            const payload = parsed.data.payload;
+            const msgParse = SendMessageSchema.safeParse(payload);
+            if (!msgParse.success) return;
+
+            const r = payload.room_name;
+            setChat(prev => ({
+              ...prev,
+              [r]: [...(prev[r] || []), payload.message]
+            }));
+
+            // Optional blink logic
+            document.title = `New message in ${r}!`;
+            setTimeout(() => { document.title = "Debug4 Chat Interface"; }, 1000);
+          } catch (e) {
+            console.error("WS parse error", e);
+          }
+        };
+      }, []);
+
+      // Send message via WebSocket
+      const sendWS = (funcId, payload) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const msg = UserToHubSchema.parse({ target_container: "chat", funcId, payload });
+        ws.send(JSON.stringify(msg));
+      };
+
+      return React.createElement('div', null,
+        React.createElement('div', null,
+          React.createElement('input', {
+            placeholder: "New Room",
+            value: newRoom,
+            onChange: e => setNewRoom(e.target.value)
+          }),
+          React.createElement('button', { onClick: () => sendWS("AddRoom", { room_name: newRoom }) }, "Add Room")
+        ),
+        React.createElement('div', { style: { marginTop: '0.5rem' } },
+          React.createElement('input', {
+            placeholder: "Room",
+            value: room,
+            onChange: e => setRoom(e.target.value)
+          }),
+          React.createElement('input', {
+            placeholder: "Message",
+            value: message,
+            onChange: e => setMessage(e.target.value)
+          }),
+          React.createElement('button', { onClick: () => sendWS("SendMessage", { room_name: room, message }) }, "Send Message")
+        ),
+        Object.entries(chat).map(([r, msgs]) =>
+          React.createElement('div', { key: r, className: "chat-box" },
+            React.createElement('div', { className: "room-title" }, r),
+            msgs.map((m, i) => React.createElement('div', { key: i }, m))
+          )
+        )
+      );
+    }
+
+    // --------------------------
+    // Ensure root element exists
+    // --------------------------
+    const rootEl = document.getElementById("root");
+    if (!rootEl) throw new Error("#root element not found");
+
+    const root = createRoot(rootEl);
+    root.render(React.createElement(HubInterface));
+
+  </script>
+</body>
+</html>

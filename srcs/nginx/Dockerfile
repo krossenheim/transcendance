@@ -21,7 +21,7 @@ RUN chmod 777 /etc/nginx_entryp.sh
 
 RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/
-COPY /staticfiles/ /var/www/html/
+COPY staticfiles/ /var/www/html/
 
 ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]
