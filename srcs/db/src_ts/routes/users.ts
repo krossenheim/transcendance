@@ -112,7 +112,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		Params: GetUserType;
 	};
 
-	fastify.get<GetUserSchema>('/fetch/:userId', {
+	fastify.get<GetUserSchema>('/fetch/:userid', {
 		schema: {
 			params: GetUser,
 			response: {
@@ -121,8 +121,8 @@ async function userRoutes(fastify: FastifyInstance) {
 			}
 		}
 	}, async (request, reply) => {
-		const { userId } = request.params;
-		const userResult = userService.fetchUserById(userId);
+		const { userid } = request.params;
+		const userResult = userService.fetchUserById(userid);
 
 		if (userResult.isErr())
 			return reply.status(404).send({ error: userResult.unwrapErr() });

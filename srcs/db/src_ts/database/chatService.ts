@@ -19,66 +19,40 @@ import {
   ROOMNAME_MAX_LEN,
   MESSAGE_MAX_LEN,
 } from "../utils/api/service/chat/chat_interfaces.js";
-import { StoredMessageSchema } from "../utils/api/service/chat/chat_interfaces.js";
-type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
+import {
+  StoredMessageSchema,
+  StoredRoomSchema,
+} from "../utils/api/service/chat/db_models.js";
+import type {
+  TypeStoredMessageSchema,
+  TypeStoredRoomSchema,
+} from "../utils/api/service/chat/db_models.js";
 import { NoService } from "../database/noService.js";
 
-function getMessagesTableSqlString(table_name: string) {
-  const createChatServiceTableSQL = `
-CREATE TABLE IF NOT EXISTS ${table_name} (
-  userId INTEGER NOT NULL,
-  roomName VARCHAR(${ROOMNAME_MAX_LEN}) NOT NULL UNIQUE,
-  messageString VARCHAR(${MESSAGE_MAX_LEN}) NOT NULL,
-  messageDate INTEGER DEFAULT (strftime('%s', 'now')),
-  PRIMARY KEY (userId),
-  FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
-) STRICT;
-`;
-  return createChatServiceTableSQL;
-}
+const storedMessagesTableName = "messages";
+const storedRoomsTableName = "rooms";
 
 export class ChatService {
   private db: DatabaseSync;
-  static readonly service_name = process.env.CHATROOM_NAME;
-  public readonly messagesTableName = "chat_service";
-  private constructor(db: DatabaseSync) {
+  constructor(db: DatabaseSync) {
     this.db = db;
-  }
-
-  static create(db: DatabaseSync): Result<ChatService, NoService> {
-    const service = new ChatService(db);
-    try {
-      service.ensureMessagesTableInDb();
-      return Result.Ok(service);
-    } catch (err: any) {
-      console.error(
-        "Initialization error: Table could not created, or there is a model mismatch."
-      );
-      if (!ChatService.service_name) {
-        throw Error(
-          "Missing enviroment variable for service name see globals.env"
-        );
-      }
-	  // Will reply to any method with "No service ChatService.service_name"
-      return Result.Err(new NoService(ChatService.service_name));
-    }
   }
 
   getUsersInRoom(
     room_name: string
   ): Result<Array<TypeStoredMessageSchema>, string> {
-    const sql = `SELECT userId, messageString, messageDate FROM ${this.messagesTableName} WHERE room_name = ?`;
+    const sql = `SELECT userId, messageString, messageDate FROM ${storedRoomsTableName} WHERE room_name = ?`;
     let result;
     try {
       result = z
         .array(StoredMessageSchema)
         .safeParse(this.db.prepare(sql).all(room_name));
       if (!result.success) {
-        const errstr = `Table ${this.messagesTableName} has entries not matching schema StoredMessageSchema`;
-        return Result.Err(errstr);
+        return Result.Err(result.error.message);
       }
     } catch (err) {
-      return Result.Err(`"Sql error:${err}"`);
+      console.error(`"Sql error:${err}"`);
+      return Result.Err(`"Sql error"`);
     }
     return Result.Ok(result.data);
   }
@@ -86,14 +60,14 @@ export class ChatService {
   getRoomMessages(
     room_name: string
   ): Result<Array<TypeStoredMessageSchema>, string> {
-    const sql = `SELECT userId, messageString, messageDate FROM ${this.messagesTableName} WHERE room_name = ?`;
+    const sql = `SELECT userId, messageString, messageDate FROM ${storedRoomsTableName} WHERE room_name = ?`;
     let result;
     try {
       result = z
         .array(StoredMessageSchema)
         .safeParse(this.db.prepare(sql).all(room_name));
       if (!result.success) {
-        const errstr = `Table ${this.messagesTableName} has entries not matching schema StoredMessageSchema`;
+        const errstr = `Table ${storedRoomsTableName} has entries not matching schema StoredMessageSchema`;
         return Result.Err(errstr);
       }
     } catch (err) {
@@ -105,7 +79,7 @@ export class ChatService {
   ensureMessagesTableMatchesSchema(): Result<boolean, string> {
     // This will throw if a model was changed and the database not migrated.
     // Which is good because its not like we auto migrate.
-    const sql = `SELECT * FROM ${this.messagesTableName}`;
+    const sql = `SELECT * FROM storedRoomsTableName`;
     let result;
     try {
       result = z
@@ -115,14 +89,14 @@ export class ChatService {
       return Result.Err(`"Sql error:${err}"`);
     }
     if (!result.success) {
-      const errstr = `Table ${this.messagesTableName} has entries not matching schema StoredMessageSchema`;
+      const errstr = `Table ${storedRoomsTableName} has entries not matching schema StoredMessageSchema`;
       return Result.Err(errstr);
     }
     return Result.Ok(true);
   }
 
   ensureMessagesTableInDb(): Result<true, string> {
-    const sql = `CREATE TABLE IF NOT EXISTS ${this.messagesTableName} (
+    const sql = `CREATE TABLE IF NOT EXISTS ${storedRoomsTableName} (
 				userId INTEGER NOT NULL,
 				roomName VARCHAR(${ROOMNAME_MAX_LEN}) NOT NULL UNIQUE,
 				messageString VARCHAR(${MESSAGE_MAX_LEN}) NOT NULL,

@@ -2,14 +2,16 @@ import { is } from "zod/locales";
 import GameResult from "./gameResult.js"
 import { z } from 'zod';
 
+export const id_rule = z.number().gt(0);
+
 export const Friend = z.object({
-	id: z.number(),
+	id: id_rule,
 	username: z.string(),
 	alias: z.string().nullable()
 });
 
 export const User = z.object({
-	id: z.number(),
+	id: id_rule,
 	createdAt: z.number(),
 	username: z.string(),
 	alias: z.string().nullable(),
@@ -22,13 +24,13 @@ export const FullUser = User.extend({
 });
 
 export const UserAuthData = z.object({
-	id: z.number(),
+	id: id_rule,
 	passwordHash: z.string().nullable(),
 	isGuest: z.number()
 });
 
 export const GetUser = z.object({
-	userId: z.number().min(1)
+	userid: id_rule
 }).strict();
 
 export type FriendType = z.infer<typeof Friend>;

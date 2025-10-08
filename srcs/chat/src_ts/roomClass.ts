@@ -4,9 +4,9 @@ import {
 } from "./utils/api/service/hub/hub_interfaces.js";
 
 import {
-  AddRoomSchema,
-  AddUserToRoomPayloadSchema,
-  SendMessageSchema,
+  RoomNamePayloadSchema,
+  AddToRoomPayloadSchema,
+  SendMessagePayloadSchema,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
@@ -65,7 +65,7 @@ class Room {
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const validate_user_add = AddUserToRoomPayloadSchema.safeParse(
+    const validate_user_add = AddToRoomPayloadSchema.safeParse(
       client_request.payload
     );
     if (!validate_user_add.success) {
@@ -146,7 +146,7 @@ class Room {
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const valid_message_to_send = SendMessageSchema.safeParse(
+    const valid_message_to_send = SendMessagePayloadSchema.safeParse(
       client_request.payload
     );
     if (!valid_message_to_send.success) {
@@ -229,7 +229,7 @@ class ChatRooms {
     if (!user_id) {
       throw Error("Service called with no user id behind it.");
     }
-    const valid_add_room_schema = AddRoomSchema.safeParse(
+    const valid_add_room_schema = RoomNamePayloadSchema.safeParse(
       client_request.payload
     );
     if (!valid_add_room_schema.success) {
@@ -297,7 +297,7 @@ class ChatRooms {
     if (!user_id) {
       throw Error("Service called with no user id behind it.");
     }
-    const validate_message = SendMessageSchema.safeParse(
+    const validate_message = SendMessagePayloadSchema.safeParse(
       client_request.payload
     );
     if (!validate_message.success) {
@@ -325,7 +325,7 @@ class ChatRooms {
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const valid_user_to_room_request = AddUserToRoomPayloadSchema.safeParse(
+    const valid_user_to_room_request = AddToRoomPayloadSchema.safeParse(
       client_request.payload
     );
 

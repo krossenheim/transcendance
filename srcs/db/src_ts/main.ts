@@ -17,9 +17,9 @@ import Fastify from "fastify";
 
 // Setup database
 const db = new Database("/etc/database_data/users.db");
-const tokenService = TokenService.create(db.getDB());
+const tokenService = new TokenService(db.getDB());
 const userService = new UserService(db.getDB());
-const chatService = ChatService.create(db.getDB());
+const chatService = new ChatService(db.getDB());
 
 // Setup Fastify with Zod
 const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
@@ -39,14 +39,8 @@ import tokenRoutes from "./routes/tokens.js";
 fastify.register(tokenRoutes, { prefix: "/internal_api/tokens" });
 fastify.register(tokenRoutes, { prefix: "/api/tokens" });
 
-if (chatService.isOk()) {
-  import chatRoutes from "./routes/chat.js";
-  fastify.register(chatRoutes, { prefix: "/internal_api/chat" });
-}
-else
-{
-	// Let it not reach the container, or, use NoService.bogusroutes?
-}
+import chatRoutes from "./routes/chat.js";
+fastify.register(chatRoutes, { prefix: "/internal_api/chat" });
 
 // Run the server
 const port = parseInt(

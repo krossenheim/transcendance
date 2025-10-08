@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { id_rule } from "../db/user.js";
 
+const whitelistedPattern = /^[a-zA-Z0-9 ]+$/;
 const ROOMNAME_MIN_LEN = 3;
 export const ROOMNAME_MAX_LEN = 50;
 
-const whitelistedPattern = /^[a-zA-Z0-9 ]+$/;
-
-const roomNameRule = z.coerce
+export const room_id_rule = z.number().gt(0);
+export const room_name_rule = z.coerce
   .string()
   .min(ROOMNAME_MIN_LEN, {
     message: `String must be at least ${ROOMNAME_MIN_LEN} characters long`,
@@ -21,7 +22,7 @@ const roomNameRule = z.coerce
 const MESSAGE_MIN_LEN = 1;
 export const MESSAGE_MAX_LEN = 320;
 
-const messageRule = z.coerce
+export const message_rule = z.coerce
   .string()
   .min(MESSAGE_MIN_LEN, {
     message: `String must be at least ${MESSAGE_MIN_LEN} characters long`,
@@ -34,31 +35,28 @@ const messageRule = z.coerce
     message: `String contains invalid characters; only alphanumerics are allowed`,
   });
 
-export const StoredMessageSchema = z
+export const RoomNamePayloadSchema = z
   .object({
-    userId: z.number().int().positive(),
-    roomName: roomNameRule,
-    messageString: messageRule,
-    messageDate: z.number().int(),
+    room_name: room_name_rule,
   })
   .strict();
 
-export const AddUserToRoomPayloadSchema = z
+export const SendMessagePayloadSchema = z
   .object({
-    room_name: roomNameRule,
-    user_to_add: z.number().int().positive(),
+    room_id: room_id_rule,
+    messageString: message_rule,
   })
   .strict();
 
-export const SendMessageSchema = z
+export const AddToRoomPayloadSchema = z
   .object({
-    room_name: roomNameRule,
-    message: messageRule,
+    room_name: RoomNamePayloadSchema,
+    user_to_add: id_rule,
   })
   .strict();
 
-export const AddRoomSchema = z
-  .object({
-    room_name: roomNameRule,
-  })
-  .strict();
+export type TypeRoomNamePayload = z.infer<typeof RoomNamePayloadSchema>;
+export type TypeAddToRoomPayload = z.infer<typeof AddToRoomPayloadSchema>;
+export type TypeUserSendMessagePayload = z.infer<
+  typeof SendMessagePayloadSchema
+>;
