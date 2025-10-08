@@ -7,7 +7,8 @@ export class PlayerPaddle {
   // private constants
   private readonly start_pos: Vec2;
   private readonly game_size: Vec2;
-
+  public static totalPaddles: number = 0;
+  public readonly id: number;
   public pos: Vec2;
   public readonly d: Vec2; // direction and rotation dont change on the fly
   public readonly r: number; // direction and rotation don't change on the fly
@@ -22,7 +23,8 @@ export class PlayerPaddle {
     start_pos: Vec2,
     game_size: Vec2,
     player_id: number,
-    pladdle_speed = DEFAULT_PADDLE_SPEED
+    length: number,
+    pladdle_speed = DEFAULT_PADDLE_SPEED,
   ) {
     this.start_pos = start_pos;
     this.game_size = game_size;
@@ -32,13 +34,14 @@ export class PlayerPaddle {
       y: this.game_size.y / 2,
     });
     this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
-    this.length = Math.min(game_size.y, game_size.x) * 0.25;
-    this.width = 20;
+    this.length = length; //Math.min(game_size.y, game_size.x) * 0.25;
+    this.width = length / 10;
     this.segment = this.makeSegment(this.pos, this.d, this.length);
     this.lastMovement = { x: 0, y: 0 };
     this.player_ID = player_id;
     this.is_moving_right = null;
     this.s = pladdle_speed;
+    this.id = ++PlayerPaddle.totalPaddles;
   }
   makeSegment(pos: Vec2, dir: Vec2, length: number): Vec2[] {
     const forward = normalize(dir); // unit vector along dir

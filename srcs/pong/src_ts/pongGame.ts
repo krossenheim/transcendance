@@ -1,4 +1,5 @@
 import type { Vec2 } from "./vector2.js";
+import { Result } from "./utils/api/service/common/result.js";
 import {
   add,
   sub,
@@ -7,6 +8,7 @@ import {
   normalize,
   scale,
   is_zero,
+  mag,
 } from "./vector2.js";
 import PlayerPaddle from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
@@ -14,83 +16,201 @@ import type {
   TypePongBall,
   TypePongPaddle,
   TypeGameStateSchema,
+  TypePongEdgeSchema,
 } from "./utils/api/service/pong/pong_interfaces.js";
 // import user from "./utils/api/service/db/user.js";
 import generateCirclePoints from "./generateCirclePoints.js";
+import { map } from "zod";
+
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-
+const MAP_GAMEOVER_EDGES_WIDTH = 10;
+const RADIUS_PLACE_PLAYERS = 0.33;
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
   return Math.trunc(num * factor) / factor;
 }
 
+function calculatePaddleLength(map_edges: Vec2[]) {
+  const a = map_edges[0]!;
+  const b = map_edges[1]!;
+
+  return mag({ x: b.x - a.x, y: b.y - a.y }) * 0.33;
+}
+
+function rotatePolygon(
+  points: Vec2[], // array of vertices
+  center: Vec2, // point to rotate around
+  angleRad: number // rotation angle in radians
+): Vec2[] {
+  return points.map((p) => {
+    const dx = p.x - center.x;
+    const dy = p.y - center.y;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    return {
+      x: dx * cos - dy * sin + center.x,
+      y: dx * sin + dy * cos + center.y,
+    };
+  });
+}
+
 class PongGame {
   private board_size: Vec2;
+  private map_polygon_edges: Vec2[];
   public player_paddles: Array<PlayerPaddle>;
-  public player_to_paddle: Map<number, PlayerPaddle>;
-  public players: Array<number>;
+  public player_id_to_paddle: Map<number, PlayerPaddle>;
+  public player_ids: Array<number>;
   public pong_balls: Array<PongBall>;
   // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
 
   private constructor(player_ids: Array<number>) {
-    this.players = player_ids;
+    this.player_ids = player_ids;
     this.board_size = { x: 1000, y: 1000 };
-    // this.debug_play_field = generateCirclePoints(4,
-    //   Math.min(this.board_size.x, this.board_size.y) * 0.75), { x: this.board_size.y / 2, y: this.board_size.x / 2 });
-    this.pong_balls = [];
-    this.player_paddles = [];
-    this.player_to_paddle = new Map();
+    this.pong_balls = this.spawn_balls(20);
+    this.map_polygon_edges = this.spawn_map_edges(player_ids.length);
+    this.player_id_to_paddle = this.spawn_paddles(player_ids);
+    this.player_paddles = Array.from(this.player_id_to_paddle.values());
     this.last_frame_time = Date.now(); // initial timestamp in ms
-    this.initializeBoard(player_ids);
   }
 
-  static create(player_ids: Array<number>): PongGame | null {
+  // function validateToken(token: string): Result<number, string> {
+  // 	let decoded: { uid: number; iat: number; exp: number; };
+  // 	try {
+  // 		decoded = jwt.verify(token, secretKey) as { uid: number; iat: number; exp: number; };
+  // 	} catch (err) {
+  // 		return Result.Err('Invalid JWT');
+  // 	}
+
+  // 	if (typeof decoded.exp !== 'number' || Date.now() >= decoded.exp * 1000) {
+  // 		return Result.Err('JWT expired');
+  // 	}
+
+  // 	if (typeof decoded.uid !== 'number' || decoded.uid < 1)
+  // 		return Result.Err('Invalid JWT payload');
+  // 	else
+  // 		return Result.Ok(decoded.uid);
+  // }
+
+  static create(player_ids: Array<number>): Result<PongGame, string> {
     if (new Set(player_ids).size !== player_ids.length) {
       console.error("Non unique ids passed as player_ids");
-      return null;
+      return Result.Err("Non unique ids passed as player_ids");
     }
-    if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS)
-      return null;
-    return new PongGame(player_ids);
+    if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS) {
+      console.error("Less or more than 2-8 players.");
+      return Result.Err("Less or more than 2-8 players.");
+    }
+    for (const player_id of player_ids) {
+      if (player_id < 1 || !Number.isInteger(player_id)) {
+        console.error("Player ID is less than one, or not an integer.");
+        return Result.Err("Player ID is less than one, or not an integer.");
+      }
+      const count = player_ids.filter((n) => n === player_id).length;
+      if (count < 1 && count > 2) {
+        console.error("Player ID appears more than twice.");
+        return Result.Err("Player ID appears more than twice.");
+      }
+    }
+    try {
+      return Result.Ok(new PongGame(player_ids));
+    } catch (e: unknown) {
+      console.error(
+        "Factory method failed to create new instance of PongGame, player list was: ",
+        player_ids
+      );
+      console.error("error: ", e);
+      return Result.Err("Failed to create new instance of PongGame");
+    }
   }
 
-  initializeBoard(player_ids: Array<number>) {
+  private spawn_paddles(player_ids: Array<number>): Map<number, PlayerPaddle> {
+    const player_to_paddle_map: Map<number, PlayerPaddle> = new Map();
     const paddle_positions = generateCirclePoints(
       player_ids.length,
-      Math.min(this.board_size.x, this.board_size.y) * 0.25,
-      { x: this.board_size.y / 2, y: this.board_size.x / 2 }
+      Math.min(this.board_size.x, this.board_size.y) * RADIUS_PLACE_PLAYERS,
+      { x: this.board_size.x / 2, y: this.board_size.y / 2 }
     );
 
     let idxpaddle = 0;
     for (const player_id of player_ids) {
       const vector = paddle_positions[idxpaddle++];
       if (vector === undefined) {
-        throw Error("There should be as many paddle positions as players.");
+        throw Error("Constructor failed to validate player ids.");
       }
-      console.log("Placing paddle at: ", vector.x, ",", vector.y);
-
-      const paddle = new PlayerPaddle(vector, this.board_size, player_id);
-      this.player_to_paddle.set(player_id, paddle);
-      this.player_paddles.push(paddle);
+      const length = calculatePaddleLength(this.map_polygon_edges);
+      const paddle = new PlayerPaddle(
+        vector,
+        this.board_size,
+        player_id,
+        length
+      );
+      console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.id}'`);
+      player_to_paddle_map.set(player_id, paddle);
     }
-    console.log("Added players:", Array.from(this.player_to_paddle.keys()));
-    for (let i = 0; i < 40; i++) {
-      this.pong_balls.push(
+    console.log(
+      "Spawned paddles for playerids:",
+      Array.from(player_to_paddle_map.keys())
+    );
+    return player_to_paddle_map;
+  }
+
+  private spawn_map_edges(player_count: number): Vec2[] {
+    // const side_length = this.player_paddles[0]!.length * 3;
+
+    let vertices_count = player_count;
+    if (player_count === 2) {
+      vertices_count = 4;
+    }
+    let outer_scale_mult;
+    if (vertices_count === 4) {
+      outer_scale_mult = 1.5;
+    } else if (vertices_count === 3) {
+      outer_scale_mult = 2.13;
+    } else {
+      outer_scale_mult = 1.3;
+    }
+    const limits_of_the_map = generateCirclePoints(
+      vertices_count,
+      Math.min(this.board_size.x, this.board_size.y) *
+        RADIUS_PLACE_PLAYERS *
+        outer_scale_mult,
+      { x: this.board_size.x / 2, y: this.board_size.y / 2 }
+    );
+
+    let rot_angle;
+    if (player_count === 3) {
+      rot_angle = (2 * Math.PI) / 6;
+    } else if (player_count === 2 || player_count === 4) {
+      rot_angle = (2 * Math.PI) / 8;
+    } else {
+      rot_angle = (2 * Math.PI) / this.player_ids.length / 2;
+    }
+    const rotated_limits: Vec2[] = rotatePolygon(
+      limits_of_the_map,
+      { x: this.board_size.x / 2, y: this.board_size.y / 2 },
+      rot_angle
+    );
+    return rotated_limits;
+  }
+
+  private spawn_balls(count: number): Array<PongBall> {
+    const balls = [];
+    for (let i = 0; i < count; i++) {
+      balls.push(
         new PongBall(
           { x: this.board_size.x / 2, y: this.board_size.y / 2 },
           this.board_size
         )
       );
     }
-
-    console.log(`Initialized ${player_ids.length} paddles`);
+    return balls;
   }
 
   setInputOnPaddle(user_id: number, move_right: boolean | null) {
-    const paddle = this.player_to_paddle.get(user_id);
+    const paddle = this.player_id_to_paddle.get(user_id);
     if (!paddle) {
       console.error("Couldnt find paddle for player id: ", user_id, "???");
       return;
@@ -123,9 +243,14 @@ class PongGame {
   }
 
   getGameState(): TypeGameStateSchema {
-    const payload: { balls: TypePongBall[]; paddles: TypePongPaddle[] } = {
+    const payload: {
+      balls: TypePongBall[];
+      paddles: TypePongPaddle[];
+      edges: TypePongEdgeSchema[];
+    } = {
       balls: [],
       paddles: [],
+      edges: [],
     };
 
     for (const obj of this.pong_balls) {
@@ -148,6 +273,7 @@ class PongGame {
         l: truncDecimals(obj.length),
       });
     }
+    payload.edges = this.map_polygon_edges;
     return payload;
   }
 
@@ -176,7 +302,35 @@ class PongGame {
       const pb_movement = pong_ball.getMove(deltaFactor);
       pong_ball.movePaddleAware(pb_movement, this.player_paddles);
     }
-    this.tempSquareBoundaries();
+    for (const pong_ball of this.pong_balls) {
+      const pb_movement = pong_ball.getMove(deltaFactor);
+      for (let i = 0; i < this.map_polygon_edges.length; i++) {
+        const segment_a = this.map_polygon_edges[i]!;
+        const segment_b =
+          this.map_polygon_edges[(i + 1) % this.map_polygon_edges.length]!;
+        const hits_wall = pong_ball.checkSegmentCollision(
+          pong_ball.pos,
+          segment_a,
+          segment_b,
+          { x: 0, y: 0 },
+          pb_movement,
+          pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
+          MAP_GAMEOVER_EDGES_WIDTH
+        );
+        if (!hits_wall) continue;
+        pong_ball.lastCollidedWith = null;
+        pong_ball.pos = scale(0.5, this.board_size);
+
+        const quarterIndex = Math.floor(Math.random() * 4);
+        // pick a random angle inside the quarter, avoiding epsilon at edges
+        const r =
+          (quarterIndex * Math.PI) / 2 +
+          0.1 +
+          Math.random() * (Math.PI / 2 - 2 * 0.1);
+        pong_ball.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
+      }
+      this.tempSquareBoundaries();
+    }
   }
 }
 

@@ -107,19 +107,19 @@ export class PongManager {
     }
     const { player_list } = validation.data.payload;
     // const { user_id } = parsed;
-    const pong_game = PongGame.create(player_list);
-    if (!pong_game) {
+    let result = PongGame.create(player_list);
+    if (result.isErr()) {
       return {
         recipients: [user_id],
         funcId: "start_pong",
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "could not start pong game.",
+          pop_up_text: result.unwrapErr(),
         },
       };
     }
-
+    const pong_game = result.unwrap();
     const game_id = this.debugGameID;
     this.debugGameID++;
     this.pong_instances.clear(); //debug debug debug
@@ -158,14 +158,14 @@ export class PongManager {
       if (id !== board_id) {
         continue;
       }
-      if (!game.players.includes(user_id)) {
+      if (!game.player_ids.includes(user_id)) {
         console.log(
           "User with id ",
           user_id,
           " not a player of game with id ",
           id,
           " Its players are: ",
-          game.players
+          game.player_ids
         );
         return;
       }
