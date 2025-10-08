@@ -102,7 +102,14 @@ export class ChatService {
   }
 
   ensureMessagesTableInDb(): Result<true, string> {
-    const sql = getMessagesTableSqlString(this.messagesTableName);
+    const sql = `CREATE TABLE IF NOT EXISTS ${this.messagesTableName} (
+				userId INTEGER NOT NULL,
+				roomName VARCHAR(${ROOMNAME_MAX_LEN}) NOT NULL UNIQUE,
+				messageString VARCHAR(${MESSAGE_MAX_LEN}) NOT NULL,
+				messageDate INTEGER DEFAULT (strftime('%s', 'now')),
+				PRIMARY KEY (userId),
+				FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+				) STRICT;`;
     let result = null;
     try {
       result = this.db.prepare(sql).run();
