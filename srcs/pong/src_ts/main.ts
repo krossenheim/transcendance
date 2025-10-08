@@ -65,7 +65,7 @@ async function backgroundTask() {
         };
         socketToHub.send(JSON.stringify(out));
       }
-      const getNextFrameTime = 30; // game.next_frame_when?
+      const getNextFrameTime = 50; // game.next_frame_when?
       await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
     }
   } catch (err) {
@@ -82,8 +82,8 @@ async function backgroundTask() {
   }
 }
 backgroundTask();
-singletonPong.startGame({
-  user_id: 2,
-  funcId: "/api/start_game",
-  payload: { player_list: [2, 3, 4, 5, 6, 7] },
-});
+// singletonPong.startGame({
+//   user_id: 2,
+//   funcId: "/api/start_game",
+//   payload: { player_list: [2, 3, 4] },
+// });
