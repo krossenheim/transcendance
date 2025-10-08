@@ -21,6 +21,7 @@ import {
 } from "../utils/api/service/chat/chat_interfaces.js";
 import { StoredMessageSchema } from "../utils/api/service/chat/chat_interfaces.js";
 type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
+import { NoService } from "../database/noService.js";
 
 function getMessagesTableSqlString(table_name: string) {
   const createChatServiceTableSQL = `
@@ -38,10 +39,29 @@ CREATE TABLE IF NOT EXISTS ${table_name} (
 
 export class ChatService {
   private db: DatabaseSync;
+  static readonly service_name = process.env.CHATROOM_NAME;
   public readonly messagesTableName = "chat_service";
-  constructor(db: DatabaseSync) {
+  private constructor(db: DatabaseSync) {
     this.db = db;
-    this.ensureMessagesTableInDb();
+  }
+
+  static create(db: DatabaseSync): Result<ChatService, NoService> {
+    const service = new ChatService(db);
+    try {
+      service.ensureMessagesTableInDb();
+      return Result.Ok(service);
+    } catch (err: any) {
+      console.error(
+        "Initialization error: Table could not created, or there is a model mismatch."
+      );
+      if (!ChatService.service_name) {
+        throw Error(
+          "Missing enviroment variable for service name see globals.env"
+        );
+      }
+	  // Will reply to any method with "No service ChatService.service_name"
+      return Result.Err(new NoService(ChatService.service_name));
+    }
   }
 
   getUsersInRoom(
@@ -82,7 +102,7 @@ export class ChatService {
     return Result.Ok(result.data);
   }
 
-  ensureMessagesTableMatchesSchema(): Result<true, string> {
+  ensureMessagesTableMatchesSchema(): Result<boolean, string> {
     // This will throw if a model was changed and the database not migrated.
     // Which is good because its not like we auto migrate.
     const sql = `SELECT * FROM ${this.messagesTableName}`;
@@ -96,7 +116,7 @@ export class ChatService {
     }
     if (!result.success) {
       const errstr = `Table ${this.messagesTableName} has entries not matching schema StoredMessageSchema`;
-      throw Error(errstr);
+      return Result.Err(errstr);
     }
     return Result.Ok(true);
   }

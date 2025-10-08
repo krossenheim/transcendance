@@ -118,9 +118,11 @@ class Room {
           message: `User ${user_to_add} already in room ${room_name}.`,
         },
       };
+    // import { db_interface_add_user } from "";
 
-    const query_result: Result = db_interface_add_user();
-    if (query_result.isErr) this.users.push(toInt(user_to_add));
+    // const query_result: Result = db_interface_add_user();
+    // if (query_result.isErr)
+    this.users.push(toInt(user_to_add));
     return {
       recipients: this.users,
       funcId: "add_user_to_room",
