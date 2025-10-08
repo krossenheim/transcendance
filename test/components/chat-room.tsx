@@ -426,7 +426,7 @@ export function ChatRoom({ user }: ChatRoomProps) {
     }
   }, [needsDefaultRoom, sendWsMessage])
 
-  const handleSendMessage = useCallback(() => {
+const handleSendMessage = useCallback(() => {
     console.log("handleSendMessage called", { message, currentRoom });
     if (!message.trim()) return
 
@@ -444,39 +444,39 @@ export function ChatRoom({ user }: ChatRoomProps) {
       return
     }
 
-    if (!isConnected) {
-      const demoMessage = {
-        id: Date.now(),
-        text: message.trim(),
-        sender: user.username,
-        timestamp: new Date(),
-        room: currentRoom,
+    // Create the message object for optimistic update
+    const newMessage = {
+      id: Date.now(),
+      text: message.trim(),
+      sender: user.username,
+      timestamp: new Date(),
+      room: currentRoom,
+    }
+
+    // Add message immediately (optimistic update)
+    addMessage(newMessage)
+    setMessages((prev) => [...prev, newMessage])
+    setMessage("")
+
+    // If connected, also send to server
+    if (isConnected) {
+      const messageData = {
+        container: "chat",
+        endpoint: "/api/chat/send_message_to_room",
+        message: message.trim(),
+        room_name: currentRoom,
       }
-
-      addMessage(demoMessage)
-      setMessages((prev) => [...prev, demoMessage])
-      setMessage("")
-
+      sendWsMessage(messageData)
+    } else {
       toast({
         title: "Offline Mode",
         description: "Message sent in offline mode (demo only)",
         variant: "secondary",
       })
-      return
     }
-
-    const messageData = {
-      endpoint: "/api/chat/send_message_to_room",
-      message: message.trim(),
-      room_name: currentRoom,
-    }
-
-    sendWsMessage(messageData)
-    setMessage("")
 
     clearTimeout(typingTimeoutRef.current)
   }, [message, isConnected, user, currentRoom, addMessage, toast, sendWsMessage])
-
   const handleTyping = useCallback((value: string) => {
     setMessage(value)
   }, [])
