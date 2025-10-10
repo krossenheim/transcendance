@@ -58,10 +58,10 @@ function rotatePolygon(
 class PongGame {
   private board_size: Vec2;
   private map_polygon_edges: Vec2[];
-  public player_paddles: Array<PlayerPaddle>;
-  public player_id_to_paddle: Map<number, PlayerPaddle>;
-  public player_ids: Array<number>;
-  public pong_balls: Array<PongBall>;
+  public readonly player_paddles: Array<PlayerPaddle>;
+  public readonly player_id_to_paddle: Map<number, PlayerPaddle>;
+  public readonly player_ids: Array<number>;
+  public readonly pong_balls: Array<PongBall>;
   // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
@@ -115,7 +115,8 @@ class PongGame {
       }
     }
     try {
-      return Result.Ok(new PongGame(player_ids));
+		const game = new PongGame(player_ids);
+      return Result.Ok(game );
     } catch (e: unknown) {
       console.error(
         "Factory method failed to create new instance of PongGame, player list was: ",

@@ -1,17 +1,17 @@
 import token, { VerifyTokenPayload, type VerifyTokenPayloadType, StoreTokenPayload, type StoreTokenPayloadType } from '../utils/api/service/db/token.js';
 import type { ErrorResponseType } from '../utils/api/service/common/error.js';
-import { StoredMessageSchema, StoredRoomSchema } from 'utils/api/service/chat/db_models.js';
+import { StoredMessageSchema, ListRoomsSchema } from '../utils/api/service/chat/db_models.js';
 import { ErrorResponse } from '../utils/api/service/common/error.js';
 import { tokenService, userService } from '../main.js';
 import type { FastifyInstance } from 'fastify';
-import type { TypeUserSendMessagePayload, TypeRoomNamePayload,TypeAddToRoomPayload } from 'utils/api/service/chat/chat_interfaces.js';
-import type { TypeStoredMessageSchema,TypeStoredRoomSchema } from 'utils/api/service/chat/db_models.js';
+import type { TypeUserSendMessagePayload, TypeAddRoomPayloadSchema,TypeAddToRoomPayload } from '../utils/api/service/chat/chat_interfaces.js';
+import type { TypeStoredMessageSchema,TypeListRoomsSchema } from '../utils/api/service/chat/db_models.js';
 import { z } from 'zod';
 
 
 export async function chatRoutes(fastify: FastifyInstance) {
 	type StoredMessageSchema = {
-		Body: TypeRoomNamePayload,
+		Body: TypeAddRoomPayloadSchema,
 		Reply: {
 			200: TypeStoredMessageSchema;
 			401: ErrorResponseType;

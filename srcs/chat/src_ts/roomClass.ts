@@ -4,14 +4,14 @@ import {
 } from "./utils/api/service/hub/hub_interfaces.js";
 
 import {
-  RoomNamePayloadSchema,
+  AddRoomPayloadSchema,
   AddToRoomPayloadSchema,
   SendMessagePayloadSchema,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
-import { Result } from "utils/api/service/common/result.js";
+import { Result } from "./utils/api/service/common/result.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -229,7 +229,7 @@ class ChatRooms {
     if (!user_id) {
       throw Error("Service called with no user id behind it.");
     }
-    const valid_add_room_schema = RoomNamePayloadSchema.safeParse(
+    const valid_add_room_schema = AddRoomPayloadSchema.safeParse(
       client_request.payload
     );
     if (!valid_add_room_schema.success) {

@@ -60,11 +60,13 @@ export class PongManager {
 
     // debug
     // debug
-    for (const [id, instance] of this.pong_instances) {
-      if (instance !== gameInstance) {
-        this.pong_instances.delete(id);
-      }
-    }
+	this.pong_instances = new Map();
+	this.pong_instances.set(game_id,gameInstance);
+    // for (const [id, instance] of this.pong_instances) {
+    //   if (instance !== gameInstance) {
+    //     this.pong_instances.delete(id);
+    //   }
+    // }
     // debug
     // debug
 

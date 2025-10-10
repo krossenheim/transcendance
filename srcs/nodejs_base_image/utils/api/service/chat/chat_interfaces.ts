@@ -35,14 +35,16 @@ export const message_rule = z.coerce
     message: `String contains invalid characters; only alphanumerics are allowed`,
   });
 
-export const RoomNamePayloadSchema = z
+export const AddRoomPayloadSchema = z
   .object({
+	// Payload sent by client "Wants a new room made"
     room_name: room_name_rule,
   })
   .strict();
 
 export const SendMessagePayloadSchema = z
   .object({
+	// Payload sent by client "send message to room"
     room_id: room_id_rule,
     messageString: message_rule,
   })
@@ -50,12 +52,13 @@ export const SendMessagePayloadSchema = z
 
 export const AddToRoomPayloadSchema = z
   .object({
-    room_name: RoomNamePayloadSchema,
+	// Payload sent by client "add person to room"
+    room_id: room_id_rule,
     user_to_add: id_rule,
   })
   .strict();
 
-export type TypeRoomNamePayload = z.infer<typeof RoomNamePayloadSchema>;
+export type TypeAddRoomPayloadSchema = z.infer<typeof AddRoomPayloadSchema>;
 export type TypeAddToRoomPayload = z.infer<typeof AddToRoomPayloadSchema>;
 export type TypeUserSendMessagePayload = z.infer<
   typeof SendMessagePayloadSchema

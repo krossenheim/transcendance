@@ -21,6 +21,7 @@ export class Database {
     	const __dirname = path.dirname(__filename);
     	const filePath = path.join(__dirname, '..', 'structure.sql');
 		const sqlSetup = fs.readFileSync(filePath, 'utf-8');
+		
 		this.db.exec(sqlSetup);
 	}
 
