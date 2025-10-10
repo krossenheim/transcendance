@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Home</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    main { min-height: 100vh; display: flex; justify-content: center; align-items: center; background: #f0f4f8; }
+    .card { padding: 2rem; border-radius: 0.5rem; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/javascript">
+    const { useState } = React;
+
+    // Placeholder for RegisterForm component
+    function RegisterForm({ whenCompletedSuccesfully }) {
+      const handleRegister = () => {
+        const mockResponse = { user: { username: 'demoUser' } };
+        whenCompletedSuccesfully(mockResponse);
+      };
+      return React.createElement('div', { className: 'card' },
+        React.createElement('h2', null, 'Register Form Placeholder'),
+        React.createElement('button', { onClick: handleRegister }, 'Register')
+      );
+    }
+
+    function Home() {
+      const [registeredUser, setRegisteredUser] = useState(null);
+
+      function logInOrRegistered(response) {
+        setRegisteredUser(response);
+      }
+
+      return React.createElement('main', null,
+        registeredUser 
+          ? React.createElement('div', { className: 'card' },
+              React.createElement('h2', null, `Welcome, ${registeredUser.user.username}!`),
+              React.createElement('p', null, 'Your account has been created successfully.')
+            )
+          : React.createElement(RegisterForm, { whenCompletedSuccesfully: logInOrRegistered })
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(Home));
+  </script>
+</body>
+</html>

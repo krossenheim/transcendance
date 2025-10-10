@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { StoredMessageSchema,StoredRoomSchema } from "utils/api/service/chat/db_models"
 
 interface Message {
   id: number
