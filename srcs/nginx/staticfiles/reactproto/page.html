@@ -26,68 +26,61 @@
       defer
     ></script>
     <script type="text/babel">
-        const { useState } = React;
-        console.log("Form:", RegisterForm);
+      const { useState } = React;
+      console.log("Form:", RegisterForm);
 
-        /*
-         * --------------------------------------------------------
-         * Type Definitions (for clarity)
-         * --------------------------------------------------------
-         *
-         * @typedef {Object} User
-         * @property {string} username
-         *
-         * @typedef {Object} AuthResponseType
-         * @property {User} user
-         * @property {string} [token]
-         */
+      /*
+       * --------------------------------------------------------
+       * Type Definitions (for clarity)
+       * --------------------------------------------------------
+       *
+       * @typedef {Object} User
+       * @property {string} username
+       *
+       * @typedef {Object} AuthResponseType
+       * @property {User} user
+       * @property {string} [token]
+       */
 
-        /**
-         * Simulate imported types
-         * (these would come from '../../srcs/auth/dist/utils/api/service/auth/loginResponse.js')
-         * @typedef {AuthResponseType} AuthResponse
-         */
+      /**
+       * Simulate imported types
+       * (these would come from '../../srcs/auth/dist/utils/api/service/auth/loginResponse.js')
+       * @typedef {AuthResponseType} AuthResponse
+       */
 
-        // "use client";
+      // "use client";
 
-        // import RegisterForm from '@/components/register-component';
-        // import { useState } from "react";
-        // import { AuthResponse, type AuthResponseType } from '../../srcs/auth/dist/utils/api/service/auth/loginResponse.js'
+      // import RegisterForm from '@/components/register-component';
+      // import { useState } from "react";
+      // import { AuthResponse, type AuthResponseType } from '../../srcs/auth/dist/utils/api/service/auth/loginResponse.js'
 
-        /**
-         * Home component
-         */
+      /**
+       * Home component
+       */
 
-        function Home() {
-          /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
-          const [registeredUser, setRegisteredUser] = useState(null);
+      function Home() {
+        /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
+        const [registeredUser, setRegisteredUser] = useState(null);
 
-          /** @param {AuthResponseType} response */
-          function logInOrRegistered(response) {
-            // This function takes things inside Home(){} and does things to them
-            setRegisteredUser(response);
-          }
-
-          return (
-            <main className="min-h-screen flex items-center justify-center">
-              {registeredUser ? (
-                <div className="text-center p-8 border rounded shadow">
-                  <h2 className="text-2xl font-bold">
-                    Welcome, {registeredUser.user.username}!
-                  </h2>
-                  <p>Your account has been created successfully.</p>
-                </div>
-              ) : (
-                <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
-                
-              )}
-            </main>
-          );
+        /** @param {AuthResponseType} response */
+        function logInOrRegistered(response) {
+          // This function takes things inside Home(){} and does things to them
+          setRegisteredUser(response);
         }
 
-        const root = ReactDOM.createRoot(document.getElementById("root"));
-        root.render(<Home />);
-      
+        return (
+          <main className="min-h-screen flex items-center justify-center">
+            {registeredUser ? (
+              <MainIndex />
+            ) : (
+              <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
+            )}
+          </main>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<Home />);
     </script>
   </body>
 </html>
