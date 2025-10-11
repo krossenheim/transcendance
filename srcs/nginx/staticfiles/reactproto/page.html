@@ -60,7 +60,7 @@
 
       function Home() {
         /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
-        const [registeredUser, setRegisteredUser] = useState(null);
+        const [authResponse, setAuthResponse] = useState(null);
 
         /** @param {AuthResponseType} response */
         function logInOrRegistered(response) {
@@ -70,7 +70,7 @@
 
         return (
           <main className="min-h-screen flex items-center justify-center">
-            {registeredUser ? (
+            {authResponse ? (
               <MainIndex />
             ) : (
               <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
