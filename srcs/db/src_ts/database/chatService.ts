@@ -13,7 +13,7 @@ import {
 import type { GameResultType } from "../utils/api/service/db/gameResult.js";
 import { GameResult } from "../utils/api/service/db/gameResult.js";
 import { Result } from "../utils/api/service/common/result.js";
-import { DatabaseSync } from "node:sqlite";
+import { Database } from "./database.js";
 import { z } from "zod";
 import {
   ROOMNAME_MAX_LEN,
@@ -33,46 +33,28 @@ const storedMessagesTableName = "messages";
 const storedRoomsTableName = "rooms";
 
 export class ChatService {
-  private db: DatabaseSync;
-  constructor(db: DatabaseSync) {
+  private db: Database;
+  constructor(db: Database) {
     this.db = db;
   }
 
   getRoomDetails(
     room_name: string
   ): Result<Array<TypeStoredMessageSchema>, string> {
-    const sql = `SELECT userId, messageString, messageDate FROM ${storedRoomsTableName} WHERE room_name = ?`;
-    let result;
-    try {
-      result = z
-        .array(StoredMessageSchema)
-        .safeParse(this.db.prepare(sql).all(room_name));
-      if (!result.success) {
-        return Result.Err(result.error.message);
-      }
-    } catch (err) {
-      console.error(`"Sql error:${err}"`);
-      return Result.Err(`"Sql error"`);
-    }
-    return Result.Ok(result.data);
+    return this.db.all(
+      `SELECT userId, messageString, messageDate FROM ${storedRoomsTableName} WHERE room_name = ?`,
+      StoredMessageSchema,
+      [room_name]
+    );
   }
 
   getRoomList(
     room_name: string
   ): Result<Array<TypeStoredMessageSchema>, string> {
-    const sql = `SELECT userId, messageString, messageDate FROM ${storedRoomsTableName} WHERE room_name = ?`;
-    let result;
-    try {
-      result = z
-        .array(StoredMessageSchema)
-        .safeParse(this.db.prepare(sql).all(room_name));
-      if (!result.success) {
-        const errstr = `Table ${storedRoomsTableName} has entries not matching schema StoredMessageSchema`;
-        return Result.Err(errstr);
-      }
-    } catch (err) {
-      return Result.Err(`"Sql error:${err}"`);
-    }
-    return Result.Ok(result.data);
+    return this.db.all(
+      `SELECT userId, messageString, messageDate FROM ${storedRoomsTableName} WHERE room_name = ?`,
+      StoredMessageSchema,
+      [room_name]
+    );
   }
 }

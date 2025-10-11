@@ -1,7 +1,8 @@
+import { userIdValue } from "./zodRules.js";
 import { z, ZodType } from "zod";
 
 export const GenericAuthClientRequest = z.object({
-  userId: z.number().min(1),
+  userId: userIdValue,
   payload: z.any().nullable()
 }).strict();
 

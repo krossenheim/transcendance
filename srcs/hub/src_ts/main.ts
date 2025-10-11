@@ -87,7 +87,7 @@ function disconnectUserSocket(socket: WebSocket) {
 function forwardToContainer(
   target_container: string,
   forwarded: z.infer<typeof ForwardToContainerSchema>
-): Result<void, string> {
+): Result<null, string> {
   const wsToContainer = interContainerNameToWebsockets.get(target_container);
   if (!wsToContainer)
     return Result.Err(target_container + " has never opened a socket.");
@@ -99,7 +99,7 @@ function forwardToContainer(
     "sending to " + target_container + ": " + JSON.stringify(forwarded)
   );
   wsToContainer.send(JSON.stringify(forwarded));
-  return Result.Ok(undefined);
+  return Result.Ok(null);
 }
 
 const returnType = {

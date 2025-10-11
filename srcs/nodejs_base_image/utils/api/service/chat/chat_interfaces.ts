@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { id_rule } from "../db/user.js";
+import { idValue } from "../common/zodRules.js";
 
 const whitelistedPattern = /^[a-zA-Z0-9 ]+$/;
 const ROOMNAME_MIN_LEN = 3;
@@ -54,7 +54,7 @@ export const AddToRoomPayloadSchema = z
   .object({
 	// Payload sent by client "add person to room"
     room_id: room_id_rule,
-    user_to_add: id_rule,
+    user_to_add: idValue,
   })
   .strict();
 

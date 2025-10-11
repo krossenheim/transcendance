@@ -1,4 +1,8 @@
+import { ErrorResponse, type ErrorResponseType } from './api/service/common/error.js';
+import { type FullUserType, FullUser } from './api/service/db/user.js';
+import { zodParse } from './api/service/common/zodUtils.js';
 import axios, { Axios, type AxiosResponse } from 'axios';
+import { Result } from './api/service/common/result.js';
 
 class ContainerTarget {
 	target: string;
@@ -28,13 +32,26 @@ class ContainerTarget {
 	}
 }
 
+class DatabaseTarget extends ContainerTarget {
+	async fetchUserData(userId: number): Promise<Result<FullUserType, ErrorResponseType>> {
+		const response = await this.get(`/users/fetch/${userId}`);
+		if (response === undefined)
+			return Result.Err({ message: 'Database service unreachable' });
+
+		if (response.status === 200)
+			return Result.Ok(FullUser.parse(response.data));
+
+		return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
+	}
+}
+
 class Containers {
 	auth: ContainerTarget;
-	db: ContainerTarget;
+	db: DatabaseTarget;
 
 	constructor() {
 		this.auth = new ContainerTarget('auth', process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000');
-		this.db = new ContainerTarget('db', process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000');
+		this.db = new DatabaseTarget('db', process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000');
 	}
 }
 

@@ -1,3 +1,4 @@
+import { userIdValue } from '../common/zodRules.js';
 import { z } from 'zod';
 
 export const VerifyTokenPayload = z.object({
@@ -5,7 +6,7 @@ export const VerifyTokenPayload = z.object({
 }).strict();
 
 export const StoreTokenPayload = z.object({
-  userId: z.number().min(1),
+  userId: userIdValue,
   token: z.string(),
 }).strict();
 

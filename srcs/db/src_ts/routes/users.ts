@@ -1,12 +1,12 @@
 import { FullUser, type FullUserType, GetUser, type GetUserType } from '../utils/api/service/db/user.js';
 import { AuthClientRequest, type AuthClientRequestType } from '../utils/api/service/common/clientRequest.js';
-import type { CreateUserType } from '../utils/api/service/auth/createUser.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { LoginUserType } from '../utils/api/service/auth/loginUser.js';
-import type { ErrorResponseType } from 'utils/api/service/common/error.js';
+import type { ErrorResponseType } from '../utils/api/service/common/error.js';
+import { type ZodSchema } from '../utils/api/service/common/zodUtils.js';
 import { ErrorResponse } from '../utils/api/service/common/error.js';
 import { CreateUser } from '../utils/api/service/auth/createUser.js';
 import { LoginUser } from '../utils/api/service/auth/loginUser.js';
+import { userIdValue } from '../utils/api/service/common/zodRules.js';
 import { userService } from '../main.js';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
@@ -22,170 +22,177 @@ async function verifyPassword(plainPassword: string, hashedPassword: string): Pr
 }
 
 async function userRoutes(fastify: FastifyInstance) {
-	type ListUsersSchema = {
-		Reply: {
-			200: z.infer<typeof FullUser>[];
+	const listUsersSchema = {
+		response: {
+			200: z.array(FullUser),
+			500: ErrorResponse,
+		}
+	}
+
+	fastify.get<ZodSchema<typeof listUsersSchema>>(
+		'/',
+		{ schema: listUsersSchema },
+		async (_, reply) => {
+			const usersResult = userService.fetchAllUsers();
+			if (usersResult.isErr())
+				return reply.status(500).send({ message: usersResult.unwrapErr() });
+			else
+				return reply.status(200).send(usersResult.unwrap());
+		}
+	);
+
+	const loginUserSchema = {
+		body: LoginUser,
+		response: {
+			200: FullUser, // Successful login; return user data
+			401: ErrorResponse, // Invalid username or password
+			500: ErrorResponse, // Internal server error
 		}
 	};
 
-	fastify.get<ListUsersSchema>('/', {
-		schema: {
-			response: {
-				200: z.array(FullUser),
-			}
+	fastify.post<ZodSchema<typeof loginUserSchema>>(
+		'/validate',
+		{ schema: loginUserSchema },
+		async (request, reply) => {
+			const { username, password } = request.body;
+			const userResult = userService.fetchUserFromUsername(username);
+			if (userResult.isErr())
+				return reply.status(401).send({ message: userResult.unwrapErr() });
+
+			const user = userResult.unwrap();
+			if (user.isGuest)
+				return reply.status(401).send({ message: 'You cannot login as a guest user' });
+
+			if (!await verifyPassword(password, user.passwordHash || ''))
+				return reply.status(401).send({ message: 'Invalid password' });
+
+			const outUser = userService.fetchUserById(user.id);
+			if (outUser.isErr())
+				return reply.status(500).send({ message: outUser.unwrapErr() });
+
+			return reply.status(200).send(outUser.unwrap());
 		}
-	}, async (_, reply) => {
-		return reply.status(200).send(userService.fetchAllUsers());
-	});
+	);
 
-	type ValidateSchema = {
-		Body: z.infer<typeof LoginUser>;
-		Reply: {
-			200: FullUserType;
-			401: ErrorResponseType;
-			500: ErrorResponseType;
-		};
-	}
-
-	fastify.post<ValidateSchema>('/validate', {
-		schema: {
-			body: LoginUser,
-			response: {
-				200: FullUser, // Valid credentials; return user data
-				401: ErrorResponse, // Invalid credentials
-				500: ErrorResponse, // Internal server error
-			}
+	const fetchMeSchema = {
+		body: AuthClientRequest(z.any()),
+		response: {
+			200: FullUser, // Found user
+			400: ErrorResponse, // Missing or invalid userId
+			404: ErrorResponse, // User not found
+			500: ErrorResponse, // Internal server error
 		}
-	}, async (request, reply) => {
-		const { username, password } = request.body;
-		const userResult = userService.fetchUserFromUsername(username);
-		if (userResult.isErr())
-			return reply.status(401).send({ message: userResult.unwrapErr() });
-
-		const user = userResult.unwrap();
-		if (user.isGuest)
-			return reply.status(401).send({ message: 'You cannot login as a guest user' });
-
-		if (!await verifyPassword(password, user.passwordHash || ''))
-			return reply.status(401).send({ message: 'Invalid password' });
-
-		const outUser = userService.fetchUserById(user.id);
-		if (outUser.isErr())
-			return reply.status(500).send({ message: outUser.unwrapErr() });
-
-		return reply.status(200).send(outUser.unwrap());
-	});
-
-	type FetchMeSchema = {
-		Body: AuthClientRequestType<z.ZodAny>;
-		Reply: {
-			200: FullUserType;
-			400: ErrorResponseType;
-			404: ErrorResponseType;
-			500: ErrorResponseType;
-		};
-	}
-
-	fastify.post<FetchMeSchema>('/me', {
-		schema: {
-			body: AuthClientRequest(z.any()),
-			response: {
-				200: FullUser, // Found user
-				400: ErrorResponse, // Missing or invalid userId
-				404: ErrorResponse, // User not found
-				500: ErrorResponse, // Internal server error
-			}
-		}
-	}, async (request, reply) => {
-		const { userId } = request.body;
-		if (userId === undefined || typeof userId !== 'number' || userId < 1)
-			return reply.status(400).send({ message: 'Invalid or missing userId' });
-
-		const userResult = userService.fetchUserById(userId);
-		if (userResult.isErr())
-			return reply.status(404).send({ message: userResult.unwrapErr() });
-		else
-			return reply.status(200).send(userResult.unwrap());
-	});
-
-	type GetUserSchema = {
-		Params: GetUserType;
 	};
 
-	fastify.get<GetUserSchema>('/fetch/:userid', {
-		schema: {
-			params: GetUser,
-			response: {
-				200: FullUser, // Found user
-				404: ErrorResponse, // User not found
-			}
+	fastify.post<ZodSchema<typeof fetchMeSchema>>(
+		'/me',
+		{ schema: fetchMeSchema },
+		async (request, reply) => {
+			const { userId } = request.body;
+			if (userId === undefined || typeof userId !== 'number' || userId < 1)
+				return reply.status(400).send({ message: 'Invalid or missing userId' });
+
+			const userResult = userService.fetchUserById(userId);
+			if (userResult.isErr())
+				return reply.status(404).send({ message: userResult.unwrapErr() });
+			else
+				return reply.status(200).send(userResult.unwrap());
 		}
-	}, async (request, reply) => {
-		const { userid } = request.params;
-		const userResult = userService.fetchUserById(userid);
+	);
 
-		if (userResult.isErr())
-			return reply.status(404).send({ error: userResult.unwrapErr() });
-		else
-			return reply.status(200).send(userResult.unwrap());
-	});
+	const fetchUserSchema = {
+		params: GetUser,
+		response: {
+			200: FullUser, // Found user
+			404: ErrorResponse, // User not found
+		}
+	};
 
-	type CreateUserSchema = {
-		Body: CreateUserType,
-		Reply: {
-			201: FullUserType;
-			400: ErrorResponseType;
-			500: ErrorResponseType;
-		};
+	fastify.get<ZodSchema<typeof fetchUserSchema>>(
+		'/fetch/:userId',
+		{ schema: fetchUserSchema },
+		async (request, reply) => {
+			const { userId } = request.params;
+			const userResult = userService.fetchUserById(userId);
+
+			if (userResult.isErr())
+				return reply.status(404).send({ message: userResult.unwrapErr() });
+			else
+				return reply.status(200).send(userResult.unwrap());
+		}
+	);
+
+	const createUserSchema = {
+		body: CreateUser,
+		response: {
+			201: FullUser, // Created user
+			400: ErrorResponse, // User already exists / Invalid data
+		}
 	}
 
-	fastify.post<CreateUserSchema>('/create/normal', {
-		schema: {
-			body: CreateUser,
-			response: {
-				201: FullUser, // Created user
-				400: ErrorResponse, // User already exists / Invalid data
-				500: ErrorResponse, // Internal server error
-			}
-		}
-	}, async (request, reply) => {
-		const { username, email, password } = request.body;
-		console.log("Creating user:", username, email);
-		
-		try {
-			const userResult = userService.createNewUser(username, email, await hashPassword(password));
+	fastify.post<ZodSchema<typeof createUserSchema>>(
+		'/create/normal',
+		{ schema: createUserSchema },
+		async (request, reply) => {
+			const { username, email, password } = request.body;
+			console.log("Creating user:", username, email);
+			
+			const userResult = await userService.createNewUser(username, email, await hashPassword(password), false);
 
 			if (userResult.isErr())
 				return reply.status(400).send({ message: userResult.unwrapErr() });
 
 			return reply.status(201).send(userResult.unwrap());
-		} catch (error: any) {
-			console.error("Error creating user:", error);
-			return reply.status(400).send({ message: error.message || 'Internal server error' });
 		}
-	});
+	);
 
-	type CreateGuestSchema = {
+	const createGuestSchema = {
+		response: {
+			201: FullUser, // Created guest user
+			500: ErrorResponse, // Internal server error
+		}
+	};
+
+	fastify.get<ZodSchema<typeof createGuestSchema>>(
+		'/create/guest',
+		{ schema: createGuestSchema },
+		async (_, reply) => {
+			const userResult = await userService.createNewGuestUser();
+
+			if (userResult.isErr())
+				return reply.status(500).send({ message: userResult.unwrapErr() });
+			else
+				return reply.status(201).send(userResult.unwrap());
+		}
+	);
+
+	const UserIdSchema = z.object({ userId: userIdValue });
+
+	type FetchUserPfpSchema = {
+		Body: AuthClientRequestType<typeof UserIdSchema>;
 		Reply: {
-			201: FullUserType;
-			500: ErrorResponseType;
+			200: string;
+			404: ErrorResponseType;
 		};
 	}
 
-	fastify.get<CreateGuestSchema>('/create/guest', {
+	fastify.post<FetchUserPfpSchema>('/pfp', {
 		schema: {
+			body: AuthClientRequest(UserIdSchema),
 			response: {
-				201: FullUser, // Created guest user
-				500: ErrorResponse, // Internal server error
+				200: z.string(), // Found avatar
+				404: ErrorResponse, // Avatar not found
 			}
 		}
-	}, async (_, reply) => {
-		const userResult = userService.createNewGuestUser();
+	}, async (request, reply) => {
+		const { userId } = request.body.payload;
+		const avatarResult = await userService.fetchUserAvatar(userId);
 
-		if (userResult.isErr())
-			return reply.status(500).send({ message: userResult.unwrapErr() });
+		if (avatarResult.isErr())
+			return reply.status(404).send({ message: avatarResult.unwrapErr() });
 		else
-			return reply.status(201).send(userResult.unwrap());
+			reply.header('Content-Type', 'image/svg+xml');
+			return reply.status(200).send(avatarResult.unwrap());
 	});
 }
 

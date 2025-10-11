@@ -1,3 +1,4 @@
+import { userIdValue } from '../common/zodRules.js';
 import { z } from 'zod';
 
 export const TokenData = z.object({
@@ -10,7 +11,7 @@ export const SingleToken = z.object({
 }).strict();
 
 export const TokenPayload = z.object({
-	uid: z.number().min(1),
+	uid: userIdValue,
 }).strict();
 
 export type TokenDataType = z.infer<typeof TokenData>;

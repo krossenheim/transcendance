@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { userIdValue } from './zodRules.js';
 
 export const Body = <T extends z.ZodTypeAny>(dataType: T) => z.object({
-    userId: z.number().min(1),
+    userId: userIdValue,
     data: dataType,
 }).strict();
 

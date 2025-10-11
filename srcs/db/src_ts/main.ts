@@ -16,10 +16,10 @@ import Database from "./database/database.js";
 import Fastify from "fastify";
 
 // Setup database
-const db = new Database("/etc/database_data/users.db");
-const tokenService = new TokenService(db.getDB());
-const userService = new UserService(db.getDB());
-const chatService = new ChatService(db.getDB());
+const db = new Database('/etc/database_data/users.db');
+const tokenService = new TokenService(db);
+const userService = new UserService(db);
+const chatService = new ChatService(db);
 
 // Setup Fastify with Zod
 const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
@@ -31,9 +31,10 @@ const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
 
 const fastify: FastifyInstance = zodFastify();
 
-import userRoutes from "./routes/users.js";
-fastify.register(userRoutes, { prefix: "/internal_api/users" });
-fastify.register(userRoutes, { prefix: "/api/users" });
+// Register routes
+import userRoutes from './routes/users.js';
+fastify.register(userRoutes, { prefix: '/internal_api/users' });
+fastify.register(userRoutes, { prefix: '/api/users' });
 
 import tokenRoutes from "./routes/tokens.js";
 fastify.register(tokenRoutes, { prefix: "/internal_api/tokens" });

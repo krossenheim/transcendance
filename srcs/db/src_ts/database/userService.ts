@@ -3,113 +3,130 @@ import { User, FullUser, Friend, UserAuthData } from '../utils/api/service/db/us
 import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
 import { Result } from '../utils/api/service/common/result.js';
-import { DatabaseSync } from 'node:sqlite';
-import { z } from 'zod';
+import { Database } from './database.js';
+import fs from 'fs/promises';
+import axios from 'axios';
 
 function createGuestUsername(): string {
 	const randomStr = Math.random().toString(36).substring(2, 10);
 	return `guest_${randomStr}`;
 }
 
-export class UserService {
-	private db: DatabaseSync;
+async function createDefaultAvatar(userId: number): Promise<Result<null, string>> {
+	const avatar = await axios.get(`https://api.dicebear.com/9.x/shapes/svg?seed=${Math.random().toString(36).substring(2, 15)}`);
+	const svg = avatar.data;
 
-	constructor(db: DatabaseSync) {
+	try {
+		const dirPath = '/etc/database_data/pfps';
+		await fs.mkdir(dirPath, { recursive: true });
+		await fs.writeFile(`${dirPath}/${userId}.svg`, svg);
+		return Result.Ok(null);
+	} catch (error) {
+		console.error('Failed to store avatar SVG:', error);
+		return Result.Err('Failed to store avatar SVG');
+	}
+}
+
+export class UserService {
+	private db: Database;
+
+	constructor(db: Database) {
 		this.db = db;
 	}
 
-	fetchUserFriendlist(user: UserType): FriendType[] {
-		const result = z.array(Friend).safeParse(this.db.prepare(`
-			SELECT u.id, u.username, u.alias
+	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
+		return this.db.all(
+			`SELECT u.id, u.username, u.alias, u.hasAvatar
 			FROM users u
 			JOIN user_friendships uf ON u.id = uf.friendId
-			WHERE uf.userId = ?
-		`).all(user.id));
-		console.log(result);
-
-		if (!result.success) {
-			console.error(result.error);
-			return [];
-		}
-		return result.data || [];
+			WHERE uf.userId = ?`,
+			Friend,
+			[userId]
+		);
 	}
 
-	fetchAllUsers(): FullUserType[] {
-		const result = z.array(User).safeParse(this.db.prepare(`
-			SELECT id, createdAt, username, alias, email, isGuest FROM users
-		`).all());
-
-		if (!result.success) {
-			console.error('Failed to fetch users:', result.error);
-			return [];
-		}
-
-		return result.data.map((user: UserType) => ({
-			...user,
-			friends: this.fetchUserFriendlist(user),
-		}));
+	fetchAllUsers(): Result<FullUserType[], string> {
+		return this.db.all(
+			`SELECT id, createdAt, username, alias, email, isGuest, hasAvatar FROM users`,
+			User
+		).map(users =>
+			users.map(user => ({
+				...user,
+				friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+			}))
+		);
 	}
 
-	fetchUserGameResults(userId: number): GameResultType[] {
-		const stmt = this.db.prepare(`SELECT * FROM player_game_results WHERE userId = ?`);
-		const result = z.array(GameResult).safeParse(stmt.all(userId));
-		if (!result.success) {
-			console.error('Failed to fetch user game results:', result.error);
-			return [];
-		}
-		return result.data;
+	fetchUserGameResults(userId: number): Result<GameResultType[], string> {
+		return this.db.all(
+			`SELECT * FROM player_game_results WHERE userId = ?`,
+			GameResult,
+			[userId]
+		);
 	}
 
 	fetchUserById(id: number): Result<FullUserType, string> {
-		const stmt = this.db.prepare(`
-			SELECT id, createdAt, username, alias, email, isGuest FROM users WHERE id = ?
-		`);
-		console.log(stmt);
-		const user = User.safeParse(stmt.get(id));
-		console.log(user);
-		if (!user.success) return Result.Err('User not found');
-
-		const parsed = FullUser.safeParse({
-			...user.data,
-			friends: this.fetchUserFriendlist(user.data),
-		});
-
-		if (!parsed.success) return Result.Err('Failed to parse user data');
-		return Result.Ok(parsed.data);
+		return this.db.get(
+			`SELECT id, createdAt, username, alias, email, isGuest, hasAvatar FROM users WHERE id = ?`,
+			User,
+			[id]
+		).map((user) => ({
+			...user,
+			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+		}));
 	}
 
-	createNewUser(username: string, email: string, passwordHash: string | null): Result<FullUserType, string> {
+	async createNewUser(username: string, email: string, passwordHash: string | null, isGuest: boolean): Promise<Result<FullUserType, string>> {
 		console.log('Creating user in database:', username, email);
-		const stmt = this.db.prepare(`
-			INSERT INTO users (username, email, passwordHash, isGuest) VALUES (?, ?, ?, ?)
-		`);
-		const info = stmt.run(username, email, passwordHash, 0);
-		return this.fetchUserById(Number(info.lastInsertRowid));
+		const newUser = this.db.run(
+			`INSERT INTO users (username, email, passwordHash, isGuest) VALUES (?, ?, ?, ?)`,
+			[username, email, passwordHash, isGuest ? 1 : 0]
+		);
+		if (newUser.isErr()) {
+			console.error('Error inserting user:', newUser.unwrapErr());
+			return Result.Err('Failed to create user');
+		}
+
+		const userId = Number(newUser.unwrap().lastInsertRowid);
+		const avatarResult = await createDefaultAvatar(userId);
+
+		if (avatarResult.isOk()) {
+			this.db.run(`
+				UPDATE users SET hasAvatar = ? WHERE id = ?
+			`, [1, userId]);
+		} else
+			console.error('Failed to create default avatar:', avatarResult.unwrapErr());
+
+		return this.fetchUserById(userId);
 	}
 
-	createNewGuestUser(): Result<FullUserType, string> {
+	async createNewGuestUser(): Promise<Result<FullUserType, string>> {
 		let max_tries = 5;
 
 		while (max_tries-- > 0) {
 			const username = createGuestUsername();
-			const stmt = this.db.prepare(`
-				INSERT INTO users (username, email, passwordHash, isGuest) VALUES (?, ?, ?, ?)
-			`);
-			try {
-				const info = stmt.run(username, `${username}@example.com`, null, 1);
-				return this.fetchUserById(Number(info.lastInsertRowid));
-			} catch (error) { }
+			const creationResult = await this.createNewUser(username, `${username}@example.com`, null, true);
+			if (creationResult.isOk()) return creationResult;
 		}
 
 		return Result.Err('Failed to create unique guest username');
 	}
 
 	fetchUserFromUsername(username: string): Result<UserAuthDataType, string> {
-		const stmt = this.db.prepare(`
-			SELECT id, passwordHash, isGuest FROM users WHERE username = ?
-		`);
-		const parsed = UserAuthData.safeParse(stmt.get(username));
-		if (!parsed.success) return Result.Err('Username not found');
-		return Result.Ok(parsed.data);
+		return this.db.get(
+			`SELECT id, passwordHash, isGuest FROM users WHERE username = ?`,
+			UserAuthData,
+			[username]
+		);
+	}
+
+	async fetchUserAvatar(userId: number): Promise<Result<string, string>> {
+		try {
+			const svg = await fs.readFile(`/etc/database_data/pfps/${userId}.svg`, 'utf-8');
+			return Result.Ok(svg);
+		} catch (error) {
+			console.error('Failed to read avatar SVG:', error);
+			return Result.Err('Avatar not found');
+		}
 	}
 }
