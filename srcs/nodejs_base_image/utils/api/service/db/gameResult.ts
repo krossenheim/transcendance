@@ -1,8 +1,9 @@
+import { gameIdValue, userIdValue } from '../common/zodRules.js';
 import { z } from 'zod';
 
 export const GameResult = z.object({
-  id: z.number(),
-  userId: z.number(),
+  id: gameIdValue,
+  userId: userIdValue,
   score: z.number(),
   rank: z.number(),
 });

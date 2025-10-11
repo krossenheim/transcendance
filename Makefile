@@ -75,11 +75,11 @@ npm_install_tsc:
 ensure_tsc: install_nodejs npm_install_tsc
 	
 compile_ts_to_cjs: ensure_tsc
-	npx tsc --project srcs/auth/tsconfig.json || echo "Ignored err"
-	npx tsc --project srcs/chat/tsconfig.json || echo "Ignored err"
-	npx tsc --project srcs/db/tsconfig.json || echo "Ignored err"
-	npx tsc --project srcs/hub/tsconfig.json || echo "Ignored err"
-	npx tsc --project srcs/pong/tsconfig.json || echo "Ignored err"
+	npx tsc --project srcs/auth/tsconfig.json
+	npx tsc --project srcs/chat/tsconfig.json
+	npx tsc --project srcs/db/tsconfig.json
+	npx tsc --project srcs/hub/tsconfig.json
+	npx tsc --project srcs/pong/tsconfig.json
 
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \

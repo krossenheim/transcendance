@@ -1,6 +1,7 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
+    "tsBuildInfoFile": "./.tsbuildinfo",
     // File Layout
     "rootDir": "./src_ts",
     "outDir": "./dist",

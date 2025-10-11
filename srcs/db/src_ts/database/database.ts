@@ -1,7 +1,6 @@
-import type { FullUserType, UserType, FriendType, UserAuthDataType } from '../utils/api/service/db/user.js';
-import { User, FullUser, Friend, UserAuthData } from '../utils/api/service/db/user.js';
-import type { GameResultType } from '../utils/api/service/db/gameResult.js';
-import { GameResult } from '../utils/api/service/db/gameResult.js';
+import { zodParse } from '../utils/api/service/common/zodUtils.js';
+import { Result } from '../utils/api/service/common/result.js';
+import type { StatementResultingChanges } from 'node:sqlite';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
@@ -24,12 +23,41 @@ export class Database {
 		this.db.exec(sqlSetup);
 	}
 
-	close(): void {
-		this.db.close();
+	all<T extends z.ZodTypeAny>(sql: string, target: T, params: any[] = []): Result<z.infer<T>[], string> {
+		try {
+			const stmt = this.db.prepare(sql);
+			const rows = stmt.all(...params);
+			return zodParse(z.array(target), rows);
+		} catch (e) {
+			console.error(e);
+			return Result.Err(`DB exec failed`);
+		}
 	}
 
-	getDB(): DatabaseSync {
-		return this.db;
+	get<T extends z.ZodTypeAny>(sql: string, target: T, params: any[] = []): Result<z.infer<T>, string> {
+		try {
+			const stmt = this.db.prepare(sql);
+			const row = stmt.get(...params);
+			if (!row) return Result.Err('Not found');
+			return zodParse(target, row);
+		} catch (e) {
+			console.error(e);
+			return Result.Err(`DB get failed`);
+		}
+	}
+
+	run(sql: string, params: any[] = []): Result<StatementResultingChanges, string> {
+		try {
+			const stmt = this.db.prepare(sql);
+			return Result.Ok(stmt.run(...params));
+		} catch (e) {
+			console.error(e);
+			return Result.Err(`DB run failed`);
+		}
+	}
+
+	close(): void {
+		this.db.close();
 	}
 }
 

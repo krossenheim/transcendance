@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
 	alias TEXT DEFAULT NULL,
 	email TEXT NOT NULL UNIQUE,
 	passwordHash TEXT DEFAULT NULL,
-	isGuest INTEGER
+	isGuest INTEGER,
+	hasAvatar INTEGER DEFAULT 0
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS player_game_results (

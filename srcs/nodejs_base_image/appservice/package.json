@@ -12,7 +12,10 @@
     "zod": "latest",
     "fastify-type-provider-zod": "latest",
     "bcrypt": "latest",
-    "crypto": "latest"
+    "crypto": "latest",
+    "@dicebear/core": "latest",
+    "@dicebear/collection": "latest",
+    "better-sqlite3": "latest"
   }
 }
 
