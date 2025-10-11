@@ -70,35 +70,6 @@
         <span {...props}>{children}</span>
       );
 
-      /*
-       * --------------------------------------------------------
-       * Type Definitions (for clarity)
-       * --------------------------------------------------------
-       *
-       * @typedef {Object} User
-       * @property {string} username
-       *
-       * @typedef {Object} AuthResponseType
-       * @property {User} user
-       * @property {string} [token]
-       */
-
-      /**
-       * Simulate imported types
-       * (these would come from '../../srcs/auth/dist/utils/api/service/auth/loginResponse.js')
-       * @typedef {AuthResponseType} AuthResponse
-       */
-
-      // "use client";
-
-      // import RegisterForm from '@/components/register-component';
-      // import { useState } from "react";
-      // import { AuthResponse, type AuthResponseType } from '../../srcs/auth/dist/utils/api/service/auth/loginResponse.js'
-
-      /**
-       * Home component
-       */
-
       function Home() {
         /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
         const [authResponse, setAuthResponse] = useState(null);
@@ -106,26 +77,16 @@
         /** @param {AuthResponseType} varTypeAuthResponse */
         function logInOrRegistered(varTypeAuthResponse) {
           console.log("AA: ", varTypeAuthResponse);
-
-          // This function takes things inside Home(){} and does things to them
-          // or maybe not
           setAuthResponse(varTypeAuthResponse);
         }
 
         return (
           <main className="min-h-screen flex items-center justify-center">
             {authResponse ? (
-              // <div className="text-center p-8 border rounded shadow">
-              //   <h2 className="text-2xl font-bold">Welcome, !</h2>
-              //   <p>Your account has been created successfully.</p>
-              // </div>
               <MainIndex AuthResponseObject={authResponse} />
             ) : (
               <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
-              // <div className="text-center p-8 border rounded shadow">
-              //   <h2 className="text-2xl font-bold">Welcome,!</h2>
-              //   <p>Your accsount has been created successfully.</p>
-              // </div>
+              // <LoginForm whenCompletedSuccesfully={logInOrRegistered} />
             )}
           </main>
         );
