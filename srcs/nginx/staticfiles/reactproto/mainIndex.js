@@ -1,4 +1,4 @@
-function MainIndex() {
+function MainIndex({ AuthResponseObject }) {
   // aka everything
   // This will receive output from LoginForm or RegisterForm, in the way of a value returned from an HTTP request.
   const [username, setUsername] = React.useState("");
@@ -14,16 +14,13 @@ function MainIndex() {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        // Boilerplate open
         setConnected(true);
         console.log("WebSocket connected");
-        const jsonout = { Authorization: "tokenstring" };
+        // Send token as first message.
+        const jsonout = { Authorization: AuthResponseObject.tokens.jwt };
         ws.send(JSON.stringify(jsonout));
       };
 
-      // Will trigger when these change
-      // '[]' is on init and on destruction
-      // '' omits
       ws.onmessage = (event) => {
         // Boilerplate handler
         // For task in task

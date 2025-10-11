@@ -25,6 +25,11 @@
       src="/static/reactproto/registerForm.js"
       defer
     ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/mainIndex.js"
+      defer
+    ></script>
     <script type="text/babel">
       const { useState } = React;
       console.log("Form:", RegisterForm);
@@ -65,13 +70,13 @@
         /** @param {AuthResponseType} response */
         function logInOrRegistered(response) {
           // This function takes things inside Home(){} and does things to them
-          setRegisteredUser(response);
+          setAuthResponse(response);
         }
 
         return (
           <main className="min-h-screen flex items-center justify-center">
             {authResponse ? (
-              <MainIndex loginInfo={authResponse}/>
+              <MainIndex loginInfo={authResponse} />
             ) : (
               <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
             )}
