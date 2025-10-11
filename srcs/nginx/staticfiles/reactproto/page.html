@@ -17,6 +17,11 @@
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
       rel="stylesheet"
     />
+
+    <!-- Lucide Icons UMD -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.545.0/dist/umd/lucide.js"></script>
+
+    <!-- Prototyping stubs for UI components -->
   </head>
   <body class="bg-gray-100">
     <div id="root"></div>
@@ -32,7 +37,38 @@
     ></script>
     <script type="text/babel">
       const { useState } = React;
+      const RegisterForm = window.RegisterForm;
+      const MainIndex = window.MainIndex;
       console.log("Form:", RegisterForm);
+      // Card components
+      const Card = ({ children, ...props }) => <div {...props}>{children}</div>;
+      const CardHeader = ({ children, ...props }) => (
+        <div {...props}>{children}</div>
+      );
+      const CardTitle = ({ children, ...props }) => (
+        <h3 {...props}>{children}</h3>
+      );
+      const CardDescription = ({ children, ...props }) => (
+        <p {...props}>{children}</p>
+      );
+      const CardContent = ({ children, ...props }) => (
+        <div {...props}>{children}</div>
+      );
+
+      // Form components
+      const Label = ({ children, ...props }) => (
+        <label {...props}>{children}</label>
+      );
+      const Input = ({ ...props }) => <input {...props} />;
+      const Button = ({ children, ...props }) => (
+        <button {...props}>{children}</button>
+      );
+      const Alert = ({ children, ...props }) => (
+        <div {...props}>{children}</div>
+      );
+      const AlertDescription = ({ children, ...props }) => (
+        <span {...props}>{children}</span>
+      );
 
       /*
        * --------------------------------------------------------
@@ -67,18 +103,27 @@
         /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
         const [authResponse, setAuthResponse] = useState(null);
 
-        /** @param {AuthResponseType} response */
-        function logInOrRegistered(response) {
+        /** @param {AuthResponseType} varTypeAuthResponse */
+        function logInOrRegistered(varTypeAuthResponse) {
           // This function takes things inside Home(){} and does things to them
-          setAuthResponse(response);
+          // or maybe not
+          setAuthResponse(varTypeAuthResponse);
         }
 
         return (
           <main className="min-h-screen flex items-center justify-center">
             {authResponse ? (
+              // <div className="text-center p-8 border rounded shadow">
+              //   <h2 className="text-2xl font-bold">Welcome, !</h2>
+              //   <p>Your account has been created successfully.</p>
+              // </div>
               <MainIndex loginInfo={authResponse} />
             ) : (
               <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
+              // <div className="text-center p-8 border rounded shadow">
+              //   <h2 className="text-2xl font-bold">Welcome,!</h2>
+              //   <p>Your accsount has been created successfully.</p>
+              // </div>
             )}
           </main>
         );
