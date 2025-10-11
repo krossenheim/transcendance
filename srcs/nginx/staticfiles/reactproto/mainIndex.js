@@ -1,3 +1,5 @@
+import ChatComponent from "/static/reactproto/ChatComponent";
+
 function MainIndex({ AuthResponseObject }) {
   // aka everything
   // This will receive output from LoginForm or RegisterForm, in the way of a value returned from an HTTP request.
@@ -87,7 +89,9 @@ function MainIndex({ AuthResponseObject }) {
           ))
         )}
       </div>
-
+      <div>
+        <ChatComponent webSocket={ws}/>
+      </div>
       <form onSubmit={sendMessage} className="flex gap-2">
         <input
           type="text"
