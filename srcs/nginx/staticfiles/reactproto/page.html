@@ -25,6 +25,27 @@
   </head>
   <body class="bg-gray-100">
     <div id="root"></div>
+    <script type="text/babel">
+      window.sendFromContext = function (
+        ws,
+        target_container,
+        funcId,
+        payload
+      ) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.warn("WebSocket not open, cannot send message");
+          return;
+        }
+
+        const message = {
+          target_container: target_container,
+          funcId,
+          payload,
+        };
+        console.log("Sending ", message);
+        ws.send(message);
+      };
+    </script>
     <script
       type="text/babel"
       src="/static/reactproto/registerForm.js"
@@ -35,10 +56,23 @@
       src="/static/reactproto/mainIndex.js"
       defer
     ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/chatComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/loginForm.js"
+      defer
+    ></script>
     <script type="text/babel">
-      const { useState } = React;
+      const { useState, useEffect } = React;
       const RegisterForm = window.RegisterForm;
       const MainIndex = window.MainIndex;
+      const ChatComponent = window.ChatComponent;
+      const LoginForm = window.LoginForm;
+
       console.log("Form:", RegisterForm);
       // Card components
       const Card = ({ children, ...props }) => <div {...props}>{children}</div>;
@@ -85,8 +119,14 @@
             {authResponse ? (
               <MainIndex AuthResponseObject={authResponse} />
             ) : (
-              <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
-              // <LoginForm whenCompletedSuccesfully={logInOrRegistered} />
+              <div className="flex gap-8 justify-center items-start">
+                <div className="w-1/2">
+                  <LoginForm onLoginSuccess={logInOrRegistered} />
+                </div>
+                <div className="w-1/2">
+                  <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
+                </div>
+              </div>
             )}
           </main>
         );
