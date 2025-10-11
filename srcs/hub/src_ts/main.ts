@@ -261,18 +261,7 @@ async function handleWebsocketAuth(
   parsed: any
 ): Promise<Result<number, null>> {
   const authMessageResult = await isAuthed(parsed);
-  if (
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    authMessageResult.isErr()
+  if ( authMessageResult.isErr()
   ) {
     console.log("Authentication failed: " + authMessageResult.unwrapErr());
     socket.send("Unauthorized: " + authMessageResult.unwrapErr());
@@ -280,10 +269,10 @@ async function handleWebsocketAuth(
     return Result.Err(null);
   }
 
-  // const user_id = authMessageResult.unwrap();
-  const user_id = (DEBUGUSERID++ % 8) + 1;
+  const user_id = authMessageResult.unwrap();
+  // const user_id = (DEBUGUSERID++ % 8) + 1;
   updateWebSocketConnection(socket, user_id);
-  socket.send(JSON.stringify({ user_id: user_id }));
+  socket.send(JSON.stringify({ user_id: `Tru auth!:${user_id}` }));
   console.log("Authenticated user id " + user_id + " socket map.");
   return Result.Ok(user_id);
 }

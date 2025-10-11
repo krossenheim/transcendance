@@ -105,6 +105,8 @@
 
         /** @param {AuthResponseType} varTypeAuthResponse */
         function logInOrRegistered(varTypeAuthResponse) {
+          console.log("AA: ", varTypeAuthResponse);
+
           // This function takes things inside Home(){} and does things to them
           // or maybe not
           setAuthResponse(varTypeAuthResponse);
@@ -117,7 +119,7 @@
               //   <h2 className="text-2xl font-bold">Welcome, !</h2>
               //   <p>Your account has been created successfully.</p>
               // </div>
-              <MainIndex loginInfo={authResponse} />
+              <MainIndex AuthResponseObject={authResponse} />
             ) : (
               <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
               // <div className="text-center p-8 border rounded shadow">

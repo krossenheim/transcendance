@@ -9,6 +9,10 @@ function MainIndex({ AuthResponseObject }) {
 
   React.useEffect(
     () => {
+      if (!AuthResponseObject) {
+        console.error("Tryign to render without authresponseobject ");
+        return;
+      }
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = protocol + "//" + window.location.host + "/ws";
       const ws = new WebSocket(wsUrl);
@@ -17,7 +21,7 @@ function MainIndex({ AuthResponseObject }) {
         setConnected(true);
         console.log("WebSocket connected");
         // Send token as first message.
-        const jsonout = { Authorization: AuthResponseObject.tokens.jwt };
+        const jsonout = { authorization: AuthResponseObject.tokens.jwt };
         ws.send(JSON.stringify(jsonout));
       };
 

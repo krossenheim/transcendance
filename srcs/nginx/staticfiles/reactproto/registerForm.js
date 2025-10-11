@@ -117,6 +117,7 @@ function RegisterForm({ whenCompletedSuccesfully }) {
       );
       // We are throwing so we assume it to be success here
       whenCompletedSuccesfully(AuthResponseOrError);
+      console.log("NO THROW");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
