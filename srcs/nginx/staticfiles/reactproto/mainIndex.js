@@ -9,8 +9,9 @@ function MainIndex() {
 
   React.useEffect(
     () => {
-      // Must pass websocket url from above or define here.
-      const ws = new WebSocket("wss://example.com/ws");
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = protocol + "//" + window.location.host + "/ws";
+      const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         // Boilerplate open

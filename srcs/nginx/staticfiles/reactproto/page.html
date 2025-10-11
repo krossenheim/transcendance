@@ -71,7 +71,7 @@
         return (
           <main className="min-h-screen flex items-center justify-center">
             {authResponse ? (
-              <MainIndex />
+              <MainIndex loginInfo={authResponse}/>
             ) : (
               <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
             )}
