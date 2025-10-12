@@ -13,33 +13,34 @@ class ContainerTarget {
 		this.port = port;
 	}
 
-	async post(path: string, body: any): Promise<AxiosResponse<any> | undefined> {
+	async post(path: string, body: any): Promise<Result<AxiosResponse<any>, string>> {
 		try {
-			return await axios.post(`http://${this.target}:${this.port}/internal_api${path}`, body, { validateStatus: () => true });
+			return Result.Ok(await axios.post(`http://${this.target}:${this.port}/internal_api${path}`, body, { validateStatus: () => true }));
 		} catch (error : any) {
 			console.error("Error in internal API POST request:", error);
-			return undefined;
+			return Result.Err("Failed to fetch data");
 		}
 	}
 
-	async get(path: string): Promise<AxiosResponse<any> | undefined> {
+	async get(path: string): Promise<Result<AxiosResponse<any>, string>> {
 		try {
-			return await axios.get(`http://${this.target}:${this.port}/internal_api${path}`, { validateStatus: () => true });
+			return Result.Ok(await axios.get(`http://${this.target}:${this.port}/internal_api${path}`, { validateStatus: () => true }));
 		} catch (error : any) {
 			console.error("Error in internal API GET request:", error);
-			return undefined;
+			return Result.Err("Failed to fetch data");
 		}
 	}
 }
 
 class DatabaseTarget extends ContainerTarget {
 	async fetchUserData(userId: number): Promise<Result<FullUserType, ErrorResponseType>> {
-		const response = await this.get(`/users/fetch/${userId}`);
-		if (response === undefined)
+		const responseResult = await this.get(`/users/fetch/${userId}`);
+		if (responseResult.isErr())
 			return Result.Err({ message: 'Database service unreachable' });
 
+		const response = responseResult.unwrap();
 		if (response.status === 200)
-			return Result.Ok(FullUser.parse(response.data));
+			return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
 
 		return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
 	}

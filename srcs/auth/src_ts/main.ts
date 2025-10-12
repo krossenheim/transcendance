@@ -41,10 +41,10 @@ async function generateToken(userId: number): Promise<Result<TokenDataType, Erro
 		token: newRefreshToken,
 	}));
 
-	if (response === undefined)
+	if (response.isErr())
 		return Result.Err({ message: 'Token service unreachable' });
 
-	if (response.status !== 200)
+	if (response.unwrap().status !== 200)
 		return Result.Err({ message: 'Token service could not process request' });
 
 	return Result.Ok({
@@ -90,16 +90,17 @@ fastify.post<LoginSchema>('/public_api/login', {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/users/validate', {
+	const responseResult = await containers.db.post('/users/validate', {
 		username: request.body.username,
 		password: request.body.password,
 	});
-	
-	if (response === undefined) {
-		return reply.status(500).send({ message: 'User service unreachable' });
-	}
-	console.log("Response from user service:", response.status, response.data);
 
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	console.log("Response from user service:", response.status, response.data);
 	if (response.status === 401) {
 		return reply.status(401).send({ message: 'Invalid credentials' });
 	}
@@ -139,11 +140,12 @@ fastify.post<CreateAccountSchema>('/public_api/create/user', {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/users/create/normal', request.body);
+	const responseResult = await containers.db.post('/users/create/normal', request.body);
 
-	if (response === undefined) {
-		return reply.status(500).send({ message: 'User service unreachable' });
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
 	}
+	const response = responseResult.unwrap();
 	console.log("Response from user service:", response.status, response.data);
 
 	if (response.status === 400) {
@@ -181,11 +183,12 @@ fastify.get<CreateGuestSchema>('/public_api/create/guest', {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.get('/users/create/guest');
+	const responseResult = await containers.db.get('/users/create/guest');
 
-	if (response === undefined) {
-		return reply.status(500).send({ message: 'User service unreachable' });
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
 	}
+	const response = responseResult.unwrap();
 	console.log("Response from user service:", response.status, response.data);
 
 	const newUserParse = FullUser.safeParse(response.data);
@@ -249,13 +252,14 @@ fastify.post<TokenRefreshSchema>('/public_api/token/refresh', {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/tokens/isValid', VerifyTokenPayload.parse({
+	const responseResult = await containers.db.post('/tokens/isValid', VerifyTokenPayload.parse({
 		token: request.body.payload.token,
 	}));
 
-	if (response === undefined)
-		return reply.status(500).send({ message: 'Token service unreachable' });
+	if (responseResult.isErr())
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
 
+	const response = responseResult.unwrap();
 	if (response.status === 200) {
 		const userParse = FullUser.parse(response.data);
 		const newToken = await generateToken(userParse.id);

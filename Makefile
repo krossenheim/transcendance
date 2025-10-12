@@ -80,6 +80,7 @@ compile_ts_to_cjs: ensure_tsc
 	npx tsc --project srcs/db/tsconfig.json
 	npx tsc --project srcs/hub/tsconfig.json
 	npx tsc --project srcs/pong/tsconfig.json
+	npx tsc --project srcs/users/tsconfig.json
 
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \

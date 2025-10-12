@@ -87,7 +87,22 @@ services:
     networks:
       transcendance_network:
         ipv4_address: ${PONG_IPV4_ADDRESS}
-        
+  users:
+    container_name: ${USERS_NAME}
+    image: ${USERS_NAME}
+    env_file:
+      - ./globals.env
+      - ./${USERS_NAME}/service_env.env
+    build:
+      context: ./${USERS_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${USERS_IPV4_ADDRESS}
+
 volumes:
   databases:
     name: databases

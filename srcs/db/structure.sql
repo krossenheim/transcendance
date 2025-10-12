@@ -1,10 +1,3 @@
-DROP TABLE IF EXISTS player_game_results;
-DROP TABLE IF EXISTS user_friendships;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS chat_rooms;
-DROP TABLE IF EXISTS users_room_relationships;
-DROP TABLE IF EXISTS messages;
-
 CREATE TABLE IF NOT EXISTS users (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	createdAt INTEGER DEFAULT (strftime('%s', 'now')),
@@ -69,6 +62,5 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY(roomId) REFERENCES chat_rooms(roomId) ON UPDATE CASCADE ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_messagesId ON messages(roomId);
-
 
 PRAGMA foreign_keys = ON;
