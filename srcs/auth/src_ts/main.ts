@@ -81,7 +81,7 @@ type LoginSchema = {
 	};
 };
 
-fastify.post<LoginSchema>('/public_api/login', {
+fastify.post<LoginSchema>(pub_url.http.auth.loginUser, {
 	schema: {
 		body: LoginUser,
 		response: {
@@ -140,7 +140,7 @@ fastify.post<CreateAccountSchema>(pub_url.http.auth.createUser, {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/users/create/normal', request.body);
+	const response = await containers.db.post(int_url.http.db.createNormalUser, request.body);
 
 	if (response === undefined) {
 		return reply.status(500).send({ message: 'User service unreachable' });
@@ -182,7 +182,7 @@ fastify.get<CreateGuestSchema>(pub_url.http.auth.createGuestUser, {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.get('/users/create/guest');
+	const response = await containers.db.get(int_url.http.db.createGuestUser);
 
 	if (response === undefined) {
 		return reply.status(500).send({ message: 'User service unreachable' });
@@ -241,7 +241,7 @@ type TokenRefreshSchema = {
 	};
 }
 
-fastify.post<TokenRefreshSchema>('/public_api/token/refresh', {
+fastify.post<TokenRefreshSchema>(pub_url.http.auth.refreshToken, {
 	schema: {
 		body: AuthClientRequest(SingleToken),
 		response: {
@@ -250,7 +250,7 @@ fastify.post<TokenRefreshSchema>('/public_api/token/refresh', {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/tokens/isValid', VerifyTokenPayload.parse({
+	const response = await containers.db.post(int_url.http.db.validateToken, VerifyTokenPayload.parse({
 		token: request.body.payload.token,
 	}));
 

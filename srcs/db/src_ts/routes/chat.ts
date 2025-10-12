@@ -72,24 +72,24 @@ export async function chatRoutes(fastify: FastifyInstance) {
 		}
 	}
 
-	fastify.post<StoreTokenSchema>(int_url.http.db.storeToken, {
-		schema: {
-			body: StoreTokenPayload,
-			response: {
-				200: z.null(), // Token stored
-				500: ErrorResponse, // Internal server error
-			}
-		}
-	}, async (request, reply) => {
-		// const { userId, token } = request.body;
-		// const tokenHash = hashToken(token);
+	// fastify.post<StoreTokenSchema>('a',int_url.http.db.storeToken, {
+	// 	schema: {
+	// 		body: StoreTokenPayload,
+	// 		response: {
+	// 			200: z.null(), // Token stored
+	// 			500: ErrorResponse, // Internal server error
+	// 		}
+	// 	}
+	// }, async (request, reply) => {
+	// 	// const { userId, token } = request.body;
+	// 	// const tokenHash = hashToken(token);
 
-		// const success = tokenService.storeToken(userId, tokenHash);
-		// if (!success)
-		// 	return reply.status(500).send({ message: 'Failed to store token' });
+	// 	// const success = tokenService.storeToken(userId, tokenHash);
+	// 	// if (!success)
+	// 	// 	return reply.status(500).send({ message: 'Failed to store token' });
 
-		// return reply.status(200).send(null);
-	});
+	// 	// return reply.status(200).send(null);
+	// });
 }
 
 export default chatRoutes;

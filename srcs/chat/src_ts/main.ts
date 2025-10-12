@@ -8,6 +8,7 @@ import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
 import websocketPlugin from "@fastify/websocket";
 
+
 const fastify = Fastify({
   logger: {
     level: "info", // or 'debug' for more verbosity

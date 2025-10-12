@@ -8,8 +8,6 @@ function ChatComponent({ webSocket }) {
 //     messageDate: message_date_rule,
 //     userId: id_rule,
   const handleStoredMessageSchemaReceived = React.useCallback((typeStoredMessageSchema) => {
-    // const { room_id, messageString, ..} = typeStoredMessageSchema;
-
     console.log("Stored message received:", data);
   }, []);
 

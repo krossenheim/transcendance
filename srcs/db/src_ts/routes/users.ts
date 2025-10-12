@@ -10,7 +10,7 @@ import { userIdValue } from '../utils/api/service/common/zodRules.js';
 import { userService } from '../main.js';
 import bcrypt from 'bcrypt';
 import { int, z } from 'zod';
-import {  int_url } from '../utils/api/service/common/endpoints.js';
+import { int_url } from '../utils/api/service/common/endpoints.js';
 
 const SALT_ROUNDS = 10;
 
@@ -169,32 +169,32 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	const UserIdSchema = z.object({ userId: userIdValue });
 
-	// type FetchUserPfpSchema = {
-	// 	Body: AuthClientRequestType<typeof UserIdSchema>;
-	// 	Reply: {
-	// 		200: string;
-	// 		404: ErrorResponseType;
-	// 	};
-	// }
+	type FetchUserPfpSchema = {
+		Body: AuthClientRequestType<typeof UserIdSchema>;
+		Reply: {
+			200: string;
+			404: ErrorResponseType;
+		};
+	}
 
-	// fastify.post<FetchUserPfpSchema>('/pfp', {
-	// 	schema: {
-	// 		body: AuthClientRequest(UserIdSchema),
-	// 		response: {
-	// 			200: z.string(), // Found avatar
-	// 			404: ErrorResponse, // Avatar not found
-	// 		}
-	// 	}
-	// }, async (request, reply) => {
-	// 	const { userId } = request.body.payload;
-	// 	const avatarResult = await userService.fetchUserAvatar(userId);
+	fastify.post<FetchUserPfpSchema>('/pfp', {
+		schema: {
+			body: AuthClientRequest(UserIdSchema),
+			response: {
+				200: z.string(), // Found avatar
+				404: ErrorResponse, // Avatar not found
+			}
+		}
+	}, async (request, reply) => {
+		const { userId } = request.body.payload;
+		const avatarResult = await userService.fetchUserAvatar(userId);
 
-	// 	if (avatarResult.isErr())
-	// 		return reply.status(404).send({ message: avatarResult.unwrapErr() });
-	// 	else
-	// 		reply.header('Content-Type', 'image/svg+xml');
-	// 		return reply.status(200).send(avatarResult.unwrap());
-	// });
+		if (avatarResult.isErr())
+			return reply.status(404).send({ message: avatarResult.unwrapErr() });
+		else
+			reply.header('Content-Type', 'image/svg+xml');
+			return reply.status(200).send(avatarResult.unwrap());
+	});
 }
 
 export default userRoutes;

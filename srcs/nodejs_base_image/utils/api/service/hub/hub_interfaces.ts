@@ -21,12 +21,15 @@ export const PayloadToUsersSchema = z
     .nonempty({ message: "Recipients array cannot be empty" }),
     funcId: z.string(),
     payload: z.any(),
+    // code: z.number(),
+    // big? todo
   })
   .strict();
 
 export const PayloadHubToUsersSchema = z.object({
   source_container: z.string(),
   funcId: z.string(),
+  // code: z.number(),
   payload: z.any(),
 }).strict();
 

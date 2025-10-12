@@ -34,10 +34,8 @@ const fastify: FastifyInstance = zodFastify();
 // Register routes
 import userRoutes from './routes/users.js';
 fastify.register(userRoutes);
-fastify.register(userRoutes);
 
 import tokenRoutes from "./routes/tokens.js";
-fastify.register(tokenRoutes);
 fastify.register(tokenRoutes);
 
 import chatRoutes from "./routes/chat.js";

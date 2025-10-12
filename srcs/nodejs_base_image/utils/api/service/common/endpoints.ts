@@ -1,3 +1,10 @@
+import { loopback } from "ip"
+import { listenerCount } from "process";
+import { Schema } from "zod";
+import { SendMessagePayloadSchema } from "../chat/chat_interfaces.js";
+import { StoredMessageSchema } from "../chat/db_models.js";
+import { ErrorResponse } from "./error.js";
+
 /// /public_api/*
 export const pub_url = {
 	http: {
@@ -5,15 +12,35 @@ export const pub_url = {
 			validateTokenUrl: "/public_api/auth/validate_token",
 			createGuestUser: "/public_api/auth/create/guest",
 			createUser: "/public_api/auth/create/user",
+			loginUser: "/public_api/auth/login",
+			refreshToken: "/public_api/auth/refresh",
 		}
 	}
 }
 
-/// /api/*
+// client
+const sendMessage = {
+	code: {
+		MessageSent: 0,
+		NotInRoom: 1,
+		InvalidInput: 2
+	},
+	funcId: "/api/chat/send_message_to_room", args: SendMessagePayloadSchema, replies:
+	{
+		0: StoredMessageSchema,
+		1: ErrorResponse,
+		2: ErrorResponse,
+	}
+};
+
 export const user_url = {
 	ws: {
-		chat: {
-			// createChatRoom: "/api/chat/rooms/create",
+		chat:
+		{
+			addNewRoom: "/api/chat/addNewRoom",
+			listRooms: "/api/chat/list_rooms",
+			sendMessage: sendMessage, // "/api/chat/send_message_to_room",
+			addToRoom: "/api/chat/add_to_room",
 		}
 	}
 }

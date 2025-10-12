@@ -40,7 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_tokens_userId ON user_tokens(userId);
 
 CREATE TABLE IF NOT EXISTS chat_rooms (
   roomId INTEGER PRIMARY KEY AUTOINCREMENT, 
-  roomName TEXT NOT NULL,
+  roomName TEXT NOT NULL
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_id ON chat_rooms(roomId);
 
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS users_room_relationships (
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS messages (
-  messageId  INTEGER PRIMARY KEY AUTOINCREMENT,
+  messageId INTEGER PRIMARY KEY AUTOINCREMENT,
   userId INTEGER NOT NULL,
   roomId INTEGER NOT NULL,
   messageString TEXT NOT NULL,
