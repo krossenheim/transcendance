@@ -1,9 +1,15 @@
 function ChatComponent({ webSocket }) {
   // =========================
   // Incoming message handlers
-  // =========================
+//   // =========================
+//  message_id: id_rule,
+//     room_id: room_id_rule,
+//     messageString: message_rule,
+//     messageDate: message_date_rule,
+//     userId: id_rule,
+  const handleStoredMessageSchemaReceived = React.useCallback((typeStoredMessageSchema) => {
+    // const { room_id, messageString, ..} = typeStoredMessageSchema;
 
-  const handleStoredMessageSchemaReceived = React.useCallback((data) => {
     console.log("Stored message received:", data);
   }, []);
 
@@ -11,26 +17,47 @@ function ChatComponent({ webSocket }) {
     console.log("Available rooms:", data);
   }, []);
 
-  const handleRoomMessagesSchemaReceived = React.useCallback((data) => {
+
+  // export const RoomMessagesSchema = z
+  //   .object({
+  //     room_id: room_id_rule,
+  //     messages: z.array(StoredMessageSchema),
+  //   })
+  //   .strict();
+  
+  const handleRoomMessagesSchemaReceived = React.useCallback((fufu) => {
     console.log(`Messages for room ${data.room_id}:`, data.messages);
   }, []);
 
   // =========================
   // Outgoing message handlers
   // =========================
+// export const SendMessagePayloadSchema = z
+//   .object({
+//   // Payload sent by client "send message to room"
+//     room_id: room_id_rule,
+//     messageString: message_rule,
+//   })
+//   .strict();
 
   const handleSendSendMessagePayloadSchema = React.useCallback(
+    // export const UserToHubSchema = z.object({
+    //   target_container: z.string(),
+    //   funcId: z.string(),
+    //   payload: z.any(),
+    // }).strict();
     (room_id, messageString) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-        const payload = { room_id, messageString };
-        window.sendFromContext(webSocket, "chat", "sendMessage", payload);
-        // webSocket.send(JSON.stringify(payload));
+        const payload = { room_id: room_id, messageString: messageString };
+        const toSend = {funcId: "/api/chat/send_message_to_room", payload:payload, target_container: "chat" }
+        // window.sendFromContext(webSocket, "chat", "send_message_to_room", payload);
+        webSocket.send(JSON.stringify(toSend));
       } else console.warn("WebSocket not open, cannot send message.");
     },
     [webSocket]
   );
 
-  const handleSendInviteToRoom = React.useCallback(
+  const handleSendInviteToRoomSchema = React.useCallback(
     (room_id, user_to_add) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
         const payload = {
@@ -61,21 +88,52 @@ function ChatComponent({ webSocket }) {
   React.useEffect(() => {
     if (!webSocket) return;
 
+
+
+      //  funcId: "/api/chat/add_a_new_room",
+      // LIST_ROOMS: {
+      //   funcId: "/api/chat/list_rooms",
+      // },
+      // SEND_MESSAGE_TO_ROOM: {
+      //   funcId: "/api/chat/send_message_to_room",
+      // },
+      // ADD_USER_TO_ROOM: {
+      //   funcId: "/api/chat/add_to_room",
+
+      // export const ListRoomsSchema = z
+      //   .array(z.object({
+      //   // To client when asnwering 'Give my list of rooms' 
+      //   // chat validates user in z.users (No field for user id here, its set by hub)
+      //     room_id: room_id_rule,
+      //     room_name: room_name_rule,
+      //   }).strict());
+      //   [{room_id:888,room_name:
+          
+      //   }]
+      // export const PayloadHubToUsersSchema = z.object({
+      //   source_container: z.string(),
+      //   funcId: z.string(),
+      //   payload: z.any(),
+      // }).strict();
+
     const handleMessage = (event) => {
-      try {
+      try { // event.data PayloadHubToUsersSchema
         const data = JSON.parse(event.data);
-        switch (data.type) {
+        if (data.source_container!= "chat")
+          return;
+      console.log("received", JSON.stringify(data));
+        switch (data.funcId) {
           case "stored_message":
             handleStoredMessageSchemaReceived(data);
             break;
           case "list_rooms":
-            handleListRoomsSchemaReceived(data);
+            handleListRoomsSchemaReceived(data.payload);
             break;
           case "room_messages":
             handleRoomMessagesSchemaReceived(data);
             break;
           default:
-            console.warn("Unknown message type:", data.type);
+            console.warn("Unknown payload type:", data.funcId);
         }
       } catch (err) {
         console.log(
