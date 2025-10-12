@@ -15,11 +15,10 @@ export const StoredMessageSchema = z
   })
   .strict();
 
-export const GetRoomMessagesSchema = z
+export const RoomMessagesSchema = z
   .object({
-    roomName: room_name_rule,
     room_id: room_id_rule,
-	messages: z.array(StoredMessageSchema),
+	  messages: z.array(StoredMessageSchema),
   })
   .strict();
 
@@ -41,7 +40,6 @@ export const ListRoomsSchema = z
   }).strict());
 
 
-export type TypeGetRoomMessagesSchema = z.infer<typeof GetRoomMessagesSchema>;
-export type TypeGetUsersInRoomSchema = z.infer<typeof GetUsersInRoomSchema>;
+export type TypeRoomMessagesSchema = z.infer<typeof RoomMessagesSchema>;
 export type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
 export type TypeListRoomsSchema = z.infer<typeof ListRoomsSchema>;
