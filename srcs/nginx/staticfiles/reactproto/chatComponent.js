@@ -60,11 +60,9 @@ function ChatComponent({ webSocket }) {
   const handleSendInviteToRoomSchema = React.useCallback(
     (room_id, user_to_add) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-        const payload = {
-          type: "add_to_room",
-          payload: { room_id, user_to_add },
-        };
-        webSocket.send(JSON.stringify(payload));
+        const payload = { type: "add_to_room", payload: { room_id, user_to_add } };
+        const toSend = {funcId: "/api/chat/add_to_room", payload:payload, target_container: "chat" }
+        webSocket.send(JSON.stringify(toSend));
         console.log("Sent room invite:", payload);
       } else console.warn("WebSocket not open, cannot invite user.");
     },
@@ -75,7 +73,8 @@ function ChatComponent({ webSocket }) {
     (room_name) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
         const payload = { type: "add_room", payload: { room_name } };
-        webSocket.send(JSON.stringify(payload));
+        const toSend = {funcId: "/api/chat/add_a_new_room", payload:payload, target_container: "chat" }
+        webSocket.send(JSON.stringify(toSend));
         console.log("Requested new room:", payload);
       } else console.warn("WebSocket not open, cannot create room.");
     },
@@ -214,7 +213,7 @@ function ChatComponent({ webSocket }) {
             className="border rounded px-2 py-1"
           />
           <button
-            onClick={() => handleSendInviteToRoom(roomIdInput, userToAdd)}
+            onClick={() => handleSendInviteToRoomSchema(roomIdInput, userToAdd)}
             className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
           >
             Add User to Room
