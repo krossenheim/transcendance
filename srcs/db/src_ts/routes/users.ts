@@ -9,7 +9,8 @@ import { LoginUser } from '../utils/api/service/auth/loginUser.js';
 import { userIdValue } from '../utils/api/service/common/zodRules.js';
 import { userService } from '../main.js';
 import bcrypt from 'bcrypt';
-import { z } from 'zod';
+import { int, z } from 'zod';
+import {  int_url } from '../utils/api/service/common/endpoints.js';
 
 const SALT_ROUNDS = 10;
 
@@ -30,7 +31,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	}
 
 	fastify.get<ZodSchema<typeof listUsersSchema>>(
-		'/',
+		int_url.http.db.listUsers,
 		{ schema: listUsersSchema },
 		async (_, reply) => {
 			const usersResult = userService.fetchAllUsers();
@@ -51,7 +52,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.post<ZodSchema<typeof loginUserSchema>>(
-		'/validate',
+		int_url.http.db.loginUser,
 		{ schema: loginUserSchema },
 		async (request, reply) => {
 			const { username, password } = request.body;
@@ -85,7 +86,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.post<ZodSchema<typeof fetchMeSchema>>(
-		'/me',
+		int_url.http.db.fetchMe,
 		{ schema: fetchMeSchema },
 		async (request, reply) => {
 			const { userId } = request.body;
@@ -109,7 +110,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.get<ZodSchema<typeof fetchUserSchema>>(
-		'/fetch/:userId',
+		int_url.http.db.getUser,
 		{ schema: fetchUserSchema },
 		async (request, reply) => {
 			const { userId } = request.params;
@@ -131,7 +132,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	}
 
 	fastify.post<ZodSchema<typeof createUserSchema>>(
-		'/create/normal',
+		int_url.http.db.createNormalUser,
 		{ schema: createUserSchema },
 		async (request, reply) => {
 			const { username, email, password } = request.body;
@@ -154,7 +155,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.get<ZodSchema<typeof createGuestSchema>>(
-		'/create/guest',
+		int_url.http.db.createGuestUser,
 		{ schema: createGuestSchema },
 		async (_, reply) => {
 			const userResult = await userService.createNewGuestUser();
@@ -168,32 +169,32 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	const UserIdSchema = z.object({ userId: userIdValue });
 
-	type FetchUserPfpSchema = {
-		Body: AuthClientRequestType<typeof UserIdSchema>;
-		Reply: {
-			200: string;
-			404: ErrorResponseType;
-		};
-	}
+	// type FetchUserPfpSchema = {
+	// 	Body: AuthClientRequestType<typeof UserIdSchema>;
+	// 	Reply: {
+	// 		200: string;
+	// 		404: ErrorResponseType;
+	// 	};
+	// }
 
-	fastify.post<FetchUserPfpSchema>('/pfp', {
-		schema: {
-			body: AuthClientRequest(UserIdSchema),
-			response: {
-				200: z.string(), // Found avatar
-				404: ErrorResponse, // Avatar not found
-			}
-		}
-	}, async (request, reply) => {
-		const { userId } = request.body.payload;
-		const avatarResult = await userService.fetchUserAvatar(userId);
+	// fastify.post<FetchUserPfpSchema>('/pfp', {
+	// 	schema: {
+	// 		body: AuthClientRequest(UserIdSchema),
+	// 		response: {
+	// 			200: z.string(), // Found avatar
+	// 			404: ErrorResponse, // Avatar not found
+	// 		}
+	// 	}
+	// }, async (request, reply) => {
+	// 	const { userId } = request.body.payload;
+	// 	const avatarResult = await userService.fetchUserAvatar(userId);
 
-		if (avatarResult.isErr())
-			return reply.status(404).send({ message: avatarResult.unwrapErr() });
-		else
-			reply.header('Content-Type', 'image/svg+xml');
-			return reply.status(200).send(avatarResult.unwrap());
-	});
+	// 	if (avatarResult.isErr())
+	// 		return reply.status(404).send({ message: avatarResult.unwrapErr() });
+	// 	else
+	// 		reply.header('Content-Type', 'image/svg+xml');
+	// 		return reply.status(200).send(avatarResult.unwrap());
+	// });
 }
 
 export default userRoutes;

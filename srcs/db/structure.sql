@@ -40,14 +40,14 @@ CREATE INDEX IF NOT EXISTS idx_tokens_userId ON user_tokens(userId);
 
 CREATE TABLE IF NOT EXISTS chat_rooms (
   roomId INTEGER PRIMARY KEY AUTOINCREMENT, 
-  roomName TEXT NOT NULL
+  roomName TEXT NOT NULL,
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_id ON chat_rooms(roomId);
 
 CREATE TABLE IF NOT EXISTS users_room_relationships (
   roomId INTEGER NOT NULL,
   userId INTEGER NOT NULL,
-  userState INTEGER NOT NULL,
+  userState INTEGER NOT NULL, -- 0: invited but not joined, 1: joined
   PRIMARY KEY (roomId, userId),
   FOREIGN KEY(roomId) REFERENCES chat_rooms(roomId) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE

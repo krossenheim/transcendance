@@ -346,7 +346,6 @@ fastify.all("/api/:container/*", async (req, reply) => {
   const userId = authResult.unwrap();
   console.log("Authenticated user ID:", userId);
   const { container } = req.params as { container: string };
-  const new_url = req.url.replace(`/api/${container}/`, "/api/");
   const body = AuthClientRequest(z.any()).parse({
     userId: Number(userId),
     payload: req.body,
@@ -355,20 +354,18 @@ fastify.all("/api/:container/*", async (req, reply) => {
     req,
     reply,
     "POST",
-    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`,
+    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${req.url}`,
     body
   );
 });
 
 fastify.all("/public_api/:container/*", async (req, reply) => {
   const { container } = req.params as { container: string };
-  console.log("Url: ", req.url);
-  const new_url = req.url.replace(`/public_api/${container}/`, "/public_api/");
   await proxyRequest(
     req,
     reply,
     req.method,
-    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`,
+    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${req.url}`,
     req.body
   );
 });

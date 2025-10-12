@@ -33,15 +33,15 @@ const fastify: FastifyInstance = zodFastify();
 
 // Register routes
 import userRoutes from './routes/users.js';
-fastify.register(userRoutes, { prefix: '/internal_api/users' });
-fastify.register(userRoutes, { prefix: '/api/users' });
+fastify.register(userRoutes);
+fastify.register(userRoutes);
 
 import tokenRoutes from "./routes/tokens.js";
-fastify.register(tokenRoutes, { prefix: "/internal_api/tokens" });
-fastify.register(tokenRoutes, { prefix: "/api/tokens" });
+fastify.register(tokenRoutes);
+fastify.register(tokenRoutes);
 
 import chatRoutes from "./routes/chat.js";
-fastify.register(chatRoutes, { prefix: "/internal_api/chat" });
+fastify.register(chatRoutes);
 
 // Run the server
 const port = parseInt(
@@ -58,4 +58,4 @@ fastify.listen({ port, host }, (err, address) => {
   fastify.log.info(`Server listening at ${address}`);
 });
 
-export { db, userService, tokenService };
+export { db, userService, tokenService, chatService };

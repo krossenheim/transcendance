@@ -13,7 +13,6 @@ import { z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
 import { Result } from "./utils/api/service/common/result.js";
 import Containers from "./utils/internal_api.js";
-import {endpoints} from "./utils/api/service/common/endpoints.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -49,11 +48,13 @@ class FixedSizeList {
 
 class Room {
   public room_name: string;
+  public readonly room_id: number;
   public users: Array<number>;
   public messages: FixedSizeList;
   public allowedUsers: Array<any>;
 
   constructor(room_name: string) {
+    this.room_id = -1;
     this.room_name = room_name;
     this.users = new Array();
     this.messages = new FixedSizeList(20);
@@ -202,11 +203,11 @@ class Room {
   }
 }
 
-async function db_add_new_room(room_name : string)
-{
-	const endpoint = endpoints.ws.chat.addRoom;
-	const result = Containers.db.post(endpoint)
-}
+// async function db_add_new_room(room_name : string)
+// {
+// 	const endpoint = endpoints.ws.chat.addRoom;
+// 	const result = Containers.db.post(endpoint)
+// }
 
 class ChatRooms {
   private rooms: Array<Room>;
@@ -310,7 +311,7 @@ class ChatRooms {
     if (!validate_message.success) {
       return formatZodError([user_id], validate_message.error);
     }
-    let targetRoom = this.rooms.find((room) => validate_message.data.room_id === room.);
+    let targetRoom = this.rooms.find((room) => validate_message.data.room_id === room.room_id);
     if (targetRoom == undefined)
       return {
         recipients: [user_id],
@@ -318,7 +319,7 @@ class ChatRooms {
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room " + room_name + " doesn't exist.",
+          pop_up_text: "Room id KAKAKAA doesn't exist.",
         },
       };
 

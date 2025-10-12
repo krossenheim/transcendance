@@ -38,7 +38,7 @@ export const message_rule = z.coerce
 export const AddRoomPayloadSchema = z
   .object({
 	// Payload sent by client "Wants a new room made"
-    room_name: room_name_rule,
+    roomName: room_name_rule,
   })
   .strict();
 

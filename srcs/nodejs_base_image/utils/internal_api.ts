@@ -12,14 +12,14 @@ class ContainerTarget {
   async post(path: string, body: any): Promise<AxiosResponse<any> | undefined> {
     try {
       return await axios.post(
-        `http://${this.target}:${this.port}/internal_api${path}`,
+        `http://${this.target}:${this.port}${path}`,
         body,
         { validateStatus: () => true }
       );
     } catch (error: any) {
       console.error(
         "Error in internal API POST request url was " +
-          `http://${this.target}:${this.port}/internal_api${path}`,
+          `http://${this.target}:${this.port}${path}`,
         "error was:\n",
         error
       );
@@ -30,7 +30,7 @@ class ContainerTarget {
   async get(path: string): Promise<AxiosResponse<any> | undefined> {
     try {
       return await axios.get(
-        `http://${this.target}:${this.port}/internal_api${path}`,
+        `http://${this.target}:${this.port}${path}`,
         { validateStatus: () => true }
       );
     } catch (error: any) {

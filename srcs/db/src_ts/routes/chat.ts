@@ -1,34 +1,34 @@
 import token, { VerifyTokenPayload, type VerifyTokenPayloadType, StoreTokenPayload, type StoreTokenPayloadType } from '../utils/api/service/db/token.js';
 import type { ErrorResponseType } from '../utils/api/service/common/error.js';
-import { StoredMessageSchema, ListRoomsSchema } from '../utils/api/service/chat/db_models.js';
+import { StoredMessageSchema, ListRoomsSchema, RoomSchema } from '../utils/api/service/chat/db_models.js';
 import { ErrorResponse } from '../utils/api/service/common/error.js';
-import { tokenService, userService } from '../main.js';
+import { tokenService, userService, chatService } from '../main.js';
 import type { FastifyInstance } from 'fastify';
 import type { ZodSchema } from '../utils/api/service/common/zodUtils.js';
-import type { TypeUserSendMessagePayload, TypeAddRoomPayloadSchema,TypeAddToRoomPayload } from '../utils/api/service/chat/chat_interfaces.js';
+import type { TypeUserSendMessagePayload, TypeAddRoomPayloadSchema, TypeAddToRoomPayload } from '../utils/api/service/chat/chat_interfaces.js';
 import { AddRoomPayloadSchema } from '../utils/api/service/chat/chat_interfaces.js';
-
-import type { TypeStoredMessageSchema,TypeListRoomsSchema } from '../utils/api/service/chat/db_models.js';
+import type { TypeStoredMessageSchema, TypeListRoomsSchema } from '../utils/api/service/chat/db_models.js';
 import { z } from 'zod';
-import { endpoints } from "../utils/api/service/common/endpoints.js";
 import { request } from 'http';
-
-
+import { int_url } from '../utils/api/service/common/endpoints.js';
 export async function chatRoutes(fastify: FastifyInstance) {
 	const createRoomSchema = {
 		body: AddRoomPayloadSchema,
 		response: {
-			200: StoredMessageSchema, // Token valid
-			401: ErrorResponse, // Token invalid
+			201: RoomSchema, // Created room
 			500: ErrorResponse, // Internal server error
 		}
 	};
 
 	fastify.post<ZodSchema<typeof createRoomSchema>>(
-		endpoints.http.db.createChatRoom,
+		int_url.http.db.createChatRoom,
 		{ schema: createRoomSchema },
 		async (request, reply) => {
-			
+			const creationResult = chatService.createNewRoom(request.body.roomName);
+			if (creationResult.isErr())
+				return reply.status(500).send({ message: creationResult.unwrapErr() });
+			else
+				return reply.status(201).send(creationResult.unwrap());
 		}
 	);
 
@@ -41,7 +41,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 		}
 	};
 
-	fastify.post<StoredMessageSchema>('/get_room_messages', {
+	fastify.post<StoredMessageSchema>(int_url.http.db.getRoomMessages, {
 		schema: {
 			body: VerifyTokenPayload,
 			response: {
@@ -72,7 +72,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 		}
 	}
 
-	fastify.post<StoreTokenSchema>('/store', {
+	fastify.post<StoreTokenSchema>(int_url.http.db.storeToken, {
 		schema: {
 			body: StoreTokenPayload,
 			response: {

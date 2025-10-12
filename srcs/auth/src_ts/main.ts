@@ -8,13 +8,14 @@ import { AuthResponse, type AuthResponseType } from './utils/api/service/auth/lo
 import { StoreTokenPayload, VerifyTokenPayload } from './utils/api/service/db/token.js';
 import { ErrorResponse, type ErrorResponseType } from './utils/api/service/common/error.js';
 import { CreateUser } from './utils/api/service/auth/createUser.js';
-import { LoginUser } from './utils/api/service/auth/loginUser.js';
 import type { FullUserType } from './utils/api/service/db/user.js';
-import  { FullUser, User } from './utils/api/service/db/user.js';
+import { LoginUser } from './utils/api/service/auth/loginUser.js';
+import { FullUser, User } from './utils/api/service/db/user.js';
 import { Result } from './utils/api/service/common/result.js';
 import containers from './utils/internal_api.js'
 import Fastify from 'fastify';
 import { z } from 'zod'
+import { int_url, pub_url, user_url } from './utils/api/service/common/endpoints.js';
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -36,7 +37,7 @@ const jwtExpiry = '15min'; // 15 min
 async function generateToken(userId: number): Promise<Result<TokenDataType, ErrorResponseType>> {
 	const newRefreshToken = crypto.randomBytes(64).toString('hex');
 
-	const response = await containers.db.post('/tokens/store', StoreTokenPayload.parse({
+	const response = await containers.db.post(int_url.http.db.storeToken, StoreTokenPayload.parse({
 		userId: userId,
 		token: newRefreshToken,
 	}));
@@ -77,7 +78,7 @@ type LoginSchema = {
 		200: z.infer<typeof AuthResponse>;
 		401: z.infer<typeof ErrorResponse>;
 		500: z.infer<typeof ErrorResponse>;
-	}; 
+	};
 };
 
 fastify.post<LoginSchema>('/public_api/login', {
@@ -90,11 +91,11 @@ fastify.post<LoginSchema>('/public_api/login', {
 		}
 	}
 }, async (request, reply) => {
-	const response = await containers.db.post('/users/validate', {
+	const response = await containers.db.post(int_url.http.db.loginUser, {
 		username: request.body.username,
 		password: request.body.password,
 	});
-	
+
 	if (response === undefined) {
 		return reply.status(500).send({ message: 'User service unreachable' });
 	}
@@ -129,7 +130,7 @@ type CreateAccountSchema = {
 	};
 }
 
-fastify.post<CreateAccountSchema>('/public_api/create/user', {
+fastify.post<CreateAccountSchema>(pub_url.http.auth.createUser, {
 	schema: {
 		body: CreateUser,
 		response: {
@@ -173,7 +174,7 @@ type CreateGuestSchema = {
 	};
 }
 
-fastify.get<CreateGuestSchema>('/public_api/create/guest', {
+fastify.get<CreateGuestSchema>(pub_url.http.auth.createGuestUser, {
 	schema: {
 		response: {
 			201: AuthResponse,
@@ -214,7 +215,7 @@ type ValidateJWTSchema = {
 	};
 }
 
-fastify.post<ValidateJWTSchema>('/internal_api/token/validate', {
+fastify.post<ValidateJWTSchema>(int_url.http.db.validateToken, {
 	schema: {
 		body: SingleToken,
 		response: {
