@@ -74,8 +74,9 @@ function ChatComponent({ webSocket }) {
   const handleSendAddRoomPayloadSchema = React.useCallback(
     (room_name) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-        const payload = { type: "add_room", payload: { room_name } };
-        webSocket.send(JSON.stringify(payload));
+		const payload= {room_name};
+        const toSend = { funcId: "/api/chat/add_a_new_room", payload: payload, target_container:"chat" };
+        webSocket.send(JSON.stringify(toSend));
         console.log("Requested new room:", payload);
       } else console.warn("WebSocket not open, cannot create room.");
     },

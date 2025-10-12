@@ -8,7 +8,7 @@ import type { FastifyInstance } from 'fastify';
 
 import crypto from 'crypto';
 import { z } from 'zod';
-
+import { endpoints } from '../utils/api/service/common/endpoints.js';
 // TODO : Move to env variable or config file
 const TokenSecretKey = "hfskjryfweuifhjsdkghdnfbvdbviuweryteiuwtwhejkrfhrskjd";
 

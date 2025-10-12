@@ -28,6 +28,7 @@ import type {
   TypeListRoomsSchema,
 } from "../utils/api/service/chat/db_models.js";
 import { NoService } from "../database/noService.js";
+import type {TypeRoomSchema} from "../utils/api/service/chat/db_models.js";
 
 const storedMessagesTableName = "messages";
 const storedRoomsTableName = "rooms";
@@ -56,5 +57,12 @@ export class ChatService {
       StoredMessageSchema,
       [room_name]
     );
+  }
+
+  createNewRoom(roomName: string): Result<TypeRoomSchema, string> {
+	return this.db.run(
+		`INSERT INTO chat_rooms (roomName) VALUES (?)`,
+		[roomName]
+	)
   }
 }

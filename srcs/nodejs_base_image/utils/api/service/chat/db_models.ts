@@ -31,15 +31,16 @@ export const GetUsersInRoomSchema = z
   })
   .strict();
 
+export const RoomSchema = z.object(
+	{    room_id: room_id_rule,
+    room_name: room_name_rule,}
+).strict();
+
 export const ListRoomsSchema = z
-  .array(z.object({
-	// To client when asnwering 'Give my list of rooms' 
-	// chat validates user in z.users (No field for user id here, its set by hub)
-    room_id: room_id_rule,
-    room_name: room_name_rule,
-  }).strict());
+  .array(RoomSchema);
 
 
-export type TypeRoomMessagesSchema = z.infer<typeof RoomMessagesSchema>;
-export type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
-export type TypeListRoomsSchema = z.infer<typeof ListRoomsSchema>;
+  export type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
+  export type TypeRoomMessagesSchema = z.infer<typeof RoomMessagesSchema>;
+  export type TypeListRoomsSchema = z.infer<typeof ListRoomsSchema>;
+  export type TypeRoomSchema = z.infer<typeof RoomSchema>;

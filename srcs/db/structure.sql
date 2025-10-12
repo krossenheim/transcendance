@@ -1,10 +1,3 @@
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS player_game_results;
-DROP TABLE IF EXISTS user_friendships;
-DROP TABLE IF EXISTS chat_rooms;
-DROP TABLE IF EXISTS users_room_relationships;
-DROP TABLE IF EXISTS messages;
-
 CREATE TABLE IF NOT EXISTS users (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	createdAt INTEGER DEFAULT (strftime('%s', 'now')),
@@ -12,8 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
 	alias TEXT DEFAULT NULL,
 	email TEXT NOT NULL UNIQUE,
 	passwordHash TEXT DEFAULT NULL,
-	isGuest INTEGER
-);
+	isGuest INTEGER,
+	hasAvatar INTEGER DEFAULT 0
+) STRICT;
 CREATE INDEX IF NOT EXISTS idx_user_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_user_email ON users(email);
 
@@ -23,7 +17,7 @@ CREATE TABLE IF NOT EXISTS player_game_results (
 	score INTEGER NOT NULL,
 	rank INTEGER NOT NULL,
 	FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
-);
+) STRICT;
 CREATE INDEX IF NOT EXISTS idx_game_results_userId ON player_game_results(userId);
 
 CREATE TABLE IF NOT EXISTS user_friendships (
@@ -33,7 +27,7 @@ CREATE TABLE IF NOT EXISTS user_friendships (
 	PRIMARY KEY (userId, friendId),
 	FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
 	FOREIGN KEY(friendId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
-);
+) STRICT;
 CREATE INDEX IF NOT EXISTS idx_user_friendships ON user_friendships(userId);
 
 CREATE TABLE IF NOT EXISTS user_tokens (
@@ -41,13 +35,14 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 	token TEXT NOT NULL,
 	createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 	FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
-);
+) STRICT;
 CREATE INDEX IF NOT EXISTS idx_tokens_userId ON user_tokens(userId);
 
 CREATE TABLE IF NOT EXISTS chat_rooms (
   roomId INTEGER PRIMARY KEY AUTOINCREMENT, 
   roomName TEXT NOT NULL
-);
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_chat_rooms_id ON chat_rooms(roomId);
 
 CREATE TABLE IF NOT EXISTS users_room_relationships (
   roomId INTEGER NOT NULL,
@@ -56,7 +51,7 @@ CREATE TABLE IF NOT EXISTS users_room_relationships (
   PRIMARY KEY (roomId, userId),
   FOREIGN KEY(roomId) REFERENCES chat_rooms(roomId) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
-);
+) STRICT;
 
 CREATE TABLE IF NOT EXISTS messages (
   messageId  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +61,7 @@ CREATE TABLE IF NOT EXISTS messages (
   messageDate INTEGER DEFAULT (strftime('%s', 'now')),
   FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY(roomId) REFERENCES chat_rooms(roomId) ON UPDATE CASCADE ON DELETE CASCADE
-);
+) STRICT;
 CREATE INDEX IF NOT EXISTS idx_messagesId ON messages(roomId);
 
 

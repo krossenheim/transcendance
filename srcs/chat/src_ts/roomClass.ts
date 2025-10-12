@@ -12,6 +12,8 @@ import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
 import { Result } from "./utils/api/service/common/result.js";
+import Containers from "./utils/internal_api.js";
+import {endpoints} from "./utils/api/service/common/endpoints.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -200,6 +202,12 @@ class Room {
   }
 }
 
+async function db_add_new_room(room_name : string)
+{
+	const endpoint = endpoints.ws.chat.addRoom;
+	const result = Containers.db.post(endpoint)
+}
+
 class ChatRooms {
   private rooms: Array<Room>;
   public static instance: ChatRooms;
@@ -293,7 +301,6 @@ class ChatRooms {
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const { room_name } = client_request.payload;
     if (!user_id) {
       throw Error("Service called with no user id behind it.");
     }
@@ -303,7 +310,7 @@ class ChatRooms {
     if (!validate_message.success) {
       return formatZodError([user_id], validate_message.error);
     }
-    let targetRoom = this.rooms.find((room) => room_name === room.room_name);
+    let targetRoom = this.rooms.find((room) => validate_message.data.room_id === room.);
     if (targetRoom == undefined)
       return {
         recipients: [user_id],

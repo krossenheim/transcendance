@@ -4,12 +4,34 @@ import { StoredMessageSchema, ListRoomsSchema } from '../utils/api/service/chat/
 import { ErrorResponse } from '../utils/api/service/common/error.js';
 import { tokenService, userService } from '../main.js';
 import type { FastifyInstance } from 'fastify';
+import type { ZodSchema } from '../utils/api/service/common/zodUtils.js';
 import type { TypeUserSendMessagePayload, TypeAddRoomPayloadSchema,TypeAddToRoomPayload } from '../utils/api/service/chat/chat_interfaces.js';
+import { AddRoomPayloadSchema } from '../utils/api/service/chat/chat_interfaces.js';
+
 import type { TypeStoredMessageSchema,TypeListRoomsSchema } from '../utils/api/service/chat/db_models.js';
 import { z } from 'zod';
+import { endpoints } from "../utils/api/service/common/endpoints.js";
+import { request } from 'http';
 
 
 export async function chatRoutes(fastify: FastifyInstance) {
+	const createRoomSchema = {
+		body: AddRoomPayloadSchema,
+		response: {
+			200: StoredMessageSchema, // Token valid
+			401: ErrorResponse, // Token invalid
+			500: ErrorResponse, // Internal server error
+		}
+	};
+
+	fastify.post<ZodSchema<typeof createRoomSchema>>(
+		endpoints.http.db.createChatRoom,
+		{ schema: createRoomSchema },
+		async (request, reply) => {
+			
+		}
+	);
+
 	type StoredMessageSchema = {
 		Body: TypeAddRoomPayloadSchema,
 		Reply: {
