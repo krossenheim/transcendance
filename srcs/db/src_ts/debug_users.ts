@@ -1,29 +1,23 @@
 import { hashPassword } from "./routes/users.js";
 
 export async function makedebugusers(userService: any): Promise<void> {
+  const hashed = await hashPassword("apassword");
   const safedebugpasswords = [];
   safedebugpasswords.push(
-    await userService.createNewUser(
-      "userone",
-      "bogus@bogii.coms",
-      await hashPassword("apassword"),
+    userService.createNewUser("userone", "boasgus@bogii.coms", hashed, false)
+  );
+  safedebugpasswords.push(
+    userService.createNewUser("usertwo", "bogasdus@bog2ii.coms", hashed, false)
+  );
+  safedebugpasswords.push(
+    userService.createNewUser(
+      "userthree",
+      "bogdssus@bog2isi.coms",
+      hashed,
       false
     )
   );
   safedebugpasswords.push(
-    await userService.createNewUser(
-      "usertwo",
-      "bogus@bog2ii.coms",
-      await hashPassword("apassword"),
-      true
-    )
-  );
-  safedebugpasswords.push(
-    await userService.createNewUser(
-      "userthree",
-      "bogus@bog2isi.coms",
-      await hashPassword("apassword"),
-      true
-    )
+    userService.createNewUser("guest", "bogdssus@bog2isi.coms", hashed, false)
   );
 }

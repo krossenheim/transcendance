@@ -17,9 +17,18 @@ import Fastify from "fastify";
 const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
 const userService = new UserService(db);
+// debug!!
+// debug!!
+// debug!!
+// debug!!
+// debug!!
 import { makedebugusers } from "./debug_users.js";
 await makedebugusers(userService);
+// debug!!
+// debug!!
+
 const chatService = new ChatService(db);
+
 // Setup Fastify with Zod
 const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
   const server = Fastify(options);

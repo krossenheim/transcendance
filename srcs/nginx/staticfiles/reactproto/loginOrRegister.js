@@ -18,9 +18,6 @@ export function LoginOrRegister() {
             <LoginComponent onLoginSuccess={logInOrRegistered} />
           </div>{" "}
           <div className="w-1/2">
-            <LoginComponent onLoginSuccess={logInOrRegistered} />
-          </div>
-          <div className="w-1/2">
             <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} />
           </div>
         </div>

@@ -40,13 +40,13 @@ YELLOW := \033[1;33m
 NC := \033[0m  # No Color (reset)
 
 
-debug1:
+debug:
 	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
 	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
-	rm -f $(VOLUMES_DIR)/users.db
+	rm -f $(VOLUMES_DIR)users.db
 
-build: pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
+build: debug pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build 
 
 build_base_nodejs:
