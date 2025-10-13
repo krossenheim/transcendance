@@ -13,6 +13,7 @@ import { z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
 import { Result } from "./utils/api/service/common/result.js";
 import Containers from "./utils/internal_api.js";
+import { int_url } from "./utils/api/service/common/endpoints.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -53,8 +54,8 @@ class Room {
   public messages: FixedSizeList;
   public allowedUsers: Array<any>;
 
-  constructor(room_name: string) {
-    this.room_id = -1;
+  constructor(room_name: string, room_id: number) {
+    this.room_id = room_id;
     this.room_name = room_name;
     this.users = new Array();
     this.messages = new FixedSizeList(20);
@@ -148,15 +149,41 @@ class Room {
       console.error("exact fields expected at this stage: :", validation.error);
       throw Error("Data should be clean at this stage.");
     }
-    const { user_id } = client_request;
+    const user_id = validation.data.user_id;
     const valid_message_to_send = SendMessagePayloadSchema.safeParse(
-      client_request.payload
+      validation.data.payload
     );
     if (!valid_message_to_send.success) {
       return formatZodError([user_id], valid_message_to_send.error);
     }
-    const { message, room_name } = client_request.payload;
-
+    const { messageString: messageReceived, room_id } =
+      valid_message_to_send.data;
+    if (!messageReceived) {
+      return {
+        recipients: [user_id],
+        funcId: "send_message_to_room",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "User did not send a message.",
+        },
+      };
+    }
+    if (this.room_id != room_id) {
+      console.error(
+        `Wrong roomg (id ${this.room_id}) being asked to
+         broadcast message on behalf of user: (id ${user_id})`
+      );
+      return {
+        recipients: [user_id],
+        funcId: "send_message_to_room",
+        payload: {
+          status: 666,
+          func_name: "aaa",
+          pop_up_text: "Internal error when dealing with room id:" + room_id,
+        },
+      };
+    }
     if (!this.users.includes(user_id)) {
       console.log(
         `Userid ${user_id} is not in room ${
@@ -171,12 +198,7 @@ class Room {
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text:
-            "Room " +
-            room_name +
-            " doesn't exist or user_id " +
-            room_name +
-            "isnt in it.",
+          pop_up_text: "Room " + room_id + " doesn't exist or user isnt in it.",
         },
       };
     } else {
@@ -186,20 +208,20 @@ class Room {
         }, request was: ${JSON.stringify(client_request)}`
       );
       return {
-        recipients: this.users || [],
+        recipients: this.users,
         funcId: "send_message_to_room",
         payload: {
-          status: httpStatus.OK,
-          func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
+          status: 33,
+          func_name: "galibaprafasaal",
           room_name: this.room_name,
-          message: message,
+          message: messageReceived,
         },
       };
     }
   }
 
   equals(otherRoom: Room) {
-    return otherRoom && this.room_name == otherRoom.room_name;
+    return otherRoom && this.room_id == otherRoom.room_id;
   }
 }
 
@@ -228,7 +250,9 @@ class ChatRooms {
     return this;
   }
 
-  addRoom(client_request: T_ForwardToContainer): T_PayloadToUsers {
+  async addRoom(
+    client_request: T_ForwardToContainer
+  ): Promise<T_PayloadToUsers> {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
@@ -244,8 +268,71 @@ class ChatRooms {
     if (!valid_add_room_schema.success) {
       return formatZodError([user_id], valid_add_room_schema.error);
     }
-    const { room_name } = client_request.payload;
-    let room = new Room(room_name);
+    const { roomName } = client_request.payload;
+
+    if (!roomName) {
+      return {
+        recipients: [user_id],
+        funcId: "add_room",
+        payload: {
+          status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "No room name in payload, outdated schema.",
+        },
+      };
+    }
+    const response = await Containers.db.post(int_url.http.db.createChatRoom, {
+      roomName,
+    });
+    if (response === undefined) {
+      {
+        return {
+          recipients: [user_id],
+          funcId: "add_room",
+          payload: {
+            status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
+            func_name: process.env.FUNC_POPUP_TEXT,
+            pop_up_text: "Request to create a chat room was unsuccesful.",
+          },
+        };
+      }
+    }
+    console.log("Response from db service:", response.status, response.data);
+
+    if (response.status === 400) {
+      {
+        {
+          return {
+            recipients: [user_id],
+            funcId: "add_room",
+            payload: {
+              status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
+              func_name: process.env.FUNC_POPUP_TEXT,
+              pop_up_text: "Invalid ROOM data or ROOM already exists",
+            },
+          };
+        }
+      }
+    }
+    const { roomId } = response.data;
+    if (!roomId) {
+      console.error(
+        "Received null room_id from ",
+        int_url.http.db.createChatRoom,
+        "!!!\n@\n\n"
+      );
+      return {
+        recipients: [user_id],
+        funcId: "add_room",
+        payload: {
+          status: httpStatus.ALREADY_REPORTED,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text:
+            "Service db misconfigured, response data missing var room id.",
+        },
+      };
+    }
+    let room = new Room(roomName, roomId);
     if (this.rooms && this.rooms.some((r) => r.equals(room)))
       return {
         recipients: [user_id],
@@ -253,7 +340,7 @@ class ChatRooms {
         payload: {
           status: httpStatus.ALREADY_REPORTED,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room already exists.",
+          pop_up_text: "Room " + roomName + "already exists.",
         },
       };
     room.users.push(user_id);
@@ -266,6 +353,7 @@ class ChatRooms {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
         room_name: room.room_name,
+        room_id: room.room_id,
       },
     };
   }
@@ -311,7 +399,9 @@ class ChatRooms {
     if (!validate_message.success) {
       return formatZodError([user_id], validate_message.error);
     }
-    let targetRoom = this.rooms.find((room) => validate_message.data.room_id === room.room_id);
+    let targetRoom = this.rooms.find(
+      (room) => validate_message.data.room_id === room.room_id
+    );
     if (targetRoom == undefined)
       return {
         recipients: [user_id],
@@ -319,7 +409,8 @@ class ChatRooms {
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room id KAKAKAA doesn't exist.",
+          pop_up_text:
+            "Room id " + validate_message.data.room_id + " doesn't exist.",
         },
       };
 
