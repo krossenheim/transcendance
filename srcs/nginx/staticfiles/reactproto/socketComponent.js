@@ -56,7 +56,12 @@ function SocketComponent({ AuthResponseObject }) {
     // '' omits
   );
 
-  return <ChatComponent webSocket={socket} />;
+  return (
+    <>
+      <ChatComponent webSocket={socket} />
+      <PongComponent webSocket={socket} />
+    </>
+  );
 }
 
 window.SocketComponent = SocketComponent;

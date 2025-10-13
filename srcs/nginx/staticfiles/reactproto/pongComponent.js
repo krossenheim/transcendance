@@ -147,3 +147,5 @@ export default function PongComponent({ webSocket }) {
     </div>
   );
 }
+
+window.PongComponent = PongComponent;
