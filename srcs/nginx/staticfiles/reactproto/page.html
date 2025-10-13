@@ -46,6 +46,7 @@
         ws.send(message);
       };
     </script>
+
     <script
       type="text/babel"
       src="/static/reactproto/chatComponent.js"
@@ -63,6 +64,11 @@
     ></script>
     <script
       type="text/babel"
+      src="/static/reactproto/pongComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
       src="/static/reactproto/registerComponent.js"
       defer
     ></script>
@@ -72,12 +78,13 @@
       defer
     ></script>
     <script type="text/babel">
-      const { useState, useEffect, useRef } = React;
+      const { useState, useEffect, useRef, useCallback } = React;
 
-      const SocketComponent = window.SocketComponent; // declares websocket
-      const ChatComponent = window.ChatComponent;
       const RegisterComponent = window.RegisterComponent;
+      const SocketComponent = window.SocketComponent; // declares websocket
       const LoginComponent = window.LoginComponent;
+      const PongComponent = window.PongComponent;
+      const ChatComponent = window.ChatComponent;
       const AppRoot = window.AppRoot;
 
       console.log("Form:", RegisterComponent);

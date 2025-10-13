@@ -261,7 +261,6 @@ class PongGame {
         y: truncDecimals(obj.pos.y),
         dx: truncDecimals(obj.dir.x),
         dy: truncDecimals(obj.dir.y),
-        r: truncDecimals(obj.radius),
       });
     }
 
