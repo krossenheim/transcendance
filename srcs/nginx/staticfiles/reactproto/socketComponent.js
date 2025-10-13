@@ -1,4 +1,4 @@
-function RootMain({ AuthResponseObject }) {
+function SocketComponent({ AuthResponseObject }) {
   // This is one session/websocket to the server
   const [username, setUsername] = React.useState("");
   const [messages, setMessages] = React.useState([]);
@@ -59,4 +59,4 @@ function RootMain({ AuthResponseObject }) {
   return <ChatComponent webSocket={socket} />;
 }
 
-window.RootMain = RootMain;
+window.SocketComponent = SocketComponent;

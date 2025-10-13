@@ -134,13 +134,13 @@ function ChatComponent({ webSocket }) {
         console.log("received", JSON.stringify(data));
         switch (data.funcId) {
           case "send_message":
-            handleStoredMessageSchemaReceived(data);
+            handleStoredMessageSchemaReceived(data.payload);
             break;
           case "add_room":
             handleListRoomsSchemaReceived(data.payload);
             break;
           case "add_user_to_room":
-            handleRoomMessagesSchemaReceived(data);
+            handleRoomMessagesSchemaReceived(data.payload);
             break;
           default:
             console.warn("Unknown funcId:", data.funcId);

@@ -1,4 +1,4 @@
-export function LoginOrRegister() {
+export function AppRoot() {
   /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
   const [authResponse, setAuthResponse] = useState(null);
 
@@ -11,7 +11,7 @@ export function LoginOrRegister() {
   return (
     <main className="min-h-screen flex items-center justify-center">
       {authResponse ? (
-        <RootMain AuthResponseObject={authResponse} />
+        <SocketComponent AuthResponseObject={authResponse} />
       ) : (
         <div className="flex gap-8 justify-center items-start">
           <div className="w-1/2">

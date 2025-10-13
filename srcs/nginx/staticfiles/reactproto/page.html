@@ -58,7 +58,7 @@
     ></script>
     <script
       type="text/babel"
-      src="/static/reactproto/loginOrRegister.js"
+      src="/static/reactproto/appRoot.js"
       defer
     ></script>
     <script
@@ -68,16 +68,17 @@
     ></script>
     <script
       type="text/babel"
-      src="/static/reactproto/rootMain.js"
+      src="/static/reactproto/socketComponent.js"
       defer
     ></script>
     <script type="text/babel">
       const { useState, useEffect, useRef } = React;
-      const RootComponent = window.RootMain; // declares websocket
+
+      const SocketComponent = window.SocketComponent; // declares websocket
       const ChatComponent = window.ChatComponent;
       const RegisterComponent = window.RegisterComponent;
       const LoginComponent = window.LoginComponent;
-      const LoginOrRegister = window.LoginOrRegister; // root of the components consuming socket (after LoginOrRegister)
+      const AppRoot = window.AppRoot;
 
       console.log("Form:", RegisterComponent);
       // Card components
@@ -111,7 +112,7 @@
       );
 
       const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<LoginOrRegister />);
+      root.render(<AppRoot />);
     </script>
   </body>
 </html>
