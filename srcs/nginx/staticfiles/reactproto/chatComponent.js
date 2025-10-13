@@ -64,12 +64,15 @@ function ChatComponent({ webSocket }) {
   const handleSendInviteToRoomSchema = React.useCallback(
     (room_id, user_to_add) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-        const payload = {
+        const payload = { room_id, user_to_add };
+
+        const toSend = {
           funcId: "/api/chat/add_to_room",
-          payload: { room_id, user_to_add },
+          payload: payload,
+          target_container: "chat",
         };
-        webSocket.send(JSON.stringify(payload));
-        console.log("Sent room invite:", payload);
+        webSocket.send(JSON.stringify(toSend));
+        console.log("Sent room invite:", toSend);
       } else console.warn("WebSocket not open, cannot invite user.");
     },
     [webSocket]
@@ -141,7 +144,6 @@ function ChatComponent({ webSocket }) {
             break;
           default:
             console.warn("Unknown funcId:", data.funcId);
-            
         }
       } catch (err) {
         console.log(

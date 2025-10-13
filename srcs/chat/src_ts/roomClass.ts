@@ -2,6 +2,7 @@ import {
   ForwardToContainerSchema,
   PayloadToUsersSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
+import user, { FullUser } from "./utils/api/service/db/user.js";
 
 import {
   AddRoomPayloadSchema,
@@ -11,7 +12,6 @@ import {
 import httpStatus from "./utils/httpStatusEnum.js";
 import { z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
-import { Result } from "./utils/api/service/common/result.js";
 import Containers from "./utils/internal_api.js";
 import { int_url } from "./utils/api/service/common/endpoints.js";
 
@@ -62,23 +62,29 @@ class Room {
     this.allowedUsers = new Array();
   }
 
-  addUser(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
+  async addUser(
+    client_request: T_ForwardToContainer
+  ): Promise<T_PayloadToUsers> {
+    const from_hub = ForwardToContainerSchema.safeParse(client_request);
+    if (!from_hub.success) {
+      console.error("exact fields expected at this stage: :", from_hub.error);
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const validate_user_add = AddToRoomPayloadSchema.safeParse(
-      client_request.payload
+    const valid_payload = AddToRoomPayloadSchema.safeParse(
+      from_hub.data.payload
     );
-    if (!validate_user_add.success) {
-      return formatZodError([user_id], validate_user_add.error);
+    if (!valid_payload.success) {
+      console.log(
+        "Invalid payload to add user received: ",
+        from_hub.data.payload
+      );
+      return formatZodError([user_id], valid_payload.error);
     }
-    const { user_to_add, room_name } = client_request.payload;
+    const { user_to_add, room_id } = valid_payload.data;
 
     // Validate user id to add to add with auth
-    if (room_name != this.room_name) {
+    if (room_id != this.room_id) {
       console.error(
         `Room name doesn't match the requested name, request was: ${JSON.stringify(
           client_request
@@ -103,10 +109,10 @@ class Room {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
           pop_up_text:
-            "A room " +
-            room_name +
+            "A room by id " +
+            room_id +
             " doesn't exist or user_id " +
-            room_name +
+            user_id +
             "isnt in it.",
         },
       };
@@ -119,14 +125,78 @@ class Room {
           status: httpStatus.ALREADY_REPORTED,
           func_name: process.env.FUNC_POPUP_TEXT,
           room_name: this.room_name,
-          message: `User ${user_to_add} already in room ${room_name}.`,
+          message: `User ${user_to_add} already in room ${this.room_name}.`,
         },
       };
     // import { db_interface_add_user } from "";
 
     // const query_result: Result = db_interface_add_user();
     // if (query_result.isErr)
-    this.users.push(toInt(user_to_add));
+    // ^ why am i not doing this?
+    const response = await Containers.db.get(
+      int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
+    );
+    // Check person is in friedn list possible here
+    if (response === undefined) {
+      {
+        return {
+          recipients: [user_id],
+          funcId: "add_room",
+          payload: {
+            status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
+            func_name: process.env.FUNC_POPUP_TEXT,
+            pop_up_text: "No response for lookup on user id: ",
+            user_to_add,
+          },
+        };
+      }
+    }
+    console.log("Response from db service:", response.status, response.data);
+
+    if (response.status !== 201) {
+      {
+        {
+          return {
+            recipients: [user_id],
+            funcId: "add_room",
+            payload: {
+              status: "oohh! aah!",
+              func_name: process.env.FUNC_POPUP_TEXT,
+              pop_up_text: "Bad room data or nonexistant room.",
+            },
+          };
+        }
+      }
+    }
+    const valid_user_to_add = FullUser.safeParse(response?.data);
+    if (!valid_user_to_add.success) {
+      console.log("No known user with id ", user_to_add);
+      return {
+        recipients: [user_id],
+        funcId: "add_user_to_room",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: `The user you requested (with id ${user_to_add}) doesn't exist.`,
+        },
+      };
+    }
+    const user = valid_user_to_add.data;
+    const valid_user_is_adding = FullUser.safeParse(response?.data);
+    if (!valid_user_is_adding.success) {
+      console.log("No known user with id ", user_to_add);
+      return {
+        recipients: [user_id],
+        funcId: "add_user_to_room",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: `The user you requested (with id ${user_to_add}) doesn't exist.`,
+        },
+      };
+    }
+    const userAdding = valid_user_is_adding.data;
+    this.users.push(user.id);
     return {
       recipients: this.users,
       funcId: "add_user_to_room",
@@ -134,26 +204,31 @@ class Room {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
         room_name: this.room_name,
-        message: `User ${user_id} has added ${user_to_add}`,
+        message: `User ${userAdding.alias} has added ${user.alias}`,
       },
     };
   }
 
+  //////
   removeUser(user: any) {
     this.users = this.users.filter((u) => u !== user);
   }
 
   sendMessage(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
-      throw Error("Data should be clean at this stage.");
+    const from_hub = ForwardToContainerSchema.safeParse(client_request);
+    if (!from_hub.success) {
+      console.error("exact fields expected at this stage: :", from_hub.error);
+      throw Error("Malformed message from hub.");
     }
-    const user_id = validation.data.user_id;
+    const user_id = from_hub.data.user_id;
     const valid_message_to_send = SendMessagePayloadSchema.safeParse(
-      validation.data.payload
+      from_hub.data.payload
     );
     if (!valid_message_to_send.success) {
+      console.log(
+        "Invalid payload to add user received: ",
+        from_hub.data.payload
+      );
       return formatZodError([user_id], valid_message_to_send.error);
     }
     const { messageString: messageReceived, room_id } =
@@ -253,9 +328,9 @@ class ChatRooms {
   async addRoom(
     client_request: T_ForwardToContainer
   ): Promise<T_PayloadToUsers> {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
+    const from_hub = ForwardToContainerSchema.safeParse(client_request);
+    if (!from_hub.success) {
+      console.error("exact fields expected at this stage: :", from_hub.error);
       throw Error("Data should be clean at this stage.");
     }
     const user_id = client_request.user_id;
@@ -299,16 +374,16 @@ class ChatRooms {
     }
     console.log("Response from db service:", response.status, response.data);
 
-    if (response.status === 400) {
+    if (response.status !== 201) {
       {
         {
           return {
             recipients: [user_id],
             funcId: "add_room",
             payload: {
-              status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
+              status: "aaaa",
               func_name: process.env.FUNC_POPUP_TEXT,
-              pop_up_text: "Invalid ROOM data or ROOM already exists",
+              pop_up_text: "Room was not created.",
             },
           };
         }
@@ -359,9 +434,9 @@ class ChatRooms {
   }
 
   listRooms(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
+    const from_hub = ForwardToContainerSchema.safeParse(client_request);
+    if (!from_hub.success) {
+      console.error("exact fields expected at this stage: :", from_hub.error);
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
@@ -384,23 +459,23 @@ class ChatRooms {
   }
 
   sendMessage(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
+    const from_hub = ForwardToContainerSchema.safeParse(client_request);
+    if (!from_hub.success) {
+      console.error("exact fields expected at this stage: :", from_hub.error);
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
     if (!user_id) {
       throw Error("Service called with no user id behind it.");
     }
-    const validate_message = SendMessagePayloadSchema.safeParse(
+    const valid_payload = SendMessagePayloadSchema.safeParse(
       client_request.payload
     );
-    if (!validate_message.success) {
-      return formatZodError([user_id], validate_message.error);
+    if (!valid_payload.success) {
+      return formatZodError([user_id], valid_payload.error);
     }
     let targetRoom = this.rooms.find(
-      (room) => validate_message.data.room_id === room.room_id
+      (room) => valid_payload.data.room_id === room.room_id
     );
     if (targetRoom == undefined)
       return {
@@ -410,45 +485,52 @@ class ChatRooms {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
           pop_up_text:
-            "Room id " + validate_message.data.room_id + " doesn't exist.",
+            "Room id " + valid_payload.data.room_id + " doesn't exist.",
         },
       };
 
     return targetRoom.sendMessage(client_request);
   }
 
-  addUserToRoom(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
+  async addUserToRoom(
+    client_request: T_ForwardToContainer
+  ): Promise<T_PayloadToUsers> {
+    const from_hub = ForwardToContainerSchema.safeParse(client_request);
+    if (!from_hub.success) {
+      console.error("exact fields expected at this stage: :", from_hub.error);
       throw Error("Data should be clean at this stage.");
     }
-    const { user_id } = client_request;
-    const valid_user_to_room_request = AddToRoomPayloadSchema.safeParse(
+    const user_id = from_hub.data.user_id;
+    const valid_payload = AddToRoomPayloadSchema.safeParse(
       client_request.payload
     );
 
-    if (!valid_user_to_room_request.success)
-      return formatZodError([user_id], valid_user_to_room_request.error);
+    if (!valid_payload.success)
+      return formatZodError([user_id], valid_payload.error);
 
-    const { room_name } = client_request.payload;
-    if (!user_id) {
-      throw new Error("No userid for request");
+    const requested_room_id = valid_payload.data.room_id;
+
+    let targetRoom = this.rooms.find(
+      (room) => requested_room_id === room.room_id
+    );
+    if (targetRoom && !targetRoom.users.includes(user_id)) {
+      console.log(
+        `DEBUG/WARN: user with id ${user_id} trying to send message to a room (${targetRoom.room_id}) they aren't in.`
+      );
+      // Will return error to client below.
     }
-
-    let targetRoom = this.rooms.find((room) => room_name === room.room_name);
-    if (targetRoom == undefined)
+    if (targetRoom === undefined || !targetRoom.users.includes(user_id))
       return {
         recipients: [user_id],
         funcId: "add_user_to_room",
         payload: {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room " + room_name + " doesn't exist.",
+          pop_up_text: "Room with ID " + requested_room_id + " doesn't exist.",
         },
       };
 
-    return targetRoom.addUser(client_request);
+    return await targetRoom.addUser(client_request);
   }
 }
 
