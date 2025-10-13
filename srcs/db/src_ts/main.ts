@@ -11,15 +11,34 @@ import {
 import { TokenService } from "./database/tokenService.js";
 import { UserService } from "./database/userService.js";
 import { ChatService } from "./database/chatService.js";
-import { NoService } from "./database/noService.js";
+import { hashPassword } from "./routes/users.js";
 import Database from "./database/database.js";
 import Fastify from "fastify";
 
 // Setup database
-const db = new Database('/etc/database_data/users.db');
+const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
 const userService = new UserService(db);
 const chatService = new ChatService(db);
+
+await userService.createNewUser(
+  "KALAWIuser",
+  "bogus@bogii.coms",
+  await hashPassword("acbaisd1434"),
+  false
+);
+await userService.createNewUser(
+  "KALAWIguest",
+  "bogus@bog2ii.coms",
+  await hashPassword("acbaisd1434"),
+  true
+);
+await userService.createNewUser(
+  "A",
+  "bogus@bog2isi.coms",
+  await hashPassword("acbaisd1434"),
+  true
+);
 
 // Setup Fastify with Zod
 const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
@@ -32,7 +51,7 @@ const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
 const fastify: FastifyInstance = zodFastify();
 
 // Register routes
-import userRoutes from './routes/users.js';
+import userRoutes from "./routes/users.js";
 fastify.register(userRoutes);
 
 import tokenRoutes from "./routes/tokens.js";

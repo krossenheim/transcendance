@@ -19,7 +19,7 @@
     />
 
     <!-- Lucide Icons UMD -->
-    <script src="https://cdn.jsdelivr.net/npm/lucide@0.545.0/dist/umd/lucide.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/lucide@0.545.0/dist/umd/lucide.js"></script> -->
 
     <!-- Prototyping stubs for UI components -->
   </head>
@@ -48,32 +48,38 @@
     </script>
     <script
       type="text/babel"
-      src="/static/reactproto/registerForm.js"
-      defer
-    ></script>
-    <script
-      type="text/babel"
-      src="/static/reactproto/mainIndex.js"
-      defer
-    ></script>
-    <script
-      type="text/babel"
       src="/static/reactproto/chatComponent.js"
       defer
     ></script>
     <script
       type="text/babel"
-      src="/static/reactproto/loginForm.js"
+      src="/static/reactproto/loginComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/loginOrRegister.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/registerComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/rootMain.js"
       defer
     ></script>
     <script type="text/babel">
       const { useState, useEffect, useRef } = React;
-      const RegisterForm = window.RegisterForm;
-      const MainIndex = window.MainIndex;
+      const RootComponent = window.RootMain; // declares websocket
       const ChatComponent = window.ChatComponent;
-      const LoginForm = window.LoginForm;
+      const RegisterComponent = window.RegisterComponent;
+      const LoginComponent = window.LoginComponent;
+      const LoginOrRegister = window.LoginOrRegister; // root of the components consuming socket (after LoginOrRegister)
 
-      console.log("Form:", RegisterForm);
+      console.log("Form:", RegisterComponent);
       // Card components
       const Card = ({ children, ...props }) => <div {...props}>{children}</div>;
       const CardHeader = ({ children, ...props }) => (
@@ -104,38 +110,8 @@
         <span {...props}>{children}</span>
       );
 
-      function Home() {
-        /** @type {[AuthResponseType | null, React.Dispatch<React.SetStateAction<AuthResponseType | null>>]} */
-        const [authResponse, setAuthResponse] = useState(null);
-
-        /** @param {AuthResponseType} varTypeAuthResponse */
-        function logInOrRegistered(varTypeAuthResponse) {
-          console.log("AA: ", varTypeAuthResponse);
-          setAuthResponse(varTypeAuthResponse);
-        }
-
-        return (
-          <main className="min-h-screen flex items-center justify-center">
-            {authResponse ? (
-              <MainIndex AuthResponseObject={authResponse} />
-            ) : (
-              <div className="flex gap-8 justify-center items-start">
-                <div className="w-1/2">
-                  <LoginForm onLoginSuccess={logInOrRegistered} />
-                </div>                <div className="w-1/2">
-                  <LoginForm onLoginSuccess={logInOrRegistered} />
-                </div>
-                <div className="w-1/2">
-                  <RegisterForm whenCompletedSuccesfully={logInOrRegistered} />
-                </div>
-              </div>
-            )}
-          </main>
-        );
-      }
-
       const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<Home />);
+      root.render(<LoginOrRegister />);
     </script>
   </body>
 </html>

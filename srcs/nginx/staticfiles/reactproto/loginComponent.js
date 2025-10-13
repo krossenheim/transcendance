@@ -5,7 +5,7 @@ const handleKeyPress = (e, action) => {
   }
 };
 
-function LoginForm({ onLoginSuccess }) {
+function LoginComponent({ onLoginSuccess }) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -113,4 +113,4 @@ function LoginForm({ onLoginSuccess }) {
   );
 }
 
-window.LoginForm = LoginForm;
+window.LoginComponent = LoginComponent;

@@ -14,7 +14,7 @@ import { int_url } from '../utils/api/service/common/endpoints.js';
 
 const SALT_ROUNDS = 10;
 
-async function hashPassword(plainPassword: string): Promise<string> {
+export async function hashPassword(plainPassword: string): Promise<string> {
 	return await bcrypt.hash(plainPassword, SALT_ROUNDS);
 }
 

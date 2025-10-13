@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Debug4 Chat</title>
+  <title>Debug4 ChatComponent</title>
   <style>
     body { font-family: sans-serif; margin: 1rem; }
     input { padding: 0.25rem; margin-right: 0.25rem; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h1>Debug4 Chat Interface</h1>
+  <h1>Debug4 ChatComponent Interface</h1>
   <div id="root"></div>
 
   <script type="module">
@@ -76,7 +76,7 @@
 
             // Optional blink logic
             document.title = `New message in ${r}!`;
-            setTimeout(() => { document.title = "Debug4 Chat Interface"; }, 1000);
+            setTimeout(() => { document.title = "Debug4 ChatComponent Interface"; }, 1000);
           } catch (e) {
             console.error("WS parse error", e);
           }

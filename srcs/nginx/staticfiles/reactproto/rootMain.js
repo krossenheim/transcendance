@@ -1,6 +1,5 @@
-function MainIndex({ AuthResponseObject }) {
-  // aka everything
-  // This will receive output from LoginForm or RegisterForm, in the way of a value returned from an HTTP request.
+function RootMain({ AuthResponseObject }) {
+  // This is one session/websocket to the server
   const [username, setUsername] = React.useState("");
   const [messages, setMessages] = React.useState([]);
   const [input, setInput] = React.useState("");
@@ -60,4 +59,4 @@ function MainIndex({ AuthResponseObject }) {
   return <ChatComponent webSocket={socket} />;
 }
 
-window.MainIndex = MainIndex;
+window.RootMain = RootMain;

@@ -21,7 +21,8 @@ $(NAME): all
 
 all: ensure_npx down build
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
-
+	echo "While wiping db, test users are : (  "KALAWIuser",  "KALAWIguest",  "A", with password ("acbaisd1434"))"
+	
 ensure_npx:
 
 

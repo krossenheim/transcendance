@@ -1,12 +1,4 @@
-//(e: React.KeyboardEvent, action: () => void) => {}
-const handleKeyPress = (e, action) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    action();
-  }
-};
-
-function RegisterForm({ whenCompletedSuccesfully }) {
+function RegisterComponent({ whenCompletedSuccesfully }) {
   // const validateEmail = (email: string): boolean => {
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -310,4 +302,4 @@ function RegisterForm({ whenCompletedSuccesfully }) {
   );
 }
 
-window.RegisterForm = RegisterForm;
+window.RegisterComponent = RegisterComponent;

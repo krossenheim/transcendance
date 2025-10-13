@@ -133,13 +133,13 @@ function ChatComponent({ webSocket }) {
         if (data.source_container != "chat") return;
         console.log("received", JSON.stringify(data));
         switch (data.funcId) {
-          case "stored_message":
+          case "send_message":
             handleStoredMessageSchemaReceived(data);
             break;
-          case "list_rooms":
+          case "add_room":
             handleListRoomsSchemaReceived(data.payload);
             break;
-          case "room_messages":
+          case "add_user_to_room":
             handleRoomMessagesSchemaReceived(data);
             break;
           default:
@@ -175,7 +175,7 @@ function ChatComponent({ webSocket }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 space-y-4">
       <div className="w-full max-w-md shadow-lg p-6 rounded-2xl bg-white flex flex-col space-y-4">
-        <h1 className="text-2xl font-bold text-center">Chat</h1>
+        <h1 className="text-2xl font-bold text-center">ChatComponent</h1>
         <p className="text-center text-gray-500 text-sm">
           WebSocket connected:{" "}
           {webSocket?.readyState === WebSocket.OPEN ? "✅" : "❌"}
