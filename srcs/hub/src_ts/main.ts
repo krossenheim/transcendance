@@ -23,6 +23,7 @@ import {
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
 import containers from "./utils/internal_api.js";
 import { z } from "zod";
+import { int_url } from "./utils/api/service/common/endpoints.js"
 
 const fastify: FastifyInstance = Fastify();
 
@@ -38,7 +39,7 @@ const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
 async function validateJWTToken(
   token: string
 ): Promise<Result<number, ErrorResponseType>> {
-  const response = await containers.auth.post("/token/validate", {
+  const response = await containers.auth.post(int_url.http.db.validateToken, {
     token: token,
   });
 
@@ -263,7 +264,7 @@ async function handleWebsocketAuth(
   const authMessageResult = await isAuthed(parsed);
   if ( authMessageResult.isErr()
   ) {
-    console.log("Authentication failed: " + authMessageResult.unwrapErr());
+    console.log("Websocket authentication failed: " + authMessageResult.unwrapErr());
     socket.send("Unauthorized: " + authMessageResult.unwrapErr());
     disconnectUserSocket(socket);
     return Result.Err(null);

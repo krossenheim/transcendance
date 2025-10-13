@@ -37,7 +37,18 @@ dnginx:
 down:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
-build: pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
+RED := \033[0;31m
+YELLOW := \033[1;33m
+NC := \033[0m  # No Color (reset)
+
+
+debug:
+	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
+	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
+	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
+	rm $(VOLUMES_DIR)/users.db
+
+build: debug pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build 
 
 build_base_nodejs:
@@ -97,7 +108,6 @@ fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
 	docker volume prune -f
 	docker image prune -a -f
-	docker system prune -a --volumes -f
 
 list:
 	docker ps -a
