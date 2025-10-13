@@ -133,15 +133,22 @@ class Room {
     // const query_result: Result = db_interface_add_user();
     // if (query_result.isErr)
     // ^ why am i not doing this?
-    const response = await Containers.db.get(
+
+    console.log(
+      "GETing HTTP: ",
       int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
     );
+    const response = await Containers.db.get(
+      // getUser: "/internal_api/db/users/fetch/:userId"
+      int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
+    );
+
     // Check person is in friedn list possible here
     if (response === undefined) {
       {
         return {
           recipients: [user_id],
-          funcId: "add_room",
+          funcId: "add_user_to_room",
           payload: {
             status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
             func_name: process.env.FUNC_POPUP_TEXT,
@@ -153,16 +160,16 @@ class Room {
     }
     console.log("Response from db service:", response.status, response.data);
 
-    if (response.status !== 201) {
+    if (response.status !== 200) {
       {
         {
           return {
             recipients: [user_id],
-            funcId: "add_room",
+            funcId: "add_user_to_room",
             payload: {
               status: "oohh! aah!",
               func_name: process.env.FUNC_POPUP_TEXT,
-              pop_up_text: "Bad room data or nonexistant room.",
+              pop_up_text: "No user by that id.",
             },
           };
         }
