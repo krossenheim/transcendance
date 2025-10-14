@@ -41,4 +41,10 @@ export class Result<T, E> {
 			return Result.Ok(fn(this.inner.value));
 		return Result.Err(this.inner.error);
 	}
+
+	mapErr<F>(fn: (error: E) => F): Result<T, F> {
+		if (this.inner.ok)
+			return Result.Ok(this.inner.value);
+		return Result.Err(fn(this.inner.error));
+	}
 }

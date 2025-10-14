@@ -39,13 +39,14 @@ const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
 async function validateJWTToken(
   token: string
 ): Promise<Result<number, ErrorResponseType>> {
-  const response = await containers.auth.post(int_url.http.db.validateToken, {
+  const responseResult = await containers.auth.post(int_url.http.db.validateToken, {
     token: token,
   });
 
-  if (response === undefined)
-    return Result.Err({ message: "Auth service unreachable" });
+  if (responseResult.isErr())
+    return Result.Err({ message: responseResult.unwrapErr() });
 
+  const response = responseResult.unwrap();
   if (response.status === 200) {
     const userId = z.number().safeParse(response.data);
     if (!userId.success)

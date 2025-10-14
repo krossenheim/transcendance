@@ -64,5 +64,4 @@ CREATE TABLE IF NOT EXISTS messages (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_messagesId ON messages(roomId);
 
-
 PRAGMA foreign_keys = ON;
