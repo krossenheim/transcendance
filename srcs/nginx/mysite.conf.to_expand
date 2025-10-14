@@ -37,7 +37,7 @@ server {
 	location = /
 	{
 		alias /var/www/html;
-		try_files /reactproto/page.html =404;
+		try_files /react_dist/index.html =404;
 	}
 
 	location /ws {

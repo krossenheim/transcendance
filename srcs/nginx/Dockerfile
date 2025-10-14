@@ -23,5 +23,8 @@ RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/
 COPY /staticfiles/ /var/www/html/
 
+RUN mkdir -p /var/www/html/react_dist/
+COPY /react_source/dist /var/www/html/react_dist
+
 ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]
