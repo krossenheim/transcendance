@@ -30,7 +30,7 @@ export default function AppRoot() {
             <LoginComponent onLoginSuccess={logInOrRegistered} />
           </div>{" "}
           <div className="w-1/2">
-            a{/* <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} /> */}
+            {/* <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} /> */}
           </div>
         </div>
       )}
