@@ -8,6 +8,9 @@ export default defineConfig({
     outDir: "dist", // relative to root
   },
   server: {
+    fs: {
+      strict: true, // prevents access to files outside the root
+    },
     port: 3333,
   },
   base: "/static/react_dist/",
