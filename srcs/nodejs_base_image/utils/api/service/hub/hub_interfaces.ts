@@ -1,7 +1,4 @@
 import { z } from "zod";
-import { containersNameToIp } from "../../../container_names.js";
-
-const containerNames = Array.from(containersNameToIp.keys());
 
 export const UserAuthenticationRequestSchema = z
   .object({

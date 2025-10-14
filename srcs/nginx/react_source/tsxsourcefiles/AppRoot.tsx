@@ -1,9 +1,7 @@
 import RegisterComponent from "./registerComponent";
 import SocketComponent from "./socketComponent";
 import LoginComponent from "./loginComponent";
-import ChatComponent from "./chatComponent";
-import PongComponent from "./pongComponent";
-import React, { useState } from "react";
+import { useState } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 
 export default function AppRoot() {

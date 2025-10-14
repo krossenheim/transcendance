@@ -1,55 +1,51 @@
-import { AddRoomPayloadSchema } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
-import { StoredMessageSchema } from "../../../nodejs_base_image/utils/api/service/chat/db_models";
+import type {
+  TypeStoredMessageSchema,
+  TypeListRoomsSchema,
+  TypeRoomMessagesSchema,
+  TypeRoomSchema,
+} from "../../../nodejs_base_image/utils/api/service/chat/db_models";
+import type { idValue } from "../../../nodejs_base_image/utils/api/service/common/zodRules";
+import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
+import React, { useCallback, useEffect, useState } from "react";
 
-export default function ChatComponent({ webSocket }) {
-  // =========================
-  // Incoming message handlers
-  //   // =========================
-  //  message_id: id_rule,
-  //     room_id: room_id_rule,
-  //     messageString: message_rule,
-  //     messageDate: message_date_rule,
-  //     userId: id_rule,
-  const handleStoredMessageSchemaReceived = React.useCallback(
-    (typeStoredMessageSchema: StoredMessageSchema) => {
-      console.log("Stored message received:", data);
+interface ChatComponentProps {
+  webSocket: WebSocket;
+}
+
+export default function PongComponent({ webSocket }: ChatComponentProps) {
+  const handleStoredMessageSchemaReceived = useCallback(
+    (messageInfo: TypeStoredMessageSchema) => {
+      console.log("Stored message received:", messageInfo);
     },
     []
   );
 
-  const handleListRoomsSchemaReceived = React.useCallback((data) => {
-    console.log("Available rooms:", data);
-  }, []);
+  const handleListRoomsSchemaReceived = useCallback(
+    (rooms: TypeListRoomsSchema) => {
+      rooms.forEach((room: TypeRoomSchema) => {
+        console.log(`Room ID: ${room.roomId}, Name: ${room.roomName}`);
+      });
+    },
+    []
+  );
 
-  // export const RoomMessagesSchema = z
-  //   .object({
-  //     room_id: room_id_rule,
-  //     messages: z.array(StoredMessageSchema),
-  //   })
-  //   .strict();
+  const handleRoomMessagesSchemaReceived = useCallback(
+    (messagesForRoom: TypeRoomMessagesSchema) => {
+      console.log("Messages in room ID ", messagesForRoom.roomId);
+      messagesForRoom.messages.forEach((message: TypeStoredMessageSchema) => {
+        console.log(message);
+      });
+    },
+    []
+  );
 
-  const handleRoomMessagesSchemaReceived = React.useCallback((fufu) => {
-    console.log(`Messages for room ${data.room_id}:`, data.messages);
-  }, []);
-
-  // =========================
-  // Outgoing message handlers
-  // =========================
-  // export const SendMessagePayloadSchema = z
-  //   .object({
-  //   // Payload sent by client "send message to room"
-  //     room_id: room_id_rule,
-  //     messageString: message_rule,
-  //   })
-  //   .strict();
-
-  const handleSendSendMessagePayloadSchema = React.useCallback(
+  const handleSendSendMessagePayloadSchema = useCallback(
     // export const UserToHubSchema = z.object({
     //   target_container: z.string(),
     //   funcId: z.string(),
     //   payload: z.any(),
     // }).strict();
-    (room_id, messageString) => {
+    (room_id: typeof room_id_rule, messageString: string) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
         const payload = { room_id: room_id, messageString: messageString };
         const toSend = {
@@ -64,8 +60,8 @@ export default function ChatComponent({ webSocket }) {
     [webSocket]
   );
 
-  const handleSendInviteToRoomSchema = React.useCallback(
-    (room_id, user_to_add) => {
+  const handleSendInviteToRoomSchema = useCallback(
+    (room_id: typeof room_id_rule, user_to_add: typeof idValue) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
         const payload = { room_id, user_to_add };
 
@@ -81,7 +77,7 @@ export default function ChatComponent({ webSocket }) {
     [webSocket]
   );
 
-  const handleSendAddRoomPayloadSchema = React.useCallback(
+  const handleSendAddRoomPayloadSchema = useCallback(
     (room_name) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
         const payload = { roomName: room_name };
@@ -100,7 +96,7 @@ export default function ChatComponent({ webSocket }) {
   // =========================
   // WebSocket routing
   // =========================
-  React.useEffect(() => {
+  useEffect(() => {
     if (!webSocket) return;
 
     //  funcId: "/api/chat/add_a_new_room",
@@ -170,10 +166,10 @@ export default function ChatComponent({ webSocket }) {
   // =========================
   // Spruced-up UI with buttons
   // =========================
-  const [roomIdInput, setRoomIdInput] = React.useState("");
-  const [messageInput, setMessageInput] = React.useState("");
-  const [newRoomName, setNewRoomName] = React.useState("");
-  const [userToAdd, setUserToAdd] = React.useState("");
+  const [roomIdInput, setRoomIdInput] = useState("");
+  const [messageInput, setMessageInput] = useState("");
+  const [newRoomName, setNewRoomName] = useState("");
+  const [userToAdd, setUserToAdd] = useState("");
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 space-y-4">

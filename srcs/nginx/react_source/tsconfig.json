@@ -10,8 +10,6 @@
     "forceConsistentCasingInFileNames": true,
 	    "baseUrl": "react_source",            // base folder for imports
 	    "paths": {
-      "utils/*": ["../../nodejs_base_image/utils/*"]
     },
   },
-  "include": ["./**/*.ts"]
 }

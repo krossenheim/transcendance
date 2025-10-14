@@ -4,8 +4,6 @@ import { PayloadHubToUsersSchema } from "../../../nodejs_base_image/utils/api/se
 import PongComponent from "./pongComponent";
 import ChatComponent from "./chatComponent";
 
-import { date } from "zod";
-
 interface SocketComponentProps {
   AuthResponseObject: AuthResponseType;
 }
