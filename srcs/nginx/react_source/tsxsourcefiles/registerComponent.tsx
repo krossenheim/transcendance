@@ -1,14 +1,38 @@
 import React, { useState } from "react";
+import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
+interface RegisterComponentProps {
+  whenCompletedSuccesfully: (data: any) => void;
+}
 
-export default function RegisterComponent(whenCompletedSuccesfully: any) {
-  // const validateEmail = (email: string): boolean => {
-  const validateEmail = (email) => {
+interface ValidationErrors {
+  registerUsername?: string;
+  registerEmail?: string;
+  registerPassword?: string;
+  registerConfirmPassword?: string;
+}
+
+export default function RegisterComponent({
+  whenCompletedSuccesfully,
+}: RegisterComponentProps) {
+  const [registerUsername, setRegisterUsername] = useState<string>("");
+  const [registerEmail, setRegisterEmail] = useState<string>("");
+  const [registerPassword, setRegisterPassword] = useState<string>("");
+  const [registerConfirmPassword, setRegisterConfirmPassword] =
+    useState<string>("");
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showRegisterPassword, setShowRegisterPassword] =
+    useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState<boolean>(false);
+
+  const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  // const validatePassword = (password: string): string | null => {
-  const validatePassword = (password) => {
+  const validatePassword = (password: string): string | null => {
     if (password.length < 8) {
       return "Password must be at least 8 characters";
     }
@@ -24,9 +48,7 @@ export default function RegisterComponent(whenCompletedSuccesfully: any) {
     return null;
   };
 
-  //  const validateUsername = (username: string): string | null => {
-
-  const validateUsername = (username) => {
+  const validateUsername = (username: string): string | null => {
     if (username.length < 3) {
       return "Username must be at least 3 characters";
     }
@@ -38,49 +60,37 @@ export default function RegisterComponent(whenCompletedSuccesfully: any) {
     }
     return null;
   };
-  async function registerAsUser(username, email, password) {
-    const url =
-      "https://" + window.location.host + "/public_api/auth/create/user";
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
+  const registerAsUser = async (
+    username: string,
+    email: string,
+    password: string
+  ): Promise<AuthResponseType> => {
+    const url = `https://${window.location.host}/public_api/auth/create/user`;
 
-      if (!response.ok) {
-        // Throw an error if the server responds with an error status
-        const errorText = await response.text();
-        throw new Error(errorText || "Registration failed");
-      }
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, password }),
+    });
 
-      // Parse the JSON returned by the server
-      const data = await response.json(); // AuthResponseType
-      return data;
-    } catch (err) {
-      // Catch network or parsing errors
-      throw new Error(err && err.message ? err.message : "Registration failed");
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || "Registration failed");
     }
-  }
-  // public_api/auth/create/user
-  // post username, email, password
-  // 201 registered
-  // 400? 4001? error
+
+    const data: AuthResponseType = await response.json();
+    return data;
+  };
 
   const handleRegister = async () => {
     setError(null);
     setValidationErrors({});
 
-    //  const errors: Record<string, string> = {};
-    const errors = {};
+    const errors: ValidationErrors = {};
 
     const usernameError = validateUsername(registerUsername);
-    if (usernameError) {
-      errors.registerUsername = usernameError;
-    }
+    if (usernameError) errors.registerUsername = usernameError;
 
     if (!registerEmail) {
       errors.registerEmail = "Email is required";
@@ -89,9 +99,7 @@ export default function RegisterComponent(whenCompletedSuccesfully: any) {
     }
 
     const passwordError = validatePassword(registerPassword);
-    if (passwordError) {
-      errors.registerPassword = passwordError;
-    }
+    if (passwordError) errors.registerPassword = passwordError;
 
     if (registerPassword !== registerConfirmPassword) {
       errors.registerConfirmPassword = "Passwords do not match";
@@ -109,197 +117,152 @@ export default function RegisterComponent(whenCompletedSuccesfully: any) {
         registerEmail,
         registerPassword
       );
-      // We are throwing so we assume it to be success here
       whenCompletedSuccesfully(AuthResponseOrError);
-      console.log("NO THROW");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Registration failed");
+      }
     } finally {
       setIsLoading(false);
     }
   };
-  const [validationErrors, setValidationErrors] = React.useState({});
-  const [username, setUsername] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState("");
-  const [error, setError] = React.useState(null);
-  const [registerUsername, setRegisterUsername] = React.useState("");
-  const [registerEmail, setRegisterEmail] = React.useState("");
-  const [registerPassword, setRegisterPassword] = React.useState("");
-  const [registerConfirmPassword, setRegisterConfirmPassword] =
-    React.useState("");
-  const [showRegisterPassword, setShowRegisterPassword] = React.useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Create Account
-          </CardTitle>
-          <CardDescription className="text-center">
-            Fill in your details to register
-          </CardDescription>
-        </CardHeader>
+      <div className="w-full max-w-md shadow-lg rounded-lg bg-white p-6">
+        <h1 className="text-2xl font-bold text-center mb-4">Create Account</h1>
+        <p className="text-center mb-4 text-gray-500">
+          Fill in your details to register
+        </p>
 
-        <CardContent>
-          {error && (
-            <Alert
-              variant="destructive"
-              className="mb-4 flex items-center gap-2"
-            >
-              <span className="h-4 w-4 text-yellow-500">⚠️</span>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="space-y-4">
-            {/* Username */}
-            <div className="space-y-2">
-              <Label htmlFor="register-username">Username</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500">
-                  👤
-                </span>
-                <Input
-                  id="register-username"
-                  type="text"
-                  placeholder="johndoe"
-                  value={registerUsername}
-                  onChange={(e) => setRegisterUsername(e.target.value)}
-                  className={`pl-10 ${
-                    validationErrors.registerUsername ? "border-red-500" : ""
-                  }`}
-                  disabled={isLoading}
-                />
-              </div>
-              {validationErrors.registerUsername && (
-                <p className="text-sm text-red-500">
-                  {validationErrors.registerUsername}
-                </p>
-              )}
-            </div>
-
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="register-email">Email</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500">
-                  📧
-                </span>
-                <Input
-                  id="register-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
-                  className={`pl-10 ${
-                    validationErrors.registerEmail ? "border-red-500" : ""
-                  }`}
-                  disabled={isLoading}
-                />
-              </div>
-              {validationErrors.registerEmail && (
-                <p className="text-sm text-red-500">
-                  {validationErrors.registerEmail}
-                </p>
-              )}
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="register-password">Password</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-500">
-                  🔒
-                </span>
-                <Input
-                  id="register-password"
-                  type={showRegisterPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  className={`pl-10 pr-10 ${
-                    validationErrors.registerPassword ? "border-red-500" : ""
-                  }`}
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  <span className="h-4 w-4 text-gray-700">
-                    {showRegisterPassword ? "🙈" : "👁️"}
-                  </span>
-                </button>
-              </div>
-              {validationErrors.registerPassword && (
-                <p className="text-sm text-red-500">
-                  {validationErrors.registerPassword}
-                </p>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div className="space-y-2">
-              <Label htmlFor="register-confirm-password">
-                Confirm Password
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-500">
-                  🔒
-                </span>
-                <Input
-                  id="register-confirm-password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={registerConfirmPassword}
-                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                  className={`pl-10 pr-10 ${
-                    validationErrors.registerConfirmPassword
-                      ? "border-red-500"
-                      : ""
-                  }`}
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  <span className="h-4 w-4 text-gray-700">
-                    {showConfirmPassword ? "🙈" : "👁️"}
-                  </span>
-                </button>
-              </div>
-              {validationErrors.registerConfirmPassword && (
-                <p className="text-sm text-red-500">
-                  {validationErrors.registerConfirmPassword}
-                </p>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <Button
-              onClick={handleRegister}
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>Creating
-                  account...
-                </>
-              ) : (
-                <>
-                  <span className="mr-2 h-4 w-4 text-purple-500">➕</span>Create
-                  Account
-                </>
-              )}
-            </Button>
+        {error && (
+          <div className="bg-red-100 text-red-700 p-2 rounded mb-4 text-center">
+            ⚠️ {error}
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        <div className="space-y-4">
+          {/* Username */}
+          <div>
+            <label htmlFor="register-username" className="block font-semibold">
+              Username
+            </label>
+            <input
+              id="register-username"
+              type="text"
+              placeholder="johndoe"
+              value={registerUsername}
+              onChange={(e) => setRegisterUsername(e.target.value)}
+              className={`border p-2 w-full rounded ${
+                validationErrors.registerUsername ? "border-red-500" : ""
+              }`}
+              disabled={isLoading}
+            />
+            {validationErrors.registerUsername && (
+              <p className="text-sm text-red-500">
+                {validationErrors.registerUsername}
+              </p>
+            )}
+          </div>
+
+          {/* Email */}
+          <div>
+            <label htmlFor="register-email" className="block font-semibold">
+              Email
+            </label>
+            <input
+              id="register-email"
+              type="email"
+              placeholder="you@example.com"
+              value={registerEmail}
+              onChange={(e) => setRegisterEmail(e.target.value)}
+              className={`border p-2 w-full rounded ${
+                validationErrors.registerEmail ? "border-red-500" : ""
+              }`}
+              disabled={isLoading}
+            />
+            {validationErrors.registerEmail && (
+              <p className="text-sm text-red-500">
+                {validationErrors.registerEmail}
+              </p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div>
+            <label htmlFor="register-password" className="block font-semibold">
+              Password
+            </label>
+            <input
+              id="register-password"
+              type={showRegisterPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={registerPassword}
+              onChange={(e) => setRegisterPassword(e.target.value)}
+              className={`border p-2 w-full rounded ${
+                validationErrors.registerPassword ? "border-red-500" : ""
+              }`}
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+              className="text-sm text-gray-600 mt-1"
+            >
+              {showRegisterPassword ? "Hide" : "Show"} Password
+            </button>
+            {validationErrors.registerPassword && (
+              <p className="text-sm text-red-500">
+                {validationErrors.registerPassword}
+              </p>
+            )}
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label
+              htmlFor="register-confirm-password"
+              className="block font-semibold"
+            >
+              Confirm Password
+            </label>
+            <input
+              id="register-confirm-password"
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={registerConfirmPassword}
+              onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+              className={`border p-2 w-full rounded ${
+                validationErrors.registerConfirmPassword ? "border-red-500" : ""
+              }`}
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="text-sm text-gray-600 mt-1"
+            >
+              {showConfirmPassword ? "Hide" : "Show"} Password
+            </button>
+            {validationErrors.registerConfirmPassword && (
+              <p className="text-sm text-red-500">
+                {validationErrors.registerConfirmPassword}
+              </p>
+            )}
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleRegister}
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            disabled={isLoading}
+          >
+            {isLoading ? "Creating account..." : "Create Account"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

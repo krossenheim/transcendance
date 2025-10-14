@@ -1,7 +1,7 @@
 import SocketComponent from "./socketComponent";
 import LoginComponent from "./loginComponent";
 import ChatComponent from "./chatComponent";
-import PongComponent from "./pongComponent";
+import RegisterComponent from "./registerComponent";
 import React, { useState } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 
@@ -30,7 +30,7 @@ export default function AppRoot() {
             <LoginComponent onLoginSuccess={logInOrRegistered} />
           </div>{" "}
           <div className="w-1/2">
-            a{/* <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} /> */}
+            <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} />
           </div>
         </div>
       )}
