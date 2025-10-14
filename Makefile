@@ -105,8 +105,9 @@ clean: down
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
-babylon:
+babylon: build_react
 	 docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
+	 docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
