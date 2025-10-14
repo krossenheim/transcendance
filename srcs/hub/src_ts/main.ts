@@ -23,6 +23,7 @@ import {
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
 import containers from "./utils/internal_api.js";
 import { z } from "zod";
+import { int_url } from "./utils/api/service/common/endpoints.js"
 
 const fastify: FastifyInstance = Fastify();
 
@@ -38,7 +39,7 @@ const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
 async function validateJWTToken(
   token: string
 ): Promise<Result<number, ErrorResponseType>> {
-  const responseResult = await containers.auth.post("/token/validate", {
+  const responseResult = await containers.auth.post(int_url.http.db.validateToken, {
     token: token,
   });
 
@@ -262,29 +263,18 @@ async function handleWebsocketAuth(
   parsed: any
 ): Promise<Result<number, null>> {
   const authMessageResult = await isAuthed(parsed);
-  if (
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    false &&
-    authMessageResult.isErr()
+  if ( authMessageResult.isErr()
   ) {
-    console.log("Authentication failed: " + authMessageResult.unwrapErr());
+    console.log("Websocket authentication failed: " + authMessageResult.unwrapErr());
     socket.send("Unauthorized: " + authMessageResult.unwrapErr());
     disconnectUserSocket(socket);
     return Result.Err(null);
   }
 
-  // const user_id = authMessageResult.unwrap();
-  const user_id = (DEBUGUSERID++ % 8) + 1;
+  const user_id = authMessageResult.unwrap();
+  // const user_id = (DEBUGUSERID++ % 8) + 1;
   updateWebSocketConnection(socket, user_id);
-  socket.send(JSON.stringify({ user_id: user_id }));
+  socket.send(JSON.stringify({ user_id: `Tru auth!:${user_id}` }));
   console.log("Authenticated user id " + user_id + " socket map.");
   return Result.Ok(user_id);
 }
@@ -358,7 +348,6 @@ fastify.all("/api/:container/*", async (req, reply) => {
   const userId = authResult.unwrap();
   console.log("Authenticated user ID:", userId);
   const { container } = req.params as { container: string };
-  const new_url = req.url.replace(`/api/${container}/`, "/api/");
   const body = AuthClientRequest(z.any()).parse({
     userId: Number(userId),
     payload: req.body,
@@ -367,20 +356,18 @@ fastify.all("/api/:container/*", async (req, reply) => {
     req,
     reply,
     "POST",
-    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`,
+    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${req.url}`,
     body
   );
 });
 
 fastify.all("/public_api/:container/*", async (req, reply) => {
   const { container } = req.params as { container: string };
-  console.log("Url: ", req.url);
-  const new_url = req.url.replace(`/public_api/${container}/`, "/public_api/");
   await proxyRequest(
     req,
     reply,
     req.method,
-    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${new_url}`,
+    `http://${container}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}${req.url}`,
     req.body
   );
 });

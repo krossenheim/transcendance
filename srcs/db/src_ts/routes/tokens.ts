@@ -8,7 +8,7 @@ import type { FastifyInstance } from 'fastify';
 
 import crypto from 'crypto';
 import { z } from 'zod';
-
+import {  int_url } from '../utils/api/service/common/endpoints.js';
 // TODO : Move to env variable or config file
 const TokenSecretKey = "hfskjryfweuifhjsdkghdnfbvdbviuweryteiuwtwhejkrfhrskjd";
 
@@ -30,7 +30,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.post<ZodSchema<typeof validateTokenSchema>>(
-		'/isValid',
+		int_url.http.db.validateToken,
 		{ schema: validateTokenSchema },
 		async (request, reply) => {
 			const hashedToken = hashToken(request.body.token);
@@ -56,7 +56,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.post<ZodSchema<typeof storeTokenSchema>>(
-		'/store', {
+		int_url.http.db.storeToken, {
 		schema: storeTokenSchema
 	},
 		async (request, reply) => {

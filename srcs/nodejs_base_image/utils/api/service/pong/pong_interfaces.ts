@@ -10,7 +10,7 @@ export const StartNewPongGameSchema = z.object({
       message: "playerList must contain unique numbers",
     }
   ),
-});
+}).strict();
 
 export const PongBallSchema = z.object({
   id: z.number().gt(0),
@@ -18,8 +18,7 @@ export const PongBallSchema = z.object({
   y: z.number().gt(0),
   dx: z.number().min(-1).max(1),
   dy: z.number().min(-1).max(1),
-  r: z.number(),
-});
+}).strict();
 
 export const PongPaddleSchema = z.object({
   x: z.number().gt(0),
@@ -27,23 +26,23 @@ export const PongPaddleSchema = z.object({
   l: z.number().int().gt(0),
   w: z.number().int().gt(0),
   r: z.number(),
-});
+}).strict();
 
 const PongEdgeSchema = z.object({
   x: z.number().gt(0),
   y: z.number().gt(0),
-});
+}).strict();
 
 export const MovePaddlePayloadScheme = z.object({
   b: z.number().int().positive(), //board id
   m: z.union([z.boolean(), z.null()]), // move right = yyes , left = no, not = null
-});
+}).strict();
 
 export const GameStateSchema = z.object({
   balls: z.array(PongBallSchema),
   paddles: z.array(PongPaddleSchema),
   edges: z.array(PongEdgeSchema),
-});
+}).strict();
 
 export type TypeMovePaddlePayloadScheme = z.infer<typeof PongPaddleSchema>;
 export type TypeStartNewPongGame = z.infer<typeof PongPaddleSchema>;

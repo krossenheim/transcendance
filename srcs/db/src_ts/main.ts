@@ -3,28 +3,35 @@ import { TokenService } from "./database/tokenService.js";
 import { UserService } from "./database/userService.js";
 import { ChatService } from "./database/chatService.js";
 import Database from "./database/database.js";
-
-import type { FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 
 // Setup database
-const db = new Database('/etc/database_data/users.db');
+const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
 const userService = new UserService(db);
+// debug!!
+// debug!!
+// debug!!
+// debug!!
+// debug!!
+import { makedebugusers } from "./debug_users.js";
+await makedebugusers(userService);
+// debug!!
+// debug!!
+
 const chatService = new ChatService(db);
 
 const fastify: FastifyInstance = createFastify();
 
 // Register routes
-import userRoutes from './routes/users.js';
-fastify.register(userRoutes, { prefix: '/internal_api/users' });
-fastify.register(userRoutes, { prefix: '/api/users' });
+import userRoutes from "./routes/users.js";
+fastify.register(userRoutes);
 
 import tokenRoutes from "./routes/tokens.js";
-fastify.register(tokenRoutes, { prefix: "/internal_api/tokens" });
-fastify.register(tokenRoutes, { prefix: "/api/tokens" });
+fastify.register(tokenRoutes);
 
 import chatRoutes from "./routes/chat.js";
-fastify.register(chatRoutes, { prefix: "/internal_api/chat" });
+fastify.register(chatRoutes);
 
 // Run the server
 const port = parseInt(
@@ -41,4 +48,4 @@ fastify.listen({ port, host }, (err, address) => {
   fastify.log.info(`Server listening at ${address}`);
 });
 
-export { db, userService, tokenService };
+export { db, userService, tokenService, chatService };

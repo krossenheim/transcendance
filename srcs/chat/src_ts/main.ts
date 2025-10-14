@@ -8,6 +8,7 @@ import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
 import websocketPlugin from "@fastify/websocket";
 
+
 const fastify = Fastify({
   logger: {
     level: "info", // or 'debug' for more verbosity
@@ -45,38 +46,5 @@ const chatRoomTasks = {
   },
 };
 
-// Setup WebSocket handler
 setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
 
-// // HTTP route registration function
-// function registerChatRoomRoutes(fastify: FastifyInstance) {
-//   // Iterate entries (key and value) instead of keys only
-//   for (const [taskKey, task] of Object.entries(chatRoomTasks)) {
-//     fastify.route({
-//       method: task.method,
-//       funcId: task.funcId,
-//       handler: async (
-//         req: FastifyRequest<{ Body: z.infer<typeof ForwardToContainerSchema> }>,
-//         reply: FastifyReply
-//       ) => {
-//         const result = await task.handler(req.body);
-      
-//         return reply.status(333).send({ hehe: "Hihi" });
-//       },
-//     });
-//   }
-// }
-
-// const port = parseInt(
-//   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
-//   10
-// );
-// const host = process.env.AUTH_BIND_TO || "0.0.0.0";
-
-// fastify.listen({ port, host }, (err, address) => {
-//   if (err) {
-//     console.error(err);
-//     process.exit(1);
-//   }
-//   console.info(`Server listening at ${address}`);
-// });

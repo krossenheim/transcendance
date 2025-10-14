@@ -9,11 +9,12 @@ import { LoginUser } from '../utils/api/service/auth/loginUser.js';
 import { userIdValue } from '../utils/api/service/common/zodRules.js';
 import { userService } from '../main.js';
 import bcrypt from 'bcrypt';
-import { z } from 'zod';
+import { int, z } from 'zod';
+import { int_url } from '../utils/api/service/common/endpoints.js';
 
 const SALT_ROUNDS = 10;
 
-async function hashPassword(plainPassword: string): Promise<string> {
+export async function hashPassword(plainPassword: string): Promise<string> {
 	return await bcrypt.hash(plainPassword, SALT_ROUNDS);
 }
 
@@ -30,7 +31,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	}
 
 	fastify.get<ZodSchema<typeof listUsersSchema>>(
-		'/',
+		int_url.http.db.listUsers,
 		{ schema: listUsersSchema },
 		async (_, reply) => {
 			const usersResult = userService.fetchAllUsers();
@@ -51,7 +52,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.post<ZodSchema<typeof loginUserSchema>>(
-		'/validate',
+		int_url.http.db.loginUser,
 		{ schema: loginUserSchema },
 		async (request, reply) => {
 			const { username, password } = request.body;
@@ -85,7 +86,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.post<ZodSchema<typeof fetchMeSchema>>(
-		'/me',
+		int_url.http.db.fetchMe,
 		{ schema: fetchMeSchema },
 		async (request, reply) => {
 			const { userId } = request.body;
@@ -109,7 +110,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.get<ZodSchema<typeof fetchUserSchema>>(
-		'/fetch/:userId',
+		int_url.http.db.getUser,
 		{ schema: fetchUserSchema },
 		async (request, reply) => {
 			const { userId } = request.params;
@@ -131,7 +132,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	}
 
 	fastify.post<ZodSchema<typeof createUserSchema>>(
-		'/create/normal',
+		int_url.http.db.createNormalUser,
 		{ schema: createUserSchema },
 		async (request, reply) => {
 			const { username, email, password } = request.body;
@@ -154,7 +155,7 @@ async function userRoutes(fastify: FastifyInstance) {
 	};
 
 	fastify.get<ZodSchema<typeof createGuestSchema>>(
-		'/create/guest',
+		int_url.http.db.createGuestUser,
 		{ schema: createGuestSchema },
 		async (_, reply) => {
 			const userResult = await userService.createNewGuestUser();

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Standalone React - Original Code</title>
+    <script
+      src="https://unpkg.com/react@18/umd/react.development.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+      crossorigin
+    ></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Lucide Icons UMD -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/lucide@0.545.0/dist/umd/lucide.js"></script> -->
+
+    <!-- Prototyping stubs for UI components -->
+  </head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
+    <script type="text/babel">
+      window.sendFromContext = function (
+        ws,
+        target_container,
+        funcId,
+        payload
+      ) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.warn("WebSocket not open, cannot send message");
+          return;
+        }
+
+        const message = {
+          target_container: target_container,
+          funcId,
+          payload,
+        };
+        console.log("Sending ", message);
+        ws.send(message);
+      };
+    </script>
+
+    <script
+      type="text/babel"
+      src="/static/reactproto/chatComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/loginComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/appRoot.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/pongComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/registerComponent.js"
+      defer
+    ></script>
+    <script
+      type="text/babel"
+      src="/static/reactproto/socketComponent.js"
+      defer
+    ></script>
+    <script type="text/babel">
+      const { useState, useEffect, useRef, useCallback } = React;
+
+      const RegisterComponent = window.RegisterComponent;
+      const PongComponent = window.PongComponent;
+      const SocketComponent = window.SocketComponent; // declares websocket
+      const LoginComponent = window.LoginComponent;
+      const ChatComponent = window.ChatComponent;
+      const AppRoot = window.AppRoot;
+
+      console.log("Form:", RegisterComponent);
+      // Card components
+      const Card = ({ children, ...props }) => <div {...props}>{children}</div>;
+      const CardHeader = ({ children, ...props }) => (
+        <div {...props}>{children}</div>
+      );
+      const CardTitle = ({ children, ...props }) => (
+        <h3 {...props}>{children}</h3>
+      );
+      const CardDescription = ({ children, ...props }) => (
+        <p {...props}>{children}</p>
+      );
+      const CardContent = ({ children, ...props }) => (
+        <div {...props}>{children}</div>
+      );
+
+      // Form components
+      const Label = ({ children, ...props }) => (
+        <label {...props}>{children}</label>
+      );
+      const Input = ({ ...props }) => <input {...props} />;
+      const Button = ({ children, ...props }) => (
+        <button {...props}>{children}</button>
+      );
+      const Alert = ({ children, ...props }) => (
+        <div {...props}>{children}</div>
+      );
+      const AlertDescription = ({ children, ...props }) => (
+        <span {...props}>{children}</span>
+      );
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<AppRoot />);
+    </script>
+  </body>
+</html>

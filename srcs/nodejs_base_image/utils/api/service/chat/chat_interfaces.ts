@@ -5,7 +5,7 @@ const whitelistedPattern = /^[a-zA-Z0-9 ]+$/;
 const ROOMNAME_MIN_LEN = 3;
 export const ROOMNAME_MAX_LEN = 50;
 
-export const room_id_rule = z.number().gt(0);
+export const room_id_rule = z.coerce.number().gt(0);
 export const room_name_rule = z.coerce
   .string()
   .min(ROOMNAME_MIN_LEN, {
@@ -38,7 +38,7 @@ export const message_rule = z.coerce
 export const AddRoomPayloadSchema = z
   .object({
 	// Payload sent by client "Wants a new room made"
-    room_name: room_name_rule,
+    roomName: room_name_rule,
   })
   .strict();
 

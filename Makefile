@@ -16,6 +16,8 @@ BASE_IMAGE_TAG := nodejs_base_image:1.0
 TR_NETWORK_SUBNET = 172.18.0.0/16
 NODEJS_BASE_IMAGE_DIR =$(PROJECT_ROOT)srcs/nodejs_base_image
 
+# React build directory for npm arguments
+REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 $(NAME): all
 
 
@@ -23,8 +25,6 @@ all: ensure_npx down build
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
 ensure_npx:
-
-
 	@if ! [ -x "$$(command -v npx)" ]; then \
 		echo "Attempting to install npx." >&2; \
 		npm install typescript @types/node --save-dev; \
@@ -37,11 +37,26 @@ dnginx:
 down:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
-build: pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
+RED := \033[0;31m
+YELLOW := \033[1;33m
+NC := \033[0m  # No Color (reset)
+
+
+debug:
+	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
+	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
+	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
+	rm -f $(VOLUMES_DIR)users.db
+
+build: build_react debug pass_global_envs_test_to_nodejs_containers compile_ts_to_cjs build_base_nodejs create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build 
 
 build_base_nodejs:
 	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(NODEJS_BASE_IMAGE_DIR)"
+
+build_react:
+	npm install --prefix $(REACT_DIR)
+	npm run build --prefix $(REACT_DIR)
 
 print_config: create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
@@ -91,14 +106,14 @@ clean: down
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
-babylon:
+babylon: build_react
 	 docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
+	 docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
 	docker volume prune -f
 	docker image prune -a -f
-	docker system prune -a --volumes -f
 
 list:
 	docker ps -a
