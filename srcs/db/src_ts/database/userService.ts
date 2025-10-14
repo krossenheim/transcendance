@@ -6,6 +6,7 @@ import { Result } from '../utils/api/service/common/result.js';
 import { Database } from './database.js';
 import fs from 'fs/promises';
 import axios from 'axios';
+import type { UserFriendshipStatusEnum } from 'utils/api/service/db/friendship.js';
 
 function createGuestUsername(): string {
 	const randomStr = Math.random().toString(36).substring(2, 10);
@@ -36,12 +37,16 @@ export class UserService {
 
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
 		return this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar
-			FROM users u
-			JOIN user_friendships uf ON u.id = uf.friendId
-			WHERE uf.userId = ?`,
+			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.status, uf.createdAt
+			FROM user_friendships uf
+			JOIN users u
+			ON u.id = CASE
+				WHEN uf.userId = ? THEN uf.friendId
+				ELSE uf.userId
+			END
+			WHERE uf.userId = ? OR uf.friendId = ?;`,
 			Friend,
-			[userId]
+			[userId, userId, userId]
 		);
 	}
 
@@ -128,5 +133,17 @@ export class UserService {
 			console.error('Failed to read avatar SVG:', error);
 			return Result.Err('Avatar not found');
 		}
+	}
+
+	getFriendsInOrder(userId: number, friendId: number): [number, number] {
+		return userId < friendId ? [userId, friendId] : [friendId, userId];
+	}
+
+	updateUserConnection(userId: number, friendId: number, status: UserFriendshipStatusEnum): Result<null, string> {
+		const [uid1, uid2] = this.getFriendsInOrder(userId, friendId);
+		return this.db.run(
+			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
+			[uid1, uid2, status]
+		).map(() => null);
 	}
 }

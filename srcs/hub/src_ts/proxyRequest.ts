@@ -4,6 +4,7 @@ export async function proxyRequest(req: any, reply: any, method: string, url: st
   console.log(`Proxying ${method} request to: ${url}`);
   console.log(req.headers);
   console.log(req.body);
+  console.log(body);
   console.log(req.query);
   try {
     const response = await axios({

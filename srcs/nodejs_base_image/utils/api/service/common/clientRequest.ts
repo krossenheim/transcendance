@@ -3,7 +3,7 @@ import { z, ZodType } from "zod";
 
 export const GenericAuthClientRequest = z.object({
   userId: userIdValue,
-  payload: z.any().nullable()
+  payload: z.any().optional()
 }).strict();
 
 export function AuthClientRequest<T extends ZodType>(payloadSchema: T) {

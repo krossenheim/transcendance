@@ -94,6 +94,16 @@ async function userRoutes(fastify: FastifyInstance) {
 			reply.header('Content-Type', 'image/svg+xml');
 			return reply.status(200).send(avatarResult.unwrap());
 	});
+
+	registerRoute(fastify, int_url.http.db.updateUserFriendshipStatus, async (request, reply) => {
+		const { userId, friendId, status } = request.body;
+		const updateResult = userService.updateUserConnection(userId, friendId, status);
+
+		if (updateResult.isErr())
+			return reply.status(400).send({ message: updateResult.unwrapErr() });
+		else
+			return reply.status(200).send(null);
+	});
 }
 
 export default userRoutes;

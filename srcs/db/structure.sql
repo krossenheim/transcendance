@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_game_results_userId ON player_game_results(userId
 CREATE TABLE IF NOT EXISTS user_friendships (
 	userId INTEGER NOT NULL,
 	friendId INTEGER NOT NULL,
+	status INTEGER NOT NULL, -- 0: pending; 1: accepted; 2: blocked
 	createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 	PRIMARY KEY (userId, friendId),
 	FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,

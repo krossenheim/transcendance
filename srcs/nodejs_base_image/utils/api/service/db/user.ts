@@ -1,3 +1,4 @@
+import { UserFriendshipStatus } from "./friendship.js";
 import { userIdValue } from "../common/zodRules.js";
 import { z } from 'zod';
 
@@ -5,7 +6,8 @@ export const Friend = z.object({
 	id: userIdValue,
 	username: z.string(),
 	alias: z.string().nullable(),
-	hasAvatar: z.coerce.boolean()
+	hasAvatar: z.coerce.boolean(),
+	status: UserFriendshipStatus,
 });
 
 export const User = z.object({

@@ -1,4 +1,5 @@
 import { AddRoomPayloadSchema, SendMessagePayloadSchema } from "../chat/chat_interfaces.js";
+import { UpdateFriendshipStatusSchema, RequestUpdateFriendship } from "../db/friendship.js";
 import { VerifyTokenPayload, StoreTokenPayload } from "../db/token.js";
 import { StoredMessageSchema } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
@@ -11,6 +12,7 @@ import { RoomSchema } from "../chat/db_models.js";
 import { z } from "zod";
 import { userIdValue } from "./zodRules.js";
 import { AuthClientRequest } from "./clientRequest.js";
+import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
 
 export type HTTPRouteDef = {
 	endpoint: string;
@@ -127,18 +129,40 @@ const sendMessage = {
 	},
 };
 
-export const user_url = {
-	http: {},
+export const user_url = defineRoutes({
+	http: {
+		users: {
+			fetchUser: {
+				endpoint: "/api/users/fetch",
+				method: "POST",
+				schema: {
+					body: AuthClientRequest(userIdValue),
+					response: {
+						200: z.array(FullUser),
+						401: ErrorResponse,
+						404: ErrorResponse,
+						500: ErrorResponse,
+					}
+				}
+			},
 
-	ws: {
-		chat: {
-			addNewRoom: "/api/chat/add_a_new_room",
-			listRooms: "/api/chat/list_rooms",
-			sendMessage: "/api/chat/send_message_to_room", // "/api/chat/send_message_to_room",
-			addToRoom: "/api/chat/add_to_room",
-		},
+			requestFriendship: {
+				endpoint: "/api/users/request_friendship",
+				method: "POST",
+				schema: {
+					body: AuthClientRequest(RequestUpdateFriendship),
+					response: {
+						200: z.null(),
+						401: ErrorResponse,
+						500: ErrorResponse,
+					}
+				}
+			}
+		}
 	},
-};
+
+	ws: {},
+});
 
 /// /internal_api/*
 export const int_url = defineRoutes({
@@ -211,6 +235,19 @@ export const int_url = defineRoutes({
 					response: {
 						200: FullUser, // Successful login; return user data
 						401: ErrorResponse, // Invalid username or password
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			updateUserFriendshipStatus: {
+				endpoint: "/internal_api/db/users/update_friendship_status",
+				method: "POST",
+				schema: {
+					body: UpdateFriendshipStatusSchema,
+					response: {
+						200: z.null(), // Updated successfully
+						400: ErrorResponse, // Invalid status transition
 						500: ErrorResponse, // Internal server error
 					}
 				}

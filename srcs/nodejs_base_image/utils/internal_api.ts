@@ -14,13 +14,22 @@ class ContainerTarget {
     this.port = port;
   }
 
-  async post(targetAPI: HTTPRouteDef & { method: 'POST' }, body: any): Promise<Result<AxiosResponse<any>, string>> {
+  private buildUrl(endpoint: string, params?: Record<string, string | number | boolean>, query?: Record<string, string>): string {
+    const safeParams = params ?? {};
+    const safeQuery = query ?? {};
+    return `http://${this.target}:${this.port}${Object.keys(safeParams).reduce(
+      (acc, key) => acc.replace(`:${key}`, encodeURIComponent(safeParams[key] || '')),
+      endpoint
+    )}${Object.keys(safeQuery).length > 0 ? `?${new URLSearchParams(safeQuery).toString()}` : ''}`;
+  }
+
+  async post(targetAPI: HTTPRouteDef & { method: 'POST' }, body: any, params?: Record<string, string | number | boolean>, query?: Record<string, string>): Promise<Result<AxiosResponse<any>, string>> {
     try {
-      return Result.Ok(await axios.post(`http://${this.target}:${this.port}${targetAPI.endpoint}`, body, { validateStatus: () => true }));
+      return Result.Ok(await axios.post(this.buildUrl(targetAPI.endpoint, params, query), body, { validateStatus: () => true }));
     } catch (error: any) {
       console.error(
         "Error in internal API POST request url was " +
-        `http://${this.target}:${this.port}${targetAPI.endpoint}`,
+        this.buildUrl(targetAPI.endpoint, params, query),
         "error was:\n",
         error
       );
@@ -28,13 +37,13 @@ class ContainerTarget {
     }
   }
 
-  async get(targetAPI: HTTPRouteDef & { method: 'GET' }, params?: any): Promise<Result<AxiosResponse<any>, string>> {
+  async get(targetAPI: HTTPRouteDef & { method: 'GET' }, params?: Record<string, string | number | boolean>, query?: Record<string, string>): Promise<Result<AxiosResponse<any>, string>> {
     try {
-      return Result.Ok(await axios.get(`http://${this.target}:${this.port}${targetAPI.endpoint}`, { validateStatus: () => true, params }));
+      return Result.Ok(await axios.get(this.buildUrl(targetAPI.endpoint, params, query), { validateStatus: () => true }));
     } catch (error: any) {
       console.error(
         "Error in internal API GET request url was " +
-        `http://${this.target}:${this.port}${targetAPI.endpoint}`,
+        this.buildUrl(targetAPI.endpoint, params, query),
         "error was:\n",
         error
       );
