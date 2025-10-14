@@ -38,7 +38,7 @@ export const user_url = {
     chat: {
       addNewRoom: "/api/chat/add_a_new_room",
       listRooms: "/api/chat/list_rooms",
-      sendMessage: "/api/chat/send_message_to_room", // "/api/chat/send_message_to_room",
+      sendMessage: "/api/chat/send_message_to_room", // sendMessage
       addToRoom: "/api/chat/add_to_room",
     },
   },
