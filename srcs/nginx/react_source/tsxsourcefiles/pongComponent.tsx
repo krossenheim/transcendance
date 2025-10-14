@@ -2,9 +2,13 @@ import React, { useCallback, useEffect, useState, useRef } from "react";
 
 interface PongComponentProps {
   webSocket: WebSocket;
+  ServiceName: string;
 }
 
-export default function PongComponent({ webSocket }: PongComponentProps) {
+export default function PongComponent({
+  webSocket,
+  ServiceName,
+}: PongComponentProps) {
   // =========================
   // Incoming frame handlers (formerly handleXReceived)
   // =========================

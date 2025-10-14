@@ -1,4 +1,6 @@
-export default function RegisterComponent({ whenCompletedSuccesfully }) {
+import React, { useState } from "react";
+
+export default function RegisterComponent(whenCompletedSuccesfully: any) {
   // const validateEmail = (email: string): boolean => {
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -301,4 +303,3 @@ export default function RegisterComponent({ whenCompletedSuccesfully }) {
     </div>
   );
 }
-
