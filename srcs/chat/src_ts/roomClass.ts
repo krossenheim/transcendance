@@ -136,11 +136,13 @@ class Room {
 
     console.log(
       "GETing HTTP: ",
-      int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
+      int_url.http.db.getUser,
+      { userId: user_to_add }
     );
     const responseResult = await Containers.db.get(
       // getUser: "/internal_api/db/users/fetch/:userId"
-      int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
+      int_url.http.db.getUser,
+      { userId: user_to_add }
     );
 
     // Check person is in friedn list possible here
