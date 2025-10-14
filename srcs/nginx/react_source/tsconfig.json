@@ -7,7 +7,9 @@
     "moduleResolution": "Node",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+	    "baseUrl": "react_source",            // base folder for imports
+	    "paths": {
+    },
   },
-  "include": ["src"]
 }
