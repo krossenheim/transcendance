@@ -11,6 +11,10 @@ export class Database {
 	private db: DatabaseSync;
 
 	constructor(dbPath: string = 'inception.db') {
+		if (fs.existsSync(dbPath)) {
+			fs.unlinkSync(dbPath);
+		}
+
 		this.db = new DatabaseSync(dbPath);
 		this._initializeDatabase();
 	}
@@ -21,7 +25,17 @@ export class Database {
     	const filePath = path.join(__dirname, '..', 'structure.sql');
 		const sqlSetup = fs.readFileSync(filePath, 'utf-8');
 		
-		this.db.exec(sqlSetup);
+		const statements = sqlSetup.split(/;\s*$/m).filter(Boolean);
+		for (const stmt of statements) {
+			try {
+				this.db.exec(stmt);
+			} catch (err) {
+				console.error('❌ SQL failed:', stmt);
+				throw err;
+			}
+		}
+
+		// this.db.exec(sqlSetup);
 	}
 
 	all<T extends z.ZodTypeAny>(sql: string, target: T, params: any[] = []): Result<z.infer<T>[], string> {

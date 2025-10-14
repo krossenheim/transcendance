@@ -1,18 +1,10 @@
-import type {
-  FastifyInstance,
-  FastifyRequest,
-  FastifyReply,
-  FastifyServerOptions,
-} from "fastify";
-import {
-  serializerCompiler,
-  validatorCompiler,
-} from "fastify-type-provider-zod";
+import { createFastify } from "./utils/api/service/common/fastify.js";
 import { TokenService } from "./database/tokenService.js";
 import { UserService } from "./database/userService.js";
 import { ChatService } from "./database/chatService.js";
 import Database from "./database/database.js";
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
+
 // Setup database
 const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
@@ -29,15 +21,7 @@ await makedebugusers(userService);
 
 const chatService = new ChatService(db);
 
-// Setup Fastify with Zod
-const zodFastify = (options: FastifyServerOptions = { logger: true }) => {
-  const server = Fastify(options);
-  server.setValidatorCompiler(validatorCompiler);
-  server.setSerializerCompiler(serializerCompiler);
-  return server;
-};
-
-const fastify: FastifyInstance = zodFastify();
+const fastify: FastifyInstance = createFastify();
 
 // Register routes
 import userRoutes from "./routes/users.js";

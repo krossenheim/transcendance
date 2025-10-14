@@ -138,13 +138,13 @@ class Room {
       "GETing HTTP: ",
       int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
     );
-    const response = await Containers.db.get(
+    const responseResult = await Containers.db.get(
       // getUser: "/internal_api/db/users/fetch/:userId"
       int_url.http.db.getUser.replace(":userId", `${user_to_add}`)
     );
 
     // Check person is in friedn list possible here
-    if (response === undefined) {
+    if (responseResult.isErr()) {
       {
         return {
           recipients: [user_id],
@@ -158,6 +158,7 @@ class Room {
         };
       }
     }
+    const response = responseResult.unwrap();
     console.log("Response from db service:", response.status, response.data);
 
     if (response.status !== 200) {
@@ -363,10 +364,10 @@ class ChatRooms {
         },
       };
     }
-    const response = await Containers.db.post(int_url.http.db.createChatRoom, {
+    const responseResult = await Containers.db.post(int_url.http.db.createChatRoom, {
       roomName,
     });
-    if (response === undefined) {
+    if (responseResult.isErr()) {
       {
         return {
           recipients: [user_id],
@@ -379,6 +380,7 @@ class ChatRooms {
         };
       }
     }
+    const response = responseResult.unwrap();
     console.log("Response from db service:", response.status, response.data);
 
     if (response.status !== 201) {
