@@ -16,7 +16,11 @@ const handleKeyPress = (e: any, action: any) => {
   }
 };
 
-export default function LoginComponent(onLoginSuccess: any) {
+export default function LoginComponent({
+  onLoginSuccess,
+}: {
+  onLoginSuccess: any;
+}) {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
