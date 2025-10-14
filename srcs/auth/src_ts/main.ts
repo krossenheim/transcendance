@@ -15,6 +15,7 @@ import { Result } from './utils/api/service/common/result.js';
 import containers from './utils/internal_api.js'
 import Fastify from 'fastify';
 import { z } from 'zod'
+import { registerRoute } from './utils/api/service/common/fastify.js';
 import { int_url, pub_url, user_url } from './utils/api/service/common/endpoints.js';
 
 import jwt from 'jsonwebtoken';
@@ -72,25 +73,7 @@ function validateToken(token: string): Result<number, string> {
 		return Result.Ok(decoded.uid);
 }
 
-type LoginSchema = {
-	Body: z.infer<typeof LoginUser>;
-	Reply: {
-		200: z.infer<typeof AuthResponse>;
-		401: z.infer<typeof ErrorResponse>;
-		500: z.infer<typeof ErrorResponse>;
-	};
-};
-
-fastify.post<LoginSchema>(pub_url.http.auth.loginUser, {
-	schema: {
-		body: LoginUser,
-		response: {
-			200: AuthResponse, // Login successful
-			401: ErrorResponse, // Username/Password don't match / don't exist
-			500: ErrorResponse, // Internal server error
-		}
-	}
-}, async (request, reply) => {
+registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 	const responseResult = await containers.db.post(int_url.http.db.loginUser, {
 		username: request.body.username,
 		password: request.body.password,
@@ -122,25 +105,7 @@ fastify.post<LoginSchema>(pub_url.http.auth.loginUser, {
 		return reply.status(500).send(tokenResult.unwrapErr());
 });
 
-type CreateAccountSchema = {
-	Body: z.infer<typeof CreateUser>;
-	Reply: {
-		201: z.infer<typeof AuthResponse>;
-		400: z.infer<typeof ErrorResponse>;
-		500: z.infer<typeof ErrorResponse>;
-	};
-}
-
-fastify.post<CreateAccountSchema>(pub_url.http.auth.createUser, {
-	schema: {
-		body: CreateUser,
-		response: {
-			201: AuthResponse, // Created user
-			400: ErrorResponse, // Missing fields / User already exists
-			500: ErrorResponse, // Internal server error
-		}
-	}
-}, async (request, reply) => {
+registerRoute(fastify, pub_url.http.auth.createNormalUser, async (request, reply) => {
 	const responseResult = await containers.db.post(int_url.http.db.createNormalUser, request.body);
 
 	if (responseResult.isErr()) {
@@ -169,21 +134,7 @@ fastify.post<CreateAccountSchema>(pub_url.http.auth.createUser, {
 		return reply.status(500).send(tokens.unwrapErr());
 });
 
-type CreateGuestSchema = {
-	Reply: {
-		201: z.infer<typeof AuthResponse>;
-		500: z.infer<typeof ErrorResponse>;
-	};
-}
-
-fastify.get<CreateGuestSchema>(pub_url.http.auth.createGuestUser, {
-	schema: {
-		response: {
-			201: AuthResponse,
-			500: ErrorResponse,
-		}
-	}
-}, async (request, reply) => {
+registerRoute(fastify, pub_url.http.auth.createGuestUser, async (request, reply) => {
 	const responseResult = await containers.db.get(int_url.http.db.createGuestUser);
 
 	if (responseResult.isErr()) {
@@ -209,25 +160,7 @@ fastify.get<CreateGuestSchema>(pub_url.http.auth.createGuestUser, {
 		return reply.status(201).send({ user: newUser, tokens: tokens.unwrap() });
 });
 
-type ValidateJWTSchema = {
-	Body: SingleTokenType,
-	Reply: {
-		200: number;
-		401: z.infer<typeof ErrorResponse>;
-		500: z.infer<typeof ErrorResponse>;
-	};
-}
-
-fastify.post<ValidateJWTSchema>(int_url.http.db.validateToken, {
-	schema: {
-		body: SingleToken,
-		response: {
-			200: z.number(), // Token valid - return user ID
-			401: ErrorResponse, // Token invalid
-			500: ErrorResponse, // Internal server error
-		}
-	}
-}, async (request, reply) => {
+registerRoute(fastify, pub_url.http.auth.validateToken, async (request, reply) => {
 	const validation = validateToken(request.body.token);
 	if (validation.isErr())
 		return reply.status(401).send({ message: validation.unwrapErr() });
@@ -235,24 +168,7 @@ fastify.post<ValidateJWTSchema>(int_url.http.db.validateToken, {
 		return reply.status(200).send(validation.unwrap());
 });
 
-type TokenRefreshSchema = {
-	Body: AuthClientRequestType<typeof SingleToken>,
-	Reply: {
-		200: AuthResponseType,
-		401: z.infer<typeof ErrorResponse>;
-		500: z.infer<typeof ErrorResponse>;
-	};
-}
-
-fastify.post<TokenRefreshSchema>(pub_url.http.auth.refreshToken, {
-	schema: {
-		body: AuthClientRequest(SingleToken),
-		response: {
-			200: AuthResponse,
-			500: ErrorResponse,
-		}
-	}
-}, async (request, reply) => {
+registerRoute(fastify, pub_url.http.auth.refreshToken, async (request, reply) => {
 	const responseResult = await containers.db.post(int_url.http.db.validateToken, VerifyTokenPayload.parse({
 		token: request.body.payload.token,
 	}));

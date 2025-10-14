@@ -23,7 +23,7 @@ import {
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
 import containers from "./utils/internal_api.js";
 import { z } from "zod";
-import { int_url } from "./utils/api/service/common/endpoints.js"
+import { int_url, pub_url } from "./utils/api/service/common/endpoints.js"
 
 const fastify: FastifyInstance = Fastify();
 
@@ -39,7 +39,7 @@ const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
 async function validateJWTToken(
   token: string
 ): Promise<Result<number, ErrorResponseType>> {
-  const responseResult = await containers.auth.post(int_url.http.db.validateToken, {
+  const responseResult = await containers.auth.post(pub_url.http.auth.validateToken, {
     token: token,
   });
 

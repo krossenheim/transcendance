@@ -1,68 +1,274 @@
-import { SendMessagePayloadSchema } from "../chat/chat_interfaces.js";
+import { AddRoomPayloadSchema, SendMessagePayloadSchema } from "../chat/chat_interfaces.js";
+import { VerifyTokenPayload, StoreTokenPayload } from "../db/token.js";
 import { StoredMessageSchema } from "../chat/db_models.js";
+import { AuthResponse } from "../auth/loginResponse.js";
+import { CreateUser } from "../auth/createUser.js";
+import { FullUser, GetUser } from "../db/user.js";
+import { LoginUser } from "../auth/loginUser.js";
+import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
+import { RoomSchema } from "../chat/db_models.js";
+import { z } from "zod";
+import { userIdValue } from "./zodRules.js";
+import { AuthClientRequest } from "./clientRequest.js";
+
+export type HTTPRouteDef = {
+	endpoint: string;
+	method: 'POST' | 'GET' | 'PUT' | 'DELETE';
+	schema: {
+		body?: any;
+		query?: any;
+		params?: any;
+		response: Record<number, any>;
+	};
+};
+
+// TODO
+export type WebSocketRouteDef = {
+	channel: string;
+	eventMap: Record<string, z.ZodTypeAny>; // or your event schema type
+};
+
+// Type safety wrapper
+export function defineRoutes<
+	TH extends Record<string, Record<string, HTTPRouteDef>> = never,
+	TW extends Record<string, Record<string, WebSocketRouteDef>> = never
+>(routes: { http: TH; ws: TW; }) {
+	return routes;
+}
 
 /// /public_api/*
-export const pub_url = {
-  http: {
-    auth: {
-      validateTokenUrl: "/public_api/auth/validate_token",
-      createGuestUser: "/public_api/auth/create/guest",
-      createUser: "/public_api/auth/create/user",
-      loginUser: "/public_api/auth/login",
-      refreshToken: "/public_api/auth/refresh",
-    },
-  },
-};
+export const pub_url = defineRoutes({
+	http: {
+		auth: {
+			validateToken: {
+				endpoint: "/public_api/auth/validate_token",
+				method: 'POST',
+				schema: {
+					body: SingleToken,
+					response: {
+						200: userIdValue, // Token valid - return user ID
+						401: ErrorResponse, // Token invalid
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			refreshToken: {
+				endpoint: "/public_api/auth/refresh",
+				method: 'POST',
+				schema: {
+					body: AuthClientRequest(SingleToken),
+					response: {
+						200: AuthResponse,
+						401: ErrorResponse,
+						500: ErrorResponse,
+					}
+				}
+			},
+
+			loginUser: {
+				endpoint: "/public_api/auth/login",
+				method: 'POST',
+				schema: {
+					body: LoginUser,
+					response: {
+						200: AuthResponse, // Login successful
+						401: ErrorResponse, // Username/Password don't match / don't exist
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			createNormalUser: {
+				endpoint: "/public_api/auth/create/user",
+				method: 'POST',
+				schema: {
+					body: CreateUser,
+					response: {
+						201: AuthResponse, // Created user
+						400: ErrorResponse, // Missing fields / User already exists
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			createGuestUser: {
+				endpoint: "/public_api/auth/create/guest",
+				method: 'GET',
+				schema: {
+					response: {
+						201: AuthResponse,
+						500: ErrorResponse,
+					}
+				}
+			},
+		},
+	},
+
+	ws: {},
+});
 
 //  sendMessage would be assigned:
 // not refreshToken: "/public_api/auth/refresh",
 // but refreshToken: { some object. contains ""/public_api/auth/refresh""},
 const sendMessage = {
-  code: {
-    MessageSent: 0,
-    NotInRoom: 1,
-    InvalidInput: 2,
-  },
-  funcId: "/api/chat/send_message_to_room",
-  args: SendMessagePayloadSchema,
-  replies: {
-    0: StoredMessageSchema,
-    1: ErrorResponse,
-    2: ErrorResponse,
-  },
+	code: {
+		MessageSent: 0,
+		NotInRoom: 1,
+		InvalidInput: 2,
+	},
+	funcId: "/api/chat/send_message_to_room",
+	args: SendMessagePayloadSchema,
+	replies: {
+		0: StoredMessageSchema,
+		1: ErrorResponse,
+		2: ErrorResponse,
+	},
 };
 
 export const user_url = {
-  ws: {
-    chat: {
-      addNewRoom: "/api/chat/add_a_new_room",
-      listRooms: "/api/chat/list_rooms",
-      sendMessage: "/api/chat/send_message_to_room", // sendMessage
-      addToRoom: "/api/chat/add_to_room",
-    },
-  },
+	http: {},
+
+	ws: {
+		chat: {
+			addNewRoom: "/api/chat/add_a_new_room",
+			listRooms: "/api/chat/list_rooms",
+			sendMessage: "/api/chat/send_message_to_room", // "/api/chat/send_message_to_room",
+			addToRoom: "/api/chat/add_to_room",
+		},
+	},
 };
 
 /// /internal_api/*
-export const int_url = {
-  http: {
-    db: {
-      // Userdata endpoints
-      listUsers: "/internal_api/db/users", // DEBUG ONLY
-      loginUser: "/internal_api/db/users/login",
-      fetchMe: "/internal_api/db/users/me",
-      getUser: "/internal_api/db/users/fetch/:userId",
-      createNormalUser: "/internal_api/db/users/create/normal",
-      createGuestUser: "/internal_api/db/users/create/guest",
+export const int_url = defineRoutes({
+	http: {
+		db: {
+			// Userdata endpoints
+			listUsers: { // DEBUG ONLY
+				endpoint: "/internal_api/db/users",
+				method: 'GET',
+				schema: {
+					response: {
+						200: z.array(FullUser),
+						500: ErrorResponse,
+					}
+				}
+			},
 
-      // Tokendata endpoints
-      validateToken: "/internal_api/db/users/validate_token",
-      storeToken: "/internal_api/db/users/store_token",
+			getUser: {
+				endpoint: "/internal_api/db/users/fetch/:userId",
+				method: "GET",
+				schema: {
+					params: GetUser,
+					response: {
+						200: FullUser, // Found user
+						404: ErrorResponse, // User not found
+					}
+				}
+			},
 
-      // Chatdata endpoints
-      createChatRoom: "/internal_api/chat/rooms/create",
-      getRoomMessages: "/internal_api/chat/rooms/get_messages",
-    },
-  },
-};
+			createNormalUser: {
+				endpoint: "/internal_api/db/users/create/normal",
+				method: "POST",
+				schema: {
+					body: CreateUser,
+					response: {
+						201: FullUser, // Created user
+						400: ErrorResponse, // User already exists / Invalid data
+					}
+				}
+			},
+
+			createGuestUser: {
+				endpoint: "/internal_api/db/users/create/guest",
+				method: "GET",
+				schema: {
+					response: {
+						201: FullUser, // Created guest user
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			getUserPfp: {
+				endpoint: "/internal_api/db/users/pfp/:userId",
+				method: "GET",
+				schema: {
+					params: GetUser,
+					response: {
+						200: z.string(), // Found avatar
+						404: ErrorResponse, // Avatar not found
+					}
+				}
+			},
+
+			loginUser: {
+				endpoint: "/internal_api/db/users/login",
+				method: "POST",
+				schema: {
+					body: LoginUser,
+					response: {
+						200: FullUser, // Successful login; return user data
+						401: ErrorResponse, // Invalid username or password
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			// Tokendata endpoints
+			validateToken: {
+				endpoint: "/internal_api/db/users/validate_token",
+				method: "POST",
+				schema: {
+					body: VerifyTokenPayload,
+					response: {
+						200: FullUser, // Valid token; return user data
+						401: ErrorResponse, // Invalid token; or token not found
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			storeToken: {
+				endpoint: "/internal_api/db/users/store_token",
+				method: "POST",
+				schema: {
+					body: StoreTokenPayload,
+					response: {
+						200: z.null(), // Token was stored successfully
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+
+			// Chatdata endpoints
+			createChatRoom: {
+				endpoint: "/internal_api/chat/rooms/create",
+				method: "POST",
+				schema: {
+					body: AddRoomPayloadSchema,
+					response: {
+						201: RoomSchema, // Created room
+						500: ErrorResponse, // Internal server error
+					},
+				}
+			},
+
+			getRoomMessages: {
+				endpoint: "/internal_api/chat/rooms/get_messages",
+				method: "POST",
+				schema: {
+					body: VerifyTokenPayload,
+					response: {
+						200: StoredMessageSchema, // Messages retrieved successfully
+						401: ErrorResponse, // Token invalid
+						500: ErrorResponse, // Internal server error
+					}
+				}
+			},
+		},
+	},
+
+	ws: {}
+});
