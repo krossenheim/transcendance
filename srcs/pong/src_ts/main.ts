@@ -2,7 +2,7 @@
 // import type { FastifyReply, FastifyInstance } from "fastify";
 import {
   socketToHub,
-  setSocketOnMessageHandler,
+//   setSocketOnMessageHandler,
 } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import PongManager from "./pongManager.js";
@@ -44,7 +44,7 @@ const pongTasks = {
 };
 
 // Setup WebSocket handler
-setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
+// setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 
 async function backgroundTask() {
   try {

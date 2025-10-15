@@ -25,15 +25,15 @@ type HandlerType = {
   handler: (input: any) => any | Promise<any>;
 };
 
-class OurSocket {
+export class OurSocket {
   private socket: WebSocket;
   private container: string;
-	private handlers: Record<string, HandlerType>;
+  private handlers: Record<string, HandlerType>;
 
   constructor(socket: WebSocket, container: string) {
 		this.socket = socket;
 		this.container = container;
-
+		this.handlers = {};
 		this.handleSocketCallbackMethods();
   }
 
@@ -55,19 +55,22 @@ class OurSocket {
 
 	async _handleEndpoint(containerSchema: z.infer<typeof ForwardToContainerSchema>): Promise<Result<null, string>> {
 		const handlerType: HandlerType | undefined = this.handlers[containerSchema.funcId];
+		console.log(this.handlers);
 		if (handlerType === undefined)
-			return Result.Err("No handler found for this endpoint");
+			return Result.Err("No handler found for this endpoint:" + containerSchema.funcId);
 
-		const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
+		// const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
 
 		const parseResult = handlerType.metadata.schema.body.safeParse(containerSchema.payload);
 		if (parseResult.success === false)
-			return Result.Err("Cry hard");
+			return Result.Err("Cry hard:" + parseResult.error.message);
 		return await this._runEndpointHandler(parseResult.data, handlerType.handler);
 	}
+	
 
 	handleSocketCallbackMethods() {
 		this.socket.on("message", async (data: WebSocket.RawData) => {
+			console.log("New data yay");
 			let parsed: null | object;
 			try { parsed = JSON.parse(rawDataToString(data) || "")}
 			catch {
@@ -77,7 +80,9 @@ class OurSocket {
 
 			const schemaResult = zodParse(ForwardToContainerSchema, parsed);
 			if (schemaResult.isOk()) {
-				await this._handleEndpoint(schemaResult.unwrap());
+				console.log("Try find something for endpoint " + schemaResult.unwrap().funcId);
+				const result = await this._handleEndpoint(schemaResult.unwrap());
+				if (result.isErr()) console.log(result.unwrapErr());
 			} else {
 				console.log("Wrong user input...");
 			}
@@ -96,60 +101,8 @@ class OurSocket {
 	}
 }
 
-const socket = new OurSocket(socketToHub, 'chat');
+// const socket = new OurSocket(socketToHub, 'chat');
 
-socket.registerEvent(user_url.ws.chat.sendMessage, async (body: z.infer<typeof user_url.ws.chat.sendMessage.schema.body>) => {
-	console.log("Yay I registered an event and Im kindah praying it works rn");
-});
-
-// export function setSocketOnMessageHandler(
-//   socket: WebSocket,
-//   params: { tasks: any }
-// ) {
-//   const { tasks } = params;
-//   socket.on("message", async (data: WebSocket.RawData) => {
-//     let parsed: any;
-//     let messageString = rawDataToString(data);
-//     if (!messageString) {
-//       console.log("Couldnt turn input to string.");
-//       throw Error("Die! Misconfigured tasks.");
-//     }
-//     try {
-//       parsed = JSON.parse(messageString);
-//       console.log("Parsed:" + JSON.stringify(parsed));
-//       console.log("Parsed:" + messageString);
-//     } catch (e) {
-//       console.log(`Couldnt parse to json:${data}`);
-//       return;
-//     }
-//     const validation = ForwardToContainerSchema.safeParse(parsed);
-//     if (!validation) {
-//       console.log(`Bad input from container, input was ${messageString}`);
-//       return;
-//     }
-//     for (const taskKey in tasks) {
-//       if (tasks[taskKey].funcId === parsed.funcId) {
-//         console.log("Executing task handler for: " + taskKey);
-//         let result;
-//         const handler = tasks[taskKey].handler;
-
-//         if (isAsync(handler)) {
-//           result = await handler(parsed);
-//         } else {
-//           result = handler(parsed);
-//         }
-
-//         if (result === undefined) {
-//           console.log("Handler did not return a value: " + taskKey);
-//         }
-
-//         socket.send(JSON.stringify(result));
-//         return;
-//       }
-//     }
-//     console.log("No matching task for URL:", parsed.funcId);
-//     // socket.send(
-//     //   JSON.stringify({ info: "No task for endpoint: " + parsed.endpoint })
-//     // );
-//   });
-// }
+// socket.registerEvent(user_url.ws.chat.sendMessage, async (body: z.infer<typeof user_url.ws.chat.sendMessage.schema.body>) => {
+// 	console.log("Yay I registered an event and Im kindah praying it works rn");
+// });
