@@ -15,7 +15,7 @@ export default function LoginComponent({ onLoginSuccess }) {
     if (value.length < 6) return "Password must be at least 6 characters";
     return null;
   };
-
+ 
   const handleLogin = async () => {
     setError(null);
 

@@ -31,7 +31,7 @@ export type WebSocketRouteDef = {
 	funcId: string;
 	container: 'chat' | 'pong' | 'user';
 	schema: {
-		body?: z.ZodType;
+		body: z.ZodTypeAny;
 		response: Record<number, z.ZodType>;
 	};
 	code: Record<string, number>;
