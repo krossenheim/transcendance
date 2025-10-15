@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { ForwardToContainerSchema } from "./api/service/hub/hub_interfaces.js";
 import { rawDataToString } from "./raw_data_to_string.js";
+import { user_url } from "./api/service/common/endpoints.js";
 
 export const socketToHub = new WebSocket(
   "ws://" +

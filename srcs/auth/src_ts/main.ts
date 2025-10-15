@@ -170,7 +170,7 @@ registerRoute(fastify, pub_url.http.auth.validateToken, async (request, reply) =
 
 registerRoute(fastify, pub_url.http.auth.refreshToken, async (request, reply) => {
 	const responseResult = await containers.db.post(int_url.http.db.validateToken, VerifyTokenPayload.parse({
-		token: request.body.payload.token,
+		token: request.body.token,
 	}));
 
 	if (responseResult.isErr())

@@ -11,24 +11,30 @@ import { ErrorResponse } from "./error.js";
 import { RoomSchema } from "../chat/db_models.js";
 import { z } from "zod";
 import { userIdValue } from "./zodRules.js";
-import { AuthClientRequest } from "./clientRequest.js";
+import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
 
 export type HTTPRouteDef = {
 	endpoint: string;
+	wrapper?: z.ZodObject<{ payload: z.ZodTypeAny }>;
 	method: 'POST' | 'GET' | 'PUT' | 'DELETE';
 	schema: {
-		body?: any;
+		body?: z.ZodType;
 		query?: any;
 		params?: any;
-		response: Record<number, any>;
+		response: Record<number, z.ZodType | null>;
 	};
 };
 
 // TODO
 export type WebSocketRouteDef = {
-	channel: string;
-	eventMap: Record<string, z.ZodTypeAny>; // or your event schema type
+	funcId: string;
+	container: 'chat' | 'pong' | 'user';
+	schema: {
+		body?: z.ZodType;
+		response: Record<number, z.ZodType>;
+	};
+	code: Record<string, number>;
 };
 
 // Type safety wrapper
@@ -60,7 +66,7 @@ export const pub_url = defineRoutes({
 				endpoint: "/public_api/auth/refresh",
 				method: 'POST',
 				schema: {
-					body: AuthClientRequest(SingleToken),
+					body: SingleToken,
 					response: {
 						200: AuthResponse,
 						401: ErrorResponse,
@@ -114,29 +120,17 @@ export const pub_url = defineRoutes({
 //  sendMessage would be assigned:
 // not refreshToken: "/public_api/auth/refresh",
 // but refreshToken: { some object. contains ""/public_api/auth/refresh""},
-const sendMessage = {
-	code: {
-		MessageSent: 0,
-		NotInRoom: 1,
-		InvalidInput: 2,
-	},
-	funcId: "/api/chat/send_message_to_room",
-	args: SendMessagePayloadSchema,
-	replies: {
-		0: StoredMessageSchema,
-		1: ErrorResponse,
-		2: ErrorResponse,
-	},
-};
+
 
 export const user_url = defineRoutes({
 	http: {
 		users: {
 			fetchUser: {
 				endpoint: "/api/users/fetch",
+				wrapper: GenericAuthClientRequest,
 				method: "POST",
 				schema: {
-					body: AuthClientRequest(userIdValue),
+					body: userIdValue,
 					response: {
 						200: z.array(FullUser),
 						401: ErrorResponse,
@@ -148,9 +142,10 @@ export const user_url = defineRoutes({
 
 			requestFriendship: {
 				endpoint: "/api/users/request_friendship",
+				wrapper: GenericAuthClientRequest,
 				method: "POST",
 				schema: {
-					body: AuthClientRequest(RequestUpdateFriendship),
+					body: RequestUpdateFriendship,
 					response: {
 						200: z.null(),
 						401: ErrorResponse,
@@ -161,7 +156,27 @@ export const user_url = defineRoutes({
 		}
 	},
 
-	ws: {},
+	ws: {
+		chat: {
+			sendMessage: {
+				funcId: "send_message_to_room",
+				container: 'chat',
+				schema: {
+					body: SendMessagePayloadSchema,
+					response: {
+						0: StoredMessageSchema,
+						1: ErrorResponse,
+						2: ErrorResponse,
+					},
+				},
+				code: {
+					MessageSent: 0,
+					NotInRoom: 1,
+					InvalidInput: 2,
+				},
+			},
+		}
+	},
 });
 
 /// /internal_api/*
