@@ -15,12 +15,13 @@ const handleKeyPress = (e: any, action: any) => {
     action();
   }
 };
+interface LoginComponentProps {
+  onLoginSuccess: (data: any) => void;
+}
 
 export default function LoginComponent({
   onLoginSuccess,
-}: {
-  onLoginSuccess: any;
-}) {
+}: LoginComponentProps) {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
