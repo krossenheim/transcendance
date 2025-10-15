@@ -7,12 +7,10 @@ import type {
 import type { idValue } from "../../../nodejs_base_image/utils/api/service/common/zodRules";
 import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
 import React, { useCallback, useEffect, useState } from "react";
+import { useWebSocket } from "./socketComponent";
 
-interface ChatComponentProps {
-  webSocket: WebSocket;
-}
-
-export default function PongComponent({ webSocket }: ChatComponentProps) {
+export default function PongComponent() {
+  const { socket } = useWebSocket();
   const handleStoredMessageSchemaReceived = useCallback(
     (messageInfo: TypeStoredMessageSchema) => {
       console.log("Stored message received:", messageInfo);
@@ -45,24 +43,24 @@ export default function PongComponent({ webSocket }: ChatComponentProps) {
     //   funcId: z.string(),
     //   payload: z.any(),
     // }).strict();
-    (room_id: typeof room_id_rule, messageString: string) => {
-      if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+    (room_id: string | number, messageString: string) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
         const payload = { room_id: room_id, messageString: messageString };
         const toSend = {
           funcId: "/api/chat/send_message_to_room",
           payload: payload,
           target_container: "chat",
         };
-        // window.sendFromContext(webSocket, "chat", "send_message_to_room", payload);
-        webSocket.send(JSON.stringify(toSend));
+        // window.sendFromContext(socket, "chat", "send_message_to_room", payload);
+        socket.send(JSON.stringify(toSend));
       } else console.warn("WebSocket not open, cannot send message.");
     },
-    [webSocket]
+    [socket]
   );
 
   const handleSendInviteToRoomSchema = useCallback(
-    (room_id: typeof room_id_rule, user_to_add: typeof idValue) => {
-      if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+    (room_id: string, user_to_add: string) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
         const payload = { room_id, user_to_add };
 
         const toSend = {
@@ -70,94 +68,68 @@ export default function PongComponent({ webSocket }: ChatComponentProps) {
           payload: payload,
           target_container: "chat",
         };
-        webSocket.send(JSON.stringify(toSend));
+        socket.send(JSON.stringify(toSend));
         console.log("Sent room invite:", toSend);
       } else console.warn("WebSocket not open, cannot invite user.");
     },
-    [webSocket]
+    [socket]
   );
 
   const handleSendAddRoomPayloadSchema = useCallback(
-    (room_name) => {
-      if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+    (room_name: string) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
         const payload = { roomName: room_name };
         const toSend = {
           funcId: "/api/chat/add_a_new_room",
           payload: payload,
           target_container: "chat",
         };
-        webSocket.send(JSON.stringify(toSend));
+        socket.send(JSON.stringify(toSend));
         console.log("Requested new room:", payload);
       } else console.warn("WebSocket not open, cannot create room.");
     },
-    [webSocket]
+    [socket]
   );
 
   // =========================
   // WebSocket routing
   // =========================
   useEffect(() => {
-    if (!webSocket) return;
+    if (!socket) return;
 
-    //  funcId: "/api/chat/add_a_new_room",
-    // LIST_ROOMS: {
-    //   funcId: "/api/chat/list_rooms",
-    // },
-    // SEND_MESSAGE_TO_ROOM: {
-    //   funcId: "/api/chat/send_message_to_room",
-    // },
-    // ADD_USER_TO_ROOM: {
-    //   funcId: "/api/chat/add_to_room",
+    const handleMessage = () => {
+      const { payloadReceived } = useWebSocket();
+      if (!payloadReceived) return;
 
-    // export const ListRoomsSchema = z
-    //   .array(z.object({
-    //   // To client when asnwering 'Give my list of rooms'
-    //   // chat validates user in z.users (No field for user id here, its set by hub)
-    //     room_id: room_id_rule,
-    //     room_name: room_name_rule,
-    //   }).strict());
-    //   [{room_id:888,room_name:
+      console.log(
+        "Received:\nfuncID",
+        payloadReceived.funcId,
+        "\n",
+        JSON.stringify(payloadReceived)
+      );
+      console.log("funcID:", payloadReceived.funcId);
+      // console.log("Code:",payloadReceived.code);
+      console.log("payload:", payloadReceived.funcId);
 
-    //   }]
-    // export const PayloadHubToUsersSchema = z.object({
-    //   source_container: z.string(),
-    //   funcId: z.string(),
-    //   payload: z.any(),
-    // }).strict();
-
-    const handleMessage = (event) => {
-      try {
-        // event.data PayloadHubToUsersSchema
-        const data = JSON.parse(event.data);
-        if (data.source_container != "chat") return;
-        console.log("received", JSON.stringify(data));
-        switch (data.funcId) {
-          case "send_message":
-            handleStoredMessageSchemaReceived(data.payload);
-            break;
-          case "add_room":
-            handleListRoomsSchemaReceived(data.payload);
-            break;
-          case "add_user_to_room":
-            handleRoomMessagesSchemaReceived(data.payload);
-            break;
-          default:
-            console.warn("Unknown funcId:", data.funcId);
-        }
-      } catch (err) {
-        console.log(
-          "Invalid message format:",
-          err,
-          " message was\n",
-          event.data
-        );
+      switch (payloadReceived.funcId) {
+        case "send_message":
+          handleStoredMessageSchemaReceived(payloadReceived.payload);
+          break;
+        case "add_room":
+          handleListRoomsSchemaReceived(payloadReceived.payload);
+          break;
+        case "add_user_to_room":
+          handleRoomMessagesSchemaReceived(payloadReceived.payload);
+          break;
+        default:
+          console.warn("Unknown funcId:", payloadReceived.funcId);
       }
     };
 
-    webSocket.addEventListener("message", handleMessage);
-    return () => webSocket.removeEventListener("message", handleMessage);
+    socket.addEventListener("message", handleMessage);
+    return () => socket.removeEventListener("message", handleMessage);
   }, [
-    webSocket,
+    socket,
     handleStoredMessageSchemaReceived,
     handleListRoomsSchemaReceived,
     handleRoomMessagesSchemaReceived,
@@ -177,7 +149,7 @@ export default function PongComponent({ webSocket }: ChatComponentProps) {
         <h1 className="text-2xl font-bold text-center">ChatComponent</h1>
         <p className="text-center text-gray-500 text-sm">
           WebSocket connected:{" "}
-          {webSocket?.readyState === WebSocket.OPEN ? "✅" : "❌"}
+          {socket?.readyState === WebSocket.OPEN ? "✅" : "❌"}
         </p>
 
         {/* Send Message */}

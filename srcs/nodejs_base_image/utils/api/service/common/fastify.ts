@@ -15,11 +15,11 @@ export function createFastify(options = { logger: true }): FastifyInstance {
 }
 
 type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
-	status<Code extends keyof T["schema"]["response"] & number>(
-		code: Code
-	): Omit<FastifyReply, "send"> & {
-		send(payload: z.infer<T["schema"]["response"][Code]>): void;
-	};
+  status<Code extends keyof T["schema"]["response"] & number>(
+    code: Code
+  ): Omit<FastifyReply, "send"> & {
+    send(payload: z.infer<T["schema"]["response"][Code]>): void;
+  };
 };
 
 type RouteBody<T extends HTTPRouteDef> =
@@ -47,16 +47,19 @@ export function registerRoute<T extends HTTPRouteDef>(
 		reply: ReplyOf<T>
 	) => Promise<void>
 ) {
-	const method = (route.method ?? "POST").toLowerCase() as
-		| "get"
-		| "post"
-		| "put"
-		| "delete";
+  const method = (route.method ?? "POST").toLowerCase() as
+    | "get"
+    | "post"
+    | "put"
+    | "delete";
 
-	fastify[method](route.endpoint, { schema: route.schema }, async (req, reply) => {
-		await handler(req as any, reply as any);
-	});
+  fastify[method](
+    route.endpoint,
+    { schema: route.schema },
+    async (req, reply) => {
+      await handler(req as any, reply as any);
+    }
+  );
 }
-
 
 export default { createFastify, registerRoute };
