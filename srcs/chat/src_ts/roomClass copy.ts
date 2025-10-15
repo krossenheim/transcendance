@@ -313,9 +313,7 @@ class Room {
 // 	const endpoint = endpoints.ws.chat.addRoom;
 // 	const result = Containers.db.post(endpoint)
 // }
-import type { ErrorResponseType } from "./utils/api/service/common/error.js";
-import type { TypeRoomSchema } from "./utils/api/service/chat/db_models.js";
-import { Result } from "./utils/api/service/common/result.js";
+
 class ChatRooms {
   private rooms: Array<Room>;
   public static instance: ChatRooms;
@@ -326,29 +324,27 @@ class ChatRooms {
     if (ChatRooms.instance) {
       return ChatRooms.instance;
     }
+
+    // Initialize your ChatRooms properties here
+
+    // Cache the instancefco
     ChatRooms.instance = this;
 
     return this;
   }
 
-  getRoom(room_id: number): Result<TypeRoomSchema, ErrorResponseType> {
-    const room = this.rooms.find((room) => {
+  getRoom(room_id: number): Room {
+    return this.rooms.find((room) => {
       room_id === room.room_id;
     });
-    if (room === undefined)
-      return Result.Err({
-        message: `No room with ID:'${room_id}' exists, or you are not in it.`,
-      });
-    return Result.Ok({ roomId: room.room_id, roomName: room.room_name });
   }
-
   async addRoom(
     client_request: T_ForwardToContainer
   ): Promise<T_PayloadToUsers> {
     const from_hub = ForwardToContainerSchema.safeParse(client_request);
     if (!from_hub.success) {
-      console.error("Hub sent unrecognized message:", from_hub.error);
-      return ;
+      console.error("exact fields expected at this stage: :", from_hub.error);
+      throw Error("Data should be clean at this stage.");
     }
     const user_id = client_request.user_id;
     if (!user_id) {

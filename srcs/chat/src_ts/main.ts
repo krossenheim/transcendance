@@ -24,13 +24,14 @@ const fastify = Fastify({
 });
 
 fastify.register(websocketPlugin);
-
+import type { TypeRoomSchema } from "./utils/api/service/chat/db_models.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
 
 const socket = new OurSocket(socketToHub, "chat");
 const singletonChatRooms = new ChatRooms();
 socket.registerEvent(user_url.ws.chat.sendMessage, async (body : any) => {
-	singletonChatRooms.sendMessage(body);
+	// singletonChatRooms.sendMessage(body);
+  const room = singletonChatRooms.getRoom(body);
 });
 
 
