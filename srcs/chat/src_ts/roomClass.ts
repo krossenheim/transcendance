@@ -331,15 +331,12 @@ class ChatRooms {
     return this;
   }
 
-  getRoom(roomId: number): Result<TypeRoomSchema, ErrorResponseType> {
+  getRoom(roomId: number): Room | null {
     const room = this.rooms.find((room) => {
       roomId === room.roomId;
     });
-    if (room === undefined)
-      return Result.Err({
-        message: `No room with ID:'${roomId}' exists, or you are not in it.`,
-      });
-    return Result.Ok({ roomId: room.roomId, roomName: room.room_name });
+    if (room === undefined) return null;
+    return room;
   }
 
   async addRoom(
@@ -486,7 +483,7 @@ class ChatRooms {
     if (!from_hub.success) {
       console.error("exact fields expected at this stage: :", from_hub.error);
       return Result.Err({
-        message: 'Error(Internal server error.)',
+        message: "Error(Internal server error.)",
       });
     }
     const { user_id } = client_request;

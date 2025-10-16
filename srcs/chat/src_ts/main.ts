@@ -26,6 +26,7 @@ import { user_url } from "./utils/api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import type { TypeUserSendMessagePayload } from "./utils/api/service/chat/chat_interfaces.js";
 import { SendMessagePayloadSchema } from "./utils/api/service/chat/chat_interfaces.js";
+import { wrap } from "module";
 
 const socket = new OurSocket(socketToHub, "chat");
 const singletonChatRooms = new ChatRooms();
@@ -33,16 +34,18 @@ socket.registerEvent(
   user_url.ws.chat.sendMessage,
   async (body: TypeUserSendMessagePayload, wrapper: T_ForwardToContainer) => {
     // singletonChatRooms.sendMessage(body);
-    const payload = SendMessagePayloadSchema.safeParse(wrapper.payload);
-    if (!payload.success) {
+    const client_request = SendMessagePayloadSchema.safeParse(wrapper.payload);
+    if (!client_request.success) {
       return Result.Err({
-        message:
-          "Invalid payload for funcid:" + user_url.ws.chat.sendMessage.funcId,
+        message: client_request.error.message,
       });
     }
-
-    const room = singletonChatRooms.sendMessage(payload.data);
-    return room;
+    const room = singletonChatRooms.getRoom(client_request.data.roomId);
+    if (!room || !room.users.find((userid) => userid === wrapper.user_id)) {
+      return Result.Err({ message: "No such room or user not in it" });
+    }
+    room.users.
+    return room.unwrap();
   }
 );
 
