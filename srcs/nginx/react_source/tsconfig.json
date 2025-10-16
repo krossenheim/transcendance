@@ -8,8 +8,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-	    "baseUrl": "react_source",            // base folder for imports
-	    "paths": {
-    },
-  },
+    "baseUrl": ".", // base folder for imports
+    "paths": { "@/*": ["*"] }
+  }
 }
