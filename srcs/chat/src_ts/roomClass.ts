@@ -348,7 +348,7 @@ class ChatRooms {
     const from_hub = ForwardToContainerSchema.safeParse(client_request);
     if (!from_hub.success) {
       console.error("Hub sent unrecognized message:", from_hub.error);
-      return ;
+      throw Error("Hub sent unrecognized message");
     }
     const user_id = client_request.user_id;
     if (!user_id) {

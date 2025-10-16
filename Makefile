@@ -46,7 +46,7 @@ debug:
 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
 	rm -f $(VOLUMES_DIR)users.db
 
-build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers
+build: create_shared_volume_folder  build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
 
 build_base_nodejs:

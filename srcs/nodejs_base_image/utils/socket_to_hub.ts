@@ -22,9 +22,10 @@ export const socketToHub = new WebSocket(
 socketToHub.on("error", (err: Error) => {
   console.error("Error:", err);
 });
+import type { ErrorResponseType } from "./api/service/common/error.js";
 
 interface HandlerType<TBody = any> {
-  handler: (body: TBody) => Promise<Result<null, ErrorResponseType>>;
+  handler: (body: TBody) => Promise<Result<any, ErrorResponseType>>;
   metadata: {
     schema: {
       body: ZodType<TBody>;
@@ -33,7 +34,6 @@ interface HandlerType<TBody = any> {
 }
 
 import { ZodType } from "zod";
-import { ErrorResponseType } from "./api/service/common/error.js";
 import { parse } from "path";
 export class OurSocket {
   private socket: WebSocket;
@@ -114,8 +114,10 @@ export class OurSocket {
   registerEvent<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
     handler: T["schema"]["body"] extends z.ZodTypeAny
-      ? (body: z.infer<T["schema"]["body"]>) => unknown | Promise<unknown>
-      : () => unknown | Promise<unknown>
+      ? (
+          body: z.infer<T["schema"]["body"]>
+        ) => Promise<Result<any, ErrorResponseType>>
+      : () => Promise<Result<any, ErrorResponseType>>
   ) {
     if (handlerEndpoint.container != this.container)
       throw `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`;

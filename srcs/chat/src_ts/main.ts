@@ -25,16 +25,19 @@ const fastify = Fastify({
 
 fastify.register(websocketPlugin);
 import type { TypeRoomSchema } from "./utils/api/service/chat/db_models.js";
+import { Result } from "./utils/api/service/common/result.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
+import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 
 const socket = new OurSocket(socketToHub, "chat");
 const singletonChatRooms = new ChatRooms();
-socket.registerEvent(user_url.ws.chat.sendMessage, async (body : any) => {
+socket.registerEvent(user_url.ws.chat.sendMessage, async (body : TypeRoomSchema) => {
 	// singletonChatRooms.sendMessage(body);
-  const room = singletonChatRooms.getRoom(body);
+  const room = singletonChatRooms.sendMessage(body);
+  return (room);
 });
 
-
+//  Type '{ room_id: number; messageString: string; }' is missing the following properties from type '{ roomId: number; roomName: string; }': roomId, roomName
 // const chatRoomTasks = {
 //   ADD_A_NEW_ROOM: {
 //     funcId: "/api/chat/add_a_new_room",
