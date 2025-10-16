@@ -11,7 +11,6 @@ export default defineConfig({
     fs: {
       strict: true, // prevents access to files outside the root
     },
-    port: 3333,
   },
   base: "/static/react_dist/",
 });
