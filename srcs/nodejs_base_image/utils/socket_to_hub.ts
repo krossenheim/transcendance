@@ -24,11 +24,12 @@ socketToHub.on("error", (err: Error) => {
 });
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
-interface HandlerType<TBody = any> {
+interface HandlerType<TBody = any, TWrapper = any> {
   handler: (body: TBody) => Promise<Result<any, ErrorResponseType>>;
   metadata: {
     schema: {
       body: ZodType<TBody>;
+      wrapper: ZodType<TWrapper>;
     };
   } & Omit<WebSocketRouteDef, "schema">; // keep other metadata fields
 }
@@ -115,7 +116,8 @@ export class OurSocket {
     handlerEndpoint: T,
     handler: T["schema"]["body"] extends z.ZodTypeAny
       ? (
-          body: z.infer<T["schema"]["body"]>
+          body: z.infer<T["schema"]["body"]>,
+          wrapper: z.infer<T["schema"]["wrapper"]>
         ) => Promise<Result<any, ErrorResponseType>>
       : () => Promise<Result<any, ErrorResponseType>>
   ) {

@@ -1,13 +1,9 @@
 "use strict";
 import type { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
-import {
-  socketToHub, OurSocket
-  
-} from "./utils/socket_to_hub.js";
+import { socketToHub, OurSocket } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
 import websocketPlugin, { type WebsocketHandler } from "@fastify/websocket";
-
 
 const fastify = Fastify({
   logger: {
@@ -28,14 +24,27 @@ import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interface
 import { Result } from "./utils/api/service/common/result.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
+import type { TypeUserSendMessagePayload } from "./utils/api/service/chat/chat_interfaces.js";
+import { SendMessagePayloadSchema } from "./utils/api/service/chat/chat_interfaces.js";
 
 const socket = new OurSocket(socketToHub, "chat");
 const singletonChatRooms = new ChatRooms();
-socket.registerEvent(user_url.ws.chat.sendMessage, async (body : T_ForwardToContainer) => {
-	// singletonChatRooms.sendMessage(body);
-  const room = singletonChatRooms.sendMessage(body);
-  return (room);
-});
+socket.registerEvent(
+  user_url.ws.chat.sendMessage,
+  async (body: TypeUserSendMessagePayload, wrapper: T_ForwardToContainer) => {
+    // singletonChatRooms.sendMessage(body);
+    const payload = SendMessagePayloadSchema.safeParse(wrapper.payload);
+    if (!payload.success) {
+      return Result.Err({
+        message:
+          "Invalid payload for funcid:" + user_url.ws.chat.sendMessage.funcId,
+      });
+    }
+
+    const room = singletonChatRooms.sendMessage(payload.data);
+    return room;
+  }
+);
 
 //  Type '{ roomId: number; messageString: string; }' is missing the following properties from type '{ roomId: number; roomName: string; }': roomId, roomName
 // const chatRoomTasks = {
@@ -58,4 +67,3 @@ socket.registerEvent(user_url.ws.chat.sendMessage, async (body : T_ForwardToCont
 // };
 
 // setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
-
