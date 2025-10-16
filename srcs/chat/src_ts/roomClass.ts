@@ -2,18 +2,30 @@ import {
   ForwardToContainerSchema,
   PayloadToUsersSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
-import user, { FullUser } from "./utils/api/service/db/user.js";
-
+import type {
+  T_ForwardToContainer,
+  T_PayloadToUsers,
+} from "./utils/api/service/hub/hub_interfaces.js";
 import {
   AddRoomPayloadSchema,
   AddToRoomPayloadSchema,
   SendMessagePayloadSchema,
+  type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
-import { z } from "zod";
+import { date, z } from "zod";
 import { formatZodError } from "./utils/formatZodError.js";
 import Containers from "./utils/internal_api.js";
 import { int_url } from "./utils/api/service/common/endpoints.js";
+import type { ErrorResponseType } from "./utils/api/service/common/error.js";
+import {
+  StoredMessageSchema,
+  type TypeRoomSchema,
+  type TypeStoredMessageSchema,
+} from "./utils/api/service/chat/db_models.js";
+import { message_date_rule } from "./utils/api/service/chat/db_models.js";
+import { Result } from "./utils/api/service/common/result.js";
+import { idValue } from "./utils/api/service/common/zodRules.js";
 
 function toInt(value: string) {
   const num = Number(value);
@@ -23,19 +35,16 @@ function toInt(value: string) {
   return num;
 }
 
-type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
-type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
-
-class FixedSizeList {
-  public list: Array<number>;
+class FixedSizeList<T> {
+  public list: Array<T>;
   public maxSize: number;
   constructor(maxSize = 10) {
     this.maxSize = maxSize;
     this.list = [];
   }
 
-  add(item: string) {
-    this.list.push(toInt(item));
+  add(item: T) {
+    this.list.push(item);
 
     if (this.list.length > this.maxSize) {
       this.list.shift();
@@ -51,170 +60,19 @@ class Room {
   public room_name: string;
   public readonly roomId: number;
   public users: Array<number>;
-  public messages: FixedSizeList;
+  public messages: FixedSizeList<TypeStoredMessageSchema>;
   public allowedUsers: Array<any>;
+  public readonly max_messages: number;
+  private _current_message_id: number = 0; // Get from db on init as well as the last X stored messages
 
   constructor(room_name: string, roomId: number) {
     this.roomId = roomId;
     this.room_name = room_name;
     this.users = new Array();
-    this.messages = new FixedSizeList(20);
+    this.max_messages = 20;
+    this.messages = new FixedSizeList(this.max_messages);
     this.allowedUsers = new Array();
-  }
-
-  async addUser(
-    client_request: T_ForwardToContainer
-  ): Promise<T_PayloadToUsers> {
-    const from_hub = ForwardToContainerSchema.safeParse(client_request);
-    if (!from_hub.success) {
-      console.error("exact fields expected at this stage: :", from_hub.error);
-      throw Error("Data should be clean at this stage.");
-    }
-    const { user_id } = client_request;
-    const valid_payload = AddToRoomPayloadSchema.safeParse(
-      from_hub.data.payload
-    );
-    if (!valid_payload.success) {
-      console.log(
-        "Invalid payload to add user received: ",
-        from_hub.data.payload
-      );
-      return formatZodError([user_id], valid_payload.error);
-    }
-    const { user_to_add, roomId } = valid_payload.data;
-
-    // Validate user id to add to add with auth
-    if (roomId != this.roomId) {
-      console.error(
-        `Room name doesn't match the requested name, request was: ${JSON.stringify(
-          client_request
-        )}`
-      );
-      throw new Error(
-        `Room name doesn't match the requested name, request was: ${JSON.stringify(
-          client_request
-        )}`
-      );
-    }
-    if (!this.users.includes(user_id)) {
-      console.log(
-        `Userid ${user_id} is not in room ${
-          this.room_name
-        }, request was: ${JSON.stringify(client_request)}`
-      );
-      return {
-        recipients: [user_id],
-        funcId: "add_user_to_room",
-        payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text:
-            "A room by id " +
-            roomId +
-            " doesn't exist or user_id " +
-            user_id +
-            "isnt in it.",
-        },
-      };
-    }
-    if (this.users.includes(user_to_add))
-      return {
-        recipients: [user_id],
-        funcId: "add_user_to_room",
-        payload: {
-          status: httpStatus.ALREADY_REPORTED,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          room_name: this.room_name,
-          message: `User ${user_to_add} already in room ${this.room_name}.`,
-        },
-      };
-    // import { db_interface_add_user } from "";
-
-    // const query_result: Result = db_interface_add_user();
-    // if (query_result.isErr)
-    // ^ why am i not doing this?
-
-    console.log("GETing HTTP: ", int_url.http.db.getUser, {
-      userId: user_to_add,
-    });
-    const responseResult = await Containers.db.get(
-      // getUser: "/internal_api/db/users/fetch/:userId"
-      int_url.http.db.getUser,
-      { userId: user_to_add }
-    );
-
-    // Check person is in friedn list possible here
-    if (responseResult.isErr()) {
-      {
-        return {
-          recipients: [user_id],
-          funcId: "add_user_to_room",
-          payload: {
-            status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
-            func_name: process.env.FUNC_POPUP_TEXT,
-            pop_up_text: "No response for lookup on user id: ",
-            user_to_add,
-          },
-        };
-      }
-    }
-    const response = responseResult.unwrap();
-    console.log("Response from db service:", response.status, response.data);
-
-    if (response.status !== 200) {
-      {
-        {
-          return {
-            recipients: [user_id],
-            funcId: "add_user_to_room",
-            payload: {
-              status: "oohh! aah!",
-              func_name: process.env.FUNC_POPUP_TEXT,
-              pop_up_text: "No user by that id.",
-            },
-          };
-        }
-      }
-    }
-    const valid_user_to_add = FullUser.safeParse(response?.data);
-    if (!valid_user_to_add.success) {
-      console.log("No known user with id ", user_to_add);
-      return {
-        recipients: [user_id],
-        funcId: "add_user_to_room",
-        payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: `The user you requested (with id ${user_to_add}) doesn't exist.`,
-        },
-      };
-    }
-    const user = valid_user_to_add.data;
-    const valid_user_is_adding = FullUser.safeParse(response?.data);
-    if (!valid_user_is_adding.success) {
-      console.log("No known user with id ", user_to_add);
-      return {
-        recipients: [user_id],
-        funcId: "add_user_to_room",
-        payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: `The user you requested (with id ${user_to_add}) doesn't exist.`,
-        },
-      };
-    }
-    const userAdding = valid_user_is_adding.data;
-    this.users.push(user.id);
-    return {
-      recipients: this.users,
-      funcId: "add_user_to_room",
-      payload: {
-        status: httpStatus.OK,
-        func_name: process.env.FUNC_ADD_MESSAGE_TO_ROOM,
-        room_name: this.room_name,
-        message: `User ${userAdding.alias} has added ${user.alias}`,
-      },
-    };
+    this._current_message_id = 1; // Get from db as well as the last max_messages stored messages
   }
 
   //////
@@ -222,85 +80,30 @@ class Room {
     this.users = this.users.filter((u) => u !== user);
   }
 
-  sendMessage(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const from_hub = ForwardToContainerSchema.safeParse(client_request);
-    if (!from_hub.success) {
-      console.error("exact fields expected at this stage: :", from_hub.error);
-      throw Error("Malformed message from hub.");
+  sendMessage(
+    client_input: TypeUserSendMessagePayload,
+    client_metadata: T_ForwardToContainer
+  ): Result<TypeStoredMessageSchema, ErrorResponseType> {
+    if (
+      client_input.roomId !== this.roomId ||
+      this.users.indexOf(client_metadata.user_id) === -1
+    ) {
+      return Result.Err({
+        message: "No such room or user not in it",
+      });
     }
-    const user_id = from_hub.data.user_id;
-    const valid_message_to_send = SendMessagePayloadSchema.safeParse(
-      from_hub.data.payload
-    );
-    if (!valid_message_to_send.success) {
-      console.log(
-        "Invalid payload to add user received: ",
-        from_hub.data.payload
-      );
-      return formatZodError([user_id], valid_message_to_send.error);
+    if (!client_input.messageString) {
+      Result.Err("Received no message body");
     }
-    const { messageString: messageReceived, roomId } =
-      valid_message_to_send.data;
-    if (!messageReceived) {
-      return {
-        recipients: [user_id],
-        funcId: "send_message_to_room",
-        payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "User did not send a message.",
-        },
-      };
-    }
-    if (this.roomId != roomId) {
-      console.error(
-        `Wrong roomg (id ${this.roomId}) being asked to
-         broadcast message on behalf of user: (id ${user_id})`
-      );
-      return {
-        recipients: [user_id],
-        funcId: "send_message_to_room",
-        payload: {
-          status: 666,
-          func_name: "aaa",
-          pop_up_text: "Internal error when dealing with room id:" + roomId,
-        },
-      };
-    }
-    if (!this.users.includes(user_id)) {
-      console.log(
-        `Userid ${user_id} is not in room ${
-          this.room_name
-        },users in it are: [${this.users.join(
-          ", "
-        )}], request was: ${JSON.stringify(client_request)}`
-      );
-      return {
-        recipients: [user_id],
-        funcId: "send_message_to_room",
-        payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room " + roomId + " doesn't exist or user isnt in it.",
-        },
-      };
-    } else {
-      console.log(
-        `Userid ${user_id} joined room ${
-          this.room_name
-        }, request was: ${JSON.stringify(client_request)}`
-      );
-      return {
-        recipients: this.users,
-        funcId: "send_message_to_room",
-        payload: {
-          status: 33,
-          func_name: "galibaprafasaal",
-          room_name: this.room_name,
-          message: messageReceived,
-        },
-      };
-    }
+    const message = {
+      messageId: this._current_message_id++,
+      roomId: this.roomId,
+      messageString: client_input.messageString,
+      messageDate: Date.now(),
+      userId: client_metadata.user_id,
+    };
+    this.messages.add(message);
+    return Result.Ok(message);
   }
 
   equals(otherRoom: Room) {
@@ -313,9 +116,7 @@ class Room {
 // 	const endpoint = endpoints.ws.chat.addRoom;
 // 	const result = Containers.db.post(endpoint)
 // }
-import type { ErrorResponseType } from "./utils/api/service/common/error.js";
-import type { TypeRoomSchema } from "./utils/api/service/chat/db_models.js";
-import { Result } from "./utils/api/service/common/result.js";
+
 class ChatRooms {
   private rooms: Array<Room>;
   public static instance: ChatRooms;
@@ -474,87 +275,6 @@ class ChatRooms {
         room_list: list,
       },
     };
-  }
-
-  sendMessage(
-    client_request: T_ForwardToContainer
-  ): Result<T_PayloadToUsers, ErrorResponseType> {
-    const from_hub = ForwardToContainerSchema.safeParse(client_request);
-    if (!from_hub.success) {
-      console.error("exact fields expected at this stage: :", from_hub.error);
-      return Result.Err({
-        message: "Error(Internal server error.)",
-      });
-    }
-    const { user_id } = client_request;
-    if (!user_id) {
-      return Result.Err({
-        message: 'Error("Service called with no user id behind it.")',
-      });
-    }
-    const valid_payload = SendMessagePayloadSchema.safeParse(
-      client_request.payload
-    );
-    if (!valid_payload.success) {
-      return formatZodError([user_id], valid_payload.error);
-    }
-    let targetRoom = this.rooms.find(
-      (room) => valid_payload.data.roomId === room.roomId
-    );
-    if (targetRoom == undefined)
-      return {
-        recipients: [user_id],
-        funcId: "send_message_to_room",
-        payload: {
-          status: httpStatus.NOT_FOUND,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text:
-            "Room id " + valid_payload.data.roomId + " doesn't exist.",
-        },
-      };
-
-    return targetRoom.sendMessage(client_request);
-  }
-
-  async addUserToRoom(
-    client_request: T_ForwardToContainer
-  ): Promise<T_PayloadToUsers> {
-    const from_hub = ForwardToContainerSchema.safeParse(client_request);
-    if (!from_hub.success) {
-      console.error("exact fields expected at this stage: :", from_hub.error);
-      throw Error("Data should be clean at this stage.");
-    }
-    const user_id = from_hub.data.user_id;
-    const valid_payload = AddToRoomPayloadSchema.safeParse(
-      client_request.payload
-    );
-
-    if (!valid_payload.success)
-      return formatZodError([user_id], valid_payload.error);
-
-    const requested_room_id = valid_payload.data.roomId;
-
-    let targetRoom = this.rooms.find(
-      (room) => requested_room_id === room.roomId
-    );
-    if (targetRoom && !targetRoom.users.includes(user_id)) {
-      console.log(
-        `DEBUG/WARN: user with id ${user_id} trying to send message to a room (${targetRoom.roomId}) they aren't in.`
-      );
-      // Will return error to client below.
-    }
-    if (targetRoom === undefined || !targetRoom.users.includes(user_id))
-      return {
-        recipients: [user_id],
-        funcId: "add_user_to_room",
-        payload: {
-          status: httpStatus.NOT_FOUND,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room with ID " + requested_room_id + " doesn't exist.",
-        },
-      };
-
-    return await targetRoom.addUser(client_request);
   }
 }
 

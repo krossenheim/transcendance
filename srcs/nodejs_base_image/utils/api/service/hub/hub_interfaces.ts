@@ -45,3 +45,4 @@ export const ForwardToContainerSchema = z
 
 export type TypePayloadHubToUsersSchema = z.infer<typeof PayloadHubToUsersSchema>;
 export type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
+export type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;

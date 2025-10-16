@@ -1,16 +1,15 @@
 import WebSocket from "ws";
-import {
-  ForwardToContainerSchema,
-  UserToHubSchema,
-} from "./api/service/hub/hub_interfaces.js";
+import { ForwardToContainerSchema } from "./api/service/hub/hub_interfaces.js";
 import { rawDataToString } from "./raw_data_to_string.js";
 import { user_url } from "./api/service/common/endpoints.js";
 import { zodParse } from "./api/service/common/zodUtils.js";
 import { Result } from "./api/service/common/result.js";
 import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
-import { fa } from "zod/v4/locales";
-import { unknown, z } from "zod";
-
+import { z } from "zod";
+import type {
+  T_ForwardToContainer,
+  T_PayloadToUsers,
+} from "./api/service/hub/hub_interfaces.js";
 export const socketToHub = new WebSocket(
   "ws://" +
     process.env.HUB_NAME +
@@ -25,7 +24,10 @@ socketToHub.on("error", (err: Error) => {
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
 interface HandlerType<TBody = any, TWrapper = any> {
-  handler: (body: TBody) => Promise<Result<any, ErrorResponseType>>;
+  handler: (
+    body: TBody,
+    wrapper: TWrapper
+  ) => Promise<Result<any, ErrorResponseType>>;
   metadata: {
     schema: {
       body: ZodType<TBody>;
@@ -50,15 +52,18 @@ export class OurSocket {
 
   async _runEndpointHandler(
     payload: z.ZodType,
-    handler: (input: any) => any | Promise<any>
-  ): Promise<Result<null, ErrorResponseType>> {
+    wrapper: T_ForwardToContainer,
+    handler: (
+      input: any,
+      wrapper: T_ForwardToContainer
+    ) => T_PayloadToUsers | Promise<T_PayloadToUsers>
+  ): Promise<Result<z.ZodType, ErrorResponseType>> {
     try {
       if (handler.constructor.name === "AsyncFunction") {
-        await handler(payload);
+        return Result.Ok(await handler(payload, wrapper));
       } else {
-        handler(payload);
+        return Result.Ok(handler(payload, wrapper));
       }
-      return Result.Ok(null);
     } catch {
       return Result.Err({ message: "Error executing ws endpoint" });
     }
@@ -66,7 +71,7 @@ export class OurSocket {
 
   async _handleEndpoint(
     containerSchema: z.infer<typeof ForwardToContainerSchema>
-  ): Promise<Result<null, ErrorResponseType>> {
+  ): Promise<Result<z.ZodType, ErrorResponseType>> {
     const handlerType: HandlerType | undefined =
       this.handlers[containerSchema.funcId];
     console.log(this.handlers);
@@ -84,6 +89,7 @@ export class OurSocket {
       return Result.Err({ message: "Cry hard:" + parseResult.error.message });
     return await this._runEndpointHandler(
       parseResult.data,
+      containerSchema,
       handlerType.handler
     );
   }
