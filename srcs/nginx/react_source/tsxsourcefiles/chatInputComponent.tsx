@@ -98,9 +98,9 @@ export default function PongComponent() {
     //   funcId: z.string(),
     //   payload: z.any(),
     // }).strict();
-    (room_id: string | number, messageString: string) => {
+    (roomId: string | number, messageString: string) => {
       if (socket && socket.readyState === WebSocket.OPEN) {
-        const payload = { room_id: room_id, messageString: messageString };
+        const payload = { roomId: roomId, messageString: messageString };
         const toSend = {
           funcId: "/api/chat/send_message_to_room",
           payload: payload,
@@ -114,9 +114,9 @@ export default function PongComponent() {
   );
 
   const handleSendInviteToRoomSchema = useCallback(
-    (room_id: string, user_to_add: string) => {
+    (roomId: string, user_to_add: string) => {
       if (socket && socket.readyState === WebSocket.OPEN) {
-        const payload = { room_id, user_to_add };
+        const payload = { roomId, user_to_add };
 
         const toSend = {
           funcId: "/api/chat/add_to_room",

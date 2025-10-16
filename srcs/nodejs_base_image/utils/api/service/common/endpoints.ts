@@ -9,6 +9,7 @@ import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
 import { RoomSchema } from "../chat/db_models.js";
+import { ForwardToContainerSchema } from "../hub/hub_interfaces.js";
 import { z } from "zod";
 import { userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
@@ -32,6 +33,7 @@ export type WebSocketRouteDef = {
 	container: 'chat' | 'pong' | 'user';
 	schema: {
 		body: z.ZodType;
+		wrapper: z.ZodType;
 		response: Record<number, z.ZodType>;
 	};
 	code: Record<string, number>;
@@ -162,6 +164,7 @@ export const user_url = defineRoutes({
 				funcId: "/api/chat/send_message_to_room",
 				container: 'chat',
 				schema: {
+					wrapper: ForwardToContainerSchema,
 					body: SendMessagePayloadSchema,
 					response: {
 						0: StoredMessageSchema,

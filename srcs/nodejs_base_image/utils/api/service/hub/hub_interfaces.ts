@@ -44,3 +44,4 @@ export const ForwardToContainerSchema = z
   .strict();
 
 export type TypePayloadHubToUsersSchema = z.infer<typeof PayloadHubToUsersSchema>;
+export type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;

@@ -49,13 +49,13 @@ class FixedSizeList {
 
 class Room {
   public room_name: string;
-  public readonly room_id: number;
+  public readonly roomId: number;
   public users: Array<number>;
   public messages: FixedSizeList;
   public allowedUsers: Array<any>;
 
-  constructor(room_name: string, room_id: number) {
-    this.room_id = room_id;
+  constructor(room_name: string, roomId: number) {
+    this.roomId = roomId;
     this.room_name = room_name;
     this.users = new Array();
     this.messages = new FixedSizeList(20);
@@ -81,10 +81,10 @@ class Room {
       );
       return formatZodError([user_id], valid_payload.error);
     }
-    const { user_to_add, room_id } = valid_payload.data;
+    const { user_to_add, roomId } = valid_payload.data;
 
     // Validate user id to add to add with auth
-    if (room_id != this.room_id) {
+    if (roomId != this.roomId) {
       console.error(
         `Room name doesn't match the requested name, request was: ${JSON.stringify(
           client_request
@@ -110,7 +110,7 @@ class Room {
           func_name: process.env.FUNC_POPUP_TEXT,
           pop_up_text:
             "A room by id " +
-            room_id +
+            roomId +
             " doesn't exist or user_id " +
             user_id +
             "isnt in it.",
@@ -239,7 +239,7 @@ class Room {
       );
       return formatZodError([user_id], valid_message_to_send.error);
     }
-    const { messageString: messageReceived, room_id } =
+    const { messageString: messageReceived, roomId } =
       valid_message_to_send.data;
     if (!messageReceived) {
       return {
@@ -252,9 +252,9 @@ class Room {
         },
       };
     }
-    if (this.room_id != room_id) {
+    if (this.roomId != roomId) {
       console.error(
-        `Wrong roomg (id ${this.room_id}) being asked to
+        `Wrong roomg (id ${this.roomId}) being asked to
          broadcast message on behalf of user: (id ${user_id})`
       );
       return {
@@ -263,7 +263,7 @@ class Room {
         payload: {
           status: 666,
           func_name: "aaa",
-          pop_up_text: "Internal error when dealing with room id:" + room_id,
+          pop_up_text: "Internal error when dealing with room id:" + roomId,
         },
       };
     }
@@ -281,7 +281,7 @@ class Room {
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room " + room_id + " doesn't exist or user isnt in it.",
+          pop_up_text: "Room " + roomId + " doesn't exist or user isnt in it.",
         },
       };
     } else {
@@ -304,7 +304,7 @@ class Room {
   }
 
   equals(otherRoom: Room) {
-    return otherRoom && this.room_id == otherRoom.room_id;
+    return otherRoom && this.roomId == otherRoom.roomId;
   }
 }
 
@@ -331,15 +331,15 @@ class ChatRooms {
     return this;
   }
 
-  getRoom(room_id: number): Result<TypeRoomSchema, ErrorResponseType> {
+  getRoom(roomId: number): Result<TypeRoomSchema, ErrorResponseType> {
     const room = this.rooms.find((room) => {
-      room_id === room.room_id;
+      roomId === room.roomId;
     });
     if (room === undefined)
       return Result.Err({
-        message: `No room with ID:'${room_id}' exists, or you are not in it.`,
+        message: `No room with ID:'${roomId}' exists, or you are not in it.`,
       });
-    return Result.Ok({ roomId: room.room_id, roomName: room.room_name });
+    return Result.Ok({ roomId: room.roomId, roomName: room.room_name });
   }
 
   async addRoom(
@@ -413,7 +413,7 @@ class ChatRooms {
     const { roomId } = response.data;
     if (!roomId) {
       console.error(
-        "Received null room_id from ",
+        "Received null roomId from ",
         int_url.http.db.createChatRoom,
         "!!!\n@\n\n"
       );
@@ -449,7 +449,7 @@ class ChatRooms {
         status: httpStatus.OK,
         func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
         room_name: room.room_name,
-        room_id: room.room_id,
+        roomId: room.roomId,
       },
     };
   }
@@ -479,15 +479,21 @@ class ChatRooms {
     };
   }
 
-  sendMessage(client_request: T_ForwardToContainer): T_PayloadToUsers {
+  sendMessage(
+    client_request: T_ForwardToContainer
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
     const from_hub = ForwardToContainerSchema.safeParse(client_request);
     if (!from_hub.success) {
       console.error("exact fields expected at this stage: :", from_hub.error);
-      throw Error("Data should be clean at this stage.");
+      return Result.Err({
+        message: 'Error(Internal server error.)',
+      });
     }
     const { user_id } = client_request;
     if (!user_id) {
-      throw Error("Service called with no user id behind it.");
+      return Result.Err({
+        message: 'Error("Service called with no user id behind it.")',
+      });
     }
     const valid_payload = SendMessagePayloadSchema.safeParse(
       client_request.payload
@@ -496,7 +502,7 @@ class ChatRooms {
       return formatZodError([user_id], valid_payload.error);
     }
     let targetRoom = this.rooms.find(
-      (room) => valid_payload.data.room_id === room.room_id
+      (room) => valid_payload.data.roomId === room.roomId
     );
     if (targetRoom == undefined)
       return {
@@ -506,7 +512,7 @@ class ChatRooms {
           status: httpStatus.NOT_FOUND,
           func_name: process.env.FUNC_POPUP_TEXT,
           pop_up_text:
-            "Room id " + valid_payload.data.room_id + " doesn't exist.",
+            "Room id " + valid_payload.data.roomId + " doesn't exist.",
         },
       };
 
@@ -529,14 +535,14 @@ class ChatRooms {
     if (!valid_payload.success)
       return formatZodError([user_id], valid_payload.error);
 
-    const requested_room_id = valid_payload.data.room_id;
+    const requested_room_id = valid_payload.data.roomId;
 
     let targetRoom = this.rooms.find(
-      (room) => requested_room_id === room.room_id
+      (room) => requested_room_id === room.roomId
     );
     if (targetRoom && !targetRoom.users.includes(user_id)) {
       console.log(
-        `DEBUG/WARN: user with id ${user_id} trying to send message to a room (${targetRoom.room_id}) they aren't in.`
+        `DEBUG/WARN: user with id ${user_id} trying to send message to a room (${targetRoom.roomId}) they aren't in.`
       );
       // Will return error to client below.
     }

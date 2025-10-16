@@ -3,7 +3,7 @@ function ChatComponent({ webSocket }) {
   // Incoming message handlers
   //   // =========================
   //  message_id: id_rule,
-  //     room_id: room_id_rule,
+  //     roomId: room_id_rule,
   //     messageString: message_rule,
   //     messageDate: message_date_rule,
   //     userId: id_rule,
@@ -20,13 +20,13 @@ function ChatComponent({ webSocket }) {
 
   // export const RoomMessagesSchema = z
   //   .object({
-  //     room_id: room_id_rule,
+  //     roomId: room_id_rule,
   //     messages: z.array(StoredMessageSchema),
   //   })
   //   .strict();
 
   const handleRoomMessagesSchemaReceived = React.useCallback((fufu) => {
-    console.log(`Messages for room ${data.room_id}:`, data.messages);
+    console.log(`Messages for room ${data.roomId}:`, data.messages);
   }, []);
 
   // =========================
@@ -35,7 +35,7 @@ function ChatComponent({ webSocket }) {
   // export const SendMessagePayloadSchema = z
   //   .object({
   //   // Payload sent by client "send message to room"
-  //     room_id: room_id_rule,
+  //     roomId: room_id_rule,
   //     messageString: message_rule,
   //   })
   //   .strict();
@@ -46,9 +46,9 @@ function ChatComponent({ webSocket }) {
     //   funcId: z.string(),
     //   payload: z.any(),
     // }).strict();
-    (room_id, messageString) => {
+    (roomId, messageString) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-        const payload = { room_id: room_id, messageString: messageString };
+        const payload = { roomId: roomId, messageString: messageString };
         const toSend = {
           funcId: "/api/chat/send_message_to_room",
           payload: payload,
@@ -62,9 +62,9 @@ function ChatComponent({ webSocket }) {
   );
 
   const handleSendInviteToRoomSchema = React.useCallback(
-    (room_id, user_to_add) => {
+    (roomId, user_to_add) => {
       if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-        const payload = { room_id, user_to_add };
+        const payload = { roomId, user_to_add };
 
         const toSend = {
           funcId: "/api/chat/add_to_room",
@@ -114,10 +114,10 @@ function ChatComponent({ webSocket }) {
     //   .array(z.object({
     //   // To client when asnwering 'Give my list of rooms'
     //   // chat validates user in z.users (No field for user id here, its set by hub)
-    //     room_id: room_id_rule,
+    //     roomId: room_id_rule,
     //     room_name: room_name_rule,
     //   }).strict());
-    //   [{room_id:888,room_name:
+    //   [{roomId:888,room_name:
 
     //   }]
     // export const PayloadHubToUsersSchema = z.object({

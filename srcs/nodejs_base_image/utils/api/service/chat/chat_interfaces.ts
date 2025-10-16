@@ -45,7 +45,7 @@ export const AddRoomPayloadSchema = z
 export const SendMessagePayloadSchema = z
   .object({
 	// Payload sent by client "send message to room"
-    room_id: room_id_rule,
+    roomId: room_id_rule,
     messageString: message_rule,
   })
   .strict();
@@ -53,7 +53,7 @@ export const SendMessagePayloadSchema = z
 export const AddToRoomPayloadSchema = z
   .object({
 	// Payload sent by client "add person to room"
-    room_id: room_id_rule,
+    roomId: room_id_rule,
     user_to_add: idValue,
   })
   .strict();
