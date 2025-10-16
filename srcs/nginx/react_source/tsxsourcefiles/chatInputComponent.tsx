@@ -9,6 +9,61 @@ import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/
 import React, { useCallback, useEffect, useState } from "react";
 import { useWebSocket } from "./socketComponent";
 
+export function ChatBox() {
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<string[]>([]);
+
+  const handleSend = () => {
+    if (!message.trim()) return;
+    setMessages([...messages, message]);
+    setMessage("");
+  };
+
+  return (
+    <div className="w-full max-w-md flex flex-col bg-white shadow-lg rounded-2xl p-4 space-y-3 border border-gray-100">
+      <h2 className="text-xl font-semibold text-center text-gray-800">
+        ChatBox
+      </h2>
+
+      {/* Message list */}
+      <div className="flex-1 overflow-y-auto bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-200 min-h-[200px]">
+        {messages.length > 0 ? (
+          messages.map((msg, i) => (
+            <div
+              key={i}
+              className="bg-blue-100 text-gray-800 px-3 py-2 rounded-xl w-fit max-w-[80%] shadow-sm"
+            >
+              {msg}
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-400 text-center text-sm italic">
+            No messages yet
+          </p>
+        )}
+      </div>
+
+      {/* Message input */}
+      <div className="flex space-x-2">
+        <input
+          type="text"
+          placeholder="Type a message..."
+          className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        />
+        <button
+          onClick={handleSend}
+          className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 active:scale-95 transition-all"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PongComponent() {
   const { socket } = useWebSocket();
   const handleStoredMessageSchemaReceived = useCallback(
@@ -145,6 +200,9 @@ export default function PongComponent() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 space-y-4">
+      <ChatBox /> 
+      {/* PAss this component the messages to display */}
+
       <div className="w-full max-w-md shadow-lg p-6 rounded-2xl bg-white flex flex-col space-y-4">
         <h1 className="text-2xl font-bold text-center">ChatComponent</h1>
         <p className="text-center text-gray-500 text-sm">
