@@ -3,13 +3,19 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  root: "./", // points to the current folder containing index.html
+  root: "./",
   build: {
-    outDir: "dist", // relative to root
+    outDir: "dist",
+    minify: false,
+    sourcemap: true,
+  },
+  define: {
+    // force React to use development mode
+    "process.env.NODE_ENV": JSON.stringify("development"),
   },
   server: {
     fs: {
-      strict: true, // prevents access to files outside the root
+      strict: true,
     },
   },
   base: "/static/react_dist/",

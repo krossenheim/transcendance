@@ -7,63 +7,9 @@ import type {
 import type { idValue } from "../../../nodejs_base_image/utils/api/service/common/zodRules";
 import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
 import React, { useCallback, useEffect, useState } from "react";
-import { useWebSocket } from "./socketComponent";
+import { ChatBox } from "./chatBoxComponent";
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints";
-
-export function ChatBox() {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
-
-  const handleSend = () => {
-    if (!message.trim()) return;
-    setMessages([...messages, message]);
-    setMessage("");
-  };
-
-  return (
-    <div className="w-full max-w-md flex flex-col bg-white shadow-lg rounded-2xl p-4 space-y-3 border border-gray-100">
-      <h2 className="text-xl font-semibold text-center text-gray-800">
-        ChatBox
-      </h2>
-
-      {/* Message list */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-200 min-h-[200px]">
-        {messages.length > 0 ? (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              className="bg-blue-100 text-gray-800 px-3 py-2 rounded-xl w-fit max-w-[80%] shadow-sm"
-            >
-              {msg}
-            </div>
-          ))
-        ) : (
-          <p className="text-gray-400 text-center text-sm italic">
-            No messages yet
-          </p>
-        )}
-      </div>
-
-      {/* Message input */}
-      <div className="flex space-x-2">
-        <input
-          type="text"
-          placeholder="Type a message..."
-          className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-        />
-        <button
-          onClick={handleSend}
-          className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 active:scale-95 transition-all"
-        >
-          Send
-        </button>
-      </div>
-    </div>
-  );
-}
+import { useWebSocket } from "./socketComponent";
 
 export default function ChatInputComponent() {
   const { socket } = useWebSocket();
@@ -95,23 +41,23 @@ export default function ChatInputComponent() {
 
   const handleSendSendMessagePayloadSchema = useCallback(
     (roomId: string | number, messageString: string) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
         const payload = { roomId: roomId, messageString: messageString };
         const toSend = {
           funcId: user_url.ws.chat.sendMessage.funcId,
           payload: payload,
           target_container: "chat",
         };
-        // window.sendFromContext(socket, "chat", "send_message_to_room", payload);
-        socket.send(JSON.stringify(toSend));
+        // window.sendFromContext(socket.current, "chat", "send_message_to_room", payload);
+        socket.current.send(JSON.stringify(toSend));
       } else console.warn("WebSocket not open, cannot send message.");
     },
-    [socket]
+    [socket.current]
   );
 
   const handleSendInviteToRoomSchema = useCallback(
     (roomId: string, user_to_add: string) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
         const payload = { roomId, user_to_add };
 
         const toSend = {
@@ -119,61 +65,61 @@ export default function ChatInputComponent() {
           payload: payload,
           target_container: "chat",
         };
-        socket.send(JSON.stringify(toSend));
+        socket.current.send(JSON.stringify(toSend));
         console.log("Sent room invite:", toSend);
       } else console.warn("WebSocket not open, cannot invite user.");
     },
-    [socket]
+    [socket.current]
   );
 
   const handleSendAddRoomPayloadSchema = useCallback(
     (room_name: string) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
         const payload = { roomName: room_name };
         const toSend = {
           funcId: user_url.ws.chat.addRoom.funcId,
           payload: payload,
           target_container: "chat",
         };
-        socket.send(JSON.stringify(toSend));
+        socket.current.send(JSON.stringify(toSend));
         console.log("Requested new room:", payload);
       } else console.warn("WebSocket not open, cannot create room.");
     },
-    [socket]
+    [socket.current]
   );
 
   const handleSendRequestRoomList = useCallback(() => {
-    if (socket && socket.readyState === WebSocket.OPEN) {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       const toSend = {
         funcId: user_url.ws.chat.listRooms.funcId,
         payload: {},
         target_container: "chat",
       };
-      socket.send(JSON.stringify(toSend));
+      socket.current.send(JSON.stringify(toSend));
       console.log("Requested room list");
     } else console.warn("WebSocket not open, cannot request list of rooms.");
-  }, [socket]);
+  }, [socket.current]);
 
   const handleSendRequestJoinRoom = useCallback(
     (room_id: string) => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
         const toSend = {
           funcId: user_url.ws.chat.joinRoom.funcId,
           payload: { roomId: room_id },
           target_container: "chat",
         };
-        socket.send(JSON.stringify(toSend));
+        socket.current.send(JSON.stringify(toSend));
         console.log("Requested room list");
       } else console.warn("WebSocket not open, cannot request list of rooms.");
     },
-    [socket]
+    [socket.current]
   );
 
   // =========================
   // WebSocket routing
   // =========================
   useEffect(() => {
-    if (!socket) return;
+    if (!socket.current) return;
 
     const handleMessage = () => {
       const { payloadReceived } = useWebSocket();
@@ -206,10 +152,13 @@ export default function ChatInputComponent() {
       }
     };
 
-    socket.addEventListener("message", handleMessage);
-    return () => socket.removeEventListener("message", handleMessage);
+    socket.current.addEventListener("message", handleMessage);
+    return () => {
+      if (socket.current)
+        socket.current.removeEventListener("message", handleMessage);
+    };
   }, [
-    socket,
+    socket.current,
     handleStoredMessageSchemaReceived,
     handleListRoomsSchemaReceived,
     handleRoomMessagesSchemaReceived,
@@ -233,7 +182,7 @@ export default function ChatInputComponent() {
           <h1 className="text-2xl font-bold text-center">ChatComponent</h1>
           <p className="text-center text-gray-500 text-sm">
             WebSocket connected:{" "}
-            {socket?.readyState === WebSocket.OPEN ? "✅" : "❌"}
+            {socket.current?.readyState === WebSocket.OPEN ? "✅" : "❌"}
           </p>
 
           {/* Send Message */}
