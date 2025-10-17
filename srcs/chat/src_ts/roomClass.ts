@@ -203,29 +203,21 @@ class ChatRooms {
     });
   }
 
-  listRooms(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const from_hub = ForwardToContainerSchema.safeParse(client_request);
-    if (!from_hub.success) {
-      console.error("exact fields expected at this stage: :", from_hub.error);
-      throw Error("Data should be clean at this stage.");
-    }
-    const { user_id } = client_request;
-    const list = [];
+  listRooms(
+    client_metadata: T_ForwardToContainer
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
+    const list: Array<TypeRoomSchema> = [];
 
     for (const room of this.rooms) {
-      if (user_id in room.users) {
-        list.push(room.room_name);
+      if (room.users.find((id) => id === client_metadata.user_id)) {
+        list.push({ roomName: room.room_name, roomId: room.roomId });
       }
     }
-    return {
-      recipients: [user_id],
-      funcId: "list_rooms",
-      payload: {
-        status: httpStatus.OK,
-        func_name: process.env.FUNC_DISPLAY_ROOMS,
-        room_list: list,
-      },
-    };
+    return Result.Ok({
+      recipients: [client_metadata.user_id],
+      funcId: client_metadata.funcId,
+      payload: list,
+    });
   }
 }
 

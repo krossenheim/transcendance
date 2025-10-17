@@ -142,6 +142,18 @@ export default function PongComponent() {
     [socket]
   );
 
+  const handleRequestRoomList = useCallback(() => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      const toSend = {
+        funcId: user_url.ws.chat.listRooms.funcId,
+        payload: {},
+        target_container: "chat",
+      };
+      socket.send(JSON.stringify(toSend));
+      console.log("Requested room list");
+    } else console.warn("WebSocket not open, cannot request list of rooms.");
+  }, [socket]);
+
   // =========================
   // WebSocket routing
   // =========================
@@ -165,7 +177,7 @@ export default function PongComponent() {
         case user_url.ws.chat.sendMessage.funcId:
           handleStoredMessageSchemaReceived(payloadReceived.payload);
           break;
-        case user_url.ws.chat.addRoom.funcId:
+        case user_url.ws.chat.listRooms.funcId:
           handleListRoomsSchemaReceived(payloadReceived.payload);
           break;
         case user_url.ws.chat.addUserToRoom.funcId:
@@ -266,6 +278,16 @@ export default function PongComponent() {
           />
           <button
             onClick={() => handleSendAddRoomPayloadSchema(newRoomName)}
+            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+          >
+            Create Room
+          </button>
+        </div>
+
+        {/* Request list of rooms */}
+        <div className="flex flex-col space-y-2">
+          <button
+            onClick={() => handleRequestRoomList()}
             className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
           >
             Create Room

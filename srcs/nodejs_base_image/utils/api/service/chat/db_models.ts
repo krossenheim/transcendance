@@ -45,11 +45,11 @@ export const RoomSchema = z
   .strict();
 
 export enum RoomEvents {
-  JOINED = 0,
-  LEFT = 1,
-  TYPING = 2,
-  ALREADY_IN_ROOM = 3,
-  ADDED_TO_ROOM = 4,
+  JOINED = "joined",
+  LEFT = "left",
+  TYPING = "typing",
+  ALREADY_IN_ROOM = "already in room",
+  ADDED_TO_ROOM = "added to room",
 }
 
 export const RoomEventSchema = z

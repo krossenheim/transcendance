@@ -9,10 +9,9 @@ import { user_url } from "./utils/api/service/common/endpoints.js";
 import type {
   TypeAddRoomPayloadSchema,
   TypeAddToRoomPayload,
+  TypeEmptySchema,
   TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
-import { SendMessagePayloadSchema } from "./utils/api/service/chat/chat_interfaces.js";
-import type { TypeRoomSchema } from "utils/api/service/chat/db_models.js";
 
 const fastify = Fastify({
   logger: {
@@ -73,9 +72,7 @@ socket.registerEvent(
   async (body: TypeAddRoomPayloadSchema, wrapper: T_ForwardToContainer) => {
     const room = singletonChatRooms.addRoom(body, wrapper);
     if (!room) {
-      console.error(
-        "Unhandled exception; adding a room always succeeds. (kheh)"
-      );
+      console.error("Mega warning, could not add a room.");
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
@@ -86,4 +83,74 @@ socket.registerEvent(
     }
     return room;
   }
+);
+
+socket.registerEvent(
+  user_url.ws.chat.listRooms,
+  async (body: {}, wrapper: T_ForwardToContainer) => {
+    const roomList = singletonChatRooms.listRooms(wrapper);
+    if (roomList.isErr()) {
+      console.error(
+        "Mega warning, could not list rooms for an user:",
+        wrapper.user_id
+      );
+      return Result.Ok({
+        recipients: [wrapper.user_id],
+        funcId: wrapper.funcId,
+        payload: {
+          message: `Could not list the rooms you can join.`,
+        },
+      });
+    }
+    return roomList;
+  }
+
+  // function handleSendMessage(
+  //   body: TypeUserSendMessagePayload,
+  //   wrapper: T_ForwardToContainer
+  // ) {
+  //   const room = singletonChatRooms.getRoom(body.roomId);
+  //   if (!room) {
+  //     console.warn(`Client ${wrapper.user_id} to NOENT roomId:${body.roomId}`);
+  //     return Result.Ok({
+  //       recipients: [wrapper.user_id],
+  //       funcId: wrapper.funcId,
+  //       payload: {
+  //         message: `No such room (ID: ${body.roomId}) or you are not in it.`,
+  //       },
+  //     });
+  //   }
+  //   return room.sendMessage(body, wrapper);
+  // }
+
+  // const map : Record<string, Function >= {
+  //   "sendMessage": handleSendMessage,
+  // };
+
+  // for (const [websocketRoute, config] of Object.entries(user_url.ws.chat)) {
+  //   type BodyType = z.infer<typeof config.schema.body>;
+  //   type WrapperType = z.infer<typeof config.schema.wrapper>;
+  //   socket.registerEvent(config, async (body: BodyType, wrapper: WrapperType) => {
+  //     const result = map["/api/chat/add_user_to_room"](body, wrapper);
+  //     if (result.isErr()) {
+  //       console.warn("Handler returns error: ", result.unwrapErr());
+  //       return Result.Err({ message: "A" });
+  //     }
+  //     return result.unwrap();
+  //     const room = singletonChatRooms.addRoom(body, wrapper);
+  //     if (!room) {
+  //       console.error(
+  //         "Unhandled exception; adding a room always succeeds. (kheh)"
+  //       );
+  //       return Result.Ok({
+  //         recipients: [wrapper.user_id],
+  //         funcId: wrapper.funcId,
+  //         payload: {
+  //           message: `Could not create requested room by name: ${body.roomName}`,
+  //         },
+  //       });
+  //     }
+  //     return room;
+  //   });
+  // }
 );

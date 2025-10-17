@@ -1,6 +1,7 @@
 import {
   AddRoomPayloadSchema,
   AddToRoomPayloadSchema,
+  EmptySchema,
   SendMessagePayloadSchema,
 } from "../chat/chat_interfaces.js";
 import {
@@ -8,7 +9,11 @@ import {
   RequestUpdateFriendship,
 } from "../db/friendship.js";
 import { VerifyTokenPayload, StoreTokenPayload } from "../db/token.js";
-import { StoredMessageSchema, RoomEventSchema } from "../chat/db_models.js";
+import {
+  StoredMessageSchema,
+  RoomEventSchema,
+  ListRoomsSchema,
+} from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
 import { FullUser, GetUser } from "../db/user.js";
@@ -18,7 +23,7 @@ import { ErrorResponse } from "./error.js";
 import { RoomSchema } from "../chat/db_models.js";
 import { ForwardToContainerSchema } from "../hub/hub_interfaces.js";
 import { z } from "zod";
-import { userIdValue } from "./zodRules.js";
+import { idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
 
@@ -198,7 +203,7 @@ export const user_url = defineRoutes({
           },
         },
         code: {
-          RoomEvent: 0,
+          RoomEventP: 0,
           NotInRoom: 1,
           InvalidInput: 2,
         },
@@ -211,6 +216,22 @@ export const user_url = defineRoutes({
           body: AddRoomPayloadSchema,
           response: {
             0: RoomSchema,
+            1: ErrorResponse,
+          },
+        },
+        code: {
+          RoomMade: 0,
+          RoomNotMade: 1,
+        },
+      },
+      listRooms: {
+        funcId: "/api/chat/list_rooms",
+        container: "chat",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: EmptySchema,
+          response: {
+            0: ListRoomsSchema,
             1: ErrorResponse,
           },
         },
