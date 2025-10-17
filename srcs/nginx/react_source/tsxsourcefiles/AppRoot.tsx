@@ -1,7 +1,6 @@
 import SocketComponent from "./socketComponent";
 import LoginComponent from "./loginComponent";
 import ChatInputComponent from "./chatInputComponent";
-import ChatBoxComponent from "./chatBoxComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
