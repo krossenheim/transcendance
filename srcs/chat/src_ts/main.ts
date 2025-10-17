@@ -8,6 +8,7 @@ import { Result } from "./utils/api/service/common/result.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
 import type {
   TypeAddRoomPayloadSchema,
+  TypeAddToRoomPayload,
   TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import { SendMessagePayloadSchema } from "./utils/api/service/chat/chat_interfaces.js";
@@ -46,6 +47,24 @@ socket.registerEvent(
       });
     }
     return room.sendMessage(body, wrapper);
+  }
+);
+
+socket.registerEvent(
+  user_url.ws.chat.addUserToRoom,
+  async (body: TypeAddToRoomPayload, wrapper: T_ForwardToContainer) => {
+    const room = singletonChatRooms.getRoom(body.roomId);
+    if (!room) {
+      console.warn(`Bad user request, no such room.`);
+      return Result.Ok({
+        recipients: [wrapper.user_id],
+        funcId: wrapper.funcId,
+        payload: {
+          message: `Can't add users to a room you are not in.`,
+        },
+      });
+    }
+    return room.addToRoom(body, wrapper);
   }
 );
 

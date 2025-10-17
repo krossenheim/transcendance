@@ -11,6 +11,7 @@ import {
   AddToRoomPayloadSchema,
   SendMessagePayloadSchema,
   type TypeAddRoomPayloadSchema,
+  type TypeAddToRoomPayload,
   type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
@@ -21,6 +22,7 @@ import { int_url } from "./utils/api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import {
   StoredMessageSchema,
+  RoomEvents,
   type TypeRoomSchema,
   type TypeStoredMessageSchema,
 } from "./utils/api/service/chat/db_models.js";
@@ -112,6 +114,47 @@ class Room {
       recipients: this.users,
       funcId: client_metadata.funcId,
       payload: message,
+    });
+  }
+
+  addToRoom(
+    client_input: TypeAddToRoomPayload,
+    client_metadata: T_ForwardToContainer
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
+    if (this.allowedUsers.indexOf(client_metadata.user_id) === -1) {
+      return Result.Ok({
+        recipients: [client_metadata.user_id],
+        funcId: client_metadata.funcId,
+        payload: {
+          message: `Can't add users to a room you are not in.`,
+        },
+      });
+    }
+    if (this.roomId !== client_input.roomId) {
+      return Result.Err({
+        message: `Rooms handler incorrectly forwarded room ${this.roomId} a request for room ${client_input.roomId}`,
+      });
+    }
+    if (this.allowedUsers.indexOf(client_input.user_to_add) !== -1) {
+      return Result.Ok({
+        recipients: [client_metadata.user_id],
+        funcId: client_metadata.funcId,
+        payload: {
+          user: client_input.user_to_add,
+          event: RoomEvents.ALREADY_IN_ROOM,
+          roomId: this.roomId,
+        },
+      });
+    }
+    this.allowedUsers.push(client_input.user_to_add);
+    return Result.Ok({
+      recipients: [client_metadata.user_id, client_input.user_to_add],
+      funcId: client_metadata.funcId,
+      payload: {
+        user: client_input.user_to_add,
+        event: RoomEvents.ADDED_TO_ROOM,
+        roomId: this.roomId,
+      },
     });
   }
 

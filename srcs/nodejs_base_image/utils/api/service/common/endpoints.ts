@@ -1,5 +1,6 @@
 import {
   AddRoomPayloadSchema,
+  AddToRoomPayloadSchema,
   SendMessagePayloadSchema,
 } from "../chat/chat_interfaces.js";
 import {
@@ -7,7 +8,7 @@ import {
   RequestUpdateFriendship,
 } from "../db/friendship.js";
 import { VerifyTokenPayload, StoreTokenPayload } from "../db/token.js";
-import { StoredMessageSchema } from "../chat/db_models.js";
+import { StoredMessageSchema, RoomEventSchema } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
 import { FullUser, GetUser } from "../db/user.js";
@@ -167,7 +168,8 @@ export const user_url = defineRoutes({
     chat: {
       sendMessage: {
         funcId: "/api/chat/send_message_to_room",
-        container: "chat",
+        container: "chat", // yes, the object parent of the (sendMessage) holding this is named chat.
+        //                    but i'd rather type it twice
         schema: {
           wrapper: ForwardToContainerSchema,
           body: SendMessagePayloadSchema,
@@ -179,6 +181,24 @@ export const user_url = defineRoutes({
         },
         code: {
           MessageSent: 0,
+          NotInRoom: 1,
+          InvalidInput: 2,
+        },
+      },
+      addUserToRoom: {
+        funcId: "/api/chat/add_user_to_room",
+        container: "chat",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: AddToRoomPayloadSchema,
+          response: {
+            0: RoomEventSchema,
+            1: ErrorResponse,
+            2: ErrorResponse,
+          },
+        },
+        code: {
+          RoomEvent: 0,
           NotInRoom: 1,
           InvalidInput: 2,
         },

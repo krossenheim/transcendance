@@ -8,6 +8,7 @@ import type { idValue } from "../../../nodejs_base_image/utils/api/service/commo
 import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
 import React, { useCallback, useEffect, useState } from "react";
 import { useWebSocket } from "./socketComponent";
+import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints";
 
 export function ChatBox() {
   const [message, setMessage] = useState("");
@@ -93,16 +94,11 @@ export default function PongComponent() {
   );
 
   const handleSendSendMessagePayloadSchema = useCallback(
-    // export const UserToHubSchema = z.object({
-    //   target_container: z.string(),
-    //   funcId: z.string(),
-    //   payload: z.any(),
-    // }).strict();
     (roomId: string | number, messageString: string) => {
       if (socket && socket.readyState === WebSocket.OPEN) {
         const payload = { roomId: roomId, messageString: messageString };
         const toSend = {
-          funcId: "/api/chat/send_message_to_room",
+          funcId: user_url.ws.chat.sendMessage.funcId,
           payload: payload,
           target_container: "chat",
         };
@@ -119,7 +115,7 @@ export default function PongComponent() {
         const payload = { roomId, user_to_add };
 
         const toSend = {
-          funcId: "/api/chat/add_to_room",
+          funcId: user_url.ws.chat.addUserToRoom.funcId,
           payload: payload,
           target_container: "chat",
         };
@@ -135,7 +131,7 @@ export default function PongComponent() {
       if (socket && socket.readyState === WebSocket.OPEN) {
         const payload = { roomName: room_name };
         const toSend = {
-          funcId: "/api/chat/add_a_new_room",
+          funcId: user_url.ws.chat.addRoom.funcId,
           payload: payload,
           target_container: "chat",
         };
@@ -163,17 +159,16 @@ export default function PongComponent() {
         JSON.stringify(payloadReceived)
       );
       console.log("funcID:", payloadReceived.funcId);
-      // console.log("Code:",payloadReceived.code);
       console.log("payload:", payloadReceived.funcId);
-
       switch (payloadReceived.funcId) {
-        case "send_message":
+        // None of these are real rn.
+        case user_url.ws.chat.sendMessage.funcId:
           handleStoredMessageSchemaReceived(payloadReceived.payload);
           break;
-        case "add_room":
+        case user_url.ws.chat.addRoom.funcId:
           handleListRoomsSchemaReceived(payloadReceived.payload);
           break;
-        case "add_user_to_room":
+        case user_url.ws.chat.addUserToRoom.funcId:
           handleRoomMessagesSchemaReceived(payloadReceived.payload);
           break;
         default:
@@ -200,7 +195,7 @@ export default function PongComponent() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 space-y-4">
-      <ChatBox /> 
+      <ChatBox />
       {/* PAss this component the messages to display */}
 
       <div className="w-full max-w-md shadow-lg p-6 rounded-2xl bg-white flex flex-col space-y-4">
