@@ -12,7 +12,8 @@ import { user_url } from "../../../nodejs_base_image/utils/api/service/common/en
 import { useWebSocket } from "./socketComponent";
 
 export default function ChatInputComponent() {
-  const { socket } = useWebSocket();
+  const { socket, payloadReceived } = useWebSocket();
+
   const handleStoredMessageSchemaReceived = useCallback(
     (messageInfo: TypeStoredMessageSchema) => {
       console.log("Stored message received:", messageInfo);
@@ -52,7 +53,7 @@ export default function ChatInputComponent() {
         socket.current.send(JSON.stringify(toSend));
       } else console.warn("WebSocket not open, cannot send message.");
     },
-    [socket.current]
+    []
   );
 
   const handleSendInviteToRoomSchema = useCallback(
@@ -69,24 +70,21 @@ export default function ChatInputComponent() {
         console.log("Sent room invite:", toSend);
       } else console.warn("WebSocket not open, cannot invite user.");
     },
-    [socket.current]
+    []
   );
 
-  const handleSendAddRoomPayloadSchema = useCallback(
-    (room_name: string) => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        const payload = { roomName: room_name };
-        const toSend = {
-          funcId: user_url.ws.chat.addRoom.funcId,
-          payload: payload,
-          target_container: "chat",
-        };
-        socket.current.send(JSON.stringify(toSend));
-        console.log("Requested new room:", payload);
-      } else console.warn("WebSocket not open, cannot create room.");
-    },
-    [socket.current]
-  );
+  const handleSendAddRoomPayloadSchema = useCallback((room_name: string) => {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      const payload = { roomName: room_name };
+      const toSend = {
+        funcId: user_url.ws.chat.addRoom.funcId,
+        payload: payload,
+        target_container: "chat",
+      };
+      socket.current.send(JSON.stringify(toSend));
+      console.log("Requested new room:", payload);
+    } else console.warn("WebSocket not open, cannot create room.");
+  }, []);
 
   const handleSendRequestRoomList = useCallback(() => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
@@ -98,22 +96,19 @@ export default function ChatInputComponent() {
       socket.current.send(JSON.stringify(toSend));
       console.log("Requested room list");
     } else console.warn("WebSocket not open, cannot request list of rooms.");
-  }, [socket.current]);
+  }, []);
 
-  const handleSendRequestJoinRoom = useCallback(
-    (room_id: string) => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        const toSend = {
-          funcId: user_url.ws.chat.joinRoom.funcId,
-          payload: { roomId: room_id },
-          target_container: "chat",
-        };
-        socket.current.send(JSON.stringify(toSend));
-        console.log("Requested room list");
-      } else console.warn("WebSocket not open, cannot request list of rooms.");
-    },
-    [socket.current]
-  );
+  const handleSendRequestJoinRoom = useCallback((room_id: string) => {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      const toSend = {
+        funcId: user_url.ws.chat.joinRoom.funcId,
+        payload: { roomId: room_id },
+        target_container: "chat",
+      };
+      socket.current.send(JSON.stringify(toSend));
+      console.log("Requested room list");
+    } else console.warn("WebSocket not open, cannot request list of rooms.");
+  }, []);
 
   // =========================
   // WebSocket routing
@@ -122,7 +117,6 @@ export default function ChatInputComponent() {
     if (!socket.current) return;
 
     const handleMessage = () => {
-      const { payloadReceived } = useWebSocket();
       if (!payloadReceived) return;
 
       console.log(
@@ -158,10 +152,10 @@ export default function ChatInputComponent() {
         socket.current.removeEventListener("message", handleMessage);
     };
   }, [
-    socket.current,
     handleStoredMessageSchemaReceived,
     handleListRoomsSchemaReceived,
     handleRoomMessagesSchemaReceived,
+    
   ]);
 
   // =========================
