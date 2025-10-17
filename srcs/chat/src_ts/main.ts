@@ -30,22 +30,15 @@ const singletonChatRooms = new ChatRooms();
 socket.registerEvent(
   user_url.ws.chat.sendMessage,
   async (body: TypeUserSendMessagePayload, wrapper: T_ForwardToContainer) => {
-    // singletonChatRooms.sendMessage(body);
-    const valid_req = SendMessagePayloadSchema.safeParse(wrapper.payload);
-    if (!valid_req.success) {
-      return Result.Err({
-        message: valid_req.error.message,
-      });
-    }
-    const room = singletonChatRooms.getRoom(valid_req.data.roomId);
+    const room = singletonChatRooms.getRoom(body.roomId);
     if (!room) {
-      console.warn(
-        `Client ${wrapper.user_id} to NOENT roomId:${valid_req.data.roomId}`
-      );
+      console.warn(`Client ${wrapper.user_id} to NOENT roomId:${body.roomId}`);
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
-        payload: { message: "No such room or user not in it" },
+        payload: {
+          message: `No such room (ID: ${body.roomId}) or you are not in it.`,
+        },
       });
     }
     return room.sendMessage(body, wrapper);

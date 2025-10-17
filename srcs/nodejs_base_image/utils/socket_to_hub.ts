@@ -82,24 +82,21 @@ export class OurSocket {
     const parseResult = handlerType.metadata.schema.body.safeParse(
       containerSchema.payload
     );
-    if (!parseResult.success)
-      return Result.Err({ message: "Cry hard:" + parseResult.error.message });
+    if (!parseResult.success) {
+      return Result.Ok({
+        recipients: [containerSchema.user_id],
+        funcId: containerSchema.funcId,
+        payload: {
+          message: `Validation error: ${parseResult.error.message}`,
+        },
+      });
+    }
     const funcOutput = await this._runEndpointHandler(
       parseResult.data,
       containerSchema,
       handlerType.handler
     );
     return funcOutput;
-    // if (funcOutput.isErr()) {
-    //   console.warn(
-    //     "Error reply from handler , func ID was:",
-    //     containerSchema.funcId,
-    //     " reply is:",
-    //     funcOutput.unwrapErr()
-    //   );
-    //   return Result.(null);
-    // }
-    // return Result.Ok(funcOutput.unwrap());
   }
 
   handleSocketCallbackMethods() {

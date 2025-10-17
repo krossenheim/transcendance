@@ -88,8 +88,12 @@ class Room {
       client_input.roomId !== this.roomId ||
       this.users.indexOf(client_metadata.user_id) === -1
     ) {
-      return Result.Err({
-        message: "No such room or user not in it",
+      return Result.Ok({
+        recipients: [client_metadata.user_id],
+        funcId: client_metadata.funcId,
+        payload: {
+          message: `No such room (ID: ${client_input.roomId}) or you are not in it.`,
+        },
       });
     }
     if (!client_input.messageString) {
@@ -114,12 +118,6 @@ class Room {
     return otherRoom && this.roomId == otherRoom.roomId;
   }
 }
-
-// async function db_add_new_room(room_name : string)
-// {
-// 	const endpoint = endpoints.ws.chat.addRoom;
-// 	const result = Containers.db.post(endpoint)
-// }
 
 class ChatRooms {
   private rooms: Array<Room>;
