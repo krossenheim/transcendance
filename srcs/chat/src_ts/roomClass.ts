@@ -83,7 +83,7 @@ class Room {
   sendMessage(
     client_input: TypeUserSendMessagePayload,
     client_metadata: T_ForwardToContainer
-  ): Result<TypeStoredMessageSchema, ErrorResponseType> {
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
     if (
       client_input.roomId !== this.roomId ||
       this.users.indexOf(client_metadata.user_id) === -1
@@ -103,7 +103,11 @@ class Room {
       userId: client_metadata.user_id,
     };
     this.messages.add(message);
-    return Result.Ok(message);
+    return Result.Ok({
+      recipients: this.users,
+      funcId: client_metadata.funcId,
+      payload: message,
+    });
   }
 
   equals(otherRoom: Room) {

@@ -53,16 +53,13 @@ export class OurSocket {
   async _runEndpointHandler(
     payload: z.ZodType,
     wrapper: T_ForwardToContainer,
-    handler: (
-      input: any,
-      wrapper: T_ForwardToContainer
-    ) => T_PayloadToUsers | Promise<T_PayloadToUsers>
-  ): Promise<Result<z.ZodType, ErrorResponseType>> {
+    handler: (input: any, wrapper: any) => any | Promise<any>
+  ): Promise<Result<T_PayloadToUsers, ErrorResponseType>> {
     try {
       if (handler.constructor.name === "AsyncFunction") {
-        return Result.Ok(await handler(payload, wrapper));
+        return await handler(payload, wrapper);
       } else {
-        return Result.Ok(handler(payload, wrapper));
+        return handler(payload, wrapper);
       }
     } catch {
       return Result.Err({ message: "Error executing ws endpoint" });
@@ -71,7 +68,7 @@ export class OurSocket {
 
   async _handleEndpoint(
     containerSchema: z.infer<typeof ForwardToContainerSchema>
-  ): Promise<Result<z.ZodType, ErrorResponseType>> {
+  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     const handlerType: HandlerType | undefined =
       this.handlers[containerSchema.funcId];
     console.log(this.handlers);
@@ -85,13 +82,24 @@ export class OurSocket {
     const parseResult = handlerType.metadata.schema.body.safeParse(
       containerSchema.payload
     );
-    if (parseResult.success === false)
+    if (!parseResult.success)
       return Result.Err({ message: "Cry hard:" + parseResult.error.message });
-    return await this._runEndpointHandler(
+    const funcOutput = await this._runEndpointHandler(
       parseResult.data,
       containerSchema,
       handlerType.handler
     );
+    return funcOutput;
+    // if (funcOutput.isErr()) {
+    //   console.warn(
+    //     "Error reply from handler , func ID was:",
+    //     containerSchema.funcId,
+    //     " reply is:",
+    //     funcOutput.unwrapErr()
+    //   );
+    //   return Result.(null);
+    // }
+    // return Result.Ok(funcOutput.unwrap());
   }
 
   handleSocketCallbackMethods() {
@@ -107,11 +115,21 @@ export class OurSocket {
 
       const schemaResult = zodParse(ForwardToContainerSchema, parsed);
       if (schemaResult.isOk()) {
-        console.log(
-          "Try find something for endpoint " + schemaResult.unwrap().funcId
-        );
-        const result = await this._handleEndpoint(schemaResult.unwrap());
-        if (result.isErr()) console.log(result.unwrapErr());
+        const request = schemaResult.unwrap();
+        console.log("Try find something for endpoint " + request.funcId);
+        const result = await this._handleEndpoint(request);
+        if (result.isErr()) {
+          console.warn("Handler returns error!");
+          console.warn(result.unwrapErr());
+          return;
+        }
+        const handlerOutput: T_PayloadToUsers | null = result.unwrap();
+        if (handlerOutput === null) {
+          console.log("No reply from handler, request was: ", request);
+          return;
+        }
+        console.log("Sending to hub:", JSON.stringify(handlerOutput));
+        this.socket.send(JSON.stringify(handlerOutput));
       } else {
         console.log("Wrong user input...");
       }
@@ -124,8 +142,8 @@ export class OurSocket {
       ? (
           body: z.infer<T["schema"]["body"]>,
           wrapper: z.infer<T["schema"]["wrapper"]>
-        ) => Promise<Result<any, ErrorResponseType>>
-      : () => Promise<Result<any, ErrorResponseType>>
+        ) => Promise<Result<T_PayloadToUsers, ErrorResponseType>>
+      : () => Promise<Result<T_PayloadToUsers, ErrorResponseType>>
   ) {
     if (handlerEndpoint.container != this.container)
       throw `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`;

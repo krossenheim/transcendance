@@ -42,7 +42,11 @@ socket.registerEvent(
       console.warn(
         `Client ${wrapper.user_id} to NOENT roomId:${valid_req.data.roomId}`
       );
-      return Result.Err({ message: "No such room or user not in it" });
+      return Result.Ok({
+        recipients: [wrapper.user_id],
+        funcId: wrapper.funcId,
+        payload: { message: "No such room or user not in it" },
+      });
     }
     return room.sendMessage(body, wrapper);
   }
