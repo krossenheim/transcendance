@@ -288,9 +288,9 @@ export default function PongComponent() {
         <div className="flex flex-col space-y-2">
           <button
             onClick={() => handleRequestRoomList()}
-            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-purple-600"
           >
-            Create Room
+            Get list of rooms
           </button>
         </div>
       </div>
