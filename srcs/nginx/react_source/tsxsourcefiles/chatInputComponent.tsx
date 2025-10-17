@@ -65,7 +65,7 @@ export function ChatBox() {
   );
 }
 
-export default function PongComponent() {
+export default function ChatInputComponent() {
   const { socket } = useWebSocket();
   const handleStoredMessageSchemaReceived = useCallback(
     (messageInfo: TypeStoredMessageSchema) => {
@@ -142,7 +142,7 @@ export default function PongComponent() {
     [socket]
   );
 
-  const handleRequestRoomList = useCallback(() => {
+  const handleSendRequestRoomList = useCallback(() => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       const toSend = {
         funcId: user_url.ws.chat.listRooms.funcId,
@@ -153,6 +153,21 @@ export default function PongComponent() {
       console.log("Requested room list");
     } else console.warn("WebSocket not open, cannot request list of rooms.");
   }, [socket]);
+
+  const handleSendRequestJoinRoom = useCallback(
+    (room_id: string) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        const toSend = {
+          funcId: user_url.ws.chat.joinRoom.funcId,
+          payload: { roomId: room_id },
+          target_container: "chat",
+        };
+        socket.send(JSON.stringify(toSend));
+        console.log("Requested room list");
+      } else console.warn("WebSocket not open, cannot request list of rooms.");
+    },
+    [socket]
+  );
 
   // =========================
   // WebSocket routing
@@ -183,6 +198,9 @@ export default function PongComponent() {
         case user_url.ws.chat.addUserToRoom.funcId:
           handleRoomMessagesSchemaReceived(payloadReceived.payload);
           break;
+        case user_url.ws.chat.joinRoom.funcId:
+          handleSendRequestJoinRoom(payloadReceived.payload);
+          break;
         default:
           console.warn("Unknown funcId:", payloadReceived.funcId);
       }
@@ -202,6 +220,7 @@ export default function PongComponent() {
   // =========================
   const [roomIdInput, setRoomIdInput] = useState("");
   const [messageInput, setMessageInput] = useState("");
+  const [roomIdToJoin, setRoomIdToJoin] = useState("");
   const [newRoomName, setNewRoomName] = useState("");
   const [userToAdd, setUserToAdd] = useState("");
 
@@ -285,11 +304,26 @@ export default function PongComponent() {
               Create Room
             </button>
           </div>
-
+          {/* join Room */}
+          <div className="flex flex-col space-y-2">
+            <input
+              type="text"
+              placeholder="Room ID to join"
+              value={roomIdToJoin}
+              onChange={(e) => setRoomIdToJoin(e.target.value)}
+              className="border rounded px-2 py-1"
+            />
+            <button
+              onClick={() => handleSendRequestJoinRoom(roomIdToJoin)}
+              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            >
+              Join Room
+            </button>
+          </div>
           {/* Request list of rooms */}
           <div className="flex flex-col space-y-2">
             <button
-              onClick={() => handleRequestRoomList()}
+              onClick={() => handleSendRequestRoomList()}
               className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-purple-600"
             >
               Get list of rooms

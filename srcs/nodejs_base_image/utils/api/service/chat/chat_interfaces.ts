@@ -58,8 +58,16 @@ export const AddToRoomPayloadSchema = z
   })
   .strict();
 
+export const RequestRoomByIdSchema = z
+  .object({
+    // Payload sent by client "Wants a new room made"
+    roomId: room_id_rule,
+  })
+  .strict();
+
 export const EmptySchema = z.object({}).strict();
 
+export type TypeRequestRoomByIdSchema = z.infer<typeof RequestRoomByIdSchema>;
 export type TypeEmptySchema = z.infer<typeof EmptySchema>;
 export type TypeAddRoomPayloadSchema = z.infer<typeof AddRoomPayloadSchema>;
 export type TypeAddToRoomPayload = z.infer<typeof AddToRoomPayloadSchema>;

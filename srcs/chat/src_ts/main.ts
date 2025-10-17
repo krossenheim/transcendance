@@ -10,6 +10,7 @@ import type {
   TypeAddRoomPayloadSchema,
   TypeAddToRoomPayload,
   TypeEmptySchema,
+  TypeRequestRoomByIdSchema,
   TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 
@@ -104,53 +105,10 @@ socket.registerEvent(
     }
     return roomList;
   }
-
-  // function handleSendMessage(
-  //   body: TypeUserSendMessagePayload,
-  //   wrapper: T_ForwardToContainer
-  // ) {
-  //   const room = singletonChatRooms.getRoom(body.roomId);
-  //   if (!room) {
-  //     console.warn(`Client ${wrapper.user_id} to NOENT roomId:${body.roomId}`);
-  //     return Result.Ok({
-  //       recipients: [wrapper.user_id],
-  //       funcId: wrapper.funcId,
-  //       payload: {
-  //         message: `No such room (ID: ${body.roomId}) or you are not in it.`,
-  //       },
-  //     });
-  //   }
-  //   return room.sendMessage(body, wrapper);
-  // }
-
-  // const map : Record<string, Function >= {
-  //   "sendMessage": handleSendMessage,
-  // };
-
-  // for (const [websocketRoute, config] of Object.entries(user_url.ws.chat)) {
-  //   type BodyType = z.infer<typeof config.schema.body>;
-  //   type WrapperType = z.infer<typeof config.schema.wrapper>;
-  //   socket.registerEvent(config, async (body: BodyType, wrapper: WrapperType) => {
-  //     const result = map["/api/chat/add_user_to_room"](body, wrapper);
-  //     if (result.isErr()) {
-  //       console.warn("Handler returns error: ", result.unwrapErr());
-  //       return Result.Err({ message: "A" });
-  //     }
-  //     return result.unwrap();
-  //     const room = singletonChatRooms.addRoom(body, wrapper);
-  //     if (!room) {
-  //       console.error(
-  //         "Unhandled exception; adding a room always succeeds. (kheh)"
-  //       );
-  //       return Result.Ok({
-  //         recipients: [wrapper.user_id],
-  //         funcId: wrapper.funcId,
-  //         payload: {
-  //           message: `Could not create requested room by name: ${body.roomName}`,
-  //         },
-  //       });
-  //     }
-  //     return room;
-  //   });
-  // }
+);
+socket.registerEvent(
+  user_url.ws.chat.joinRoom,
+  async (body: TypeRequestRoomByIdSchema, wrapper: T_ForwardToContainer) => {
+    return singletonChatRooms.userJoinRoom(body, wrapper);
+  }
 );

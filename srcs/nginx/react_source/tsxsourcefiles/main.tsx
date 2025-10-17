@@ -5,6 +5,10 @@ import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <AppRoot />
+    {" "}
+    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+      {/* <AppRoot /> */}
+      <AppRoot />
+    </div>
   </React.StrictMode>
 );

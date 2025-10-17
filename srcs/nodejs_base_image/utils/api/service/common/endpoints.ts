@@ -2,6 +2,9 @@ import {
   AddRoomPayloadSchema,
   AddToRoomPayloadSchema,
   EmptySchema,
+  RequestRoomByIdSchema,
+  room_id_rule,
+  room_name_rule,
   SendMessagePayloadSchema,
 } from "../chat/chat_interfaces.js";
 import {
@@ -232,6 +235,22 @@ export const user_url = defineRoutes({
           body: EmptySchema,
           response: {
             0: ListRoomsSchema,
+            1: ErrorResponse,
+          },
+        },
+        code: {
+          RoomMade: 0,
+          RoomNotMade: 1,
+        },
+      },
+      joinRoom: {
+        funcId: "/api/chat/join_room",
+        container: "chat",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: RequestRoomByIdSchema,
+          response: {
+            0: RoomEventSchema,
             1: ErrorResponse,
           },
         },

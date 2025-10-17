@@ -9,9 +9,11 @@ import type {
 import {
   AddRoomPayloadSchema,
   AddToRoomPayloadSchema,
+  room_id_rule,
   SendMessagePayloadSchema,
   type TypeAddRoomPayloadSchema,
   type TypeAddToRoomPayload,
+  type TypeRequestRoomByIdSchema,
   type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
@@ -213,10 +215,61 @@ class ChatRooms {
         list.push({ roomName: room.room_name, roomId: room.roomId });
       }
     }
+    console.log(`User ${client_metadata.user_id} sent list of rooms:${list}.`);
+
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
       payload: list,
+    });
+  }
+
+  userJoinRoom(
+    body: TypeRequestRoomByIdSchema,
+    client_metadata: T_ForwardToContainer
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
+    const room = this.getRoom(body.roomId);
+    if (room === null) {
+      return Result.Ok({
+        recipients: [client_metadata.user_id],
+        funcId: client_metadata.funcId,
+        payload: {
+          message: `No such room (ID: ${body.roomId}) or you are not in it.`,
+        },
+      });
+    }
+    if (room.allowedUsers.find((id) => id === client_metadata.user_id)) {
+      if (room.users.find((id) => id === client_metadata.user_id)) {
+        return Result.Ok({
+          recipients: [client_metadata.user_id],
+          funcId: client_metadata.funcId,
+          payload: {
+            user: client_metadata.user_id,
+            event: RoomEvents.ALREADY_IN_ROOM,
+            roomId: room.roomId,
+          },
+        });
+      }
+      room.users.push(client_metadata.user_id);
+      console.log(
+        `User ${client_metadata.user_id} joined room ${room.roomId}.`
+      );
+      return Result.Ok({
+        recipients: room.users,
+        funcId: client_metadata.funcId,
+        payload: {
+          user: client_metadata.user_id,
+          event: RoomEvents.JOINED,
+          roomId: room.roomId,
+        },
+      });
+    }
+    return Result.Ok({
+      recipients: [client_metadata.user_id],
+      funcId: client_metadata.funcId,
+      payload: {
+        message: `No such room (ID: ${body.roomId}) or you are not in it.`,
+      },
     });
   }
 }
