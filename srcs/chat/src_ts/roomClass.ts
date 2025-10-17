@@ -10,6 +10,7 @@ import {
   AddRoomPayloadSchema,
   AddToRoomPayloadSchema,
   SendMessagePayloadSchema,
+  type TypeAddRoomPayloadSchema,
   type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
@@ -119,6 +120,7 @@ class Room {
   }
 }
 
+let DEBUGROOMID = 1;
 class ChatRooms {
   private rooms: Array<Room>;
   public static instance: ChatRooms;
@@ -135,123 +137,27 @@ class ChatRooms {
   }
 
   getRoom(roomId: number): Room | null {
-    const room = this.rooms.find((room) => {
-      roomId === room.roomId;
-    });
+    const room = this.rooms.find((room) => room.roomId === roomId);
     if (room === undefined) return null;
     return room;
   }
 
-  async addRoom(
-    client_request: T_ForwardToContainer
-  ): Promise<T_PayloadToUsers> {
-    const from_hub = ForwardToContainerSchema.safeParse(client_request);
-    if (!from_hub.success) {
-      console.error("Hub sent unrecognized message:", from_hub.error);
-      throw Error("Hub sent unrecognized message");
-    }
-    const user_id = client_request.user_id;
-    if (!user_id) {
-      throw Error("Service called with no user id behind it.");
-    }
-    const valid_add_room_schema = AddRoomPayloadSchema.safeParse(
-      client_request.payload
-    );
-    if (!valid_add_room_schema.success) {
-      return formatZodError([user_id], valid_add_room_schema.error);
-    }
-    const { roomName } = client_request.payload;
-
-    if (!roomName) {
-      return {
-        recipients: [user_id],
-        funcId: "add_room",
-        payload: {
-          status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "No room name in payload, outdated schema.",
-        },
-      };
-    }
-    const responseResult = await Containers.db.post(
-      int_url.http.db.createChatRoom,
-      {
-        roomName,
-      }
-    );
-    if (responseResult.isErr()) {
-      {
-        return {
-          recipients: [user_id],
-          funcId: "add_room",
-          payload: {
-            status: "THIS_MUST_BE_ERROR_RESPONSE_NOT_THIS_PAYLOAD",
-            func_name: process.env.FUNC_POPUP_TEXT,
-            pop_up_text: "Request to create a chat room was unsuccesful.",
-          },
-        };
-      }
-    }
-    const response = responseResult.unwrap();
-    console.log("Response from db service:", response.status, response.data);
-
-    if (response.status !== 201) {
-      {
-        {
-          return {
-            recipients: [user_id],
-            funcId: "add_room",
-            payload: {
-              status: "aaaa",
-              func_name: process.env.FUNC_POPUP_TEXT,
-              pop_up_text: "Room was not created.",
-            },
-          };
-        }
-      }
-    }
-    const { roomId } = response.data;
-    if (!roomId) {
-      console.error(
-        "Received null roomId from ",
-        int_url.http.db.createChatRoom,
-        "!!!\n@\n\n"
-      );
-      return {
-        recipients: [user_id],
-        funcId: "add_room",
-        payload: {
-          status: httpStatus.ALREADY_REPORTED,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text:
-            "Service db misconfigured, response data missing var room id.",
-        },
-      };
-    }
-    let room = new Room(roomName, roomId);
-    if (this.rooms && this.rooms.some((r) => r.equals(room)))
-      return {
-        recipients: [user_id],
-        funcId: "add_room",
-        payload: {
-          status: httpStatus.ALREADY_REPORTED,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Room " + roomName + "already exists.",
-        },
-      };
-    room.users.push(user_id);
-    room.allowedUsers.push(user_id);
-    this.rooms.push(room);
-    return {
-      recipients: [user_id],
-      funcId: "add_room",
+  addRoom(
+    client_input: TypeAddRoomPayloadSchema,
+    client_metadata: T_ForwardToContainer
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
+    const newroom = new Room(client_input.roomName, DEBUGROOMID++);
+    newroom.users.push(client_metadata.user_id);
+    newroom.allowedUsers.push(client_metadata.user_id);
+    this.rooms.push(newroom);
+    return Result.Ok({
+      recipients: [client_metadata.user_id],
+      funcId: client_metadata.funcId,
       payload: {
-        status: httpStatus.OK,
-        func_name: process.env.FUNC_ADDED_ROOM_SUCCESS,
-        room_name: room.room_name,
-        roomId: room.roomId,
+        roomId: newroom.roomId,
+        roomName: newroom.room_name,
       },
-    };
+    });
   }
 
   listRooms(client_request: T_ForwardToContainer): T_PayloadToUsers {
