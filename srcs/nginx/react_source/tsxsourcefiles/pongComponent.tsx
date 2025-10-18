@@ -13,8 +13,19 @@ import { user_url } from "../../../nodejs_base_image/utils/api/service/common/en
 
 const BACKEND_WIDTH = 1000;
 const BACKEND_HEIGHT = 1000;
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 400;
+const CANVAS_WIDTH = 500;
+const CANVAS_HEIGHT = 500;
+// =========================
+// Map backend coordinates to canvas
+// =========================
+function mapToCanvas(x: number, y: number) {
+  const scaleX = CANVAS_WIDTH / BACKEND_WIDTH;
+  const scaleY = CANVAS_HEIGHT / BACKEND_HEIGHT;
+  return {
+    x: x * scaleX,
+    y: y * scaleY,
+  };
+}
 
 // =========================
 // Component
@@ -89,49 +100,56 @@ export default function PongComponent() {
   // Canvas rendering
   // =========================
   useEffect(() => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
+  const ctx = canvasRef.current?.getContext("2d");
+  if (!ctx) return;
 
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    const scaleX = CANVAS_WIDTH / BACKEND_WIDTH;
-    const scaleY = CANVAS_HEIGHT / BACKEND_HEIGHT;
+  // Draw edges
+  ctx.strokeStyle = "#666";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
 
-    // Draw edges
-    ctx.strokeStyle = "#666";
-    ctx.lineWidth = 2;
+  gameState.edges.forEach((edge, i) => {
+    const nextEdge = gameState.edges[(i + 1) % gameState.edges.length];
+    const { x: x1, y: y1 } = mapToCanvas(edge.x, edge.y);
+    const { x: x2, y: y2 } = mapToCanvas(nextEdge.x, nextEdge.y);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+  });
+
+  ctx.stroke();
+
+  // Draw paddles
+  gameState.paddles.forEach((p) => {
+    const { x: canvasX, y: canvasY } = mapToCanvas(p.x, p.y);
+    const width = (p.w * CANVAS_WIDTH) / BACKEND_WIDTH;
+    const length = (p.l * CANVAS_HEIGHT) / BACKEND_HEIGHT;
+
+    // Recompute angle to center using scaled coordinates
+    const dx = canvasX - CANVAS_WIDTH / 2;
+    const dy = canvasY - CANVAS_HEIGHT / 2;
+    const visualR = Math.atan2(dy, dx);
+
+    ctx.save();
+    ctx.translate(canvasX, canvasY);
+    ctx.rotate(visualR);
+
+    ctx.fillStyle = "#00ffcc";
+    ctx.fillRect(-width / 2, -length / 2, width, length);
+    ctx.restore();
+  });
+
+  // Draw balls
+  gameState.balls.forEach((b) => {
+    const { x: canvasX, y: canvasY } = mapToCanvas(b.x, b.y);
+    ctx.fillStyle = "#ff4081";
     ctx.beginPath();
+    ctx.arc(canvasX, canvasY, 8, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}, [gameState]);
 
-    gameState.edges.forEach((edge, i) => {
-      const nextEdge = gameState.edges[(i + 1) % gameState.edges.length];
-      ctx.moveTo(edge.x * scaleX, edge.y * scaleY);
-      ctx.lineTo(nextEdge.x * scaleX, nextEdge.y * scaleY);
-    });
-
-    ctx.stroke();
-
-    // Draw paddles
-    gameState.paddles.forEach((p) => {
-      const centerX = p.x * scaleX;
-      const centerY = p.y * scaleY;
-      const width = p.w * scaleX;
-      const length = p.l * scaleY;
-
-      ctx.save();
-      ctx.translate(centerX, centerY); // move origin to paddle center
-      ctx.rotate(p.r); // rotate by radians
-      ctx.fillStyle = "#00ffcc";
-      ctx.fillRect(-width / 2, -length / 2, width, length); // draw centered rectangle
-      ctx.restore();
-    });
-    // Draw balls
-    gameState.balls.forEach((b) => {
-      ctx.fillStyle = "#ff4081";
-      ctx.beginPath();
-      ctx.arc(b.x * scaleX, b.y * scaleY, 8, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }, [gameState]);
 
   // =========================
   // Simple UI
@@ -142,8 +160,8 @@ export default function PongComponent() {
     <div className="flex flex-col items-center justify-center w-full h-full bg-black p-4 space-y-4">
       <canvas
         ref={canvasRef}
-        width={800}
-        height={400}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
         className="rounded-2xl shadow-lg border border-gray-800"
       />
       <div className="flex space-x-2">

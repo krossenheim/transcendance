@@ -256,21 +256,21 @@ class PongGame {
 
     for (const obj of this.pong_balls) {
       payload.balls.push({
-        id: truncDecimals(obj.id),
-        x: truncDecimals(obj.pos.x),
-        y: truncDecimals(obj.pos.y),
-        dx: truncDecimals(obj.dir.x),
-        dy: truncDecimals(obj.dir.y),
+        id: obj.id,
+        x: obj.pos.x,
+        y: obj.pos.y,
+        dx: obj.dir.x,
+        dy: obj.dir.y,
       });
     }
 
     for (const obj of this.player_paddles) {
       payload.paddles.push({
-        x: truncDecimals(obj.pos.x),
-        y: truncDecimals(obj.pos.y),
-        r: truncDecimals(obj.r),
-        w: truncDecimals(obj.width),
-        l: truncDecimals(obj.length),
+        x: obj.pos.x,
+        y: obj.pos.y,
+        r: obj.r,
+        w: obj.width,
+        l: obj.length,
       });
     }
     payload.edges = this.map_polygon_edges;
