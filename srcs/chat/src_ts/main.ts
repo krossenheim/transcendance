@@ -60,7 +60,7 @@ socket.registerEvent(
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
         payload: {
-          message: `Can't add users to a room you are not in.`,
+          message: `No such room (ID: ${body.roomId}) or you are not in it.`,
         },
       });
     }

@@ -1,16 +1,14 @@
 "use strict";
 // import type { FastifyReply, FastifyInstance } from "fastify";
-import {
-  socketToHub,
-//   setSocketOnMessageHandler,
-} from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
 import type {
+  TypeMovePaddlePayloadScheme,
   TypePongBall,
   TypePongPaddle,
 } from "./utils/api/service/pong/pong_interfaces.js";
+import { socketToHub, OurSocket } from "./utils/socket_to_hub.js";
 
 const fastify = Fastify({
   logger: {
@@ -42,9 +40,12 @@ const pongTasks = {
     handler: singletonPong.movePaddle.bind(singletonPong),
   },
 };
+const socket = new OurSocket(socketToHub, "pong");
 
 // Setup WebSocket handler
 // setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
+import { user_url } from "./utils/api/service/common/endpoints.js";
+import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interfaces.js";
 
 async function backgroundTask() {
   try {
@@ -60,7 +61,7 @@ async function backgroundTask() {
 
         const out = {
           recipients: recipients,
-          funcId: "pong_game",
+          funcId: user_url.ws.pong.getGameState.funcId,
           payload: payload,
         };
         socketToHub.send(JSON.stringify(out));
@@ -82,8 +83,16 @@ async function backgroundTask() {
   }
 }
 backgroundTask();
-// singletonPong.startGame({
-//   user_id: 2,
-//   funcId: "/api/start_game",
-//   payload: { player_list: [2, 3, 4] },
-// });
+
+socket.registerEvent(
+  user_url.ws.pong.movePaddle,
+  async (body: TypeMovePaddlePayloadScheme, wrapper: T_ForwardToContainer) => {
+    return singletonPong.movePaddle(body, wrapper);
+  }
+);
+
+singletonPong.startGame({
+  user_id: 2,
+  funcId: "/api/start_game",
+  payload: { player_list: [2, 3, 4] },
+});

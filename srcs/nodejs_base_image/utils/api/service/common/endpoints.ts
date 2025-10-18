@@ -29,6 +29,7 @@ import { z } from "zod";
 import { idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
+import { GameStateSchema, MovePaddlePayloadScheme } from "../pong/pong_interfaces.js";
 
 export type HTTPRouteDef = {
   endpoint: string;
@@ -173,6 +174,44 @@ export const user_url = defineRoutes({
   },
 
   ws: {
+    pong: {
+      getGameState: {
+        funcId: "get_game_state",
+        container: "pong",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: EmptySchema,
+          response: {
+            0: GameStateSchema,
+            1: ErrorResponse,
+            2: ErrorResponse,
+          },
+        },
+        code: {
+          MessageSent: 0,
+          NotInRoom: 1,
+          InvalidInput: 2,
+        },
+      },
+      movePaddle: {
+        funcId: "move_paddle",
+        container: "pong",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: MovePaddlePayloadScheme,
+          response: {
+            0: EmptySchema,
+            1: ErrorResponse,
+            2: ErrorResponse,
+          },
+        },
+        code: {
+          MessageSent: 0,
+          NotInRoom: 1,
+          InvalidInput: 2,
+        },
+      },
+    },
     chat: {
       sendMessage: {
         funcId: "/api/chat/send_message_to_room",

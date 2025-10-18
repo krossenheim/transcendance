@@ -11,7 +11,10 @@ import {
   PongBallSchema,
   PongPaddleSchema,
   StartNewPongGameSchema,
+  type TypeMovePaddlePayloadScheme,
 } from "./utils/api/service/pong/pong_interfaces.js";
+import { Result } from "./utils/api/service/common/result.js";
+import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
@@ -60,8 +63,8 @@ export class PongManager {
 
     // debug
     // debug
-	this.pong_instances = new Map();
-	this.pong_instances.set(game_id,gameInstance);
+    this.pong_instances = new Map();
+    this.pong_instances.set(game_id, gameInstance);
     // for (const [id, instance] of this.pong_instances) {
     //   if (instance !== gameInstance) {
     //     this.pong_instances.delete(id);
@@ -140,39 +143,25 @@ export class PongManager {
     }
   }
 
-  movePaddle(input: T_ForwardToContainer) {
-    const { user_id, payload } = input;
-    if (!user_id) {
-      throw Error("No userid field.");
+  movePaddle(
+    client_input: TypeMovePaddlePayloadScheme,
+    client_metadata: T_ForwardToContainer
+  ): Result<T_PayloadToUsers | null, ErrorResponseType> {
+    const game = this.pong_instances.get(client_input.board_id);
+    if (
+      !game ||
+      !game.player_ids.find((id) => id === client_metadata.user_id)
+    ) {
+      return Result.Ok({
+        recipients: [client_metadata.user_id],
+        funcId: client_metadata.funcId,
+        payload: {
+          message: "You're not in game with ID " + client_input.board_id,
+        },
+      });
     }
-    const validate_input = MovePaddlePayloadScheme.safeParse(payload);
-    if (!validate_input.success) {
-      // 0 or null or 1
-      console.log(validate_input.error);
-      return;
-    }
-    const board_id = validate_input.data.b;
-    if (!board_id) {
-      console.error("Bad input, no board_id member.");
-      return;
-    }
-    for (const [id, game] of this.pong_instances) {
-      if (id !== board_id) {
-        continue;
-      }
-      if (!game.player_ids.includes(user_id)) {
-        console.log(
-          "User with id ",
-          user_id,
-          " not a player of game with id ",
-          id,
-          " Its players are: ",
-          game.player_ids
-        );
-        return;
-      }
-      game.setInputOnPaddle(user_id, validate_input.data.m);
-    }
+    game.setInputOnPaddle(client_metadata.user_id, client_input.m);
+    return Result.Ok(null);
   }
 }
 

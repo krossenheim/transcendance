@@ -1,5 +1,6 @@
 import SocketComponent from "./socketComponent";
 import LoginComponent from "./loginComponent";
+import PongComponent from "./pongComponent";
 import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState } from "react";
@@ -20,7 +21,7 @@ export default function AppRoot() {
         <SocketComponent AuthResponseObject={authResponse}>
           <>
             <ChatInputComponent />
-            {/* <PongComponent /> */}
+            <PongComponent />
           </>
         </SocketComponent>
       ) : (

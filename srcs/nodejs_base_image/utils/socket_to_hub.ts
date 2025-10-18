@@ -54,7 +54,7 @@ export class OurSocket {
     payload: z.ZodType,
     wrapper: T_ForwardToContainer,
     handler: (input: any, wrapper: any) => any | Promise<any>
-  ): Promise<Result<T_PayloadToUsers, ErrorResponseType>> {
+  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     try {
       if (handler.constructor.name === "AsyncFunction") {
         return await handler(payload, wrapper);
@@ -139,11 +139,17 @@ export class OurSocket {
       ? (
           body: z.infer<T["schema"]["body"]>,
           wrapper: z.infer<T["schema"]["wrapper"]>
-        ) => Promise<Result<T_PayloadToUsers, ErrorResponseType>>
-      : () => Promise<Result<T_PayloadToUsers, ErrorResponseType>>
+        ) => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
+      : () => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
   ) {
-    if (handlerEndpoint.container != this.container)
-      throw `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`;
+    if (handlerEndpoint.container != this.container) {
+      console.log(
+        `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`
+      );
+      throw Error(
+        `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`
+      );
+    }
     this.handlers[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
       handler: handler,
