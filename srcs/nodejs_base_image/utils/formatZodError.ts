@@ -21,6 +21,7 @@ export function formatZodError(
   return {
     recipients: recipients,
     funcId: 'TempShit',
+    code: 0,
     payload: {
       status: httpStatus.UNPROCESSABLE_ENTITY,
       func_name: process.env.FUNC_POPUP_TEXT,

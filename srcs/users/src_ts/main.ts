@@ -12,6 +12,7 @@ const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
 
 socketToHub.registerEvent(user_url.ws.users.test, async (body) => {
+	console.log("Received test event with body:", body);
 	return Result.Ok({recipients: [body.user_id], code: 1, payload: {message: "Test successful"}});
 });
 

@@ -46,7 +46,7 @@ export type HTTPRouteDef = {
 // TODO
 export type WebSocketRouteDef = {
   funcId: string;
-  container: "chat" | "pong" | "user";
+  container: "chat" | "pong" | "users";
   schema: {
     body: z.ZodType;
     wrapper: z.ZodType;
@@ -177,7 +177,7 @@ export const user_url = defineRoutes({
 	users: {
 		test: {
 			funcId: "test",
-			container: "user",
+			container: "users",
 			schema: {
 				wrapper: ForwardToContainerSchema,
 				body: EmptySchema,

@@ -13,26 +13,35 @@ import type {
 
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
-interface HandlerType<TBody = any, TWrapper = any> {
+interface HandlerType<
+  TBody extends z.ZodTypeAny = any,
+  TWrapper extends z.ZodTypeAny = any,
+  TResponse extends Record<number, z.ZodTypeAny> = any
+> {
   handler: (
-    body: TBody,
-    wrapper: TWrapper
-  ) => Promise<Result<any, ErrorResponseType>>;
-  metadata: {
+    wrapper: z.infer<TWrapper>
+  ) => Promise<Result<WSHandlerReturnValue<TResponse> | null, ErrorResponseType>>;
+  metadata: Omit<WebSocketRouteDef, "schema"> & {
     schema: {
-      body: ZodType<TBody>;
-      wrapper: ZodType<TWrapper>;
+      body: TBody;
+      wrapper: TWrapper;
+      response: TResponse;
     };
-  } & Omit<WebSocketRouteDef, "schema">; // keep other metadata fields
+  };
 }
+
 
 type WSHandlerReturnValue<
   T extends Record<number, z.ZodTypeAny>
 > = {
   recipients: number[];
-} & {
-  [K in keyof T]: { code: K; payload: z.infer<T[K]> }
-}[keyof T];
+} & (
+    T extends Record<infer K, any>
+    ? K extends keyof T
+    ? { code: K; payload: z.infer<T[K]> }
+    : never
+    : never
+  );
 
 import { ZodType } from "zod";
 
@@ -56,16 +65,21 @@ export class OurSocket {
   }
 
   async _runEndpointHandler(
-    payload: z.ZodType,
-    wrapper: T_ForwardToContainer,
-    handler: (input: any, wrapper: any) => any | Promise<any>
+    payload: T_ForwardToContainer,
+    handler: (body: T_ForwardToContainer) => Result<WSHandlerReturnValue<any> | null, ErrorResponseType> | Promise<Result<WSHandlerReturnValue<any> | null, ErrorResponseType>>
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     try {
-      if (handler.constructor.name === "AsyncFunction") {
-        return await handler(payload, wrapper);
-      } else {
-        return handler(payload, wrapper);
-      }
+      let result = handler(payload);
+      if (result instanceof Promise) result = await result;
+      return result.map(res => {
+        if (res === null) return null;
+        return {
+          recipients: res.recipients,
+          funcId: payload.funcId,
+          code: Number(res.code),
+          payload: res.payload,
+        };
+      });
     } catch {
       return Result.Err({ message: "Error executing ws endpoint" });
     }
@@ -82,7 +96,7 @@ export class OurSocket {
         message: "No handler found for this endpoint:" + containerSchema.funcId,
       });
 
-    const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
+    // const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
 
     const parseResult = handlerType.metadata.schema.body.safeParse(
       containerSchema.payload
@@ -91,17 +105,30 @@ export class OurSocket {
       return Result.Ok({
         recipients: [containerSchema.user_id],
         funcId: containerSchema.funcId,
+        code: -1,
         payload: {
           message: `Validation error: ${parseResult.error.message}`,
         },
       });
     }
     const funcOutput = await this._runEndpointHandler(
-      parseResult.data,
-      containerSchema,
+      { ...containerSchema, payload: parseResult.data },
       handlerType.handler
     );
-    return funcOutput;
+    if (funcOutput.isErr()) {
+      return Result.Err(funcOutput.unwrapErr());
+    }
+
+    const data = funcOutput.unwrap();
+    if (data === null) return Result.Ok(null);
+
+    return Result.Ok({
+      recipients: data.recipients,
+      funcId: containerSchema.funcId,
+      code: data.code,
+      payload: data.payload,
+    });
+
   }
 
   handleSocketCallbackMethods() {
@@ -110,6 +137,7 @@ export class OurSocket {
       let parsed: null | object;
       try {
         parsed = JSON.parse(rawDataToString(data) || "");
+        console.log("Parsed data:", parsed);
       } catch {
         console.log("Wrong user input...");
         return;
@@ -146,23 +174,21 @@ export class OurSocket {
 
   registerEvent<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
-    handler: T["schema"]["body"] extends z.ZodTypeAny
-      ? (
-        body: Omit<z.infer<T["schema"]["wrapper"]>, "payload"> & {payload: z.infer<T["schema"]["body"]>}
-      ) => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>
-      : () => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>
+    handler: (
+      body: Omit<z.infer<T["schema"]["wrapper"]>, "payload"> & {
+        payload: z.infer<T["schema"]["body"]>;
+      }
+    ) => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>
   ) {
-    if (handlerEndpoint.container != this.container) {
-      console.log(
-        `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`
-      );
-      throw Error(
+    if (handlerEndpoint.container !== this.container) {
+      throw new Error(
         `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`
       );
     }
+
     this.handlers[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
-      handler: handler,
+      handler,
     };
   }
 

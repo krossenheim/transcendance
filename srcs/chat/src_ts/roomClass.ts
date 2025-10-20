@@ -96,6 +96,7 @@ class Room {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: 0,
         payload: {
           message: `No such room (ID: ${client_input.roomId}) or you are not in it.`,
         },
@@ -115,6 +116,7 @@ class Room {
     return Result.Ok({
       recipients: this.users,
       funcId: client_metadata.funcId,
+      code: 0,
       payload: message,
     });
   }
@@ -127,6 +129,7 @@ class Room {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: 0,
         payload: {
           message: `Can't add users to a room you are not in.`,
         },
@@ -141,6 +144,7 @@ class Room {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: 0,
         payload: {
           user: client_input.user_to_add,
           event: RoomEvents.ALREADY_IN_ROOM,
@@ -152,6 +156,7 @@ class Room {
     return Result.Ok({
       recipients: [client_metadata.user_id, client_input.user_to_add],
       funcId: client_metadata.funcId,
+      code: 0,
       payload: {
         user: client_input.user_to_add,
         event: RoomEvents.ADDED_TO_ROOM,
@@ -198,6 +203,7 @@ class ChatRooms {
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
+      code: 0,
       payload: {
         roomId: newroom.roomId,
         roomName: newroom.room_name,
@@ -220,6 +226,7 @@ class ChatRooms {
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
+      code: 0,
       payload: list,
     });
   }
@@ -233,6 +240,7 @@ class ChatRooms {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: 0,
         payload: {
           message: `No such room (ID: ${body.roomId}) or you are not in it.`,
         },
@@ -243,6 +251,7 @@ class ChatRooms {
         return Result.Ok({
           recipients: [client_metadata.user_id],
           funcId: client_metadata.funcId,
+          code: 0,
           payload: {
             user: client_metadata.user_id,
             event: RoomEvents.ALREADY_IN_ROOM,
@@ -257,6 +266,7 @@ class ChatRooms {
       return Result.Ok({
         recipients: room.users,
         funcId: client_metadata.funcId,
+        code: 0,
         payload: {
           user: client_metadata.user_id,
           event: RoomEvents.JOINED,
@@ -267,6 +277,7 @@ class ChatRooms {
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
+      code: 0,
       payload: {
         message: `No such room (ID: ${body.roomId}) or you are not in it.`,
       },
