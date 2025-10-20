@@ -1,5 +1,5 @@
 "use strict";
-import { socketToHub, OurSocket } from "./utils/socket_to_hub.js";
+import { OurSocket } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
 import websocketPlugin, { type WebsocketHandler } from "@fastify/websocket";
@@ -30,85 +30,86 @@ const fastify = Fastify({
 
 fastify.register(websocketPlugin);
 
-const socket = new OurSocket(socketToHub, "chat");
-const singletonChatRooms = new ChatRooms();
-socket.registerEvent(
-  user_url.ws.chat.sendMessage,
-  async (body: TypeUserSendMessagePayload, wrapper: T_ForwardToContainer) => {
-    const room = singletonChatRooms.getRoom(body.roomId);
-    if (!room) {
-      console.warn(`Client ${wrapper.user_id} to NOENT roomId:${body.roomId}`);
-      return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
-        payload: {
-          message: `No such room (ID: ${body.roomId}) or you are not in it.`,
-        },
-      });
-    }
-    return room.sendMessage(body, wrapper);
-  }
-);
+// const socket = new OurSocket("chat");
+// const singletonChatRooms = new ChatRooms();
+// socket.registerEvent(
+//   user_url.ws.chat.sendMessage,
+//   async (body) => {
+//     const room = singletonChatRooms.getRoom(body.payload.roomId);
+//     if (!room) {
+//       console.warn(`Client ${body.user_id} to NOENT roomId:${body.payload.roomId}`);
+//       return Result.Ok({
+//         recipients: [body.user_id],
+//         code: 0,
+//         payload: {
+//           message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
+//         },
+//       });
+//     }
+//     // return room.sendMessage(body.payload, body);
+//     return Result.Ok(null);
+//   }
+// );
 
-socket.registerEvent(
-  user_url.ws.chat.addUserToRoom,
-  async (body: TypeAddToRoomPayload, wrapper: T_ForwardToContainer) => {
-    const room = singletonChatRooms.getRoom(body.roomId);
-    if (!room) {
-      console.warn(`Bad user request, no such room.`);
-      return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
-        payload: {
-          message: `No such room (ID: ${body.roomId}) or you are not in it.`,
-        },
-      });
-    }
-    return room.addToRoom(body, wrapper);
-  }
-);
+// socket.registerEvent(
+//   user_url.ws.chat.addUserToRoom,
+//   async (body) => {
+//     const room = singletonChatRooms.getRoom(body.payload.roomId);
+//     if (!room) {
+//       console.warn(`Bad user request, no such room.`);
+//       return Result.Ok({
+//         recipients: [body.user_id],
+//         funcId: body.funcId,
+//         payload: {
+//           message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
+//         },
+//       });
+//     }
+//     return room.addToRoom(body.payload, body);
+//   }
+// );
 
-socket.registerEvent(
-  user_url.ws.chat.addRoom,
-  async (body: TypeAddRoomPayloadSchema, wrapper: T_ForwardToContainer) => {
-    const room = singletonChatRooms.addRoom(body, wrapper);
-    if (!room) {
-      console.error("Mega warning, could not add a room.");
-      return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
-        payload: {
-          message: `Could not create requested room by name: ${body.roomName}`,
-        },
-      });
-    }
-    return room;
-  }
-);
+// socket.registerEvent(
+//   user_url.ws.chat.addRoom,
+//   async (body) => {
+//     const room = singletonChatRooms.addRoom(body.payload, body);
+//     if (!room) {
+//       console.error("Mega warning, could not add a room.");
+//       return Result.Ok({
+//         recipients: [body.user_id],
+//         funcId: body.funcId,
+//         payload: {
+//           message: `Could not create requested room by name: ${body.payload.roomName}`,
+//         },
+//       });
+//     }
+//     return room;
+//   }
+// );
 
-socket.registerEvent(
-  user_url.ws.chat.listRooms,
-  async (body: {}, wrapper: T_ForwardToContainer) => {
-    const roomList = singletonChatRooms.listRooms(wrapper);
-    if (roomList.isErr()) {
-      console.error(
-        "Mega warning, could not list rooms for an user:",
-        wrapper.user_id
-      );
-      return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
-        payload: {
-          message: `Could not list the rooms you can join.`,
-        },
-      });
-    }
-    return roomList;
-  }
-);
-socket.registerEvent(
-  user_url.ws.chat.joinRoom,
-  async (body: TypeRequestRoomByIdSchema, wrapper: T_ForwardToContainer) => {
-    return singletonChatRooms.userJoinRoom(body, wrapper);
-  }
-);
+// socket.registerEvent(
+//   user_url.ws.chat.listRooms,
+//   async (body) => {
+//     const roomList = singletonChatRooms.listRooms(body);
+//     if (roomList.isErr()) {
+//       console.error(
+//         "Mega warning, could not list rooms for an user:",
+//         body.user_id
+//       );
+//       return Result.Ok({
+//         recipients: [body.user_id],
+//         funcId: body.funcId,
+//         payload: {
+//           message: `Could not list the rooms you can join.`,
+//         },
+//       });
+//     }
+//     return roomList;
+//   }
+// );
+// socket.registerEvent(
+//   user_url.ws.chat.joinRoom,
+//   async (body) => {
+//     return singletonChatRooms.userJoinRoom(body.payload, body);
+//   }
+// );

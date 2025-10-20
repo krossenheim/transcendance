@@ -174,6 +174,25 @@ export const user_url = defineRoutes({
   },
 
   ws: {
+	users: {
+		test: {
+			funcId: "test",
+			container: "user",
+			schema: {
+				wrapper: ForwardToContainerSchema,
+				body: EmptySchema,
+				response: {
+					0: z.string(),
+					1: ErrorResponse,
+				}
+			},
+			code: {
+				Success: 0,
+				Failure: 1,
+			}
+		}
+	},
+
     pong: {
       getGameState: {
         funcId: "get_game_state",

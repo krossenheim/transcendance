@@ -10,17 +10,7 @@ import type {
   T_ForwardToContainer,
   T_PayloadToUsers,
 } from "./api/service/hub/hub_interfaces.js";
-export const socketToHub = new WebSocket(
-  "ws://" +
-    process.env.HUB_NAME +
-    ":" +
-    process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS +
-    "/inter_api"
-);
 
-socketToHub.on("error", (err: Error) => {
-  console.error("Error:", err);
-});
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
 interface HandlerType<TBody = any, TWrapper = any> {
@@ -36,15 +26,30 @@ interface HandlerType<TBody = any, TWrapper = any> {
   } & Omit<WebSocketRouteDef, "schema">; // keep other metadata fields
 }
 
+type WSHandlerReturnValue<
+  T extends Record<number, z.ZodTypeAny>
+> = {
+  recipients: number[];
+} & {
+  [K in keyof T]: { code: K; payload: z.infer<T[K]> }
+}[keyof T];
+
 import { ZodType } from "zod";
-import { parse } from "path";
+
 export class OurSocket {
   private socket: WebSocket;
   private container: string;
   private handlers: Record<string, HandlerType>;
 
-  constructor(socket: WebSocket, container: string) {
-    this.socket = socket;
+  constructor(container: string) {
+    this.socket = new WebSocket(
+      "ws://" +
+      process.env.HUB_NAME +
+      ":" +
+      process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS +
+      "/inter_api"
+    );
+
     this.container = container;
     this.handlers = {};
     this.handleSocketCallbackMethods();
@@ -77,7 +82,7 @@ export class OurSocket {
         message: "No handler found for this endpoint:" + containerSchema.funcId,
       });
 
-    // const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
+    const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
 
     const parseResult = handlerType.metadata.schema.body.safeParse(
       containerSchema.payload
@@ -131,16 +136,19 @@ export class OurSocket {
         console.log("Wrong user input...");
       }
     });
+
+    this.socket.on("error", (err: Error) => {
+      console.error("Error:", err);
+    });
   }
 
   registerEvent<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
     handler: T["schema"]["body"] extends z.ZodTypeAny
       ? (
-          body: z.infer<T["schema"]["body"]>,
-          wrapper: z.infer<T["schema"]["wrapper"]>
-        ) => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
-      : () => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
+        body: Omit<z.infer<T["schema"]["wrapper"]>, "payload"> & {payload: z.infer<T["schema"]["body"]>}
+      ) => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>
+      : () => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>
   ) {
     if (handlerEndpoint.container != this.container) {
       console.log(
@@ -154,6 +162,10 @@ export class OurSocket {
       metadata: handlerEndpoint,
       handler: handler,
     };
+  }
+
+  getSocket(): WebSocket {
+    return this.socket;
   }
 }
 
