@@ -1,11 +1,12 @@
 import { Result } from "./result.js";
 import { z } from "zod";
 
-export function zodParse<T extends z.ZodTypeAny>(schema: T, data: any): Result<z.infer<T>, string> {
-	const parsed = schema.safeParse(data);
-	if (!parsed.success)
-		return Result.Err(parsed.error.message);
-	return Result.Ok(parsed.data);
+export function zodParse<T extends z.ZodType>(schema: T, data: any): Result<z.infer<T>, string> {
+	try {
+		return Result.Ok(schema.parse(data));
+	} catch {
+		return Result.Err("Failed to parse schema");
+	}
 }
 
 export type ZodSchema<T extends {

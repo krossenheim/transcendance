@@ -31,7 +31,7 @@ export type WebSocketRouteDef = {
 	funcId: string;
 	container: 'chat' | 'pong' | 'user';
 	schema: {
-		body?: z.ZodType;
+		body: z.ZodType;
 		response: Record<number, z.ZodType>;
 	};
 	code: Record<string, number>;
@@ -159,7 +159,7 @@ export const user_url = defineRoutes({
 	ws: {
 		chat: {
 			sendMessage: {
-				funcId: "send_message_to_room",
+				funcId: "/api/chat/send_message_to_room",
 				container: 'chat',
 				schema: {
 					body: SendMessagePayloadSchema,

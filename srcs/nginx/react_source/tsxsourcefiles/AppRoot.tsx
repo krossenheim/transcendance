@@ -1,7 +1,8 @@
-import RegisterComponent from "./registerComponent";
 import SocketComponent from "./socketComponent";
 import LoginComponent from "./loginComponent";
-import { useState } from "react";
+import ChatComponent from "./chatComponent";
+import RegisterComponent from "./registerComponent";
+import React, { useState } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 
 export default function AppRoot() {
@@ -16,7 +17,13 @@ export default function AppRoot() {
   return (
     <main className="min-h-screen flex items-center justify-center">
       {authResponse ? (
-        <SocketComponent AuthResponseObject={authResponse} />
+        <SocketComponent AuthResponseObject={authResponse}>
+          <>
+            <ChatComponent />
+
+            {/* <PongComponent /> */}
+          </>
+        </SocketComponent>
       ) : (
         <div className="flex gap-8 justify-center items-start">
           <div className="w-1/2">

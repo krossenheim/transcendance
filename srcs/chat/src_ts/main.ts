@@ -1,12 +1,12 @@
 "use strict";
 import type { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
 import {
-  socketToHub,
-  setSocketOnMessageHandler,
+  socketToHub, OurSocket
+  
 } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
-import websocketPlugin from "@fastify/websocket";
+import websocketPlugin, { type WebsocketHandler } from "@fastify/websocket";
 
 
 const fastify = Fastify({
@@ -25,26 +25,33 @@ const fastify = Fastify({
 
 fastify.register(websocketPlugin);
 
+import { user_url } from "./utils/api/service/common/endpoints.js";
+
+const socket = new OurSocket(socketToHub, "chat");
 const singletonChatRooms = new ChatRooms();
+socket.registerEvent(user_url.ws.chat.sendMessage, async (body : any) => {
+	singletonChatRooms.sendMessage(body);
+});
 
-const chatRoomTasks = {
-  ADD_A_NEW_ROOM: {
-    funcId: "/api/chat/add_a_new_room",
-    handler: singletonChatRooms.addRoom.bind(singletonChatRooms),
-  },
-  LIST_ROOMS: {
-    funcId: "/api/chat/list_rooms",
-    handler: singletonChatRooms.listRooms.bind(singletonChatRooms),
-  },
-  SEND_MESSAGE_TO_ROOM: {
-    funcId: "/api/chat/send_message_to_room",
-    handler: singletonChatRooms.sendMessage.bind(singletonChatRooms),
-  },
-  ADD_USER_TO_ROOM: {
-    funcId: "/api/chat/add_to_room",
-    handler: singletonChatRooms.addUserToRoom.bind(singletonChatRooms),
-  },
-};
 
-setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
+// const chatRoomTasks = {
+//   ADD_A_NEW_ROOM: {
+//     funcId: "/api/chat/add_a_new_room",
+//     handler: singletonChatRooms.addRoom.bind(singletonChatRooms),
+//   },
+//   LIST_ROOMS: {
+//     funcId: "/api/chat/list_rooms",
+//     handler: singletonChatRooms.listRooms.bind(singletonChatRooms),
+//   },
+//   SEND_MESSAGE_TO_ROOM: {
+//     funcId: "/api/chat/send_message_to_room",
+//     handler: singletonChatRooms.sendMessage.bind(singletonChatRooms),
+//   },
+//   ADD_USER_TO_ROOM: {
+//     funcId: "/api/chat/add_to_room",
+//     handler: singletonChatRooms.addUserToRoom.bind(singletonChatRooms),
+//   },
+// };
+
+// setSocketOnMessageHandler(socketToHub, { tasks: chatRoomTasks });
 
