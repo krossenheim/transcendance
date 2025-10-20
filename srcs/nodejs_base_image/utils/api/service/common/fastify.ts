@@ -53,9 +53,15 @@ export function registerRoute<T extends HTTPRouteDef>(
 		| "put"
 		| "delete";
 
-	fastify[method](route.endpoint, { schema: route.schema }, async (req, reply) => {
-		await handler(req as any, reply as any);
-	});
+	if (route.wrapper) {
+		fastify[method](route.endpoint, { schema: route.wrapper.extend({payload: route.schema.body}) }, async (req, reply) => {
+			await handler(req as any, reply as any);
+		});
+	} else {
+		fastify[method](route.endpoint, { schema: route.schema }, async (req, reply) => {
+			await handler(req as any, reply as any);
+		});
+	}
 }
 
 

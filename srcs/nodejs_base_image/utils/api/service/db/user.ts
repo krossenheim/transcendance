@@ -8,6 +8,7 @@ export const Friend = z.object({
 	alias: z.string().nullable(),
 	hasAvatar: z.coerce.boolean(),
 	status: UserFriendshipStatus,
+	createdAt: z.number(),
 });
 
 export const User = z.object({
@@ -17,7 +18,7 @@ export const User = z.object({
 	alias: z.string().nullable(),
 	email: z.string(),
 	isGuest: z.coerce.boolean(),
-	hasAvatar: z.coerce.boolean()
+	hasAvatar: z.coerce.boolean(),
 });
 
 export const FullUser = User.extend({
