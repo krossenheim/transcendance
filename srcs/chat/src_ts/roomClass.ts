@@ -18,7 +18,6 @@ import {
 } from "./utils/api/service/chat/chat_interfaces.js";
 import httpStatus from "./utils/httpStatusEnum.js";
 import { date, z } from "zod";
-import { formatZodError } from "./utils/formatZodError.js";
 import Containers from "./utils/internal_api.js";
 import { int_url } from "./utils/api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";

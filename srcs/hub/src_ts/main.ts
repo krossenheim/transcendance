@@ -11,6 +11,7 @@ import {
   ForwardToContainerSchema,
   UserToHubSchema,
   PayloadHubToUsersSchema,
+  type TypePayloadHubToUsersSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
 import { containersIpToName } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
@@ -23,7 +24,7 @@ import {
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
 import containers from "./utils/internal_api.js";
 import { z } from "zod";
-import { int_url, pub_url } from "./utils/api/service/common/endpoints.js"
+import { int_url, pub_url } from "./utils/api/service/common/endpoints.js";
 
 const fastify: FastifyInstance = Fastify();
 
@@ -39,9 +40,12 @@ const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
 async function validateJWTToken(
   token: string
 ): Promise<Result<number, ErrorResponseType>> {
-  const responseResult = await containers.auth.post(pub_url.http.auth.validateToken, {
-    token: token,
-  });
+  const responseResult = await containers.auth.post(
+    pub_url.http.auth.validateToken,
+    {
+      token: token,
+    }
+  );
 
   if (responseResult.isErr())
     return Result.Err({ message: responseResult.unwrapErr() });
@@ -97,7 +101,7 @@ function forwardToContainer(
   if (wsToContainer.readyState !== wsToContainer.OPEN)
     return Result.Err(target_container + " socket is not open.");
 
-  console.log(
+  console.debug(
     "sending to " + target_container + ": " + JSON.stringify(forwarded)
   );
   wsToContainer.send(JSON.stringify(forwarded));
@@ -136,7 +140,7 @@ function listIncomingContainerWebsocket(
 
   // handle reconnections here.
   if (interContainerNameToWebsockets.has(containerName)) {
-    console.log("Container re-opening socket");
+    console.warn("Container re-opening socket");
     interContainerNameToWebsockets.set(containerName, socket);
     interContainerWebsocketsToName.set(socket, containerName);
     return returnType.RECONNECTED;
@@ -150,12 +154,12 @@ function listIncomingContainerWebsocket(
 
 function forwardPayloadToUsers(
   recipients: Array<number>,
-  payload: z.infer<typeof PayloadHubToUsersSchema>
+  payload: TypePayloadHubToUsersSchema
 ) {
   for (const user_id of recipients) {
     const socketToUser = openUserIdToSocket.get(user_id);
     if (!socketToUser) {
-      console.log("No socket open to user: ", user_id);
+      // Container would like to talk to someone offline
       continue;
     }
     if (socketToUser)
@@ -169,7 +173,7 @@ function forwardPayloadToUsers(
 function translateContainerMessage(
   data: any,
   source: WebSocket
-): Result<[z.infer<typeof PayloadHubToUsersSchema>, Array<number>], string> {
+): Result<[TypePayloadHubToUsersSchema, Array<number>], string> {
   const source_container = interContainerWebsocketsToName.get(source);
   if (!source_container) return Result.Err("Unknown source container");
 
@@ -263,9 +267,10 @@ async function handleWebsocketAuth(
   parsed: any
 ): Promise<Result<number, null>> {
   const authMessageResult = await isAuthed(parsed);
-  if ( authMessageResult.isErr()
-  ) {
-    console.log("Websocket authentication failed: " + authMessageResult.unwrapErr());
+  if (authMessageResult.isErr()) {
+    console.log(
+      "Websocket authentication failed: " + authMessageResult.unwrapErr()
+    );
     socket.send("Unauthorized: " + authMessageResult.unwrapErr());
     disconnectUserSocket(socket);
     return Result.Err(null);

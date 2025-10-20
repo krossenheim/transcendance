@@ -1,5 +1,4 @@
 import PongGame from "./pongGame.js";
-import { formatZodError } from "./utils/formatZodError.js";
 import {
   ForwardToContainerSchema,
   PayloadToUsersSchema,
@@ -94,7 +93,15 @@ export class PongManager {
       client_request.payload
     );
     if (!valid_gamestart.success) {
-      return formatZodError([user_id], valid_gamestart.error);
+      return {
+        recipients: [user_id],
+        funcId: "start_pong",
+        payload: {
+          status: httpStatus.BAD_REQUEST,
+          func_name: process.env.FUNC_POPUP_TEXT,
+          pop_up_text: "could not start pong game.",
+        },
+      };
     }
 
     const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);

@@ -37,7 +37,6 @@ interface HandlerType<TBody = any, TWrapper = any> {
 }
 
 import { ZodType } from "zod";
-import { parse } from "path";
 export class OurSocket {
   private socket: WebSocket;
   private container: string;
