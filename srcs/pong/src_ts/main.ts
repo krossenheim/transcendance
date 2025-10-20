@@ -77,8 +77,8 @@ backgroundTask();
 //   }
 // );
 
-singletonPong.startGame({
-  user_id: 2,
-  funcId: "/api/start_game",
-  payload: { player_list: [2, 3, 4, 1, 5] },
-});
+// singletonPong.startGame({
+//   user_id: 2,
+//   funcId: "/api/start_game",
+//   payload: { player_list: [2, 3, 4, 1, 5] },
+// });
