@@ -1,12 +1,12 @@
 import type { FullUserType, UserType, FriendType, UserAuthDataType } from '../utils/api/service/db/user.js';
 import { User, FullUser, Friend, UserAuthData } from '../utils/api/service/db/user.js';
+import { UserFriendshipStatusEnum } from '../utils/api/service/db/friendship.js';
 import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
 import { Result } from '../utils/api/service/common/result.js';
 import { Database } from './database.js';
 import fs from 'fs/promises';
 import axios from 'axios';
-import type { UserFriendshipStatusEnum } from 'utils/api/service/db/friendship.js';
 
 function createGuestUsername(): string {
 	const randomStr = Math.random().toString(36).substring(2, 10);
@@ -36,18 +36,19 @@ export class UserService {
 	}
 
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
-		return this.db.all(
+		const result = this.db.all(
 			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.status, uf.createdAt
 			FROM user_friendships uf
-			JOIN users u
-			ON u.id = CASE
-				WHEN uf.userId = ? THEN uf.friendId
-				ELSE uf.userId
-			END
-			WHERE uf.userId = ? OR uf.friendId = ?;`,
+			JOIN users u ON u.id = uf.friendId
+			WHERE uf.userId = ?`,
 			Friend,
-			[userId, userId, userId]
+			[userId]
 		);
+		if (result.isErr()) {
+			console.log('Error fetching friendlist for userId', userId, ':', result.unwrapErr());
+			return Result.Err(result.unwrapErr());
+		}
+		return result;
 	}
 
 	fetchAllUsers(): Result<FullUserType[], string> {
@@ -135,15 +136,10 @@ export class UserService {
 		}
 	}
 
-	getFriendsInOrder(userId: number, friendId: number): [number, number] {
-		return userId < friendId ? [userId, friendId] : [friendId, userId];
-	}
-
-	updateUserConnection(userId: number, friendId: number, status: UserFriendshipStatusEnum): Result<null, string> {
-		const [uid1, uid2] = this.getFriendsInOrder(userId, friendId);
+	updateMutualUserConnection(userId1: number, userId2: number, status: UserFriendshipStatusEnum): Result<null, string> {
 		return this.db.run(
-			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
-			[uid1, uid2, status]
+			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?), (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
+			[userId1, userId2, status, userId2, userId1, status]
 		).map(() => null);
 	}
 }

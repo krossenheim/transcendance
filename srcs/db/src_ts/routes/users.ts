@@ -97,7 +97,7 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	registerRoute(fastify, int_url.http.db.updateUserFriendshipStatus, async (request, reply) => {
 		const { userId, friendId, status } = request.body;
-		const updateResult = userService.updateUserConnection(userId, friendId, status);
+		const updateResult = userService.updateMutualUserConnection(userId, friendId, status);
 
 		if (updateResult.isErr())
 			return reply.status(400).send({ message: updateResult.unwrapErr() });

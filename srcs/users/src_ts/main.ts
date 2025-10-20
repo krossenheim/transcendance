@@ -30,7 +30,6 @@ registerRoute(fastify, user_url.http.users.requestFriendship, async (request, re
 	return reply.status(200).send(null);
 });
 
-
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000", 10);
 const host = process.env.AUTH_BIND_TO || "0.0.0.0";
 
