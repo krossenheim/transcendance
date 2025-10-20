@@ -130,8 +130,10 @@ export class OurSocket {
           console.log("No reply from handler, request was: ", request);
           return;
         }
-        console.log("Sending to hub:", JSON.stringify(handlerOutput));
-        this.socket.send(JSON.stringify(handlerOutput));
+        console.log("Proxying to ", JSON.stringify(handlerOutput));
+        const serialized = JSON.stringify(handlerOutput);
+        console.log(`Proxying to ${process.env.HUB_NAME}: ${serialized}`);
+        this.socket.send(serialized);
       } else {
         console.log("Wrong user input...");
       }

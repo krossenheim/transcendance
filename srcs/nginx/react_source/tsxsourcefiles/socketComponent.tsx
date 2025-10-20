@@ -66,13 +66,33 @@ export default function SocketComponent({
     }
   }, [wsUrl, AuthResponseObject.tokens.jwt]);
 
-  return (
-    <WebSocketContext.Provider
-      value={{ socket, payloadReceived } as WebSocketContextValue}
-    >
-      {children}
-    </WebSocketContext.Provider>
-  );
+return (
+  <WebSocketContext.Provider
+    value={{ socket, payloadReceived } as WebSocketContextValue}
+  >
+    {children}
+    <input
+      type="text"
+      placeholder="debug ws send string"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && socket.current) {
+          socket.current.send((e.target as HTMLInputElement).value);
+          (e.target as HTMLInputElement).value = "";
+        }
+      }}
+      style={{
+        backgroundColor: "black",
+        color: "yellow",
+        border: "1px solid yellow",
+        padding: "5px 10px",
+        marginTop: "10px",
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+    />
+  </WebSocketContext.Provider>
+);
+
 }
 
 // Hook to consume the context
