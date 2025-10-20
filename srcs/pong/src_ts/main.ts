@@ -66,7 +66,7 @@ async function backgroundTask() {
         };
         socketToHub.send(JSON.stringify(out));
       }
-      const getNextFrameTime = 50; // game.next_frame_when?
+      const getNextFrameTime = 25; // game.next_frame_when?
       await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
     }
   } catch (err) {

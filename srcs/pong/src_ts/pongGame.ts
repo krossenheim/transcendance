@@ -24,7 +24,7 @@ import { map } from "zod";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-const MAP_GAMEOVER_EDGES_WIDTH = 10;
+const MAP_GAMEOVER_EDGES_WIDTH = 15;
 const RADIUS_PLACE_PLAYERS = 0.33;
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
@@ -35,7 +35,7 @@ function calculatePaddleLength(map_edges: Vec2[]) {
   const a = map_edges[0]!;
   const b = map_edges[1]!;
 
-  return mag({ x: b.x - a.x, y: b.y - a.y }) * 0.33;
+  return mag({ x: b.x - a.x, y: b.y - a.y }) * 0.4;
 }
 
 function rotatePolygon(
@@ -171,7 +171,7 @@ class PongGame {
     } else if (vertices_count === 3) {
       outer_scale_mult = 2.13;
     } else {
-      outer_scale_mult = 1.3;
+      outer_scale_mult = 1.35;
     }
     const limits_of_the_map = generateCirclePoints(
       vertices_count,
