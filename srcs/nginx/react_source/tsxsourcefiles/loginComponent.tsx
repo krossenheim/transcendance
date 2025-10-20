@@ -6,7 +6,7 @@ import type {
 } from "../../../nodejs_base_image/utils/api/service/chat/db_models";
 import type { idValue } from "../../../nodejs_base_image/utils/api/service/common/zodRules";
 import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
-import React, { Key, useCallback, useEffect, useState } from "react";
+import React, { Key, useCallback, useEffect, useId, useState } from "react";
 import { useWebSocket } from "./socketComponent";
 
 const handleKeyPress = (e: any, action: any) => {
@@ -22,6 +22,7 @@ interface LoginComponentProps {
 export default function LoginComponent({
   onLoginSuccess,
 }: LoginComponentProps) {
+  const id = useId();
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +39,7 @@ export default function LoginComponent({
     if (value.length < 6) return "Password must be at least 6 characters";
     return null;
   };
- 
+
   const handleLogin = async () => {
     setError(null);
 
@@ -83,13 +84,13 @@ export default function LoginComponent({
           {/* Username */}
           <div>
             <label
-              htmlFor="login-username"
+              htmlFor={`${id}-login-username`}
               className="block mb-1 font-semibold"
             >
               Username
             </label>
             <input
-              id="login-username"
+              id={`${id}-login-username`}
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -103,13 +104,13 @@ export default function LoginComponent({
           {/* Password */}
           <div>
             <label
-              htmlFor="login-password"
+              htmlFor={`${id}-login-password`}
               className="block mb-1 font-semibold"
             >
               Password
             </label>
             <input
-              id="login-password"
+              id={`${id}-login-password`}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

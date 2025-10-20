@@ -1,6 +1,7 @@
 import React, {
   useState,
   useEffect,
+  useRef,
   createContext,
   ReactNode,
   useContext,
@@ -8,17 +9,19 @@ import React, {
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 import { PayloadHubToUsersSchema } from "../../../nodejs_base_image/utils/api/service/hub/hub_interfaces";
 import type { TypePayloadHubToUsersSchema } from "../../../nodejs_base_image/utils/api/service/hub/hub_interfaces";
-// import PongComponent from "./pongComponent";
-// import ChatComponent from "./chatComponent";
 
 interface SocketComponentProps {
-  children: ReactNode; // <Other HostComponent={name outside}
+  children: ReactNode;
   AuthResponseObject: AuthResponseType;
 }
+
 interface WebSocketContextValue {
-  socket: WebSocket | null;
+  socket: React.MutableRefObject<WebSocket | null>; // renamed from ws
   payloadReceived: TypePayloadHubToUsersSchema | null;
 }
+
+// Global singleton socket
+let globalSocket: WebSocket | null = null;
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
@@ -26,72 +29,56 @@ export default function SocketComponent({
   children,
   AuthResponseObject,
 }: SocketComponentProps) {
-  // This is one session/websocket to the server
-  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const socket = useRef<WebSocket | null>(globalSocket);
   const [payloadReceived, setPayloadReceived] =
     useState<TypePayloadHubToUsersSchema | null>(null);
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = protocol + "//" + window.location.host + "/ws";
 
-  useEffect(
-    () => {
-      const ws = new WebSocket(wsUrl);
-      setSocket(ws);
+  useEffect(() => {
+    if (!socket.current) {
+      socket.current = new WebSocket(wsUrl);
+      globalSocket = socket.current;
 
-      ws.onmessage = (event) => {
+      socket.current.onopen = () => {
+        console.log("WebSocket connected, authorizing:");
+        socket.current!.send(
+          JSON.stringify({ authorization: AuthResponseObject.tokens.jwt })
+        );
+      };
+
+      socket.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          const valid_message = PayloadHubToUsersSchema.safeParse(data);
-          if (!valid_message.success) {
-            console.log("Unrecognized message format:", event.data);
+          const parsed = PayloadHubToUsersSchema.safeParse(data);
+          if (!parsed.success) {
+            console.log("Unrecognized message:", event.data);
             return;
           }
-          setPayloadReceived(valid_message.data);
+          setPayloadReceived(parsed.data);
         } catch {
           console.log("Couldn't parse:", event.data);
         }
       };
 
-      ws.onopen = () => {
-        console.log("WebSocket connected, authorizing: ");
-        const jsonout = { authorization: AuthResponseObject.tokens.jwt };
-        ws.send(JSON.stringify(jsonout));
-      };
-
-      ws.onclose = () => {
-        console.log("WebSocket disconnected");
-      };
-
-      ws.onerror = (err) => {
-        console.error("WebSocket error:", err);
-      };
-
-      // Cleanup when unmounting
-      return () => ws.close();
-    },
-    // Will trigger when these change
-    []
-    // '[]' is on init and on destruction
-    // '' omits
-  );
+      socket.current.onclose = () => console.log("WebSocket disconnected");
+      socket.current.onerror = (err) => console.error("WebSocket error:", err);
+    }
+  }, [wsUrl, AuthResponseObject.tokens.jwt]);
 
   return (
-    <WebSocketContext.Provider value={{ socket, payloadReceived }}>
+    <WebSocketContext.Provider
+      value={{ socket, payloadReceived } as WebSocketContextValue}
+    >
       {children}
     </WebSocketContext.Provider>
   );
-  // return (
-  //   <>
-  //     <ChatComponent webSocket={socket} />
-  //     <PongComponent webSocket={socket} />
-  //   </>
-  // );
 }
 
-// One socket
+// Hook to consume the context
 export function useWebSocket() {
   const context = useContext(WebSocketContext);
   if (!context)
-    throw new Error("useWebSocket must be used inside <WebSocketProvider>");
+    throw new Error("useWebSocket must be used inside <SocketComponent>");
   return context;
 }

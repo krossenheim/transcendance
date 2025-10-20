@@ -37,27 +37,38 @@ export const message_rule = z.coerce
 
 export const AddRoomPayloadSchema = z
   .object({
-	// Payload sent by client "Wants a new room made"
+    // Payload sent by client "Wants a new room made"
     roomName: room_name_rule,
   })
   .strict();
 
 export const SendMessagePayloadSchema = z
   .object({
-	// Payload sent by client "send message to room"
-    room_id: room_id_rule,
+    // Payload sent by client "send message to room"
+    roomId: room_id_rule,
     messageString: message_rule,
   })
   .strict();
 
 export const AddToRoomPayloadSchema = z
   .object({
-	// Payload sent by client "add person to room"
-    room_id: room_id_rule,
+    // Payload sent by client "add person to room"
+    roomId: room_id_rule,
     user_to_add: idValue,
   })
   .strict();
 
+export const RequestRoomByIdSchema = z
+  .object({
+    // Payload sent by client "Wants a new room made"
+    roomId: room_id_rule,
+  })
+  .strict();
+
+export const EmptySchema = z.object({}).strict();
+
+export type TypeRequestRoomByIdSchema = z.infer<typeof RequestRoomByIdSchema>;
+export type TypeEmptySchema = z.infer<typeof EmptySchema>;
 export type TypeAddRoomPayloadSchema = z.infer<typeof AddRoomPayloadSchema>;
 export type TypeAddToRoomPayload = z.infer<typeof AddToRoomPayloadSchema>;
 export type TypeUserSendMessagePayload = z.infer<

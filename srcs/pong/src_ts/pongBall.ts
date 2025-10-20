@@ -12,11 +12,6 @@ import {
   crossp,
 } from "./vector2.js";
 
-type Collision = {
-  alpha: number;
-  normal: Vec2;
-};
-
 function randomAvoidAxes(epsilon = 0.05): number {
   const quarter = Math.PI / 2;
 
@@ -45,6 +40,12 @@ function solveQuadratic(a: number, b: number, c: number): number | null {
   }
   return null;
 }
+
+type Hit = {
+  normal: Vec2;
+  pos: Vec2;
+  alpha: number;
+};
 
 export class PongBall {
   // private constants
@@ -81,9 +82,6 @@ export class PongBall {
   }
 
   checkSegmentCollision(
-    // A: Vec2,
-    // B: Vec2,
-    // paddleMovement: Vec2,
     ballPos: Vec2,
     A: Vec2,
     B: Vec2,
@@ -91,99 +89,109 @@ export class PongBall {
     ballMovement: Vec2,
     effectiveRadius: number,
     segment_width: number
-  ): number | null {
-    const movementRel = sub(segment_movement, ballMovement); // relative movement
+  ): Hit | null {
+    const movementRel = sub(ballMovement, segment_movement);
 
     const AB = sub(B, A);
     const AB_len2 = dotp(AB, AB);
-    if (AB_len2 < 1e-8) {
-      // Should throw really.
-      return null;
-    }
+    if (AB_len2 < 1e-8) return null;
 
     const AP = sub(ballPos, A);
-
-    // Project AP onto AB, clamped to segment
     const t_seg = Math.max(0, Math.min(1, dotp(AP, AB) / AB_len2));
     const closest = add(A, scale(t_seg, AB)); // closest point on AB at t=0
-    // SCALE(T_SEG,AB ) =
-    // Now treat as vertex collision with closest point
+
     const diff = sub(ballPos, closest);
-    const dist2 = dotp(diff, diff); // 5? 25
+    const dist2 = dotp(diff, diff);
 
     if (dist2 <= effectiveRadius * effectiveRadius) {
-      // Already overlapping at t = 0
-      return -1;
+      const normal = normalize(diff);
+      return {
+        normal,
+        pos: closest,
+        alpha: 0,
+      };
     }
 
-    // Get quadratic terms
+    // Quadratic terms
     const a = dotp(movementRel, movementRel);
     if (a < 1e-8) return null;
+
     let b = -2 * dotp(movementRel, diff);
     let c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
     const t = solveQuadratic(a, b, c);
 
-    if (t === null) return null;
-    if (t < 0 || t > 1) return null;
-    // Optional: check that at collision time, the point is still within segment
-    const closestAtT = add(closest, scale(t, movementRel));
-    const proj = dotp(sub(closestAtT, A), AB) / AB_len2;
-    // "Shadow of sub(closestat,a) on ab"
+    if (t === null || t < 0 || t > 1) return null;
 
+    const hitPos = add(ballPos, scale(t, ballMovement));
+    const A_t = add(A, scale(t, segment_movement));
+    const B_t = add(B, scale(t, segment_movement));
+    const AB_t = sub(B_t, A_t);
+    const proj = dotp(sub(hitPos, A_t), AB_t) / dotp(AB_t, AB_t);
+    const closestAtT = add(A_t, scale(Math.max(0, Math.min(1, proj)), AB_t));
+    let normal = normalize(sub(hitPos, closestAtT));
+    if (dotp(normal, sub(ballPos, closestAtT)) < 0) normal = scale(-1, normal);
     if (proj >= 0 && proj <= 1) {
-      return t;
+      const hitPos = add(ballPos, scale(t, ballMovement));
+      const normal = normalize(sub(hitPos, closestAtT));
+      return {
+        normal,
+        pos: hitPos,
+        alpha: t,
+      };
     }
-    // Check if it hits short faces of the rectangle
-    if (
-      (proj > 1 && proj <= this.radius) ||
-      (proj >= -this.radius && proj < 0)
-    ) {
-      const is_either_side: boolean | null =
-        dotp(A, ballPos) === 0 ? null : dotp(A, ballPos) > 0;
 
-      if (is_either_side === null) {
-        // perfectly aligned with AB, so certain bounce at t.
-        return t;
-      }
-      // left? right? who needs that, its either side:
+    // Handle short edge collisions
+    if (
+      (proj > 1 && proj <= effectiveRadius) ||
+      (proj >= -effectiveRadius && proj < 0)
+    ) {
       const B_or_A = proj < 0.5 ? A : B;
       const normal = normalize(sub(ballPos, B_or_A));
-      const front_of_paddle = dotp(ballPos, normal) > 0;
       const corner = add(B_or_A, scale(segment_width / 2, normal));
       const cornerRel = sub(ballPos, corner);
+
       b = -2 * dotp(movementRel, cornerRel);
-      c = dotp(cornerRel, cornerRel) - this.radius * this.radius;
+      c = dotp(cornerRel, cornerRel) - effectiveRadius * effectiveRadius;
       const t_to_corner = solveQuadratic(a, b, c);
-      if (t_to_corner === null) return null; // capsule hit
-      return t + t_to_corner;
+
+      if (t_to_corner === null) return null;
+
+      const alpha = t + t_to_corner;
+      if (alpha < 0 || alpha > 1) return null;
+
+      const hitPos = add(ballPos, scale(alpha, ballMovement));
+      const hitNormal = normalize(sub(hitPos, corner));
+      return {
+        normal: hitNormal,
+        pos: hitPos,
+        alpha,
+      };
     }
+
     return null;
   }
 
-  getBounce(paddle: PlayerPaddle): Vec2 {
-    const oppositepaddle = normalize(sub(this.pos, paddle.pos));
-    const factor = 0.05;
-    const newDir = normalize(
-      add(scale(1 - factor, oppositepaddle), scale(factor, paddle.d))
-    );
-    // const bounced: Vec2 = {
-    //   x: this.dir.x - 2 * dotp(this.dir, newdir) * newdir.x,
-    //   y: this.dir.y - 2 * dotp(this.dir, newdir) * newdir.y,
-    // };
+  getBounce(hit: Hit): Vec2 {
+    const n = normalize(hit.normal);
+    const d = this.dir;
 
-    return newDir;
+    // Reflect direction across the normal
+    const dot = dotp(d, n);
+    const reflected = sub(d, scale(2 * dot, n));
+
+    return normalize(reflected);
   }
 
   movePaddleAware(movement_vec: Vec2, paddles: PlayerPaddle[]) {
     // 1.  Check each end of the paddle segment, to see if distance from circle_center to seg_a/seg_b < circle_radius + paddle.width
     // 2.  Check if the point's projection falls within seg_a and seg_b (90 degrees). If so, check distance from circle_center to seg_a/seg_b < circle_radius + paddle.width
 
-    let col_time_slice: null | number = null;
+    let hit: null | Hit = null;
 
     for (const paddle of paddles) {
       if (this.lastCollidedWith === paddle) continue;
       const effective_radius = this.radius + paddle.width / 2;
-      col_time_slice = this.checkSegmentCollision(
+      hit = this.checkSegmentCollision(
         this.pos,
         paddle.segment[0]!,
         paddle.segment[1]!,
@@ -193,20 +201,20 @@ export class PongBall {
         paddle.width
       );
 
-      if (col_time_slice !== null) {
+      if (hit !== null) {
         this.lastCollidedWith = paddle;
-        this.dir = this.getBounce(paddle);
-        if (col_time_slice > 0) {
-          this.pos = add(this.pos, scale(col_time_slice, movement_vec));
-        } else if (col_time_slice === -1) {
-          this.pos = add(this.pos, scale(-1, movement_vec));
+        this.dir = this.getBounce(hit);
+        if (hit.alpha > 0) {
+          const ballRadius = this.radius;
+          const paddleHalfWidth = paddle.width ? paddle.width * 0.5 : 0;
+          const totalSeparation = ballRadius + paddleHalfWidth;
+          this.pos = add(hit.pos, scale(totalSeparation, hit.normal));
         }
-        // Handle multiple bounces in one frame, then return
         return;
       }
     }
 
-    if (!(col_time_slice === null)) {
+    if (!(hit === null)) {
       throw Error("wat");
     }
     this.pos = add(this.pos, movement_vec);

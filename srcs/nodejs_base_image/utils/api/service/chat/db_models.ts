@@ -1,12 +1,15 @@
-import { room_id_rule, room_name_rule, message_rule } from "./chat_interfaces.js";
+import {
+  room_id_rule,
+  room_name_rule,
+  message_rule,
+} from "./chat_interfaces.js";
 import { idValue } from "../common/zodRules.js";
 import { z } from "zod";
 
-const message_date_rule = z.number().int().gte(0);
+export const message_date_rule = z.number().int().gte(0);
 
 export const StoredMessageSchema = z
   .object({
-    // Shape of 'message' fo rht eclient'
     messageId: idValue,
     roomId: room_id_rule,
     messageString: message_rule,
@@ -14,6 +17,7 @@ export const StoredMessageSchema = z
     userId: idValue,
   })
   .strict();
+export type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
 
 export const RoomMessagesSchema = z
   .object({
@@ -21,8 +25,9 @@ export const RoomMessagesSchema = z
     messages: z.array(StoredMessageSchema),
   })
   .strict();
+export type TypeRoomMessagesSchema = z.infer<typeof RoomMessagesSchema>;
 
-export const GetUsersInRoomSchema = z
+export const FullRoomInfoSchema = z
   .object({
     roomName: room_name_rule,
     roomId: room_id_rule,
@@ -30,17 +35,32 @@ export const GetUsersInRoomSchema = z
     users: z.array(idValue),
   })
   .strict();
+export type TypeFullRoomInfoSchema = z.infer<typeof FullRoomInfoSchema>;
 
-export const RoomSchema = z.object({
-  roomId: room_id_rule,
-  roomName: room_name_rule,
-}).strict();
+export const RoomSchema = z
+  .object({
+    roomName: room_name_rule,
+    roomId: room_id_rule,
+  })
+  .strict();
 
-export const ListRoomsSchema = z
-  .array(RoomSchema);
+export enum RoomEvents {
+  JOINED = "joined",
+  LEFT = "left",
+  TYPING = "typing",
+  ALREADY_IN_ROOM = "already in room",
+  ADDED_TO_ROOM = "added to room",
+}
 
+export const RoomEventSchema = z
+  .object({
+    user: idValue,
+    event: z.enum(RoomEvents),
+    roomId: room_id_rule,
+  })
+  .strict();
 
-export type TypeStoredMessageSchema = z.infer<typeof StoredMessageSchema>;
-export type TypeRoomMessagesSchema = z.infer<typeof RoomMessagesSchema>;
-export type TypeListRoomsSchema = z.infer<typeof ListRoomsSchema>;
 export type TypeRoomSchema = z.infer<typeof RoomSchema>;
+
+export const ListRoomsSchema = z.array(RoomSchema);
+export type TypeListRoomsSchema = z.infer<typeof ListRoomsSchema>;

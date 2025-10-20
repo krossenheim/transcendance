@@ -35,7 +35,7 @@ function calculatePaddleLength(map_edges: Vec2[]) {
   const a = map_edges[0]!;
   const b = map_edges[1]!;
 
-  return mag({ x: b.x - a.x, y: b.y - a.y }) * 0.33;
+  return mag({ x: b.x - a.x, y: b.y - a.y }) * 0.4;
 }
 
 function rotatePolygon(
@@ -115,8 +115,8 @@ class PongGame {
       }
     }
     try {
-		const game = new PongGame(player_ids);
-      return Result.Ok(game );
+      const game = new PongGame(player_ids);
+      return Result.Ok(game);
     } catch (e: unknown) {
       console.error(
         "Factory method failed to create new instance of PongGame, player list was: ",
@@ -171,8 +171,9 @@ class PongGame {
     } else if (vertices_count === 3) {
       outer_scale_mult = 2.13;
     } else {
-      outer_scale_mult = 1.3;
+      outer_scale_mult = 1.35;
     }
+    outer_scale_mult += 0.2; //debug;
     const limits_of_the_map = generateCirclePoints(
       vertices_count,
       Math.min(this.board_size.x, this.board_size.y) *
@@ -256,21 +257,21 @@ class PongGame {
 
     for (const obj of this.pong_balls) {
       payload.balls.push({
-        id: truncDecimals(obj.id),
-        x: truncDecimals(obj.pos.x),
-        y: truncDecimals(obj.pos.y),
-        dx: truncDecimals(obj.dir.x),
-        dy: truncDecimals(obj.dir.y),
+        id: obj.id,
+        x: obj.pos.x,
+        y: obj.pos.y,
+        dx: obj.dir.x,
+        dy: obj.dir.y,
       });
     }
 
     for (const obj of this.player_paddles) {
       payload.paddles.push({
-        x: truncDecimals(obj.pos.x),
-        y: truncDecimals(obj.pos.y),
-        r: truncDecimals(obj.r),
-        w: truncDecimals(obj.width),
-        l: truncDecimals(obj.length),
+        x: obj.pos.x,
+        y: obj.pos.y,
+        r: obj.r,
+        w: obj.width,
+        l: obj.length,
       });
     }
     payload.edges = this.map_polygon_edges;

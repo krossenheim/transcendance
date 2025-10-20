@@ -11,7 +11,6 @@ package-lock.json
 *.d.ts
 *.js.map
 *.d.ts.map
-*.js
 **/dist/
 *.tsbuildinfo
 !/**/reactproto/**/*.js
