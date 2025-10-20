@@ -1,12 +1,12 @@
 import type { FullUserType, UserType, FriendType, UserAuthDataType } from '../utils/api/service/db/user.js';
 import { User, FullUser, Friend, UserAuthData } from '../utils/api/service/db/user.js';
+import { UserFriendshipStatusEnum } from '../utils/api/service/db/friendship.js';
 import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
 import { Result } from '../utils/api/service/common/result.js';
 import { Database } from './database.js';
 import fs from 'fs/promises';
 import axios from 'axios';
-import { UserFriendshipStatusEnum } from 'utils/api/service/db/friendship.js';
 
 function createGuestUsername(): string {
 	const randomStr = Math.random().toString(36).substring(2, 10);
