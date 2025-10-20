@@ -26,20 +26,6 @@ const fastify = Fastify({
 fastify.register(websocketPlugin);
 
 const singletonPong = new PongManager();
-const pongTasks = {
-  PLAYER_JOINED: {
-    funcId: "/api/join_game",
-    handler: singletonPong.playerJoinInstance.bind(singletonPong),
-  },
-  START_A_NEW_GAME: {
-    funcId: "/api/start_game",
-    handler: singletonPong.startGame.bind(singletonPong),
-  },
-  MOVE_PADDLE: {
-    funcId: "/api/move_paddle",
-    handler: singletonPong.movePaddle.bind(singletonPong),
-  },
-};
 const socket = new OurSocket(socketToHub, "pong");
 
 // Setup WebSocket handler

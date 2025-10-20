@@ -24,7 +24,7 @@ import { map } from "zod";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-const MAP_GAMEOVER_EDGES_WIDTH = 15;
+const MAP_GAMEOVER_EDGES_WIDTH = 10;
 const RADIUS_PLACE_PLAYERS = 0.33;
 function truncDecimals(num: number, n: number = 6) {
   const factor = Math.pow(10, n);
@@ -115,8 +115,8 @@ class PongGame {
       }
     }
     try {
-		const game = new PongGame(player_ids);
-      return Result.Ok(game );
+      const game = new PongGame(player_ids);
+      return Result.Ok(game);
     } catch (e: unknown) {
       console.error(
         "Factory method failed to create new instance of PongGame, player list was: ",
@@ -173,6 +173,7 @@ class PongGame {
     } else {
       outer_scale_mult = 1.35;
     }
+    outer_scale_mult += 0.2; //debug;
     const limits_of_the_map = generateCirclePoints(
       vertices_count,
       Math.min(this.board_size.x, this.board_size.y) *
