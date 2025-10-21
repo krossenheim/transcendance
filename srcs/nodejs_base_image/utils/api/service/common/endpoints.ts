@@ -29,7 +29,11 @@ import { z } from "zod";
 import { idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
-import { GameStateSchema, MovePaddlePayloadScheme } from "../pong/pong_interfaces.js";
+import {
+  GameStateSchema,
+  MovePaddlePayloadScheme,
+  StartNewPongGameSchema,
+} from "../pong/pong_interfaces.js";
 
 export type HTTPRouteDef = {
   endpoint: string;
@@ -211,6 +215,24 @@ export const user_url = defineRoutes({
           InvalidInput: 2,
         },
       },
+      startGame: {
+        funcId: "start_game",
+        container: "pong",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: StartNewPongGameSchema,
+          response: {
+            0: EmptySchema,
+            1: ErrorResponse,
+            2: ErrorResponse,
+          },
+        },
+        code: {
+          GameInstanceCreated: 0,
+          FailedCreateGame: 1,
+          InvalidInput: 2,
+        },
+      },
     },
     chat: {
       sendMessage: {
@@ -230,6 +252,7 @@ export const user_url = defineRoutes({
           MessageSent: 0,
           NotInRoom: 1,
           InvalidInput: 2,
+          NoSuchRoom: 3,
         },
       },
       addUserToRoom: {
@@ -245,9 +268,11 @@ export const user_url = defineRoutes({
           },
         },
         code: {
-          RoomEventP: 0,
+          Added: 0,
           NotInRoom: 1,
           InvalidInput: 2,
+          AlreadyInRoom: 3,
+          NoSuchRoom: 4,
         },
       },
       addRoom: {
@@ -262,8 +287,8 @@ export const user_url = defineRoutes({
           },
         },
         code: {
-          RoomMade: 0,
-          RoomNotMade: 1,
+          AddedRoom: 0,
+          ErrorNoRoomAdded: 1,
         },
       },
       listRooms: {
@@ -278,8 +303,8 @@ export const user_url = defineRoutes({
           },
         },
         code: {
-          RoomMade: 0,
-          RoomNotMade: 1,
+          FullListGiven: 0,
+          NoListGiven: 1,
         },
       },
       joinRoom: {
@@ -294,8 +319,9 @@ export const user_url = defineRoutes({
           },
         },
         code: {
-          RoomMade: 0,
-          RoomNotMade: 1,
+          Joined: 0,
+          NoSuchRoom: 1,
+          AlreadyInRoom: 2,
         },
       },
     },

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const StartNewPongGameSchema = z.object({
+  game_id: z.number().int().gt(0),
   player_list: z.array(z.coerce.number()).refine(
     (arr) => {
       // Check uniqueness

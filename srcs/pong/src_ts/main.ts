@@ -3,11 +3,6 @@
 import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
-import type {
-  TypeMovePaddlePayloadScheme,
-  TypePongBall,
-  TypePongPaddle,
-} from "./utils/api/service/pong/pong_interfaces.js";
 import { socketToHub, OurSocket } from "./utils/socket_to_hub.js";
 
 const fastify = Fastify({

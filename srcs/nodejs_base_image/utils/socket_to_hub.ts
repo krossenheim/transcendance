@@ -82,12 +82,13 @@ export class OurSocket {
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
+        code: -1, // INVALID_SCHEMA_CODE
         payload: {
           message: `Validation error: ${parseResult.error.message}`,
         },
       });
     }
-    wrapper.payload = parseResult.data;
+    wrapper.payload = parseResult.data; // coerce numbers and the like.
     const funcOutput = await this._runEndpointHandler(
       wrapper,
       handlerType.handler

@@ -14,6 +14,7 @@ import {
 } from "./utils/api/service/pong/pong_interfaces.js";
 import { Result } from "./utils/api/service/common/result.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
+import { user_url } from "./utils/api/service/common/endpoints.js";
 
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
@@ -36,52 +37,53 @@ export class PongManager {
     return this;
   }
 
-  playerJoinInstance(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validrequest = ForwardToContainerSchema.safeParse(client_request);
-    if (!validrequest.success) {
-      console.error(
-        "exact fields expected at this stage: :",
-        validrequest.error
-      );
-      throw Error("Data should be clean at this stage.");
-    }
-    const { game_id } = validrequest.data.payload;
-    const { user_id } = validrequest.data;
-    const gameInstance: PongGame | undefined = this.pong_instances.get(game_id);
-    if (!gameInstance) {
-      return {
-        recipients: [user_id],
-        funcId: "join_instance",
-        payload: {
-          status: httpStatus.UNPROCESSABLE_ENTITY,
-          game_id: game_id,
-          pop_up_text: "No game with given, or not in the list of players.",
-        },
-      };
-    }
+  // playerJoinInstance(client_request: T_ForwardToContainer): T_PayloadToUsers {
+  //   const validrequest = ForwardToContainerSchema.safeParse(client_request);
+  //   if (!validrequest.success) {
+  //     console.error(
+  //       "exact fields expected at this stage: :",
+  //       validrequest.error
+  //     );
+  //     throw Error("Data should be clean at this stage.");
+  //   }
+  //   const { game_id } = validrequest.data.payload;
+  //   const { user_id } = validrequest.data;
+  //   const gameInstance: PongGame | undefined = this.pong_instances.get(game_id);
+  //   if (!gameInstance) {
+  //     return {
+  //       recipients: [user_id],
+  //       funcId: "join_instance",
+  //       payload: {
+  //         status: httpStatus.UNPROCESSABLE_ENTITY,
+  //         game_id: game_id,
+  //         pop_up_text: "No game with given, or not in the list of players.",
+  //       },
+  //     };
+  //   }
 
-    // debug
-    // debug
-    this.pong_instances = new Map();
-    this.pong_instances.set(game_id, gameInstance);
-    // for (const [id, instance] of this.pong_instances) {
-    //   if (instance !== gameInstance) {
-    //     this.pong_instances.delete(id);
-    //   }
-    // }
-    // debug
-    // debug
+  //   // debug
+  //   // debug
+  //   this.pong_instances = new Map();
+  //   this.pong_instances.set(game_id, gameInstance);
+  //   // for (const [id, instance] of this.pong_instances) {
+  //   //   if (instance !== gameInstance) {
+  //   //     this.pong_instances.delete(id);
+  //   //   }
+  //   // }
+  //   // debug
+  //   // debug
 
-    return {
-      recipients: [user_id],
-      funcId: "join_instance",
-      payload: {
-        status: httpStatus.BAD_REQUEST,
-        func_name: process.env.FUNC_POPUP_TEXT,
-        pop_up_text: "Could not start pong game.",
-      },
-    };
-  }
+  //   return {
+  //     recipients: [user_id],
+  //     funcId: "join_instance",
+
+  //     payload: {
+  //       status: httpStatus.BAD_REQUEST,
+  //       func_name: process.env.FUNC_POPUP_TEXT,
+  //       pop_up_text: "Could not start pong game.",
+  //     },
+  //   };
+  // }
   startGame(client_request: T_ForwardToContainer): T_PayloadToUsers {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
@@ -95,7 +97,8 @@ export class PongManager {
     if (!valid_gamestart.success) {
       return {
         recipients: [user_id],
-        funcId: "start_pong",
+        funcId: user_url.ws.pong.startGame.funcId,
+        code: user_url.ws.pong.startGame.code.InvalidInput,
         payload: {
           status: httpStatus.BAD_REQUEST,
           func_name: process.env.FUNC_POPUP_TEXT,
@@ -109,11 +112,10 @@ export class PongManager {
       console.log("Invalid payload to start a game.: " + zodded.error);
       return {
         recipients: [user_id],
-        funcId: "start_pong",
+        funcId: user_url.ws.pong.startGame.funcId,
+        code: user_url.ws.pong.startGame.code.InvalidInput,
         payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "could not start pong game.",
+          fix: "cant",
         },
       };
     }
@@ -123,11 +125,10 @@ export class PongManager {
     if (result.isErr()) {
       return {
         recipients: [user_id],
-        funcId: "start_pong",
+        funcId: user_url.ws.pong.startGame.funcId,
+        code: user_url.ws.pong.startGame.code.FailedCreateGame,
         payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: result.unwrapErr(),
+          fix: "Abcw",
         },
       };
     }
@@ -140,11 +141,11 @@ export class PongManager {
     {
       return {
         recipients: [user_id],
-        funcId: "start_pong",
+        funcId: user_url.ws.pong.startGame.funcId,
+        code: user_url.ws.pong.startGame.code.GameInstanceCreated,
         payload: {
-          status: httpStatus.OK,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "Your pong game_id is: " + game_id,
+          game_id: game_id,
+          player_list: player_list,
         },
       };
     }
@@ -161,8 +162,10 @@ export class PongManager {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: user_url.ws.pong.movePaddle.code.NotInRoom,
         payload: {
-          message: "You're not in game with ID " + client_metadata.payload.board_id,
+          message:
+            "You're not in game with ID " + client_metadata.payload.board_id,
         },
       });
     }

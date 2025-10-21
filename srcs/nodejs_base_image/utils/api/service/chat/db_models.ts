@@ -44,18 +44,9 @@ export const RoomSchema = z
   })
   .strict();
 
-export enum RoomEvents {
-  JOINED = "joined",
-  LEFT = "left",
-  TYPING = "typing",
-  ALREADY_IN_ROOM = "already in room",
-  ADDED_TO_ROOM = "added to room",
-}
-
 export const RoomEventSchema = z
   .object({
     user: idValue,
-    event: z.enum(RoomEvents),
     roomId: room_id_rule,
   })
   .strict();

@@ -30,10 +30,13 @@ socket.registerEvent(
   async (wrapper: T_ForwardToContainer) => {
     const room = singletonChatRooms.getRoom(wrapper.payload.roomId);
     if (!room) {
-      console.warn(`Client ${wrapper.user_id} to NOENT roomId:${wrapper.payload.roomId}`);
+      console.warn(
+        `Client ${wrapper.user_id} to NOENT roomId:${wrapper.payload.roomId}`
+      );
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
+        code: user_url.ws.chat.sendMessage.code.NoSuchRoom,
         payload: {
           message: `No such room (ID: ${wrapper.payload.roomId}) or you are not in it.`,
         },
@@ -52,6 +55,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
+        code: user_url.ws.chat.addUserToRoom.code.NoSuchRoom,
         payload: {
           message: `No such room (ID: ${wrapper.payload.roomId}) or you are not in it.`,
         },
@@ -70,6 +74,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
+        code: user_url.ws.chat.addRoom.code.ErrorNoRoomAdded,
         payload: {
           message: `Could not create requested room by name: ${wrapper.payload.roomName}`,
         },
@@ -91,6 +96,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [wrapper.user_id],
         funcId: wrapper.funcId,
+        code: user_url.ws.chat.listRooms.code.NoListGiven,
         payload: {
           message: `Could not list the rooms you can join.`,
         },

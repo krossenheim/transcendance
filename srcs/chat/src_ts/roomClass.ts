@@ -4,11 +4,11 @@ import type {
 } from "./utils/api/service/hub/hub_interfaces.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import {
-  RoomEvents,
   type TypeRoomSchema,
   type TypeStoredMessageSchema,
 } from "./utils/api/service/chat/db_models.js";
 import { Result } from "./utils/api/service/common/result.js";
+import { user_url } from "./utils/api/service/common/endpoints.js";
 
 class FixedSizeList<T> {
   public list: Array<T>;
@@ -65,6 +65,7 @@ class Room {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: user_url.ws.chat.sendMessage.code.NoSuchRoom,
         payload: {
           message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
         },
@@ -84,6 +85,7 @@ class Room {
     return Result.Ok({
       recipients: this.users,
       funcId: client_metadata.funcId,
+      code: user_url.ws.chat.sendMessage.code.MessageSent,
       payload: message,
     });
   }
@@ -95,6 +97,7 @@ class Room {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: user_url.ws.chat.addUserToRoom.code.Added,
         payload: {
           message: `Can't add users to a room you are not in.`,
         },
@@ -109,9 +112,9 @@ class Room {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: user_url.ws.chat.addUserToRoom.code.AlreadyInRoom,
         payload: {
           user: client_metadata.payload.user_to_add,
-          event: RoomEvents.ALREADY_IN_ROOM,
           roomId: this.roomId,
         },
       });
@@ -123,9 +126,9 @@ class Room {
         client_metadata.payload.user_to_add,
       ],
       funcId: client_metadata.funcId,
+      code: user_url.ws.chat.addUserToRoom.code.Added,
       payload: {
         user: client_metadata.payload.user_to_add,
-        event: RoomEvents.ADDED_TO_ROOM,
         roomId: this.roomId,
       },
     });
@@ -168,6 +171,7 @@ class ChatRooms {
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
+      code: user_url.ws.chat.addRoom.code.AddedRoom,
       payload: {
         roomId: newroom.roomId,
         roomName: newroom.room_name,
@@ -190,6 +194,7 @@ class ChatRooms {
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
+      code: user_url.ws.chat.listRooms.code.FullListGiven,
       payload: list,
     });
   }
@@ -202,6 +207,7 @@ class ChatRooms {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
+        code: user_url.ws.chat.joinRoom.code.NoSuchRoom,
         payload: {
           message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
         },
@@ -212,9 +218,9 @@ class ChatRooms {
         return Result.Ok({
           recipients: [client_metadata.user_id],
           funcId: client_metadata.funcId,
+          code: user_url.ws.chat.joinRoom.code.AlreadyInRoom,
           payload: {
             user: client_metadata.user_id,
-            event: RoomEvents.ALREADY_IN_ROOM,
             roomId: room.roomId,
           },
         });
@@ -226,9 +232,9 @@ class ChatRooms {
       return Result.Ok({
         recipients: room.users,
         funcId: client_metadata.funcId,
+        code: user_url.ws.chat.joinRoom.code.Joined,
         payload: {
           user: client_metadata.user_id,
-          event: RoomEvents.JOINED,
           roomId: room.roomId,
         },
       });
@@ -236,6 +242,7 @@ class ChatRooms {
     return Result.Ok({
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
+      code: user_url.ws.chat.joinRoom.code.NoSuchRoom,
       payload: {
         message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
       },

@@ -12,6 +12,7 @@ import {
   UserToHubSchema,
   PayloadHubToUsersSchema,
   type TypePayloadHubToUsersSchema,
+  type T_ForwardToContainer,
 } from "./utils/api/service/hub/hub_interfaces.js";
 import { containersIpToName } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
@@ -187,6 +188,7 @@ function translateContainerMessage(
     PayloadHubToUsersSchema.parse({
       source_container: source_container,
       funcId: validateIncoming.data.funcId,
+      code: validateIncoming.data.code,
       payload: validateIncoming.data.payload,
     }),
     validateIncoming.data.recipients,
@@ -231,8 +233,6 @@ fastify.get(
     });
   }
 );
-
-type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 
 async function isAuthed(parsed: any): Promise<Result<number, string>> {
   const userauth_attempt = UserAuthenticationRequestSchema.safeParse(parsed);

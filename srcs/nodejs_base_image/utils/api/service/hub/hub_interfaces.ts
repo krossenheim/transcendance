@@ -21,7 +21,7 @@ export const PayloadToUsersSchema = z
       .nonempty({ message: "Recipients array cannot be empty" }),
     funcId: z.string(),
     payload: z.any(),
-    // code: z.number(),
+    code: z.number().int(),
     // big? todo
   })
   .strict();
@@ -30,7 +30,7 @@ export const PayloadHubToUsersSchema = z
   .object({
     source_container: z.string(),
     funcId: z.string(),
-    // code: z.number(),
+    code: z.number().int(),
     payload: z.any(),
   })
   .strict();
@@ -43,6 +43,8 @@ export const ForwardToContainerSchema = z
   })
   .strict();
 
-export type TypePayloadHubToUsersSchema = z.infer<typeof PayloadHubToUsersSchema>;
+export type TypePayloadHubToUsersSchema = z.infer<
+  typeof PayloadHubToUsersSchema
+>;
 export type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 export type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
