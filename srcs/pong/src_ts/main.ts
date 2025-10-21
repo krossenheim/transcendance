@@ -72,8 +72,8 @@ backgroundTask();
 
 socket.registerEvent(
   user_url.ws.pong.movePaddle,
-  async (body: TypeMovePaddlePayloadScheme, wrapper: T_ForwardToContainer) => {
-    return singletonPong.movePaddle(body, wrapper);
+  async (wrapper: T_ForwardToContainer) => {
+    return singletonPong.movePaddle(wrapper);
   }
 );
 

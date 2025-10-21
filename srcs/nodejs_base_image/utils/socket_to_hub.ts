@@ -25,9 +25,8 @@ import type { ErrorResponseType } from "./api/service/common/error.js";
 
 interface HandlerType<TBody = any, TWrapper = any> {
   handler: (
-    body: TBody,
     wrapper: TWrapper
-  ) => Promise<Result<any, ErrorResponseType>>;
+  ) => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>;
   metadata: {
     schema: {
       body: ZodType<TBody>;
@@ -50,15 +49,14 @@ export class OurSocket {
   }
 
   async _runEndpointHandler(
-    payload: z.ZodType,
     wrapper: T_ForwardToContainer,
-    handler: (input: any, wrapper: any) => any | Promise<any>
+    handler: (wrapper: T_ForwardToContainer) => any | Promise<any>
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     try {
       if (handler.constructor.name === "AsyncFunction") {
-        return await handler(payload, wrapper);
+        return await handler(wrapper);
       } else {
-        return handler(payload, wrapper);
+        return handler(wrapper);
       }
     } catch {
       return Result.Err({ message: "Error executing ws endpoint" });
@@ -66,33 +64,32 @@ export class OurSocket {
   }
 
   async _handleEndpoint(
-    containerSchema: z.infer<typeof ForwardToContainerSchema>
+    wrapper: T_ForwardToContainer
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
-    const handlerType: HandlerType | undefined =
-      this.handlers[containerSchema.funcId];
-    console.log(this.handlers);
+    const handlerType: HandlerType | undefined = this.handlers[wrapper.funcId];
+    // console.log(this.handlers);
     if (handlerType === undefined)
       return Result.Err({
-        message: "No handler found for this endpoint:" + containerSchema.funcId,
+        message: "No handler found for this endpoint:" + wrapper.funcId,
       });
 
     // const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
 
     const parseResult = handlerType.metadata.schema.body.safeParse(
-      containerSchema.payload
+      wrapper.payload
     );
     if (!parseResult.success) {
       return Result.Ok({
-        recipients: [containerSchema.user_id],
-        funcId: containerSchema.funcId,
+        recipients: [wrapper.user_id],
+        funcId: wrapper.funcId,
         payload: {
           message: `Validation error: ${parseResult.error.message}`,
         },
       });
     }
+    wrapper.payload = parseResult.data;
     const funcOutput = await this._runEndpointHandler(
-      parseResult.data,
-      containerSchema,
+      wrapper,
       handlerType.handler
     );
     return funcOutput;
@@ -112,7 +109,7 @@ export class OurSocket {
       const schemaResult = zodParse(ForwardToContainerSchema, parsed);
       if (schemaResult.isOk()) {
         const request = schemaResult.unwrap();
-        console.log("Try find something for endpoint " + request.funcId);
+        console.log("Handling request for funcID: " + request.funcId);
         const result = await this._handleEndpoint(request);
         if (result.isErr()) {
           console.warn("Handler returns error!");
@@ -138,7 +135,6 @@ export class OurSocket {
     handlerEndpoint: T,
     handler: T["schema"]["body"] extends z.ZodTypeAny
       ? (
-          body: z.infer<T["schema"]["body"]>,
           wrapper: z.infer<T["schema"]["wrapper"]>
         ) => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
       : () => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>

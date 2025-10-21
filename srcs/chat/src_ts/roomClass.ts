@@ -1,43 +1,14 @@
-import {
-  ForwardToContainerSchema,
-  PayloadToUsersSchema,
-} from "./utils/api/service/hub/hub_interfaces.js";
 import type {
   T_ForwardToContainer,
   T_PayloadToUsers,
 } from "./utils/api/service/hub/hub_interfaces.js";
-import {
-  AddRoomPayloadSchema,
-  AddToRoomPayloadSchema,
-  room_id_rule,
-  SendMessagePayloadSchema,
-  type TypeAddRoomPayloadSchema,
-  type TypeAddToRoomPayload,
-  type TypeRequestRoomByIdSchema,
-  type TypeUserSendMessagePayload,
-} from "./utils/api/service/chat/chat_interfaces.js";
-import httpStatus from "./utils/httpStatusEnum.js";
-import { date, z } from "zod";
-import Containers from "./utils/internal_api.js";
-import { int_url } from "./utils/api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import {
-  StoredMessageSchema,
   RoomEvents,
   type TypeRoomSchema,
   type TypeStoredMessageSchema,
 } from "./utils/api/service/chat/db_models.js";
-import { message_date_rule } from "./utils/api/service/chat/db_models.js";
 import { Result } from "./utils/api/service/common/result.js";
-import { idValue } from "./utils/api/service/common/zodRules.js";
-
-function toInt(value: string) {
-  const num = Number(value);
-  if (!Number.isInteger(num)) {
-    throw new TypeError(`Cannot convert "${value}" to integer`);
-  }
-  return num;
-}
 
 class FixedSizeList<T> {
   public list: Array<T>;
@@ -85,28 +56,27 @@ class Room {
   }
 
   sendMessage(
-    client_input: TypeUserSendMessagePayload,
     client_metadata: T_ForwardToContainer
   ): Result<T_PayloadToUsers, ErrorResponseType> {
     if (
-      client_input.roomId !== this.roomId ||
+      client_metadata.payload.roomId !== this.roomId ||
       this.users.indexOf(client_metadata.user_id) === -1
     ) {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
         payload: {
-          message: `No such room (ID: ${client_input.roomId}) or you are not in it.`,
+          message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
         },
       });
     }
-    if (!client_input.messageString) {
+    if (!client_metadata.payload.messageString) {
       Result.Err("Received no message body");
     }
     const message = {
       messageId: this._current_message_id++,
       roomId: this.roomId,
-      messageString: client_input.messageString,
+      messageString: client_metadata.payload.messageString,
       messageDate: Date.now(),
       userId: client_metadata.user_id,
     };
@@ -119,7 +89,6 @@ class Room {
   }
 
   addToRoom(
-    client_input: TypeAddToRoomPayload,
     client_metadata: T_ForwardToContainer
   ): Result<T_PayloadToUsers, ErrorResponseType> {
     if (this.allowedUsers.indexOf(client_metadata.user_id) === -1) {
@@ -131,28 +100,31 @@ class Room {
         },
       });
     }
-    if (this.roomId !== client_input.roomId) {
+    if (this.roomId !== client_metadata.payload.roomId) {
       return Result.Err({
-        message: `Rooms handler incorrectly forwarded room ${this.roomId} a request for room ${client_input.roomId}`,
+        message: `Rooms handler incorrectly forwarded room ${this.roomId} a request for room ${client_metadata.payload.roomId}`,
       });
     }
-    if (this.allowedUsers.indexOf(client_input.user_to_add) !== -1) {
+    if (this.allowedUsers.indexOf(client_metadata.payload.user_to_add) !== -1) {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
         payload: {
-          user: client_input.user_to_add,
+          user: client_metadata.payload.user_to_add,
           event: RoomEvents.ALREADY_IN_ROOM,
           roomId: this.roomId,
         },
       });
     }
-    this.allowedUsers.push(client_input.user_to_add);
+    this.allowedUsers.push(client_metadata.payload.user_to_add);
     return Result.Ok({
-      recipients: [client_metadata.user_id, client_input.user_to_add],
+      recipients: [
+        client_metadata.user_id,
+        client_metadata.payload.user_to_add,
+      ],
       funcId: client_metadata.funcId,
       payload: {
-        user: client_input.user_to_add,
+        user: client_metadata.payload.user_to_add,
         event: RoomEvents.ADDED_TO_ROOM,
         roomId: this.roomId,
       },
@@ -187,10 +159,9 @@ class ChatRooms {
   }
 
   addRoom(
-    client_input: TypeAddRoomPayloadSchema,
     client_metadata: T_ForwardToContainer
   ): Result<T_PayloadToUsers, ErrorResponseType> {
-    const newroom = new Room(client_input.roomName, DEBUGROOMID++);
+    const newroom = new Room(client_metadata.payload.roomName, DEBUGROOMID++);
     newroom.users.push(client_metadata.user_id);
     newroom.allowedUsers.push(client_metadata.user_id);
     this.rooms.push(newroom);
@@ -224,16 +195,15 @@ class ChatRooms {
   }
 
   userJoinRoom(
-    body: TypeRequestRoomByIdSchema,
     client_metadata: T_ForwardToContainer
   ): Result<T_PayloadToUsers, ErrorResponseType> {
-    const room = this.getRoom(body.roomId);
+    const room = this.getRoom(client_metadata.payload.roomId);
     if (room === null) {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
         payload: {
-          message: `No such room (ID: ${body.roomId}) or you are not in it.`,
+          message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
         },
       });
     }
@@ -267,7 +237,7 @@ class ChatRooms {
       recipients: [client_metadata.user_id],
       funcId: client_metadata.funcId,
       payload: {
-        message: `No such room (ID: ${body.roomId}) or you are not in it.`,
+        message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
       },
     });
   }

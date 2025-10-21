@@ -151,10 +151,9 @@ export class PongManager {
   }
 
   movePaddle(
-    client_input: TypeMovePaddlePayloadScheme,
     client_metadata: T_ForwardToContainer
   ): Result<T_PayloadToUsers | null, ErrorResponseType> {
-    const game = this.pong_instances.get(client_input.board_id);
+    const game = this.pong_instances.get(client_metadata.payload.board_id);
     if (
       !game ||
       !game.player_ids.find((id) => id === client_metadata.user_id)
@@ -163,11 +162,11 @@ export class PongManager {
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
         payload: {
-          message: "You're not in game with ID " + client_input.board_id,
+          message: "You're not in game with ID " + client_metadata.payload.board_id,
         },
       });
     }
-    game.setInputOnPaddle(client_metadata.user_id, client_input.m);
+    game.setInputOnPaddle(client_metadata.user_id, client_metadata.payload.m);
     return Result.Ok(null);
   }
 }
