@@ -77,6 +77,37 @@ export class OurSocket {
     };
   }
 
+  sendMessage<T extends WebSocketRouteDef>(
+    handlerEndpoint: T,
+    message: WSHandlerReturnValue<T["schema"]["responses"]>
+  ): Result<void, ErrorResponseType> {
+    if (handlerEndpoint.container !== this.container) {
+      throw new Error(
+        `Cannot send message to container "${handlerEndpoint.container}" from "${this.container}"`
+      );
+    }
+
+    const rawData = {
+      recipients: message.recipients,
+      funcId: handlerEndpoint.funcId,
+      code: Number(message.code),
+      payload: message.payload,
+    };
+    const parseResult = this._validateResponsePayload(
+      handlerEndpoint.schema,
+      rawData,
+    )
+    if (parseResult.isErr())
+      return Result.Err(parseResult.unwrapErr());
+  
+    try {
+      this.socket.send(JSON.stringify(rawData));
+    } catch (err) {
+      return Result.Err({ message: "Failed to send message over WebSocket" });
+    }
+    return Result.Ok(undefined);
+  }
+
   getSocket(): WebSocket {
     return this.socket;
   }
