@@ -110,36 +110,22 @@ export class PongManager {
   // }
   startGame(
     client_request: T_ForwardToContainer
-  ): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.responses> {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
-      throw Error("Data should be clean at this stage.");
-    }
+  ): Result<
+    WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.responses>,
+    ErrorResponseType
+  > {
     const { user_id } = client_request;
-
-    const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);
-    if (!zodded.success) {
-      console.log("Invalid payload to start a game.: " + zodded.error);
-      return {
-        recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.InvalidInput.code,
-        payload: {
-          message: "Could not start pong game: invalid payload structure.",
-        },
-      };
-    }
-    const { balls, player_list } = zodded.data;
+    const { balls, player_list } = client_request.payload;
     // const { user_id } = parsed;
     let result = PongGame.create(balls, player_list);
     if (result.isErr()) {
-      return {
+      return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.pong.startGame.schema.responses.FailedCreateGame.code,
         payload: {
           message: "Could not start pong game: failed to create game instance.",
         },
-      };
+      });
     }
     const pong_game = result.unwrap();
     const game_id = this.debugGameID;
@@ -148,7 +134,7 @@ export class PongManager {
     this.pong_instances.set(game_id, pong_game);
     // Send the users the game id.
     {
-      return {
+      return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.pong.startGame.schema.responses.GameInstanceCreated
           .code,
@@ -156,7 +142,7 @@ export class PongManager {
           game_id: game_id,
           player_list: player_list,
         },
-      };
+      });
     }
   }
 

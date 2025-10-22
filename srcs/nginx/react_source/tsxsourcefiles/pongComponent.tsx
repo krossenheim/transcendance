@@ -27,7 +27,7 @@ function mapToCanvas(x: number, y: number) {
 // =========================
 export default function PongComponent() {
   const { socket, payloadReceived } = useWebSocket();
-  const [game_id, setGame_id] = useState(0);
+  const [game_id, setGame_id] = useState(1);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [gameState, setGameState] = useState<TypeGameStateSchema>({
@@ -52,9 +52,10 @@ export default function PongComponent() {
     if (!payloadReceived) return;
 
     if (payloadReceived.funcId === user_url.ws.pong.startGame.funcId) {
-      const parsed = user_url.ws.pong.startGame.schema.response[0].safeParse(
-        payloadReceived.payload
-      );
+      const parsed =
+        user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.payload.safeParse(
+          payloadReceived.payload
+        );
       console.log("running1");
       if (parsed.success) setGame_id(parsed.data.game_id);
       else console.warn("Invalid new game payload:", parsed.error);
@@ -62,7 +63,10 @@ export default function PongComponent() {
       payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
     ) {
       console.log("running12");
-      const parsed = GameStateSchema.safeParse(payloadReceived.payload);
+      const parsed =
+        user_url.ws.pong.getGameState.schema.responses.GameUpdate.payload.safeParse(
+          payloadReceived.payload
+        );
       if (parsed.success) setGameState(parsed.data);
       else console.warn("Invalid GameState payload:", parsed.error);
     }
@@ -108,34 +112,40 @@ export default function PongComponent() {
   // =========================
   // Keyboard input (W / S)
   // =========================
+useEffect(() => {
+  const keysPressed = new Set<string>();
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key !== "w" && e.key !== "s") return;
-      const payload = {
-        board_id: game_id, // could be dynamic later
-        m: e.key === "w", // w = true, s = false
-      };
-      handleSendMovePaddle(payload);
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key !== "w" && e.key !== "s") return;
+    if (keysPressed.has(e.key)) return; // already pressed, ignore
+    keysPressed.add(e.key);
+
+    const payload = {
+      board_id: game_id,
+      m: e.key === "w",
+    };
+    handleSendMovePaddle(payload);
   }
 
-    function handleKeyUp(e: KeyboardEvent) {
-      if (e.key !== "w" && e.key !== "s") return;
-      const payload = {
-        board_id: game_id,
-        m: null, // empty payload on key release
-      };
-      handleSendMovePaddle(payload);
-    }
+  function handleKeyUp(e: KeyboardEvent) {
+    if (e.key !== "w" && e.key !== "s") return;
+    keysPressed.delete(e.key);
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+    const payload = {
+      board_id: game_id,
+      m: null, // stop movement
     };
-  }, [handleSendMovePaddle, game_id]);
+    handleSendMovePaddle(payload);
+  }
+
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keyup", handleKeyUp);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+    window.removeEventListener("keyup", handleKeyUp);
+  };
+}, [handleSendMovePaddle, game_id]);
 
   // =========================
   // Canvas Rendering

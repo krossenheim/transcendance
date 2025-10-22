@@ -76,12 +76,12 @@ async function backgroundTask() {
 }
 backgroundTask();
 
-// socket.registerEvent(
-//   user_url.ws.pong.movePaddle,
-//   async (body: TypeMovePaddlePayloadScheme, wrapper: T_ForwardToContainer) => {
-//     return singletonPong.movePaddle(body, wrapper);
-//   }
-// );
+socket.registerEvent(
+  user_url.ws.pong.movePaddle,
+  async (wrapper) => {
+    return singletonPong.movePaddle(wrapper);
+  }
+);
 
 socket.registerEvent(
   user_url.ws.pong.startGame,

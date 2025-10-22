@@ -211,7 +211,7 @@ export const user_url = defineRoutes({
           wrapper: ForwardToContainerSchema,
           body: EmptySchema,
           responses: {
-            MessageSent: {
+            GameUpdate: {
               code: 0,
               payload: GameStateSchema,
             },
