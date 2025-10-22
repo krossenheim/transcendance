@@ -36,7 +36,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [body.user_id],
         funcId: body.funcId,
-        code: user_url.ws.chat.sendMessage.code.NoSuchRoom,
+        code: user_url.ws.chat.sendMessage.schema.responses.NotInRoom.code,
         payload: {
           message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
         },
@@ -48,14 +48,13 @@ socket.registerEvent(
 
 socket.registerEvent(
   user_url.ws.chat.addUserToRoom,
-  async (body) => {
+  async (body, schema) => {
     const room = singletonChatRooms.getRoom(body.payload.roomId);
     if (!room) {
       console.warn(`Bad user request, no such room.`);
       return Result.Ok({
         recipients: [body.user_id],
-        funcId: body.funcId,
-        code: user_url.ws.chat.addUserToRoom.code.NoSuchRoom,
+        code: schema.responses.NoSuchRoom.code,
         payload: {
           message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
         },
@@ -74,7 +73,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [body.user_id],
         funcId: body.funcId,
-        code: user_url.ws.chat.addRoom.code.ErrorNoRoomAdded,
+        code: user_url.ws.chat.addRoom.schema.responses.FailedToAddRoom.code,
         payload: {
           message: `Could not create requested room by name: ${body.payload.roomName}`,
         },
@@ -95,8 +94,7 @@ socket.registerEvent(
       );
       return Result.Ok({
         recipients: [body.user_id],
-        funcId: body.funcId,
-        code: user_url.ws.chat.listRooms.code.NoListGiven,
+        code: user_url.ws.chat.listRooms.schema.responses.NoListGiven.code,
         payload: {
           message: `Could not list the rooms you can join.`,
         },

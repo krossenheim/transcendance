@@ -47,16 +47,19 @@ export type HTTPRouteDef = {
   };
 };
 
-// TODO
+export type WSResponseType = {
+  code: number;
+  payload: z.ZodType;
+};
+
 export type WebSocketRouteDef = {
   funcId: string;
   container: "chat" | "pong" | "users";
   schema: {
     body: z.ZodType;
     wrapper: z.ZodType;
-    response: Record<number, z.ZodType>;
+    responses: Record<string, WSResponseType>;
   };
-  code: Record<string, number>;
 };
 
 // Type safety wrapper
@@ -178,24 +181,26 @@ export const user_url = defineRoutes({
   },
 
   ws: {
-	users: {
-		test: {
-			funcId: "test",
-			container: "users",
-			schema: {
-				wrapper: ForwardToContainerSchema,
-				body: EmptySchema,
-				response: {
-					0: z.string(),
-					1: ErrorResponse,
-				}
-			},
-			code: {
-				Success: 0,
-				Failure: 1,
-			}
-		}
-	},
+    users: {
+      test: {
+        funcId: "test",
+        container: "users",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: EmptySchema,
+          responses: {
+            Success: {
+              code: 0,
+              payload: z.string(),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            }
+          }
+        }
+      }
+    },
 
     pong: {
       getGameState: {
@@ -204,16 +209,20 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: EmptySchema,
-          response: {
-            0: GameStateSchema,
-            1: ErrorResponse,
-            2: ErrorResponse,
+          responses: {
+            MessageSent: {
+              code: 0,
+              payload: GameStateSchema,
+            },
+            NotInRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 2,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          MessageSent: 0,
-          NotInRoom: 1,
-          InvalidInput: 2,
         },
       },
       movePaddle: {
@@ -222,16 +231,20 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: MovePaddlePayloadScheme,
-          response: {
-            0: EmptySchema,
-            1: ErrorResponse,
-            2: ErrorResponse,
+          responses: {
+            MessageSent: {
+              code: 0,
+              payload: EmptySchema,
+            },
+            NotInRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 2,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          MessageSent: 0,
-          NotInRoom: 1,
-          InvalidInput: 2,
         },
       },
       startGame: {
@@ -240,16 +253,20 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: StartNewPongGameSchema,
-          response: {
-            0: EmptySchema,
-            1: ErrorResponse,
-            2: ErrorResponse,
+          responses: {
+            GameInstanceCreated: {
+              code: 0,
+              payload: EmptySchema,
+            },
+            FailedCreateGame: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 2,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          GameInstanceCreated: 0,
-          FailedCreateGame: 1,
-          InvalidInput: 2,
         },
       },
     },
@@ -261,17 +278,20 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: SendMessagePayloadSchema,
-          response: {
-            0: StoredMessageSchema,
-            1: ErrorResponse,
-            2: ErrorResponse,
+          responses: {
+            MessageSent: {
+              code: 0,
+              payload: StoredMessageSchema,
+            },
+            NotInRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 2,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          MessageSent: 0,
-          NotInRoom: 1,
-          InvalidInput: 2,
-          NoSuchRoom: 3,
         },
       },
       addUserToRoom: {
@@ -280,18 +300,28 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: AddToRoomPayloadSchema,
-          response: {
-            0: RoomEventSchema,
-            1: ErrorResponse,
-            2: ErrorResponse,
+          responses: {
+            UserAdded: {
+              code: 0,
+              payload: RoomEventSchema,
+            },
+            NotInRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+            AlreadyInRoom: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+            NoSuchRoom: {
+              code: 4,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          Added: 0,
-          NotInRoom: 1,
-          InvalidInput: 2,
-          AlreadyInRoom: 3,
-          NoSuchRoom: 4,
         },
       },
       addRoom: {
@@ -300,14 +330,16 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: AddRoomPayloadSchema,
-          response: {
-            0: RoomSchema,
-            1: ErrorResponse,
+          responses: {
+            AddedRoom: {
+              code: 0,
+              payload: RoomSchema,
+            },
+            FailedToAddRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          AddedRoom: 0,
-          ErrorNoRoomAdded: 1,
         },
       },
       listRooms: {
@@ -316,14 +348,16 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: EmptySchema,
-          response: {
-            0: ListRoomsSchema,
-            1: ErrorResponse,
+          responses: {
+            FullListGiven: {
+              code: 0,
+              payload: ListRoomsSchema,
+            },
+            NoListGiven: {
+              code: 1,
+              payload: ErrorResponse,
+            },
           },
-        },
-        code: {
-          FullListGiven: 0,
-          NoListGiven: 1,
         },
       },
       joinRoom: {
@@ -332,9 +366,15 @@ export const user_url = defineRoutes({
         schema: {
           wrapper: ForwardToContainerSchema,
           body: RequestRoomByIdSchema,
-          response: {
-            0: RoomEventSchema,
-            1: ErrorResponse,
+          responses: {
+            RoomJoined: {
+              code: 0,
+              payload: RoomEventSchema,
+            },
+            NoSuchRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
           },
         },
         code: {

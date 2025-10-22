@@ -4,7 +4,7 @@ import { rawDataToString } from "./raw_data_to_string.js";
 import { JSONtoZod } from "./api/service/common/json.js";
 import { Result } from "./api/service/common/result.js";
 
-import type { T_ForwardToContainer, T_PayloadToUsers } from "./api/service/hub/hub_interfaces.js";
+import { type T_ForwardToContainer, type T_PayloadToUsers, PayloadToUsersSchema } from "./api/service/hub/hub_interfaces.js";
 import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
@@ -12,34 +12,37 @@ import WebSocket from "ws";
 import { z, ZodType } from "zod";
 
 export type WSHandlerReturnValue<
-  T extends Record<number, z.ZodTypeAny>,
-  K extends keyof T & number = keyof T & number
+  T extends Record<string, { code: number; payload: z.ZodTypeAny }>
 > = {
-  recipients: number[];
-  code: K;
-  payload: z.infer<T[K]>;
-};
+  [R in keyof T]: {
+    recipients: number[];
+    code: T[R]["code"];
+    payload: z.infer<T[R]["payload"]>;
+  };
+}[keyof T];
 
 type InferWSHandler<T extends WebSocketRouteDef> = (
   body: Omit<z.infer<T["schema"]["wrapper"]>, "payload"> & {
     payload: z.infer<T["schema"]["body"]>;
-  }
-) => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>;
+  },
+  schema: T["schema"]
+) => Promise<Result<WSHandlerReturnValue<T["schema"]["responses"]> | null, ErrorResponseType>>;
 
 interface HandlerType<
   TBody extends ZodType = any,
-  TWrapper extends ZodType = any,
-  TResponse extends Record<string, ZodType> = any
+  TWrapper extends T_ForwardToContainer = any,
+  TResponse extends Record<string, { code: number; payload: z.ZodTypeAny }> = any
 > {
   handler: (
-    wrapper: z.infer<TWrapper>
+    body: any,
+    schema: any
   ) => Promise<Result<WSHandlerReturnValue<TResponse> | null, ErrorResponseType>>;
 
   metadata: Omit<WebSocketRouteDef, "schema"> & {
     schema: {
       body: TBody;
       wrapper: TWrapper;
-      response: TResponse;
+      responses: TResponse;
     };
   };
 }
@@ -118,14 +121,15 @@ export class OurSocket {
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     const handlerType = this.handlers[containerSchema.funcId];
     if (!handlerType)
-      return Result.Err({message: `No handler found for funcId "${containerSchema.funcId}"`});
+      return Result.Err({ message: `No handler found for funcId "${containerSchema.funcId}"` });
 
     const parsedBody = zodParse(handlerType.metadata.schema.body, containerSchema.payload);
     if (parsedBody.isErr())
-      return Result.Err({message: `Validation error: ${parsedBody.unwrapErr()}`});
+      return Result.Err({ message: `Validation error: ${parsedBody.unwrapErr()}` });
 
     const funcOutput = await this._executeHandler(
       containerSchema,
+      handlerType.metadata.schema,
       handlerType.handler
     );
 
@@ -142,26 +146,57 @@ export class OurSocket {
     });
   }
 
+  private _validateResponsePayload<T>(
+    schema: any,
+    outputData: T_PayloadToUsers
+  ): Result<T_PayloadToUsers, ErrorResponseType> {
+    let matched = false;
+    for (const value of Object.values(schema.responses) as Array<{ code: number; payload: ZodType }>) {
+      const expectedCode = Number(value.code);
+      if (Number(outputData.code) === expectedCode) {
+        matched = true;
+        const validation = zodParse(value.payload, outputData.payload);
+        if (validation.isErr()) {
+          return Result.Err({
+            message: `Response payload does not match schema for code ${expectedCode}: ${validation.unwrapErr()}`,
+          });
+        }
+        break;
+      }
+    }
+    if (!matched) {
+      return Result.Err({ message: `No response schema found for code ${outputData.code}` });
+    }
+    return zodParse(PayloadToUsersSchema, outputData).mapErr((err) => ({ message: err }));
+  }
+
   private async _executeHandler(
     payload: T_ForwardToContainer,
+    schema: any,
     handler: (
-      body: T_ForwardToContainer
+      body: T_ForwardToContainer,
+      schema: {
+        body: ZodType;
+        wrapper: ZodType;
+        responses: Record<string, { code: number; payload: ZodType }>;
+      }
     ) => Promise<Result<WSHandlerReturnValue<any> | null, ErrorResponseType>> | Result<WSHandlerReturnValue<any> | null, ErrorResponseType>
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     try {
-      let result = handler(payload);
+      let result = handler(payload, schema);
       if (result instanceof Promise) result = await result;
 
       return result.map((res) => {
         if (!res) return null;
-        return {
+        return this._validateResponsePayload(schema, {
           recipients: res.recipients,
           funcId: payload.funcId,
           code: Number(res.code),
           payload: res.payload,
-        };
+        }).unwrap();
       });
     } catch (err) {
+      console.error("Error in _executeHandler:", err);
       return Result.Err({ message: "Error executing WS endpoint" });
     }
   }

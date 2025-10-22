@@ -11,11 +11,9 @@ import { Result } from "./utils/api/service/common/result.js";
 const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
 
-const code = 1;
-
-socketToHub.registerEvent(user_url.ws.users.test, async (body) => {
+socketToHub.registerEvent(user_url.ws.users.test, async (body, schema) => {
 	console.log("Received test event with body:", body);
-	const result = Result.Ok({recipients: [body.user_id], code: user_url.ws.users.test.code.Success, payload: {message: "Test successful"}});
+	const result = Result.Ok({recipients: [body.user_id], code: schema.responses.Failure.code, payload: {message: "Test successful"}});
 	return result;
 });
 

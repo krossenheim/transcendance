@@ -15,6 +15,7 @@ import {
 import { Result } from "./utils/api/service/common/result.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
+import type { WSHandlerReturnValue } from "utils/socket_to_hub.js";
 
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
@@ -107,7 +108,7 @@ export class PongManager {
   //     },
   //   };
   // }
-  startGame(client_request: T_ForwardToContainer): T_PayloadToUsers {
+  startGame(client_request: T_ForwardToContainer): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.responses> {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
@@ -120,12 +121,9 @@ export class PongManager {
     if (!valid_gamestart.success) {
       return {
         recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.InvalidInput,
+        code: user_url.ws.pong.startGame.schema.responses.InvalidInput.code,
         payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "could not start pong game.",
+          message: "Could not start pong game: ",
         },
       };
     }
@@ -135,10 +133,9 @@ export class PongManager {
       console.log("Invalid payload to start a game.: " + zodded.error);
       return {
         recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.InvalidInput,
+        code: user_url.ws.pong.startGame.schema.responses.InvalidInput.code,
         payload: {
-          fix: "cant",
+          message: "Could not start pong game: invalid payload structure.",
         },
       };
     }
@@ -148,10 +145,9 @@ export class PongManager {
     if (result.isErr()) {
       return {
         recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.FailedCreateGame,
+        code: user_url.ws.pong.startGame.schema.responses.FailedCreateGame.code,
         payload: {
-          fix: "Abcw",
+          message: "Could not start pong game: failed to create game instance.",
         },
       };
     }
@@ -164,19 +160,19 @@ export class PongManager {
     {
       return {
         recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.GameInstanceCreated,
-        payload: {
-          game_id: game_id,
-          player_list: player_list,
-        },
+        code: user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.code,
+        // payload: {
+        //   game_id: game_id,
+        //   player_list: player_list,
+        // },
+        payload: {}
       };
     }
   }
 
   movePaddle(
     client_metadata: T_ForwardToContainer
-  ): Result<T_PayloadToUsers | null, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.responses> | null, ErrorResponseType> {
     const game = this.pong_instances.get(client_metadata.payload.board_id);
     if (
       !game ||
@@ -185,7 +181,7 @@ export class PongManager {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
-        code: user_url.ws.pong.movePaddle.code.NotInRoom,
+        code: user_url.ws.pong.movePaddle.schema.responses.NotInRoom.code,
         payload: {
           message:
             "You're not in game with ID " + client_metadata.payload.board_id,
