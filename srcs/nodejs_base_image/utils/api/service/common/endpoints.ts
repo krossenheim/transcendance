@@ -31,6 +31,7 @@ import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
 import {
   GameStateSchema,
+  GetGameInfoSchema,
   MovePaddlePayloadScheme,
   StartNewPongGameSchema,
 } from "../pong/pong_interfaces.js";

@@ -55,6 +55,7 @@ function rotatePolygon(
   });
 }
 
+let debug_game_id = 1;
 class PongGame {
   private board_size: Vec2;
   private map_polygon_edges: Vec2[];
@@ -65,11 +66,13 @@ class PongGame {
   // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
+  private readonly game_id: number;
 
-  private constructor(player_ids: Array<number>) {
+  private constructor(num_balls: number, player_ids: Array<number>) {
+    this.game_id = debug_game_id++;
     this.player_ids = player_ids;
     this.board_size = { x: 1000, y: 1000 };
-    this.pong_balls = this.spawn_balls(20);
+    this.pong_balls = this.spawn_balls(num_balls);
     this.map_polygon_edges = this.spawn_map_edges(player_ids.length);
     this.player_id_to_paddle = this.spawn_paddles(player_ids);
     this.player_paddles = Array.from(this.player_id_to_paddle.values());
@@ -94,7 +97,10 @@ class PongGame {
   // 		return Result.Ok(decoded.uid);
   // }
 
-  static create(player_ids: Array<number>): Result<PongGame, string> {
+  static create(
+    balls: number,
+    player_ids: Array<number>
+  ): Result<PongGame, string> {
     if (new Set(player_ids).size !== player_ids.length) {
       console.error("Non unique ids passed as player_ids");
       return Result.Err("Non unique ids passed as player_ids");
@@ -115,7 +121,7 @@ class PongGame {
       }
     }
     try {
-      const game = new PongGame(player_ids);
+      const game = new PongGame(balls, player_ids);
       return Result.Ok(game);
     } catch (e: unknown) {
       console.error(
@@ -220,7 +226,7 @@ class PongGame {
     paddle.setMoveOnNextFrame(move_right);
   }
 
-  private tempSquareBoundaries() {
+  private unecessaryCheck() {
     for (const ball of this.pong_balls) {
       if (ball.pos.x < 0) {
         ball.pos.x = 0;
@@ -246,10 +252,12 @@ class PongGame {
 
   getGameState(): TypeGameStateSchema {
     const payload: {
+      game_id: number;
       balls: TypePongBall[];
       paddles: TypePongPaddle[];
       edges: TypePongEdgeSchema[];
     } = {
+      game_id: this.game_id,
       balls: [],
       paddles: [],
       edges: [],
@@ -278,13 +286,7 @@ class PongGame {
     return payload;
   }
 
-  gameLoop() {
-    const currentTime = Date.now();
-    const deltaTime = (currentTime - this.last_frame_time) / 1000; // 0.5 = half a second
-    this.last_frame_time = currentTime;
-
-    const deltaFactor = this.timefactor * deltaTime;
-
+  setPaddleMovement(deltaFactor: number) {
     for (const paddle of this.player_paddles) {
       const p_movement = paddle.getMove(deltaFactor);
       paddle.lastMovement = p_movement; // store for collision detection
@@ -299,11 +301,19 @@ class PongGame {
         );
       }
     }
+  }
+
+  checkBallsBounceOnPaddles(deltaFactor: number) {
     for (const pong_ball of this.pong_balls) {
       const pb_movement = pong_ball.getMove(deltaFactor);
       pong_ball.movePaddleAware(pb_movement, this.player_paddles);
     }
+  }
+
+  getLosingPaddleId(deltaFactor: number): number | null {
+    // returns paddle ID
     for (const pong_ball of this.pong_balls) {
+      let idxPaddleVsSegment = 0;
       const pb_movement = pong_ball.getMove(deltaFactor);
       for (let i = 0; i < this.map_polygon_edges.length; i++) {
         const segment_a = this.map_polygon_edges[i]!;
@@ -318,20 +328,47 @@ class PongGame {
           pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
           MAP_GAMEOVER_EDGES_WIDTH
         );
-        if (!hits_wall) continue;
+        if (!hits_wall) {
+          idxPaddleVsSegment++;
+          continue;
+        }
+        // Put the ball in the middle at random dir:
         pong_ball.lastCollidedWith = null;
         pong_ball.pos = scale(0.5, this.board_size);
-
         const quarterIndex = Math.floor(Math.random() * 4);
-        // pick a random angle inside the quarter, avoiding epsilon at edges
         const r =
           (quarterIndex * Math.PI) / 2 +
           0.1 +
           Math.random() * (Math.PI / 2 - 2 * 0.1);
         pong_ball.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
+
+        // Return playerId that splatted
+        return idxPaddleVsSegment;
       }
-      this.tempSquareBoundaries();
     }
+    return null;
+  }
+  gameLoop() {
+    const currentTime = Date.now();
+    const deltaTime = (currentTime - this.last_frame_time) / 1000; // 0.5 = half a second
+    this.last_frame_time = currentTime;
+
+    const deltaFactor = this.timefactor * deltaTime;
+
+    this.setPaddleMovement(deltaFactor);
+    this.checkBallsBounceOnPaddles(deltaFactor);
+    const failed_to_defend: number | null = this.getLosingPaddleId(deltaFactor);
+    if (failed_to_defend !== null) {
+      const loses_a_point = this.player_paddles[failed_to_defend];
+      if (!loses_a_point) {
+        console.error(
+          `Index ${failed_to_defend} on array ${this.player_paddles}`
+        );
+        return;
+      }
+      loses_a_point.pos = scale(1.001, loses_a_point.pos);
+    }
+    this.unecessaryCheck();
   }
 }
 

@@ -31,9 +31,14 @@ const socket = new OurSocket("pong");
 // Setup WebSocket handler
 // setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
 import { user_url } from "./utils/api/service/common/endpoints.js";
-import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interfaces.js";
+import type {
+  T_ForwardToContainer,
+  T_PayloadToUsers,
+  TypePayloadHubToUsersSchema,
+} from "./utils/api/service/hub/hub_interfaces.js";
 
 async function backgroundTask() {
+  let loops = 0;
   try {
     while (true) {
       if (socket.getSocket().readyState != socket.getSocket().OPEN) {
@@ -45,9 +50,10 @@ async function backgroundTask() {
         const payload = game.getGameState();
         const recipients = Array.from(game.player_id_to_paddle.keys());
 
-        const out = {
+        const out: T_PayloadToUsers = {
           recipients: recipients,
           funcId: user_url.ws.pong.getGameState.funcId,
+          code: 666,
           payload: payload,
         };
         socket.getSocket().send(JSON.stringify(out));
@@ -77,8 +83,17 @@ backgroundTask();
 //   }
 // );
 
-singletonPong.startGame({
-  user_id: 2,
-  funcId: "/api/start_game",
-  payload: { player_list: [4, 5, 6, 7, 8] },
-});
+socket.registerEvent(
+  user_url.ws.pong.startGame,
+  async (wrapper: T_ForwardToContainer) => {
+    return singletonPong.startGame(wrapper);
+  }
+);
+
+console.log(
+  singletonPong.startGame({
+    user_id: 7,
+    funcId: "/api/start_game",
+    payload: { balls: 20, player_list: [4, 5, 6, 7, 8] },
+  })
+);
