@@ -14,6 +14,7 @@ const socketToHub = new OurSocket("users");
 socketToHub.registerEvent(user_url.ws.users.test, async (body, schema) => {
 	console.log("Received test event with body:", body);
 	const result = Result.Ok({recipients: [body.user_id], code: schema.responses.Failure.code, payload: {message: "Test successful"}});
+	socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.responses.Success.code, payload: "42"});
 	return result;
 });
 
