@@ -157,6 +157,12 @@ function forwardPayloadToUsers(
   recipients: Array<number>,
   payload: TypePayloadHubToUsersSchema
 ) {
+  console.log(
+    "Sending payload to recipients:",
+    recipients,
+    " from container:",
+    payload.source_container
+  );
   for (const user_id of recipients) {
     const socketToUser = openUserIdToSocket.get(user_id);
     if (!socketToUser) {

@@ -72,8 +72,8 @@ socket.registerEvent(
   }
 );
 
-singletonPong.startGame({
-  user_id: 2,
+console.log(singletonPong.startGame({
+  user_id: 4,
   funcId: "/api/start_game",
   payload: { player_list: [4, 5, 6, 7, 8] },
-});
+}));

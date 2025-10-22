@@ -100,9 +100,7 @@ export class PongManager {
         funcId: user_url.ws.pong.startGame.funcId,
         code: user_url.ws.pong.startGame.code.InvalidInput,
         payload: {
-          status: httpStatus.BAD_REQUEST,
-          func_name: process.env.FUNC_POPUP_TEXT,
-          pop_up_text: "could not start pong game.",
+          message: valid_gamestart.error.message,
         },
       };
     }

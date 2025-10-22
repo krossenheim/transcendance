@@ -220,7 +220,7 @@ class PongGame {
     paddle.setMoveOnNextFrame(move_right);
   }
 
-  private tempSquareBoundaries() {
+  private unecessaryCheck() {
     for (const ball of this.pong_balls) {
       if (ball.pos.x < 0) {
         ball.pos.x = 0;
@@ -278,13 +278,7 @@ class PongGame {
     return payload;
   }
 
-  gameLoop() {
-    const currentTime = Date.now();
-    const deltaTime = (currentTime - this.last_frame_time) / 1000; // 0.5 = half a second
-    this.last_frame_time = currentTime;
-
-    const deltaFactor = this.timefactor * deltaTime;
-
+  setPaddleMovement(deltaFactor: number) {
     for (const paddle of this.player_paddles) {
       const p_movement = paddle.getMove(deltaFactor);
       paddle.lastMovement = p_movement; // store for collision detection
@@ -299,10 +293,18 @@ class PongGame {
         );
       }
     }
+  }
+
+  checkBallsBounceOnPaddles(deltaFactor: number) {
     for (const pong_ball of this.pong_balls) {
       const pb_movement = pong_ball.getMove(deltaFactor);
       pong_ball.movePaddleAware(pb_movement, this.player_paddles);
     }
+  }
+
+  getLosingPaddleId(deltaFactor: number): number | null {
+    // returns paddle ID
+    let idxPaddleVsSegment = 0;
     for (const pong_ball of this.pong_balls) {
       const pb_movement = pong_ball.getMove(deltaFactor);
       for (let i = 0; i < this.map_polygon_edges.length; i++) {
@@ -318,20 +320,47 @@ class PongGame {
           pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
           MAP_GAMEOVER_EDGES_WIDTH
         );
-        if (!hits_wall) continue;
+        if (!hits_wall) {
+          continue;
+        }
+        // Put the ball in the middle at random dir:
         pong_ball.lastCollidedWith = null;
         pong_ball.pos = scale(0.5, this.board_size);
-
         const quarterIndex = Math.floor(Math.random() * 4);
-        // pick a random angle inside the quarter, avoiding epsilon at edges
         const r =
           (quarterIndex * Math.PI) / 2 +
           0.1 +
           Math.random() * (Math.PI / 2 - 2 * 0.1);
         pong_ball.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
+
+        // Return playerId that splatted
+        return idxPaddleVsSegment;
       }
-      this.tempSquareBoundaries();
+      idxPaddleVsSegment++;
     }
+    return null;
+  }
+  gameLoop() {
+    const currentTime = Date.now();
+    const deltaTime = (currentTime - this.last_frame_time) / 1000; // 0.5 = half a second
+    this.last_frame_time = currentTime;
+
+    const deltaFactor = this.timefactor * deltaTime;
+
+    this.setPaddleMovement(deltaFactor);
+    this.checkBallsBounceOnPaddles(deltaFactor);
+    const failed_to_defend: number | null = this.getLosingPaddleId(deltaFactor);
+    if (failed_to_defend !== null) {
+      const loses_a_point = this.player_paddles[failed_to_defend];
+      if (!loses_a_point) {
+        console.error(
+          `Index ${failed_to_defend} on array ${this.player_paddles}`
+        );
+        return;
+      }
+      loses_a_point.pos = scale(0.02, loses_a_point.pos);
+    }
+    this.unecessaryCheck();
   }
 }
 
