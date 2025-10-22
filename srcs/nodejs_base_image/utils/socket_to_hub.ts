@@ -58,8 +58,8 @@ export class OurSocket {
       } else {
         return handler(wrapper);
       }
-    } catch {
-      return Result.Err({ message: "Error executing ws endpoint" });
+    } catch (e: any) {
+      return Result.Err({ message: "Error executing ws endpoint:" + e.message });
     }
   }
 

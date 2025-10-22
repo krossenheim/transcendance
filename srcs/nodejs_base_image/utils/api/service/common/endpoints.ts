@@ -31,6 +31,7 @@ import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
 import {
   GameStateSchema,
+  GetGameInfoSchema,
   MovePaddlePayloadScheme,
   StartNewPongGameSchema,
 } from "../pong/pong_interfaces.js";
@@ -222,7 +223,7 @@ export const user_url = defineRoutes({
           wrapper: ForwardToContainerSchema,
           body: StartNewPongGameSchema,
           response: {
-            0: EmptySchema,
+            0: GetGameInfoSchema,
             1: ErrorResponse,
             2: ErrorResponse,
           },

@@ -84,68 +84,75 @@ export class PongManager {
   //     },
   //   };
   // }
-  startGame(client_request: T_ForwardToContainer): T_PayloadToUsers {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
-      throw Error("Data should be clean at this stage.");
-    }
-    const { user_id } = client_request;
-    const valid_gamestart = StartNewPongGameSchema.safeParse(
-      client_request.payload
-    );
-    if (!valid_gamestart.success) {
-      return {
-        recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.InvalidInput,
-        payload: {
-          message: valid_gamestart.error.message,
-        },
-      };
-    }
-
-    const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);
-    if (!zodded.success) {
-      console.log("Invalid payload to start a game.: " + zodded.error);
-      return {
-        recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.InvalidInput,
-        payload: {
-          fix: "cant",
-        },
-      };
-    }
-    const { player_list } = validation.data.payload;
-    // const { user_id } = parsed;
-    let result = PongGame.create(player_list);
-    if (result.isErr()) {
-      return {
-        recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.FailedCreateGame,
-        payload: {
-          fix: "Abcw",
-        },
-      };
-    }
-    const pong_game = result.unwrap();
-    const game_id = this.debugGameID;
-    this.debugGameID++;
-    this.pong_instances.clear(); //debug debug debug
-    this.pong_instances.set(game_id, pong_game);
-    // Send the users the game id.
+  startGame(
+    client_request: T_ForwardToContainer
+  ): Result<T_PayloadToUsers | null, ErrorResponseType> {
     {
-      return {
-        recipients: [user_id],
-        funcId: user_url.ws.pong.startGame.funcId,
-        code: user_url.ws.pong.startGame.code.GameInstanceCreated,
-        payload: {
-          game_id: game_id,
-          player_list: player_list,
-        },
-      };
+      const validation = ForwardToContainerSchema.safeParse(client_request);
+      if (!validation.success) {
+        console.error(
+          "exact fields expected at this stage: :",
+          validation.error
+        );
+        throw Error("Data should be clean at this stage.");
+      }
+      const { user_id } = client_request;
+      const valid_gamestart = StartNewPongGameSchema.safeParse(
+        client_request.payload
+      );
+      if (!valid_gamestart.success) {
+        return Result.Ok({
+          recipients: [user_id],
+          funcId: user_url.ws.pong.startGame.funcId,
+          code: user_url.ws.pong.startGame.code.InvalidInput,
+          payload: {
+            message: valid_gamestart.error.message,
+          },
+        });
+      }
+
+      const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);
+      if (!zodded.success) {
+        console.log("Invalid payload to start a game.: " + zodded.error);
+        return Result.Ok({
+          recipients: [user_id],
+          funcId: user_url.ws.pong.startGame.funcId,
+          code: user_url.ws.pong.startGame.code.InvalidInput,
+          payload: {
+            fix: "cant",
+          },
+        });
+      }
+      const { balls, player_list } = validation.data.payload;
+      // const { user_id } = parsed;
+      let result = PongGame.create(balls, player_list);
+      if (result.isErr()) {
+        return Result.Ok({
+          recipients: [user_id],
+          funcId: user_url.ws.pong.startGame.funcId,
+          code: user_url.ws.pong.startGame.code.FailedCreateGame,
+          payload: {
+            fix: "Abcw",
+          },
+        });
+      }
+      const pong_game = result.unwrap();
+      const game_id = this.debugGameID;
+      this.debugGameID++;
+      this.pong_instances.clear(); //debug debug debug
+      this.pong_instances.set(game_id, pong_game);
+      // Send the users the game id.
+      {
+        return Result.Ok({
+          recipients: [user_id],
+          funcId: user_url.ws.pong.startGame.funcId,
+          code: user_url.ws.pong.startGame.code.GameInstanceCreated,
+          payload: {
+            game_id: game_id,
+            player_list: player_list,
+          },
+        });
+      }
     }
   }
 

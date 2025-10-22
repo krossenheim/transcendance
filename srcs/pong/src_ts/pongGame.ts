@@ -55,6 +55,7 @@ function rotatePolygon(
   });
 }
 
+let debug_game_id = 1;
 class PongGame {
   private board_size: Vec2;
   private map_polygon_edges: Vec2[];
@@ -65,11 +66,13 @@ class PongGame {
   // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
+  private readonly game_id: number;
 
-  private constructor(player_ids: Array<number>) {
+  private constructor(num_balls: number, player_ids: Array<number>) {
+    this.game_id = debug_game_id++;
     this.player_ids = player_ids;
     this.board_size = { x: 1000, y: 1000 };
-    this.pong_balls = this.spawn_balls(20);
+    this.pong_balls = this.spawn_balls(num_balls);
     this.map_polygon_edges = this.spawn_map_edges(player_ids.length);
     this.player_id_to_paddle = this.spawn_paddles(player_ids);
     this.player_paddles = Array.from(this.player_id_to_paddle.values());
@@ -94,7 +97,10 @@ class PongGame {
   // 		return Result.Ok(decoded.uid);
   // }
 
-  static create(player_ids: Array<number>): Result<PongGame, string> {
+  static create(
+    balls: number,
+    player_ids: Array<number>
+  ): Result<PongGame, string> {
     if (new Set(player_ids).size !== player_ids.length) {
       console.error("Non unique ids passed as player_ids");
       return Result.Err("Non unique ids passed as player_ids");
@@ -115,7 +121,7 @@ class PongGame {
       }
     }
     try {
-      const game = new PongGame(player_ids);
+      const game = new PongGame(balls, player_ids);
       return Result.Ok(game);
     } catch (e: unknown) {
       console.error(
@@ -246,10 +252,12 @@ class PongGame {
 
   getGameState(): TypeGameStateSchema {
     const payload: {
+      game_id: number;
       balls: TypePongBall[];
       paddles: TypePongPaddle[];
       edges: TypePongEdgeSchema[];
     } = {
+      game_id: this.game_id,
       balls: [],
       paddles: [],
       edges: [],
@@ -304,8 +312,8 @@ class PongGame {
 
   getLosingPaddleId(deltaFactor: number): number | null {
     // returns paddle ID
-    let idxPaddleVsSegment = 0;
     for (const pong_ball of this.pong_balls) {
+      let idxPaddleVsSegment = 0;
       const pb_movement = pong_ball.getMove(deltaFactor);
       for (let i = 0; i < this.map_polygon_edges.length; i++) {
         const segment_a = this.map_polygon_edges[i]!;
@@ -321,6 +329,7 @@ class PongGame {
           MAP_GAMEOVER_EDGES_WIDTH
         );
         if (!hits_wall) {
+          idxPaddleVsSegment++;
           continue;
         }
         // Put the ball in the middle at random dir:
@@ -336,7 +345,6 @@ class PongGame {
         // Return playerId that splatted
         return idxPaddleVsSegment;
       }
-      idxPaddleVsSegment++;
     }
     return null;
   }
@@ -358,7 +366,7 @@ class PongGame {
         );
         return;
       }
-      loses_a_point.pos = scale(0.02, loses_a_point.pos);
+      loses_a_point.pos = scale(1.001, loses_a_point.pos);
     }
     this.unecessaryCheck();
   }
