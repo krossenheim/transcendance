@@ -19,7 +19,7 @@ import {
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
-import { FullUser, GetUser } from "../db/user.js";
+import { FullUser, GetUser, User } from "../db/user.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
@@ -28,13 +28,14 @@ import { ForwardToContainerSchema } from "../hub/hub_interfaces.js";
 import { z } from "zod";
 import { idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
-import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
+import { InterContainerRequestSchema } from "../hub/hub_interfaces_internal.js";
 import {
   GameStateSchema,
   GetGameInfoSchema,
   MovePaddlePayloadScheme,
   StartNewPongGameSchema,
 } from "../pong/pong_interfaces.js";
+import { g_myContainerName } from "utils/container_names.js";
 
 export type HTTPRouteDef = {
   endpoint: string;
@@ -55,7 +56,7 @@ export type WSResponseType = {
 
 export type WebSocketRouteDef = {
   funcId: string;
-  container: "chat" | "pong" | "users";
+  container: "chat" | "pong" | "users" | "hub";
   schema: {
     body: z.ZodType;
     wrapper: z.ZodType;
@@ -197,10 +198,10 @@ export const user_url = defineRoutes({
             Failure: {
               code: 1,
               payload: ErrorResponse,
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      },
     },
 
     pong: {
@@ -271,6 +272,11 @@ export const user_url = defineRoutes({
         },
       },
     },
+    // export type FriendType = z.infer<typeof Friend>;
+    // export type UserType = z.infer<typeof User>;
+    // export type FullUserType = z.infer<typeof FullUser>;
+    // export type UserAuthDataType = z.infer<typeof UserAuthData>;
+    // export type GetUserType = z.infer<typeof GetUser>;
     chat: {
       sendMessage: {
         funcId: "/api/chat/send_message_to_room",
@@ -280,17 +286,13 @@ export const user_url = defineRoutes({
           wrapper: ForwardToContainerSchema,
           body: SendMessagePayloadSchema,
           responses: {
-            MessageSent: {
+            SingleFullUser: {
               code: 0,
-              payload: StoredMessageSchema,
+              payload: User,
             },
-            NotInRoom: {
+            FullUserArray: {
               code: 1,
-              payload: ErrorResponse,
-            },
-            InvalidInput: {
-              code: 2,
-              payload: ErrorResponse,
+              payload: z.array(User),
             },
           },
         },
@@ -390,6 +392,66 @@ export const user_url = defineRoutes({
 
 /// /internal_api/*
 export const int_url = defineRoutes({
+  ws: {
+    serviceProviders: {
+      userConnected: {
+        funcId: "user_connected",
+        container: g_myContainerName, // Suspicious activity
+        schema: {
+          wrapper: InterContainerRequestSchema,
+          body: FullUser,
+          responses: {
+            Success: {
+              code: 0,
+              payload: EmptySchema,
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      userDisconnected: {
+        funcId: "user_disconnected",
+        container: g_myContainerName, // Suspicious activity
+        schema: {
+          wrapper: InterContainerRequestSchema,
+          body: GetUser,
+          responses: {
+            Success: {
+              code: 0,
+              payload: EmptySchema,
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+    },
+    hub: {
+      websocketStatus: {
+        funcId: "get_online_users",
+        container: "hub",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: EmptySchema,
+          responses: {
+            Success: {
+              code: 0,
+              payload: z.string(),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+    },
+  },
   http: {
     db: {
       // Userdata endpoints
@@ -531,6 +593,4 @@ export const int_url = defineRoutes({
       },
     },
   },
-
-  ws: {},
 });

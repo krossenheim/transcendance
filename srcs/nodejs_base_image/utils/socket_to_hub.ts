@@ -9,7 +9,10 @@ import {
   type T_PayloadToUsers,
   PayloadToUsersSchema,
 } from "./api/service/hub/hub_interfaces.js";
-import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
+import {
+  int_url,
+  type WebSocketRouteDef,
+} from "./api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
 import WebSocket from "ws";
@@ -39,7 +42,7 @@ type InferWSHandler<T extends WebSocketRouteDef> = (
 
 interface HandlerType<
   TBody extends ZodType = any,
-  TWrapper extends T_ForwardToContainer = any,
+  TWrapper extends ZodType = any,
   TResponse extends Record<
     string,
     { code: number; payload: z.ZodTypeAny }
@@ -61,6 +64,7 @@ interface HandlerType<
   };
 }
 
+
 export class OurSocket {
   private socket: WebSocket;
   private container: string;
@@ -71,7 +75,6 @@ export class OurSocket {
     this.socket = new WebSocket(
       `ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`
     );
-
     this._setupSocketListeners();
   }
 
@@ -109,11 +112,10 @@ export class OurSocket {
     };
     const parseResult = this._validateResponsePayload(
       handlerEndpoint.schema,
-      rawData,
-    )
-    if (parseResult.isErr())
-      return Result.Err(parseResult.unwrapErr());
-  
+      rawData
+    );
+    if (parseResult.isErr()) return Result.Err(parseResult.unwrapErr());
+
     try {
       this.socket.send(JSON.stringify(rawData));
     } catch (err) {
