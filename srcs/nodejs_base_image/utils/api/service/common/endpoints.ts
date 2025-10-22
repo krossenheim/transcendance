@@ -50,7 +50,7 @@ export type HTTPRouteDef = {
 // TODO
 export type WebSocketRouteDef = {
   funcId: string;
-  container: "chat" | "pong" | "user";
+  container: "chat" | "pong" | "users";
   schema: {
     body: z.ZodType;
     wrapper: z.ZodType;
@@ -61,8 +61,8 @@ export type WebSocketRouteDef = {
 
 // Type safety wrapper
 export function defineRoutes<
-  TH extends Record<string, Record<string, HTTPRouteDef>> = never,
-  TW extends Record<string, Record<string, WebSocketRouteDef>> = never
+  const TH extends Record<string, Record<string, HTTPRouteDef>> = never,
+  const TW extends Record<string, Record<string, WebSocketRouteDef>> = never
 >(routes: { http: TH; ws: TW }) {
   return routes;
 }
@@ -178,6 +178,25 @@ export const user_url = defineRoutes({
   },
 
   ws: {
+	users: {
+		test: {
+			funcId: "test",
+			container: "users",
+			schema: {
+				wrapper: ForwardToContainerSchema,
+				body: EmptySchema,
+				response: {
+					0: z.string(),
+					1: ErrorResponse,
+				}
+			},
+			code: {
+				Success: 0,
+				Failure: 1,
+			}
+		}
+	},
+
     pong: {
       getGameState: {
         funcId: "get_game_state",

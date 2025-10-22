@@ -3,6 +3,8 @@ import type {
   T_PayloadToUsers,
 } from "./utils/api/service/hub/hub_interfaces.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
+import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
+import { user_url } from "./utils/api/service/common/endpoints.js";
 import {
   type TypeRoomSchema,
   type TypeStoredMessageSchema,
@@ -57,14 +59,13 @@ class Room {
 
   sendMessage(
     client_metadata: T_ForwardToContainer
-  ): Result<T_PayloadToUsers, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.response>, ErrorResponseType> {
     if (
       client_metadata.payload.roomId !== this.roomId ||
       this.users.indexOf(client_metadata.user_id) === -1
     ) {
       return Result.Ok({
         recipients: [client_metadata.user_id],
-        funcId: client_metadata.funcId,
         code: user_url.ws.chat.sendMessage.code.NoSuchRoom,
         payload: {
           message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,

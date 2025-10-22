@@ -5,8 +5,19 @@ import containers from "./utils/internal_api.js";
 import type { FastifyInstance } from "fastify";
 import { registerRoute } from "./utils/api/service/common/fastify.js";
 import { user_url, int_url } from "./utils/api/service/common/endpoints.js";
+import { OurSocket } from "./utils/socket_to_hub.js";
+import { Result } from "./utils/api/service/common/result.js";
 
 const fastify: FastifyInstance = createFastify();
+const socketToHub = new OurSocket("users");
+
+const code = 1;
+
+socketToHub.registerEvent(user_url.ws.users.test, async (body) => {
+	console.log("Received test event with body:", body);
+	const result = Result.Ok({recipients: [body.user_id], code: user_url.ws.users.test.code.Success, payload: {message: "Test successful"}});
+	return result;
+});
 
 registerRoute(fastify, user_url.http.users.fetchUser, async (request, reply) => {
 	const requestingUser = await containers.db.fetchUserData(request.body.userId);

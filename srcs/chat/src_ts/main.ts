@@ -1,5 +1,5 @@
 "use strict";
-import { socketToHub, OurSocket } from "./utils/socket_to_hub.js";
+import { OurSocket } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
 import websocketPlugin, { type WebsocketHandler } from "@fastify/websocket";
@@ -23,60 +23,60 @@ const fastify = Fastify({
 
 fastify.register(websocketPlugin);
 
-const socket = new OurSocket(socketToHub, "chat");
+const socket = new OurSocket("chat");
 const singletonChatRooms = new ChatRooms();
 socket.registerEvent(
   user_url.ws.chat.sendMessage,
-  async (wrapper: T_ForwardToContainer) => {
-    const room = singletonChatRooms.getRoom(wrapper.payload.roomId);
+  async (body) => {
+    const room = singletonChatRooms.getRoom(body.payload.roomId);
     if (!room) {
       console.warn(
-        `Client ${wrapper.user_id} to NOENT roomId:${wrapper.payload.roomId}`
+        `Client ${body.user_id} to NOENT roomId:${body.payload.roomId}`
       );
       return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
+        recipients: [body.user_id],
+        funcId: body.funcId,
         code: user_url.ws.chat.sendMessage.code.NoSuchRoom,
         payload: {
-          message: `No such room (ID: ${wrapper.payload.roomId}) or you are not in it.`,
+          message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
         },
       });
     }
-    return room.sendMessage(wrapper);
+    return room.sendMessage(body);
   }
 );
 
 socket.registerEvent(
   user_url.ws.chat.addUserToRoom,
-  async (wrapper: T_ForwardToContainer) => {
-    const room = singletonChatRooms.getRoom(wrapper.payload.roomId);
+  async (body) => {
+    const room = singletonChatRooms.getRoom(body.payload.roomId);
     if (!room) {
       console.warn(`Bad user request, no such room.`);
       return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
+        recipients: [body.user_id],
+        funcId: body.funcId,
         code: user_url.ws.chat.addUserToRoom.code.NoSuchRoom,
         payload: {
-          message: `No such room (ID: ${wrapper.payload.roomId}) or you are not in it.`,
+          message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
         },
       });
     }
-    return room.addToRoom(wrapper);
+    return room.addToRoom(body);
   }
 );
 
 socket.registerEvent(
   user_url.ws.chat.addRoom,
-  async (wrapper: T_ForwardToContainer) => {
-    const room = singletonChatRooms.addRoom(wrapper);
+  async (body) => {
+    const room = singletonChatRooms.addRoom(body);
     if (!room) {
       console.error("Mega warning, could not add a room.");
       return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
+        recipients: [body.user_id],
+        funcId: body.funcId,
         code: user_url.ws.chat.addRoom.code.ErrorNoRoomAdded,
         payload: {
-          message: `Could not create requested room by name: ${wrapper.payload.roomName}`,
+          message: `Could not create requested room by name: ${body.payload.roomName}`,
         },
       });
     }
@@ -86,16 +86,16 @@ socket.registerEvent(
 
 socket.registerEvent(
   user_url.ws.chat.listRooms,
-  async (wrapper: T_ForwardToContainer) => {
-    const roomList = singletonChatRooms.listRooms(wrapper);
+  async (body) => {
+    const roomList = singletonChatRooms.listRooms(body);
     if (roomList.isErr()) {
       console.error(
         "Mega warning, could not list rooms for an user:",
-        wrapper.user_id
+        body.user_id
       );
       return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
+        recipients: [body.user_id],
+        funcId: body.funcId,
         code: user_url.ws.chat.listRooms.code.NoListGiven,
         payload: {
           message: `Could not list the rooms you can join.`,
@@ -107,7 +107,7 @@ socket.registerEvent(
 );
 socket.registerEvent(
   user_url.ws.chat.joinRoom,
-  async (wrapper: T_ForwardToContainer) => {
-    return singletonChatRooms.userJoinRoom(wrapper);
+  async (body) => {
+    return singletonChatRooms.userJoinRoom(body);
   }
 );

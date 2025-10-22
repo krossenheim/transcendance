@@ -3,7 +3,12 @@
 import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
-import { socketToHub, OurSocket } from "./utils/socket_to_hub.js";
+import type {
+  TypeMovePaddlePayloadScheme,
+  TypePongBall,
+  TypePongPaddle,
+} from "./utils/api/service/pong/pong_interfaces.js";
+import { OurSocket } from "./utils/socket_to_hub.js";
 
 const fastify = Fastify({
   logger: {
@@ -21,7 +26,7 @@ const fastify = Fastify({
 fastify.register(websocketPlugin);
 
 const singletonPong = new PongManager();
-const socket = new OurSocket(socketToHub, "pong");
+const socket = new OurSocket("pong");
 
 // Setup WebSocket handler
 // setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
@@ -31,7 +36,7 @@ import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interface
 async function backgroundTask() {
   try {
     while (true) {
-      if (socketToHub.readyState != socketToHub.OPEN) {
+      if (socket.getSocket().readyState != socket.getSocket().OPEN) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         continue;
       }
@@ -45,7 +50,7 @@ async function backgroundTask() {
           funcId: user_url.ws.pong.getGameState.funcId,
           payload: payload,
         };
-        socketToHub.send(JSON.stringify(out));
+        socket.getSocket().send(JSON.stringify(out));
       }
       const getNextFrameTime = 35; // game.next_frame_when?
       await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
@@ -65,12 +70,12 @@ async function backgroundTask() {
 }
 backgroundTask();
 
-socket.registerEvent(
-  user_url.ws.pong.movePaddle,
-  async (wrapper: T_ForwardToContainer) => {
-    return singletonPong.movePaddle(wrapper);
-  }
-);
+// socket.registerEvent(
+//   user_url.ws.pong.movePaddle,
+//   async (body: TypeMovePaddlePayloadScheme, wrapper: T_ForwardToContainer) => {
+//     return singletonPong.movePaddle(body, wrapper);
+//   }
+// );
 
 singletonPong.startGame({
   user_id: 2,

@@ -60,6 +60,29 @@ export class PongManager {
   //       },
   //     };
   //   }
+  // playerJoinInstance(client_request: T_ForwardToContainer): T_PayloadToUsers {
+  //   const validrequest = ForwardToContainerSchema.safeParse(client_request);
+  //   if (!validrequest.success) {
+  //     console.error(
+  //       "exact fields expected at this stage: :",
+  //       validrequest.error
+  //     );
+  //     throw Error("Data should be clean at this stage.");
+  //   }
+  //   const { game_id } = validrequest.data.payload;
+  //   const { user_id } = validrequest.data;
+  //   const gameInstance: PongGame | undefined = this.pong_instances.get(game_id);
+  //   if (!gameInstance) {
+  //     return {
+  //       recipients: [user_id],
+  //       funcId: "join_instance",
+  //       payload: {
+  //         status: httpStatus.UNPROCESSABLE_ENTITY,
+  //         game_id: game_id,
+  //         pop_up_text: "No game with given, or not in the list of players.",
+  //       },
+  //     };
+  //   }
 
   //   // debug
   //   // debug

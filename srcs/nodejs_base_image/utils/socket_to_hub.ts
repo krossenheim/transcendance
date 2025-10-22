@@ -1,162 +1,168 @@
-import WebSocket from "ws";
 import { ForwardToContainerSchema } from "./api/service/hub/hub_interfaces.js";
-import { rawDataToString } from "./raw_data_to_string.js";
-import { user_url } from "./api/service/common/endpoints.js";
 import { zodParse } from "./api/service/common/zodUtils.js";
+import { rawDataToString } from "./raw_data_to_string.js";
+import { JSONtoZod } from "./api/service/common/json.js";
 import { Result } from "./api/service/common/result.js";
-import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
-import { z } from "zod";
-import type {
-  T_ForwardToContainer,
-  T_PayloadToUsers,
-} from "./api/service/hub/hub_interfaces.js";
-export const socketToHub = new WebSocket(
-  "ws://" +
-    process.env.HUB_NAME +
-    ":" +
-    process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS +
-    "/inter_api"
-);
 
-socketToHub.on("error", (err: Error) => {
-  console.error("Error:", err);
-});
+import type { T_ForwardToContainer, T_PayloadToUsers } from "./api/service/hub/hub_interfaces.js";
+import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
-interface HandlerType<TBody = any, TWrapper = any> {
+import WebSocket from "ws";
+import { z, ZodType } from "zod";
+
+export type WSHandlerReturnValue<
+  T extends Record<number, z.ZodTypeAny>,
+  K extends keyof T & number = keyof T & number
+> = {
+  recipients: number[];
+  code: K;
+  payload: z.infer<T[K]>;
+};
+
+type InferWSHandler<T extends WebSocketRouteDef> = (
+  body: Omit<z.infer<T["schema"]["wrapper"]>, "payload"> & {
+    payload: z.infer<T["schema"]["body"]>;
+  }
+) => Promise<Result<WSHandlerReturnValue<T["schema"]["response"]> | null, ErrorResponseType>>;
+
+interface HandlerType<
+  TBody extends ZodType = any,
+  TWrapper extends ZodType = any,
+  TResponse extends Record<string, ZodType> = any
+> {
   handler: (
-    wrapper: TWrapper
-  ) => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>;
-  metadata: {
+    wrapper: z.infer<TWrapper>
+  ) => Promise<Result<WSHandlerReturnValue<TResponse> | null, ErrorResponseType>>;
+
+  metadata: Omit<WebSocketRouteDef, "schema"> & {
     schema: {
-      body: ZodType<TBody>;
-      wrapper: ZodType<TWrapper>;
+      body: TBody;
+      wrapper: TWrapper;
+      response: TResponse;
     };
-  } & Omit<WebSocketRouteDef, "schema">; // keep other metadata fields
+  };
 }
 
-import { ZodType } from "zod";
 export class OurSocket {
   private socket: WebSocket;
   private container: string;
-  private handlers: Record<string, HandlerType>;
+  private handlers: Record<string, HandlerType> = {};
 
-  constructor(socket: WebSocket, container: string) {
-    this.socket = socket;
+  constructor(container: string) {
     this.container = container;
-    this.handlers = {};
-    this.handleSocketCallbackMethods();
-  }
-
-  async _runEndpointHandler(
-    wrapper: T_ForwardToContainer,
-    handler: (wrapper: T_ForwardToContainer) => any | Promise<any>
-  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
-    try {
-      if (handler.constructor.name === "AsyncFunction") {
-        return await handler(wrapper);
-      } else {
-        return handler(wrapper);
-      }
-    } catch {
-      return Result.Err({ message: "Error executing ws endpoint" });
-    }
-  }
-
-  async _handleEndpoint(
-    wrapper: T_ForwardToContainer
-  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
-    const handlerType: HandlerType | undefined = this.handlers[wrapper.funcId];
-    // console.log(this.handlers);
-    if (handlerType === undefined)
-      return Result.Err({
-        message: "No handler found for this endpoint:" + wrapper.funcId,
-      });
-
-    // const parsedBodyResult = zodParse(handlerType.metadata.schema.body, containerSchema.payload)
-
-    const parseResult = handlerType.metadata.schema.body.safeParse(
-      wrapper.payload
+    this.socket = new WebSocket(
+      `ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`
     );
-    if (!parseResult.success) {
-      return Result.Ok({
-        recipients: [wrapper.user_id],
-        funcId: wrapper.funcId,
-        code: -1, // INVALID_SCHEMA_CODE
-        payload: {
-          message: `Validation error: ${parseResult.error.message}`,
-        },
-      });
-    }
-    wrapper.payload = parseResult.data; // coerce numbers and the like.
-    const funcOutput = await this._runEndpointHandler(
-      wrapper,
-      handlerType.handler
-    );
-    return funcOutput;
-  }
 
-  handleSocketCallbackMethods() {
-    this.socket.on("message", async (data: WebSocket.RawData) => {
-      console.log("New data yay");
-      let parsed: null | object;
-      try {
-        parsed = JSON.parse(rawDataToString(data) || "");
-      } catch {
-        console.log("Wrong user input...");
-        return;
-      }
-
-      const schemaResult = zodParse(ForwardToContainerSchema, parsed);
-      if (schemaResult.isOk()) {
-        const request = schemaResult.unwrap();
-        console.log("Handling request for funcID: " + request.funcId);
-        const result = await this._handleEndpoint(request);
-        if (result.isErr()) {
-          console.warn("Handler returns error!");
-          console.warn(result.unwrapErr());
-          return;
-        }
-        const handlerOutput: T_PayloadToUsers | null = result.unwrap();
-        if (handlerOutput === null) {
-          console.log("No reply from handler, request was: ", request);
-          return;
-        }
-        console.log("Proxying to ", JSON.stringify(handlerOutput));
-        const serialized = JSON.stringify(handlerOutput);
-        console.log(`Proxying to ${process.env.HUB_NAME}: ${serialized}`);
-        this.socket.send(serialized);
-      } else {
-        console.log("Wrong user input...");
-      }
-    });
+    this._setupSocketListeners();
   }
 
   registerEvent<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
-    handler: T["schema"]["body"] extends z.ZodTypeAny
-      ? (
-          wrapper: z.infer<T["schema"]["wrapper"]>
-        ) => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
-      : () => Promise<Result<T_PayloadToUsers | null, ErrorResponseType>>
+    handler: InferWSHandler<T>
   ) {
-    if (handlerEndpoint.container != this.container) {
-      console.log(
-        `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`
-      );
-      throw Error(
-        `Tried adding a route for container ${handlerEndpoint.container} to the websocket class for ${this.container}`
+    if (handlerEndpoint.container !== this.container) {
+      throw new Error(
+        `Cannot register route for container "${handlerEndpoint.container}" on "${this.container}"`
       );
     }
+
     this.handlers[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
-      handler: handler,
+      handler,
     };
   }
+
+  getSocket(): WebSocket {
+    return this.socket;
+  }
+
+  private _setupSocketListeners() {
+    this.socket.on("message", async (data: WebSocket.RawData) => {
+      const str = rawDataToString(data);
+      if (!str) return;
+
+      const parsedData = JSONtoZod(str, ForwardToContainerSchema);
+      if (parsedData.isErr()) {
+        console.warn("Schema validation failed for incoming WS payload: " + parsedData.unwrapErr());
+        return;
+      }
+
+      const request = parsedData.unwrap();
+      const result = await this._handleEndpoint(request);
+
+      if (result.isErr()) {
+        console.warn("Handler error:", result.unwrapErr());
+        return;
+      }
+
+      const handlerOutput = result.unwrap();
+      if (!handlerOutput) return;
+
+      const serialized = JSON.stringify(handlerOutput);
+      console.log(`Proxying to ${process.env.HUB_NAME}: ${serialized}`);
+      this.socket.send(serialized);
+    });
+
+    this.socket.on("error", (err: Error) => {
+      console.error("WebSocket error:", err.message);
+    });
+  }
+
+  // -----------------------------
+  // Endpoint handling
+  // -----------------------------
+  private async _handleEndpoint(
+    containerSchema: z.infer<typeof ForwardToContainerSchema>
+  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
+    const handlerType = this.handlers[containerSchema.funcId];
+    if (!handlerType)
+      return Result.Err({message: `No handler found for funcId "${containerSchema.funcId}"`});
+
+    const parsedBody = zodParse(handlerType.metadata.schema.body, containerSchema.payload);
+    if (parsedBody.isErr())
+      return Result.Err({message: `Validation error: ${parsedBody.unwrapErr()}`});
+
+    const funcOutput = await this._executeHandler(
+      containerSchema,
+      handlerType.handler
+    );
+
+    if (funcOutput.isErr()) return Result.Err(funcOutput.unwrapErr());
+
+    const data = funcOutput.unwrap();
+    if (!data) return Result.Ok(null);
+
+    return Result.Ok({
+      recipients: data.recipients,
+      funcId: containerSchema.funcId,
+      code: data.code,
+      payload: data.payload,
+    });
+  }
+
+  private async _executeHandler(
+    payload: T_ForwardToContainer,
+    handler: (
+      body: T_ForwardToContainer
+    ) => Promise<Result<WSHandlerReturnValue<any> | null, ErrorResponseType>> | Result<WSHandlerReturnValue<any> | null, ErrorResponseType>
+  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
+    try {
+      let result = handler(payload);
+      if (result instanceof Promise) result = await result;
+
+      return result.map((res) => {
+        if (!res) return null;
+        return {
+          recipients: res.recipients,
+          funcId: payload.funcId,
+          code: Number(res.code),
+          payload: res.payload,
+        };
+      });
+    } catch (err) {
+      return Result.Err({ message: "Error executing WS endpoint" });
+    }
+  }
 }
-
-// const socket = new OurSocket(socketToHub, 'chat');
-
-// socket.registerEvent(user_url.ws.chat.sendMessage, async (body: z.infer<typeof user_url.ws.chat.sendMessage.schema.body>) => {
-// 	console.log("Yay I registered an event and Im kindah praying it works rn");
-// });
