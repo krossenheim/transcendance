@@ -4,7 +4,11 @@ import { rawDataToString } from "./raw_data_to_string.js";
 import { JSONtoZod } from "./api/service/common/json.js";
 import { Result } from "./api/service/common/result.js";
 
-import { type T_ForwardToContainer, type T_PayloadToUsers, PayloadToUsersSchema } from "./api/service/hub/hub_interfaces.js";
+import {
+  type T_ForwardToContainer,
+  type T_PayloadToUsers,
+  PayloadToUsersSchema,
+} from "./api/service/hub/hub_interfaces.js";
 import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
 import type { ErrorResponseType } from "./api/service/common/error.js";
 
@@ -26,17 +30,27 @@ type InferWSHandler<T extends WebSocketRouteDef> = (
     payload: z.infer<T["schema"]["body"]>;
   },
   schema: T["schema"]
-) => Promise<Result<WSHandlerReturnValue<T["schema"]["responses"]> | null, ErrorResponseType>>;
+) => Promise<
+  Result<
+    WSHandlerReturnValue<T["schema"]["responses"]> | null,
+    ErrorResponseType
+  >
+>;
 
 interface HandlerType<
   TBody extends ZodType = any,
   TWrapper extends T_ForwardToContainer = any,
-  TResponse extends Record<string, { code: number; payload: z.ZodTypeAny }> = any
+  TResponse extends Record<
+    string,
+    { code: number; payload: z.ZodTypeAny }
+  > = any
 > {
   handler: (
     body: any,
     schema: any
-  ) => Promise<Result<WSHandlerReturnValue<TResponse> | null, ErrorResponseType>>;
+  ) => Promise<
+    Result<WSHandlerReturnValue<TResponse> | null, ErrorResponseType>
+  >;
 
   metadata: Omit<WebSocketRouteDef, "schema"> & {
     schema: {
@@ -88,7 +102,10 @@ export class OurSocket {
 
       const parsedData = JSONtoZod(str, ForwardToContainerSchema);
       if (parsedData.isErr()) {
-        console.warn("Schema validation failed for incoming WS payload: " + parsedData.unwrapErr());
+        console.warn(
+          "Schema validation failed for incoming WS payload: " +
+            parsedData.unwrapErr()
+        );
         return;
       }
 
@@ -117,18 +134,25 @@ export class OurSocket {
   // Endpoint handling
   // -----------------------------
   private async _handleEndpoint(
-    containerSchema: z.infer<typeof ForwardToContainerSchema>
+    wrapped_request: z.infer<typeof ForwardToContainerSchema>
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
-    const handlerType = this.handlers[containerSchema.funcId];
+    const handlerType = this.handlers[wrapped_request.funcId];
     if (!handlerType)
-      return Result.Err({ message: `No handler found for funcId "${containerSchema.funcId}"` });
+      return Result.Err({
+        message: `No handler found for funcId "${wrapped_request.funcId}"`,
+      });
 
-    const parsedBody = zodParse(handlerType.metadata.schema.body, containerSchema.payload);
+    const parsedBody = zodParse(
+      handlerType.metadata.schema.body,
+      wrapped_request.payload
+    );
     if (parsedBody.isErr())
-      return Result.Err({ message: `Validation error: ${parsedBody.unwrapErr()}` });
-
+      return Result.Err({
+        message: `Validation error: ${parsedBody.unwrapErr()}`,
+      });
+    wrapped_request.payload = parsedBody.unwrap(); // Coerced string sto int thank you Zod
     const funcOutput = await this._executeHandler(
-      containerSchema,
+      wrapped_request,
       handlerType.metadata.schema,
       handlerType.handler
     );
@@ -140,7 +164,7 @@ export class OurSocket {
 
     return Result.Ok({
       recipients: data.recipients,
-      funcId: containerSchema.funcId,
+      funcId: wrapped_request.funcId,
       code: data.code,
       payload: data.payload,
     });
@@ -151,7 +175,10 @@ export class OurSocket {
     outputData: T_PayloadToUsers
   ): Result<T_PayloadToUsers, ErrorResponseType> {
     let matched = false;
-    for (const value of Object.values(schema.responses) as Array<{ code: number; payload: ZodType }>) {
+    for (const value of Object.values(schema.responses) as Array<{
+      code: number;
+      payload: ZodType;
+    }>) {
       const expectedCode = Number(value.code);
       if (Number(outputData.code) === expectedCode) {
         matched = true;
@@ -165,9 +192,13 @@ export class OurSocket {
       }
     }
     if (!matched) {
-      return Result.Err({ message: `No response schema found for code ${outputData.code}` });
+      return Result.Err({
+        message: `No response schema found for code ${outputData.code}`,
+      });
     }
-    return zodParse(PayloadToUsersSchema, outputData).mapErr((err) => ({ message: err }));
+    return zodParse(PayloadToUsersSchema, outputData).mapErr((err) => ({
+      message: err,
+    }));
   }
 
   private async _executeHandler(
@@ -180,7 +211,9 @@ export class OurSocket {
         wrapper: ZodType;
         responses: Record<string, { code: number; payload: ZodType }>;
       }
-    ) => Promise<Result<WSHandlerReturnValue<any> | null, ErrorResponseType>> | Result<WSHandlerReturnValue<any> | null, ErrorResponseType>
+    ) =>
+      | Promise<Result<WSHandlerReturnValue<any> | null, ErrorResponseType>>
+      | Result<WSHandlerReturnValue<any> | null, ErrorResponseType>
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
     try {
       let result = handler(payload, schema);

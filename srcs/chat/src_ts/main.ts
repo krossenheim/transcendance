@@ -2,8 +2,7 @@
 import { OurSocket } from "./utils/socket_to_hub.js";
 import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
-import websocketPlugin, { type WebsocketHandler } from "@fastify/websocket";
-import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interfaces.js";
+import websocketPlugin from "@fastify/websocket";
 import { Result } from "./utils/api/service/common/result.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
 
