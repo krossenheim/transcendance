@@ -108,6 +108,7 @@ export default function PongComponent() {
   // =========================
   // Keyboard input (W / S)
   // =========================
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== "w" && e.key !== "s") return;
@@ -116,10 +117,24 @@ export default function PongComponent() {
         m: e.key === "w", // w = true, s = false
       };
       handleSendMovePaddle(payload);
+  }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      if (e.key !== "w" && e.key !== "s") return;
+      const payload = {
+        board_id: game_id,
+        m: null, // empty payload on key release
+      };
+      handleSendMovePaddle(payload);
     }
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
   }, [handleSendMovePaddle, game_id]);
 
   // =========================

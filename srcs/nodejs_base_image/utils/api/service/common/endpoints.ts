@@ -257,7 +257,7 @@ export const user_url = defineRoutes({
           responses: {
             GameInstanceCreated: {
               code: 0,
-              payload: EmptySchema,
+              payload: GetGameInfoSchema,
             },
             FailedCreateGame: {
               code: 1,

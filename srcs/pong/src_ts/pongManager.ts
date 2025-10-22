@@ -108,25 +108,15 @@ export class PongManager {
   //     },
   //   };
   // }
-  startGame(client_request: T_ForwardToContainer): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.responses> {
+  startGame(
+    client_request: T_ForwardToContainer
+  ): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.responses> {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
       throw Error("Data should be clean at this stage.");
     }
     const { user_id } = client_request;
-    const valid_gamestart = StartNewPongGameSchema.safeParse(
-      client_request.payload
-    );
-    if (!valid_gamestart.success) {
-      return {
-        recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.InvalidInput.code,
-        payload: {
-          message: "Could not start pong game: ",
-        },
-      };
-    }
 
     const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);
     if (!zodded.success) {
@@ -139,9 +129,9 @@ export class PongManager {
         },
       };
     }
-    const { player_list } = validation.data.payload;
+    const { balls, player_list } = zodded.data;
     // const { user_id } = parsed;
-    let result = PongGame.create(player_list);
+    let result = PongGame.create(balls, player_list);
     if (result.isErr()) {
       return {
         recipients: [user_id],
@@ -160,19 +150,24 @@ export class PongManager {
     {
       return {
         recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.code,
-        // payload: {
-        //   game_id: game_id,
-        //   player_list: player_list,
-        // },
-        payload: {}
+        code: user_url.ws.pong.startGame.schema.responses.GameInstanceCreated
+          .code,
+        payload: {
+          game_id: game_id,
+          player_list: player_list,
+        },
       };
     }
   }
 
   movePaddle(
     client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.responses> | null, ErrorResponseType> {
+  ): Result<
+    WSHandlerReturnValue<
+      typeof user_url.ws.pong.movePaddle.schema.responses
+    > | null,
+    ErrorResponseType
+  > {
     const game = this.pong_instances.get(client_metadata.payload.board_id);
     if (
       !game ||

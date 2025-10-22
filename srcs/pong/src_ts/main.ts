@@ -85,7 +85,7 @@ backgroundTask();
 
 socket.registerEvent(
   user_url.ws.pong.startGame,
-  async (wrapper: T_ForwardToContainer) => {
+  async (wrapper) => {
     return singletonPong.startGame(wrapper);
   }
 );
