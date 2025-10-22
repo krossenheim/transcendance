@@ -393,17 +393,17 @@ export const user_url = defineRoutes({
 /// /internal_api/*
 export const int_url = defineRoutes({
   ws: {
-    serviceProviders: {
+    hub: {
       userConnected: {
         funcId: "user_connected",
         container: g_myContainerName, // Suspicious activity
         schema: {
           wrapper: InterContainerRequestSchema,
-          body: FullUser,
+          body: EmptySchema, // not really meant to ever be called
           responses: {
             Success: {
               code: 0,
-              payload: EmptySchema,
+              payload: FullUser,
             },
             Failure: {
               code: 1,
@@ -417,11 +417,11 @@ export const int_url = defineRoutes({
         container: g_myContainerName, // Suspicious activity
         schema: {
           wrapper: InterContainerRequestSchema,
-          body: GetUser,
+          body: EmptySchema, // not really meant to ever be called
           responses: {
             Success: {
               code: 0,
-              payload: EmptySchema,
+              payload: GetUser,
             },
             Failure: {
               code: 1,
@@ -430,18 +430,16 @@ export const int_url = defineRoutes({
           },
         },
       },
-    },
-    hub: {
-      websocketStatus: {
+      getOnlineUsers: {
         funcId: "get_online_users",
         container: "hub",
         schema: {
-          wrapper: ForwardToContainerSchema,
+          wrapper: InterContainerRequestSchema,
           body: EmptySchema,
           responses: {
             Success: {
               code: 0,
-              payload: z.string(),
+              payload: z.array(FullUser),
             },
             Failure: {
               code: 1,
