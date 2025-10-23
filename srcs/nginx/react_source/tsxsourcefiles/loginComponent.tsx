@@ -1,30 +1,12 @@
-import type {
-  TypeStoredMessageSchema,
-  TypeListRoomsSchema,
-  TypeRoomMessagesSchema,
-  TypeRoomSchema,
-} from "../../../nodejs_base_image/utils/api/service/chat/db_models";
-import type { idValue } from "../../../nodejs_base_image/utils/api/service/common/zodRules";
-import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
-import React, { Key, useCallback, useEffect, useId, useState } from "react";
-import { useWebSocket } from "./socketComponent";
+import React, { useState } from "react";
 
-const handleKeyPress = (e: any, action: any) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    action();
-  }
-};
 interface LoginComponentProps {
   onLoginSuccess: (data: any) => void;
 }
 
-export default function LoginComponent({
-  onLoginSuccess,
-}: LoginComponentProps) {
-  const id = useId();
-  const [username, setUsername] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
+export default function LoginComponent({ onLoginSuccess }: LoginComponentProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +24,9 @@ export default function LoginComponent({
 
   const handleLogin = async () => {
     setError(null);
-
     const usernameError = validateUsername(username);
     const passwordError = validatePassword(password);
+    
     if (usernameError || passwordError) {
       setError(usernameError || passwordError);
       return;
@@ -66,68 +48,69 @@ export default function LoginComponent({
       const data = await response.json();
       onLoginSuccess(data);
     } catch (err: any) {
-      // !!
       setError(err.message || "Login failed");
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <div className="w-full max-w-md shadow-lg p-6 rounded-2xl bg-white">
-        <h1 className="text-2xl font-bold text-center mb-4">Login</h1>
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleLogin();
+    }
+  };
 
-        {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
+  return (
+    <div className="w-full max-w-md">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
+        <h2 className="text-3xl font-bold text-white mb-6 text-center">Welcome Back</h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+            {error}
+          </div>
+        )}
 
         <div className="space-y-4">
-          {/* Username */}
           <div>
-            <label
-              htmlFor={`${id}-login-username`}
-              className="block mb-1 font-semibold"
-            >
+            <label htmlFor="login-username" className="block text-sm font-medium text-gray-200 mb-2">
               Username
             </label>
             <input
-              id={`${id}-login-username`}
+              id="login-username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-              className="w-full border px-3 py-2 rounded"
+              onKeyDown={handleKeyPress}
+              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               disabled={isLoading}
-              placeholder="Your username"
+              placeholder="Enter your username"
             />
           </div>
 
-          {/* Password */}
           <div>
-            <label
-              htmlFor={`${id}-login-password`}
-              className="block mb-1 font-semibold"
-            >
+            <label htmlFor="login-password" className="block text-sm font-medium text-gray-200 mb-2">
               Password
             </label>
             <input
-              id={`${id}-login-password`}
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-              className="w-full border px-3 py-2 rounded"
+              onKeyDown={handleKeyPress}
+              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
               disabled={isLoading}
-              placeholder="Your password"
+              placeholder="Enter your password"
             />
           </div>
 
-          {/* Submit Button */}
           <button
             onClick={handleLogin}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
             disabled={isLoading}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
           >
-            {isLoading ? "Logging in..." : "Login"}
+            {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </div>
       </div>
