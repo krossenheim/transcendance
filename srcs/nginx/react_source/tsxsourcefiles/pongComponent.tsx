@@ -27,7 +27,7 @@ function mapToCanvas(x: number, y: number) {
 // =========================
 export default function PongComponent() {
   const { socket, payloadReceived } = useWebSocket();
-  const [game_id, setGame_id] = useState(1);
+  const [game_id, setGame_id] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [gameState, setGameState] = useState<TypeGameStateSchema>({
@@ -67,8 +67,10 @@ export default function PongComponent() {
         user_url.ws.pong.getGameState.schema.responses.GameUpdate.payload.safeParse(
           payloadReceived.payload
         );
-      if (parsed.success) setGameState(parsed.data);
-      else console.warn("Invalid GameState payload:", parsed.error);
+      if (parsed.success) {
+        if (game_id === null) setGame_id(parsed.data.game_id); // Client rejoined
+        setGameState(parsed.data);
+      } else console.warn("Invalid GameState payload:", parsed.error);
     }
   }, [payloadReceived]);
 
@@ -120,6 +122,7 @@ export default function PongComponent() {
       if (keysPressed.has(e.key)) return; // already pressed, ignore
       keysPressed.add(e.key);
 
+      if (game_id === null) return;
       const payload = {
         board_id: game_id,
         m: e.key === "w",
@@ -131,6 +134,7 @@ export default function PongComponent() {
       if (e.key !== "w" && e.key !== "s") return;
       keysPressed.delete(e.key);
 
+      if (game_id === null) return;
       const payload = {
         board_id: game_id,
         m: null, // stop movement
@@ -197,7 +201,7 @@ export default function PongComponent() {
   // Simple UI for Start Game
   // =========================
   const [playerListInput, setPlayerListInput] = useState("4,5,6,7,8");
-  const [ballInput, setBallInput] = useState<number>(1);
+  const [ballInput, setBallInput] = useState(1);
 
   const handleStartGameClick = useCallback(() => {
     const ids = playerListInput
@@ -232,10 +236,7 @@ export default function PongComponent() {
         <input
           type="text"
           value={ballInput}
-          onChange={(e) => {
-            const num = parseInt(e.target.value, 10);
-            setBallInput(isNaN(num) ? 0 : num);
-          }}
+          onChange={(e) => setBallInput(Number(e.target.value))}
           className="border rounded px-2 py-1 w-64"
           placeholder="Enter player IDs (e.g. 4,5,6,7,8)"
         />
