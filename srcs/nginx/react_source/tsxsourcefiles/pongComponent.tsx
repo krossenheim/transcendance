@@ -112,40 +112,40 @@ export default function PongComponent() {
   // =========================
   // Keyboard input (W / S)
   // =========================
-useEffect(() => {
-  const keysPressed = new Set<string>();
+  useEffect(() => {
+    const keysPressed = new Set<string>();
 
-  function handleKeyDown(e: KeyboardEvent) {
-    if (e.key !== "w" && e.key !== "s") return;
-    if (keysPressed.has(e.key)) return; // already pressed, ignore
-    keysPressed.add(e.key);
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "w" && e.key !== "s") return;
+      if (keysPressed.has(e.key)) return; // already pressed, ignore
+      keysPressed.add(e.key);
 
-    const payload = {
-      board_id: game_id,
-      m: e.key === "w",
+      const payload = {
+        board_id: game_id,
+        m: e.key === "w",
+      };
+      handleSendMovePaddle(payload);
+    }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      if (e.key !== "w" && e.key !== "s") return;
+      keysPressed.delete(e.key);
+
+      const payload = {
+        board_id: game_id,
+        m: null, // stop movement
+      };
+      handleSendMovePaddle(payload);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
-    handleSendMovePaddle(payload);
-  }
-
-  function handleKeyUp(e: KeyboardEvent) {
-    if (e.key !== "w" && e.key !== "s") return;
-    keysPressed.delete(e.key);
-
-    const payload = {
-      board_id: game_id,
-      m: null, // stop movement
-    };
-    handleSendMovePaddle(payload);
-  }
-
-  window.addEventListener("keydown", handleKeyDown);
-  window.addEventListener("keyup", handleKeyUp);
-
-  return () => {
-    window.removeEventListener("keydown", handleKeyDown);
-    window.removeEventListener("keyup", handleKeyUp);
-  };
-}, [handleSendMovePaddle, game_id]);
+  }, [handleSendMovePaddle, game_id]);
 
   // =========================
   // Canvas Rendering
@@ -197,7 +197,7 @@ useEffect(() => {
   // Simple UI for Start Game
   // =========================
   const [playerListInput, setPlayerListInput] = useState("4,5,6,7,8");
-  const [ballInput, setBallInput] = useState(1);
+  const [ballInput, setBallInput] = useState<number>(1);
 
   const handleStartGameClick = useCallback(() => {
     const ids = playerListInput
@@ -210,7 +210,7 @@ useEffect(() => {
       balls: ballInput,
     };
     handleSendStartNewGame(payload);
-  }, [playerListInput, handleSendStartNewGame]);
+  }, [playerListInput, ballInput, handleSendStartNewGame]);
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-grey p-4 space-y-4">
@@ -232,7 +232,10 @@ useEffect(() => {
         <input
           type="text"
           value={ballInput}
-          onChange={(e) => setBallInput(Number(e.target.value))}
+          onChange={(e) => {
+            const num = parseInt(e.target.value, 10);
+            setBallInput(isNaN(num) ? 0 : num);
+          }}
           className="border rounded px-2 py-1 w-64"
           placeholder="Enter player IDs (e.g. 4,5,6,7,8)"
         />

@@ -205,6 +205,7 @@ class PongGame {
   }
 
   private spawn_balls(count: number): Array<PongBall> {
+    console.log("Spawning this number of balls", count);
     const balls = [];
     for (let i = 0; i < count; i++) {
       balls.push(
@@ -310,43 +311,53 @@ class PongGame {
     }
   }
 
-  getLosingPaddleId(deltaFactor: number): number | null {
-    // returns paddle ID
-    for (const pong_ball of this.pong_balls) {
-      let idxPaddleVsSegment = 0;
-      const pb_movement = pong_ball.getMove(deltaFactor);
-      for (let i = 0; i < this.map_polygon_edges.length; i++) {
-        const segment_a = this.map_polygon_edges[i]!;
-        const segment_b =
-          this.map_polygon_edges[(i + 1) % this.map_polygon_edges.length]!;
-        const hits_wall = pong_ball.checkSegmentCollision(
-          pong_ball.pos,
-          segment_a,
-          segment_b,
-          { x: 0, y: 0 },
-          pb_movement,
-          pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
-          MAP_GAMEOVER_EDGES_WIDTH
-        );
-        if (!hits_wall) {
-          idxPaddleVsSegment++;
-          continue;
-        }
-        // Put the ball in the middle at random dir:
-        pong_ball.lastCollidedWith = null;
-        pong_ball.pos = scale(0.5, this.board_size);
-        const quarterIndex = Math.floor(Math.random() * 4);
-        const r =
-          (quarterIndex * Math.PI) / 2 +
-          0.1 +
-          Math.random() * (Math.PI / 2 - 2 * 0.1);
-        pong_ball.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
-
-        // Return playerId that splatted
-        return idxPaddleVsSegment;
+  hitsPlayerOwnedSegment(
+    pong_ball: PongBall,
+    deltaFactor: number
+  ): number | null {
+    let idxPaddleVsSegment = 0;
+    const pb_movement = pong_ball.getMove(deltaFactor);
+    for (let i = 0; i < this.map_polygon_edges.length; i++) {
+      const segment_a = this.map_polygon_edges[i]!;
+      const segment_b =
+        this.map_polygon_edges[(i + 1) % this.map_polygon_edges.length]!;
+      const hits_wall = pong_ball.checkSegmentCollision(
+        pong_ball.pos,
+        segment_a,
+        segment_b,
+        { x: 0, y: 0 },
+        pb_movement,
+        pong_ball.radius + MAP_GAMEOVER_EDGES_WIDTH,
+        MAP_GAMEOVER_EDGES_WIDTH
+      );
+      if (hits_wall === null) {
+        idxPaddleVsSegment++;
+        continue;
       }
+
+      // Return playerId that splatted
+      return idxPaddleVsSegment;
     }
     return null;
+  }
+  checkIfBallsExitBounds(deltaFactor: number): void {
+    for (const pong_ball of this.pong_balls) {
+      const defeated_paddle_index = this.hitsPlayerOwnedSegment(
+        pong_ball,
+        deltaFactor
+      );
+      if (defeated_paddle_index === null) continue;
+      console.log(`Player was hit:${defeated_paddle_index}`);
+      // Put the ball in the middle after scoring agaisnt someone
+      pong_ball.lastCollidedWith = null;
+      pong_ball.pos = scale(0.5, this.board_size);
+      const quarterIndex = Math.floor(Math.random() * 4);
+      const r =
+        (quarterIndex * Math.PI) / 2 +
+        0.1 +
+        Math.random() * (Math.PI / 2 - 2 * 0.1);
+      pong_ball.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
+    }
   }
   gameLoop() {
     const currentTime = Date.now();
@@ -357,17 +368,7 @@ class PongGame {
 
     this.setPaddleMovement(deltaFactor);
     this.checkBallsBounceOnPaddles(deltaFactor);
-    const failed_to_defend: number | null = this.getLosingPaddleId(deltaFactor);
-    if (failed_to_defend !== null) {
-      const loses_a_point = this.player_paddles[failed_to_defend];
-      if (!loses_a_point) {
-        console.error(
-          `Index ${failed_to_defend} on array ${this.player_paddles}`
-        );
-        return;
-      }
-      loses_a_point.pos = scale(1.001, loses_a_point.pos);
-    }
+    this.checkIfBallsExitBounds(deltaFactor);
     this.unecessaryCheck();
   }
 }
