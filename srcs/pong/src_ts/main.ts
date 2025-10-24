@@ -1,14 +1,10 @@
 "use strict";
-// import type { FastifyReply, FastifyInstance } from "fastify";
 import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
-import type {
-  TypeMovePaddlePayloadScheme,
-  TypePongBall,
-  TypePongPaddle,
-} from "./utils/api/service/pong/pong_interfaces.js";
 import { OurSocket } from "./utils/socket_to_hub.js";
+import { user_url } from "./utils/api/service/common/endpoints.js";
+import type { T_PayloadToUsers } from "./utils/api/service/hub/hub_interfaces.js";
 
 const fastify = Fastify({
   logger: {
@@ -28,12 +24,8 @@ fastify.register(websocketPlugin);
 const singletonPong = new PongManager();
 const socket = new OurSocket("pong");
 
-// Setup WebSocket handler
-// setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
-import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
-import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interfaces.js";
-
 async function backgroundTask() {
+  let loops = 0;
   try {
     while (true) {
       if (socket.getSocket().readyState != socket.getSocket().OPEN) {
@@ -45,9 +37,10 @@ async function backgroundTask() {
         const payload = game.getGameState();
         const recipients = Array.from(game.player_id_to_paddle.keys());
 
-        const out = {
+        const out: T_PayloadToUsers = {
           recipients: recipients,
           funcId: user_url.ws.pong.getGameState.funcId,
+          code: 666,
           payload: payload,
         };
         socket.getSocket().send(JSON.stringify(out));
@@ -70,15 +63,20 @@ async function backgroundTask() {
 }
 backgroundTask();
 
-// socket.registerEvent(
-//   user_url.ws.pong.movePaddle,
-//   async (body: TypeMovePaddlePayloadScheme, wrapper: T_ForwardToContainer) => {
-//     return singletonPong.movePaddle(body, wrapper);
-//   }
-// );
-
-singletonPong.startGame({
-  user_id: 2,
-  funcId: "/api/start_game",
-  payload: { player_list: [4, 5, 6, 7, 8] },
+socket.registerEvent(user_url.ws.pong.movePaddle, async (wrapper) => {
+  return singletonPong.movePaddle(wrapper);
 });
+
+socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
+  console.log("Startnig new game:", wrapper.payload);
+  console.log(wrapper);
+  return singletonPong.startGame(wrapper);
+});
+
+console.log(
+  singletonPong.startGame({
+    user_id: 7,
+    funcId: "/api/start_game",
+    payload: { balls: 20, player_list: [4, 5, 6, 7, 8] },
+  })
+);

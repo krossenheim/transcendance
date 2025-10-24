@@ -23,22 +23,24 @@ function randomAvoidAxes(epsilon = 0.05): number {
 }
 
 function solveQuadratic(a: number, b: number, c: number): number | null {
-  if (a < 1e-8) {
-    return null;
+  if (Math.abs(a) < 1e-8) {
+    return null; // Not quadratic
   }
 
-  const discriminant = b * b - 4 * a * c;
-  if (discriminant < 0 && discriminant > -1e-8) return 0;
+  let discriminant = b * b - 4 * a * c;
 
-  if (discriminant > 0) {
-    const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-    const root2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-    return Math.min(root1, root2);
-  } else if (discriminant === 0) {
-    const root = -b / (2 * a);
-    return root;
+  // Treat near-zero negatives as zero
+  if (discriminant < 0 && discriminant > -1e-12) discriminant = 0;
+
+  if (discriminant < 0) {
+    return null; // No real roots
   }
-  return null;
+
+  const sqrtD = Math.sqrt(discriminant);
+  const root1 = (-b + sqrtD) / (2 * a);
+  const root2 = (-b - sqrtD) / (2 * a);
+
+  return Math.min(root1, root2);
 }
 
 type Hit = {

@@ -157,16 +157,19 @@ function forwardPayloadToUsers(
   recipients: Array<number>,
   payload: TypePayloadHubToUsersSchema
 ) {
+  if (payload.funcId !== "get_game_state")
+    console.log(
+      "Sending payload to recipients:",
+      recipients,
+      " from container:",
+      payload.source_container
+    );
   for (const user_id of recipients) {
     const socketToUser = openUserIdToSocket.get(user_id);
     if (!socketToUser) {
       // Container would like to talk to someone offline
       continue;
     }
-    if (socketToUser)
-      console.log(
-        "Sending to userID:" + user_id + "message:" + JSON.stringify(payload)
-      );
     socketToUser.send(JSON.stringify(payload));
   }
 }
@@ -329,7 +332,10 @@ fastify.get(
     socket.on("message", async (message: WebSocket.RawData) => {
       let parsed: any;
       try {
-        parsed = JSON.parse(rawDataToString(message) || "");
+        const string = rawDataToString(message);
+        if (!string) return;
+        parsed = JSON.parse(string);
+        console.log("Unparsed", string);
       } catch (e) {
         console.log(`Unrecognized message: ${message}`);
         return;
@@ -368,7 +374,9 @@ fastify.get(
         return;
       }
 
+      console.log("Parsed:", parsed);
       const [validated, target_container] = translationResult.unwrap();
+      console.log("vaidated:", validated);
       const forwardResult = forwardToContainer(target_container, validated);
       if (forwardResult.isErr())
         socket.send(

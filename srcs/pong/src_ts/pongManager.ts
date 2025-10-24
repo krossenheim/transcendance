@@ -141,15 +141,15 @@ export class PongManager {
     }
     const { player_list } = validation.data.payload;
     // const { user_id } = parsed;
-    let result = PongGame.create(player_list);
+    let result = PongGame.create(balls, player_list);
     if (result.isErr()) {
-      return {
+      return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.pong.startGame.schema.output.FailedCreateGame.code,
         payload: {
           message: "Could not start pong game: failed to create game instance.",
         },
-      };
+      });
     }
     const pong_game = result.unwrap();
     const game_id = this.debugGameID;
@@ -158,15 +158,15 @@ export class PongManager {
     this.pong_instances.set(game_id, pong_game);
     // Send the users the game id.
     {
-      return {
+      return Result.Ok({
         recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
-        // payload: {
-        //   game_id: game_id,
-        //   player_list: player_list,
-        // },
-        payload: {}
-      };
+        code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated
+          .code,
+        payload: {
+          game_id: game_id,
+          player_list: player_list,
+        },
+      });
     }
   }
 
