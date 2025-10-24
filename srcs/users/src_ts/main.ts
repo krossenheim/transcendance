@@ -11,10 +11,11 @@ import { Result } from "./utils/api/service/common/result.js";
 const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
 
+// {"funcId":"test","payload":{},"target_container":"users"}
 socketToHub.registerEvent(user_url.ws.users.test, async (body, schema) => {
 	console.log("Received test event with body:", body);
 	const result = Result.Ok({recipients: [body.user_id], code: schema.output.Failure.code, payload: {message: "Test successful"}});
-	socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
+	// socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
 	return result;
 });
 

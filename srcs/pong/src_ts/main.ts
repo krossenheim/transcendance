@@ -67,11 +67,11 @@ socket.registerEvent(user_url.ws.pong.movePaddle, async (wrapper) => {
   return singletonPong.movePaddle(wrapper);
 });
 
-socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
-  console.log("Startnig new game:", wrapper.payload);
-  console.log(wrapper);
-  return singletonPong.startGame(wrapper);
-});
+// socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
+//   console.log("Startnig new game:", wrapper.payload);
+//   console.log(wrapper);
+//   return singletonPong.startGame(wrapper);
+// });
 
 console.log(
   singletonPong.startGame({
