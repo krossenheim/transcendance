@@ -14,7 +14,7 @@ import {
   type TypePayloadHubToUsersSchema,
   type T_ForwardToContainer,
 } from "./utils/api/service/hub/hub_interfaces.js";
-import { containersIpToName } from "./utils/container_names.js";
+import { containersIpToName, containersNameToIp } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
 
 import { Result } from "./utils/api/service/common/result.js";
@@ -281,6 +281,9 @@ async function handleWebsocketAuth(
   updateWebSocketConnection(socket, user_id);
   socket.send(JSON.stringify({ user_id: `Tru auth!:${user_id}` }));
   console.log("Authenticated user id " + user_id + " socket map.");
+  // for (const socket of internal_sockets) {
+  //   socket.send(JSON.stringify({ user_id: user_id }));
+  // }
   return Result.Ok(user_id);
 }
 
@@ -302,6 +305,23 @@ function translateUserPackage(
   ]);
 }
 
+function forwardToContainers(forwarded: T_ForwardToContainer): Result<null, string> {
+  if (forwarded.user_id !== -1){
+    return Result.Err("user_id must be -1 when forwarding to multiple containers");
+  }
+  for (const target_container of containersNameToIp.keys()) {
+    if (target_container === "hub") continue; 
+    const wsToContainer = interContainerNameToWebsockets.get(target_container);
+    if (!wsToContainer)
+      return Result.Err(target_container + " has never opened a socket.");
+
+    if (wsToContainer.readyState !== wsToContainer.OPEN)
+      return Result.Err(target_container + " socket is not open.");
+    wsToContainer.send(JSON.stringify(forwarded));
+  }
+  return Result.Ok(null);
+}
+
 fastify.get(
   "/ws",
   { websocket: true },
@@ -321,6 +341,21 @@ fastify.get(
         if (authResult.isErr())
           console.error("Authentication failed: " + authResult.unwrapErr());
         else
+        {
+
+          // const payloadInformAll : T_ForwardToContainer= {
+          //   user_id: -1,
+          //   funcId: int_url.ws.hub.getUserConnections.funcId,
+          //   payload: { user_id: authResult.unwrap() },
+          // };
+          // const forwardResult = forwardToContainers(payloadInformAll);
+          // if (forwardResult.isErr()) {
+          //   console.error(
+          //     "Failed to inform containers of new user connection: " +
+          //     forwardResult.unwrapErr()
+          //   );  
+          // }
+        }
           console.log(
             "User authenticated with user_id: " + authResult.unwrap()
           );

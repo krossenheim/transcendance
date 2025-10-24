@@ -30,7 +30,7 @@ const socket = new OurSocket("pong");
 
 // Setup WebSocket handler
 // setSocketOnMessageHandler(socketToHub, { tasks: pongTasks });
-import { user_url } from "./utils/api/service/common/endpoints.js";
+import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import type { T_ForwardToContainer } from "./utils/api/service/hub/hub_interfaces.js";
 
 async function backgroundTask() {

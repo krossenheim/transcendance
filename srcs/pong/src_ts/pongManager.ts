@@ -108,7 +108,7 @@ export class PongManager {
   //     },
   //   };
   // }
-  startGame(client_request: T_ForwardToContainer): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.responses> {
+  startGame(client_request: T_ForwardToContainer): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.output> {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
@@ -121,7 +121,7 @@ export class PongManager {
     if (!valid_gamestart.success) {
       return {
         recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.InvalidInput.code,
+        code: user_url.ws.pong.startGame.schema.output.InvalidInput.code,
         payload: {
           message: "Could not start pong game: ",
         },
@@ -133,7 +133,7 @@ export class PongManager {
       console.log("Invalid payload to start a game.: " + zodded.error);
       return {
         recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.InvalidInput.code,
+        code: user_url.ws.pong.startGame.schema.output.InvalidInput.code,
         payload: {
           message: "Could not start pong game: invalid payload structure.",
         },
@@ -145,7 +145,7 @@ export class PongManager {
     if (result.isErr()) {
       return {
         recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.FailedCreateGame.code,
+        code: user_url.ws.pong.startGame.schema.output.FailedCreateGame.code,
         payload: {
           message: "Could not start pong game: failed to create game instance.",
         },
@@ -160,7 +160,7 @@ export class PongManager {
     {
       return {
         recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.code,
+        code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
         // payload: {
         //   game_id: game_id,
         //   player_list: player_list,
@@ -172,7 +172,7 @@ export class PongManager {
 
   movePaddle(
     client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.responses> | null, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.output> | null, ErrorResponseType> {
     const game = this.pong_instances.get(client_metadata.payload.board_id);
     if (
       !game ||
@@ -181,7 +181,7 @@ export class PongManager {
       return Result.Ok({
         recipients: [client_metadata.user_id],
         funcId: client_metadata.funcId,
-        code: user_url.ws.pong.movePaddle.schema.responses.NotInRoom.code,
+        code: user_url.ws.pong.movePaddle.schema.output.NotInRoom.code,
         payload: {
           message:
             "You're not in game with ID " + client_metadata.payload.board_id,

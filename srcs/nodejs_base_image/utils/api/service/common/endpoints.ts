@@ -8,7 +8,7 @@ import {
   SendMessagePayloadSchema,
 } from "../chat/chat_interfaces.js";
 import {
-  UpdateFriendshipStatusSchema,
+  UserConnectionStatusSchema,
   RequestUpdateFriendship,
 } from "../db/friendship.js";
 import { VerifyTokenPayload, StoreTokenPayload } from "../db/token.js";
@@ -24,7 +24,7 @@ import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
 import { RoomSchema } from "../chat/db_models.js";
-import { ForwardToContainerSchema } from "../hub/hub_interfaces.js";
+import { ForwardToContainerSchema, PayloadHubToUsersSchema } from "../hub/hub_interfaces.js";
 import { z } from "zod";
 import { idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
@@ -52,14 +52,17 @@ export type WSResponseType = {
   payload: z.ZodType;
 };
 
+export type WSSchemaType = {
+  args: z.ZodType;
+  args_wrapper: z.ZodType;
+  output_wrapper: z.ZodType;
+  output: Record<string, WSResponseType>;
+};
+
 export type WebSocketRouteDef = {
   funcId: string;
-  container: "chat" | "pong" | "users";
-  schema: {
-    body: z.ZodType;
-    wrapper: z.ZodType;
-    responses: Record<string, WSResponseType>;
-  };
+  container: "chat" | "pong" | "users" | "hub";
+  schema: WSSchemaType;
 };
 
 // Type safety wrapper
@@ -186,9 +189,10 @@ export const user_url = defineRoutes({
         funcId: "test",
         container: "users",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: EmptySchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             Success: {
               code: 0,
               payload: z.string(),
@@ -199,7 +203,31 @@ export const user_url = defineRoutes({
             }
           }
         }
-      }
+      },
+
+      updateUserConnection: {
+        funcId: "update_user_connection",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestUpdateFriendship,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            InvitedUserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusTransition: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          }
+        }
+      },
     },
 
     pong: {
@@ -207,9 +235,10 @@ export const user_url = defineRoutes({
         funcId: "get_game_state",
         container: "pong",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: EmptySchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             MessageSent: {
               code: 0,
               payload: GameStateSchema,
@@ -229,9 +258,10 @@ export const user_url = defineRoutes({
         funcId: "move_paddle",
         container: "pong",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: MovePaddlePayloadScheme,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: MovePaddlePayloadScheme,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             MessageSent: {
               code: 0,
               payload: EmptySchema,
@@ -251,9 +281,10 @@ export const user_url = defineRoutes({
         funcId: "start_game",
         container: "pong",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: StartNewPongGameSchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: StartNewPongGameSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             GameInstanceCreated: {
               code: 0,
               payload: EmptySchema,
@@ -276,9 +307,10 @@ export const user_url = defineRoutes({
         container: "chat", // yes, the object parent of the (sendMessage) holding this is named chat.
         //                    but i'd rather type it twice
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: SendMessagePayloadSchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: SendMessagePayloadSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             MessageSent: {
               code: 0,
               payload: StoredMessageSchema,
@@ -298,9 +330,10 @@ export const user_url = defineRoutes({
         funcId: "/api/chat/add_user_to_room",
         container: "chat",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: AddToRoomPayloadSchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: AddToRoomPayloadSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             UserAdded: {
               code: 0,
               payload: RoomEventSchema,
@@ -328,9 +361,10 @@ export const user_url = defineRoutes({
         funcId: "/api/chat/add_a_new_room",
         container: "chat",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: AddRoomPayloadSchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: AddRoomPayloadSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             AddedRoom: {
               code: 0,
               payload: RoomSchema,
@@ -346,9 +380,10 @@ export const user_url = defineRoutes({
         funcId: "/api/chat/list_rooms",
         container: "chat",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: EmptySchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             FullListGiven: {
               code: 0,
               payload: ListRoomsSchema,
@@ -364,9 +399,10 @@ export const user_url = defineRoutes({
         funcId: "/api/chat/join_room",
         container: "chat",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: RequestRoomByIdSchema,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestRoomByIdSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             RoomJoined: {
               code: 0,
               payload: RoomEventSchema,
@@ -389,6 +425,68 @@ export const user_url = defineRoutes({
 
 /// /internal_api/*
 export const int_url = defineRoutes({
+   ws: {
+    hub: {
+
+      userConnected: {
+        funcId: "get_online_users",
+        container: "hub", // Suspicious activity
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.array(z.number()), // not really meant to ever be called
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: z.array(z.number()),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      userDisconnected: {
+        funcId: "user_disconnected",
+        container: "hub", // Suspicious activity
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema, // not really meant to ever be called
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: GetUser,
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      getOnlineUsers: {
+        funcId: "get_online_users",
+        container: "hub",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: z.array(FullUser),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+    },
+  },
   http: {
     db: {
       // Userdata endpoints
@@ -468,10 +566,22 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/db/users/update_friendship_status",
         method: "POST",
         schema: {
-          body: UpdateFriendshipStatusSchema,
+          body: UserConnectionStatusSchema,
           response: {
             200: z.null(), // Updated successfully
             400: ErrorResponse, // Invalid status transition
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      getUserConnections: {
+        endpoint: "/internal_api/db/users/connections/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.array(UserConnectionStatusSchema), // Retrieved contacts
             500: ErrorResponse, // Internal server error
           },
         },
@@ -531,5 +641,4 @@ export const int_url = defineRoutes({
     },
   },
 
-  ws: {},
 });

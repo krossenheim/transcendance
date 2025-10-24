@@ -9,7 +9,7 @@ export enum UserFriendshipStatusEnum {
 
 export const UserFriendshipStatus = z.enum(UserFriendshipStatusEnum);
 
-export const UpdateFriendshipStatusSchema = z.object({
+export const UserConnectionStatusSchema = z.object({
 	userId: userIdValue,
 	friendId: userIdValue,
 	status: UserFriendshipStatus
@@ -20,8 +20,8 @@ export const RequestUpdateFriendship = z.object({
 	status: UserFriendshipStatus
 }).strict();
 
-export type UpdateFriendshipStatusType = z.infer<typeof UpdateFriendshipStatusSchema>;
+export type UserConnectionStatusType = z.infer<typeof UserConnectionStatusSchema>;
 
 export default {
-	UpdateFriendshipStatusSchema
+	UpdateFriendshipStatusSchema: UserConnectionStatusSchema
 };

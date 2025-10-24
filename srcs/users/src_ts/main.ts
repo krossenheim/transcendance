@@ -1,4 +1,4 @@
-import { UpdateFriendshipStatusSchema } from "./utils/api/service/db/friendship.js";
+import { UserConnectionStatusSchema } from "./utils/api/service/db/friendship.js";
 import { createFastify } from "./utils/api/service/common/fastify.js";
 import containers from "./utils/internal_api.js";
 
@@ -13,10 +13,16 @@ const socketToHub = new OurSocket("users");
 
 socketToHub.registerEvent(user_url.ws.users.test, async (body, schema) => {
 	console.log("Received test event with body:", body);
-	const result = Result.Ok({recipients: [body.user_id], code: schema.responses.Failure.code, payload: {message: "Test successful"}});
-	socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.responses.Success.code, payload: "42"});
+	const result = Result.Ok({recipients: [body.user_id], code: schema.output.Failure.code, payload: {message: "Test successful"}});
+	socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
 	return result;
 });
+
+// socketToHub.registerEvent(user_url.ws.users.updateUserConnection, async (body, schema) => {
+// 	const currentUserConnectionsResult = await containers.db.get(int_url.http.db.getUserConnections, { userId: body.user_id });
+// });
+
+
 
 registerRoute(fastify, user_url.http.users.fetchUser, async (request, reply) => {
 	const requestingUser = await containers.db.fetchUserData(request.body.userId);
@@ -29,7 +35,7 @@ registerRoute(fastify, user_url.http.users.fetchUser, async (request, reply) => 
 
 registerRoute(fastify, user_url.http.users.requestFriendship, async (request, reply) => {
 	const { friendId, status } = request.body.payload;
-	const updateResult = await containers.db.post(int_url.http.db.updateUserFriendshipStatus, UpdateFriendshipStatusSchema.parse({
+	const updateResult = await containers.db.post(int_url.http.db.updateUserFriendshipStatus, UserConnectionStatusSchema.parse({
 		userId: request.body.userId,
 		friendId,
 		status

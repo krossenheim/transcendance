@@ -35,7 +35,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [body.user_id],
         funcId: body.funcId,
-        code: user_url.ws.chat.sendMessage.schema.responses.NotInRoom.code,
+        code: user_url.ws.chat.sendMessage.schema.output.NotInRoom.code,
         payload: {
           message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
         },
@@ -53,7 +53,7 @@ socket.registerEvent(
       console.warn(`Bad user request, no such room.`);
       return Result.Ok({
         recipients: [body.user_id],
-        code: schema.responses.NoSuchRoom.code,
+        code: schema.output.NoSuchRoom.code,
         payload: {
           message: `No such room (ID: ${body.payload.roomId}) or you are not in it.`,
         },
@@ -72,7 +72,7 @@ socket.registerEvent(
       return Result.Ok({
         recipients: [body.user_id],
         funcId: body.funcId,
-        code: user_url.ws.chat.addRoom.schema.responses.FailedToAddRoom.code,
+        code: user_url.ws.chat.addRoom.schema.output.FailedToAddRoom.code,
         payload: {
           message: `Could not create requested room by name: ${body.payload.roomName}`,
         },
@@ -93,7 +93,7 @@ socket.registerEvent(
       );
       return Result.Ok({
         recipients: [body.user_id],
-        code: user_url.ws.chat.listRooms.schema.responses.NoListGiven.code,
+        code: user_url.ws.chat.listRooms.schema.output.NoListGiven.code,
         payload: {
           message: `Could not list the rooms you can join.`,
         },
