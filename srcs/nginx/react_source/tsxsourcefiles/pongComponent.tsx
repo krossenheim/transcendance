@@ -45,13 +45,6 @@ export default function PongComponent() {
   // Handle incoming GameState
   // =========================
 
-  const newGameStateReceived = useCallback(
-    (new_state: TypeGameStateSchema) => {
-      setGameState(new_state);
-    },
-    [gameState]
-  );
-
   const aPlayerHasReadied = useCallback(
     (player_readied_info: TypePlayerReadyForGameSchema) => {
       console.log(
@@ -193,7 +186,7 @@ export default function PongComponent() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [gameState]);
 
   // =========================
   // Canvas Rendering
