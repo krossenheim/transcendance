@@ -108,6 +108,40 @@ export class PongManager {
   //     },
   //   };
   // }
+  userReportsReady(
+    client_request: T_ForwardToContainer
+  ): Result<
+    WSHandlerReturnValue<
+      typeof user_url.ws.pong.userReportsReady.schema.responses
+    >,
+    ErrorResponseType
+  > {
+    const ready_id = client_request.payload;
+    const game: undefined | PongGame = this.pong_instances.get(ready_id);
+    if (
+      game === undefined ||
+      game.player_ids.find((game_id) => game_id === ready_id)
+    ) {
+      return Result.Ok({
+        recipients: [client_request.user_id],
+        code: user_url.ws.pong.userReportsReady.schema.responses.FailedToReady
+          .code,
+        payload: {
+          message: `No game by ID ${ready_id}" exists, or you are not in it.`,
+        },
+      });
+    }
+
+    return Result.Ok({
+      recipients: game.player_ids,
+      code: user_url.ws.pong.userReportsReady.schema.responses.UserIsReady.code,
+      payload: {
+        game_id: ready_id,
+        user_id: client_request.user_id,
+      },
+    });
+  }
+
   startGame(
     client_request: T_ForwardToContainer
   ): Result<

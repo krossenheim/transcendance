@@ -26,13 +26,15 @@ import { ErrorResponse } from "./error.js";
 import { RoomSchema } from "../chat/db_models.js";
 import { ForwardToContainerSchema } from "../hub/hub_interfaces.js";
 import { z } from "zod";
-import { idValue, userIdValue } from "./zodRules.js";
+import { gameIdValue, idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
 import { UserAuthenticationRequestSchema } from "../hub/hub_interfaces.js";
 import {
   GameStateSchema,
   GetGameInfoSchema,
   MovePaddlePayloadScheme,
+  PlayerDeclaresReadyForGame,
+  PlayerReadyForGameSchema,
   StartNewPongGameSchema,
 } from "../pong/pong_interfaces.js";
 
@@ -197,10 +199,10 @@ export const user_url = defineRoutes({
             Failure: {
               code: 1,
               payload: ErrorResponse,
-            }
-          }
-        }
-      }
+            },
+          },
+        },
+      },
     },
 
     pong: {
@@ -264,6 +266,29 @@ export const user_url = defineRoutes({
               payload: ErrorResponse,
             },
             InvalidInput: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      userReportsReady: {
+        funcId: "report_ready_for_pong_game",
+        container: "pong",
+        schema: {
+          wrapper: ForwardToContainerSchema,
+          body: PlayerDeclaresReadyForGame,
+          responses: {
+            UserIsReady: {
+              code: 0,
+              payload: PlayerReadyForGameSchema,
+            },
+            GameHasStarted: {
+              code: 1,
+              payload: EmptySchema,
+            },
+            FailedToReady: {
               code: 2,
               payload: ErrorResponse,
             },

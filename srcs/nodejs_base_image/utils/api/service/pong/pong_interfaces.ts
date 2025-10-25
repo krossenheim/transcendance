@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { gameIdValue, userIdValue } from "../common/zodRules.js";
 
 export const StartNewPongGameSchema = z
   .object({
@@ -44,14 +45,14 @@ const PongEdgeSchema = z
 
 export const MovePaddlePayloadScheme = z
   .object({
-    board_id: z.coerce.number().int().positive(), //board id
+    board_id: gameIdValue, //board id
     m: z.union([z.boolean(), z.null()]), // move right = yyes , left = no, not = null
   })
   .strict();
 
 export const GameStateSchema = z
   .object({
-    game_id: z.number().int().gte(0),
+    game_id: gameIdValue,
     balls: z.array(PongBallSchema),
     paddles: z.array(PongPaddleSchema),
     edges: z.array(PongEdgeSchema),
@@ -60,7 +61,7 @@ export const GameStateSchema = z
 
 export const GetGameInfoSchema = z
   .object({
-    game_id: z.number().int().gte(0),
+    game_id: gameIdValue,
     player_list: z.array(z.coerce.number()).refine(
       (arr) => {
         // Check uniqueness
@@ -73,6 +74,25 @@ export const GetGameInfoSchema = z
   })
   .strict();
 
+export const PlayerReadyForGameSchema = z
+  .object({
+    game_id: gameIdValue,
+    user_id: userIdValue.optional(),
+  })
+  .strict();
+
+export const PlayerDeclaresReadyForGame = z
+  .object({
+    game_id: gameIdValue,
+  })
+  .strict();
+
+export type TypePlayerDeclaresReadyForGame = z.infer<
+  typeof PlayerDeclaresReadyForGame
+>;
+export type TypePlayerReadyForGameSchema = z.infer<
+  typeof PlayerReadyForGameSchema
+>;
 export type TypeGetGameInfoSchema = z.infer<typeof GetGameInfoSchema>;
 export type TypeMovePaddlePayloadScheme = z.infer<
   typeof MovePaddlePayloadScheme

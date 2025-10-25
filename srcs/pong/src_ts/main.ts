@@ -40,7 +40,7 @@ async function backgroundTask() {
         const out: T_PayloadToUsers = {
           recipients: recipients,
           funcId: user_url.ws.pong.getGameState.funcId,
-          code: 666,
+          code: user_url.ws.pong.getGameState.schema.responses.GameUpdate.code,
           payload: payload,
         };
         socket.getSocket().send(JSON.stringify(out));
@@ -71,6 +71,12 @@ socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
   console.log("Startnig new game:", wrapper.payload);
   console.log(wrapper);
   return singletonPong.startGame(wrapper);
+});
+
+socket.registerEvent(user_url.ws.pong.userReportsReady, async (wrapper) => {
+  console.log("User declares ready :", wrapper.user_id);
+  console.log(wrapper);
+  return singletonPong.userReportsReady(wrapper);
 });
 
 console.log(

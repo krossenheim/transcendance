@@ -4,9 +4,18 @@ import {
   type TypeMovePaddlePayloadScheme,
   type TypeStartNewPongGame,
   type TypeGameStateSchema,
+  TypePlayerReadyForGameSchema,
+  TypePlayerDeclaresReadyForGame,
 } from "../../../nodejs_base_image/utils/api/service/pong/pong_interfaces";
 import { useWebSocket } from "./socketComponent";
-import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints";
+import {
+  user_url,
+  WebSocketRouteDef,
+  WSResponseType,
+} from "../../../nodejs_base_image/utils/api/service/common/endpoints";
+import { z } from "zod";
+import user from "../../../nodejs_base_image/utils/api/service/db/user";
+import { InfoIcon } from "lucide-react";
 
 const BACKEND_WIDTH = 1000;
 const BACKEND_HEIGHT = 1000;
@@ -41,71 +50,109 @@ export default function PongComponent() {
   // Handle incoming GameState
   // =========================
 
-  const handleListRoomsSchemaReceived = useCallback(
-    (newgame: TypeGameStateSchema) => {
-      setGame_id(game_id);
+  const handleGetGameState = useCallback(
+    (data: z) => {
+      console.log("etting game id to ", newgame.game_id);
+      setGame_id(newgame.game_id);
+    },
+    [socket]
+  );
+
+  const someoneReadied = useCallback(
+    (info: TypePlayerReadyForGameSchema) => {
+      console.log(
+        `Player with ID '${info.user_id}' is ready for game with ID '${info.game_id}'`
+      );
+      // A toast on the screen would suffice, with a link that loads a pongcomponent i guess.
+    },
+    [socket]
+  );
+  const funcMap: Map<string, any> = new Map();
+  funcMap.set(user_url.ws.pong.getGameState.funcId, handleGetGameState);
+  funcMap.set(user_url.ws.pong.userReportsReady.funcId, someoneReadied);
+
+  const handleIncomingSocketData = useCallback<
+    <T extends WebSocketRouteDef>(
+      wshandlerinfo: T,
+      data: z.infer<T["schema"]["responses"]>
+    ) => void
+  >(
+    (wshandlerinfo, data) => {
+      if (funcMap.has(wshandlerinfo.funcId)) {
+        console.log("Consuming event fom socket funcID:", wshandlerinfo.funcId);
+        const func = funcMap.get(wshandlerinfo.funcId);
+        func(data);
+      }
     },
     [socket]
   );
 
   useEffect(() => {
     if (!payloadReceived) return;
-
-    if (payloadReceived.funcId === user_url.ws.pong.startGame.funcId) {
-      const parsed =
-        user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.payload.safeParse(
-          payloadReceived.payload
+    for (const webSocketRoute of Object.values(user_url.ws.pong)) {
+      if (payloadReceived.funcId !== webSocketRoute.funcId) {
+        continue;
+      }
+      const PayloadSchema: WSResponseType = Object.values(
+        webSocketRoute.schema.responses
+      ).find((r) => r.code === payloadReceived.code);
+      if (!PayloadSchema) {
+        console.error(
+          ` payload could not be determined For code ${payloadReceived.code}`
         );
-      console.log("running1");
-      if (parsed.success) setGame_id(parsed.data.game_id);
-      else console.warn("Invalid new game payload:", parsed.error);
-    } else if (
-      payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
-    ) {
-      console.log("running12");
-      const parsed =
-        user_url.ws.pong.getGameState.schema.responses.GameUpdate.payload.safeParse(
-          payloadReceived.payload
-        );
-      if (parsed.success) {
-        if (game_id === null) setGame_id(parsed.data.game_id); // Client rejoined
-        setGameState(parsed.data);
-      } else console.warn("Invalid GameState payload:", parsed.error);
+        return;
+      }
+      const data = PayloadSchema.payload.safeParse(payloadReceived.payload);
+      handleIncomingSocketData(webSocketRoute, data);
+      return;
     }
+    console.error("No handler for: ", payloadReceived.funcId);
   }, [payloadReceived]);
 
-  // =========================
+  // useEffect(() => {
+  //   if (!payloadReceived) return;
+
+  //   if (payloadReceived.funcId === user_url.ws.pong.startGame.funcId) {
+  //     const parsed =
+  //       user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.payload.safeParse(
+  //         payloadReceived.payload
+  //       );
+  //     if (parsed.success) setGame_id(parsed.data.game_id);
+  //     else console.warn("Invalid new game payload:", parsed.error);
+  //   } else if (
+  //     payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
+  //   ) {
+  //     const parsed =
+  //       user_url.ws.pong.getGameState.schema.responses.GameUpdate.payload.safeParse(
+  //         payloadReceived.payload
+  //       );
+  //     if (parsed.success) {
+  //       if (game_id === null) setGame_id(parsed.data.game_id); // Client rejoined
+  //       setGameState(parsed.data);
+  //     } else console.warn("Invalid GameState payload:", parsed.error);
+  //   }
+  // }, [payloadReceived]);
+
+  // // =========================
   // WebSocket Send Helpers
   // =========================
-  const handleSendStartNewGame = useCallback(
-    (payload: TypeStartNewPongGame) => {
-      if (socket.current?.readyState === WebSocket.OPEN) {
-        socket.current.send(
-          JSON.stringify({
-            funcId: user_url.ws.pong.startGame.funcId,
-            payload,
-            target_container: user_url.ws.pong.startGame.container,
-          })
-        );
-      } else {
-        console.warn("WebSocket not open, cannot send StartNewGame");
-      }
-    },
-    [socket]
-  );
 
-  const handleSendMovePaddle = useCallback(
-    (payload: TypeMovePaddlePayloadScheme) => {
+  const handleUserInput = useCallback<
+    <T extends WebSocketRouteDef>(
+      wshandlerinfo: T,
+      payload: z.infer<T["schema"]["body"]>
+    ) => void
+  >(
+    (wshandlerinfo, payload) => {
+      const strToSend = JSON.stringify({
+        funcId: wshandlerinfo.funcId,
+        payload: payload,
+        target_container: wshandlerinfo.container,
+      });
       if (socket.current?.readyState === WebSocket.OPEN) {
-        socket.current.send(
-          JSON.stringify({
-            funcId: user_url.ws.pong.movePaddle.funcId,
-            payload,
-            target_container: user_url.ws.pong.movePaddle.container,
-          })
-        );
+        socket.current.send(strToSend);
       } else {
-        console.warn("WebSocket not open, cannot send MovePaddle");
+        console.warn("WebSocket not open, cannot send:", wshandlerinfo.funcId);
       }
     },
     [socket]
@@ -123,11 +170,11 @@ export default function PongComponent() {
       keysPressed.add(e.key);
 
       if (game_id === null) return;
-      const payload = {
+      const payload: TypeMovePaddlePayloadScheme = {
         board_id: game_id,
         m: e.key === "w",
       };
-      handleSendMovePaddle(payload);
+      handleUserInput(user_url.ws.pong.movePaddle, payload);
     }
 
     function handleKeyUp(e: KeyboardEvent) {
@@ -139,7 +186,7 @@ export default function PongComponent() {
         board_id: game_id,
         m: null, // stop movement
       };
-      handleSendMovePaddle(payload);
+      handleUserInput(user_url.ws.pong.movePaddle, payload);
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -149,14 +196,14 @@ export default function PongComponent() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [handleSendMovePaddle, game_id]);
+  }, [game_id]);
 
   // =========================
   // Canvas Rendering
   // =========================
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
+    if (!ctx || !gameState || !gameState.edges) return;
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -213,8 +260,13 @@ export default function PongComponent() {
       player_list: ids,
       balls: ballInput,
     };
-    handleSendStartNewGame(payload);
-  }, [playerListInput, ballInput, handleSendStartNewGame]);
+    handleUserInput(user_url.ws.pong.startGame, payload);
+  }, [playerListInput, ballInput, handleUserInput]);
+
+  const handleDeclareReadyClick = useCallback(() => {
+    const payload: TypePlayerDeclaresReadyForGame = { game_id: game_id! };
+    handleUserInput(user_url.ws.pong.userReportsReady, payload);
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-grey p-4 space-y-4">
@@ -242,6 +294,14 @@ export default function PongComponent() {
         />
         <button
           onClick={handleStartGameClick}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Start Game
+        </button>
+      </div>
+      <div className="flex bg-green-300 space-x-2">
+        <button
+          onClick={handleDeclareReadyClick}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >
           Start Game
