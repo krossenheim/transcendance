@@ -109,11 +109,10 @@ export class OurSocket {
     };
     const parseResult = this._validateResponsePayload(
       handlerEndpoint.schema,
-      rawData,
-    )
-    if (parseResult.isErr())
-      return Result.Err(parseResult.unwrapErr());
-  
+      rawData
+    );
+    if (parseResult.isErr()) return Result.Err(parseResult.unwrapErr());
+
     try {
       this.socket.send(JSON.stringify(rawData));
     } catch (err) {
@@ -179,7 +178,9 @@ export class OurSocket {
     );
     if (parsedBody.isErr())
       return Result.Err({
-        message: `Validation error: ${parsedBody.unwrapErr()}`,
+        message: `Validation error: ${parsedBody.unwrapErr()} for funcId:${
+          wrapped_request.funcId
+        }`,
       });
     wrapped_request.payload = parsedBody.unwrap(); // Coerced string sto int thank you Zod
     const funcOutput = await this._executeHandler(

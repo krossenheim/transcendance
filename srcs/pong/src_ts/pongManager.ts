@@ -116,18 +116,19 @@ export class PongManager {
     >,
     ErrorResponseType
   > {
-    const ready_id = client_request.payload;
-    const game: undefined | PongGame = this.pong_instances.get(ready_id);
+    const { game_id } = client_request.payload;
+    const game: undefined | PongGame = this.pong_instances.get(game_id);
     if (
       game === undefined ||
-      game.player_ids.find((game_id) => game_id === ready_id)
+      !game.player_ids.find((id) => id === client_request.user_id)
     ) {
+      console.warn(`User ${client_request.user_id} not in game`);
       return Result.Ok({
         recipients: [client_request.user_id],
         code: user_url.ws.pong.userReportsReady.schema.responses.FailedToReady
           .code,
         payload: {
-          message: `No game by ID ${ready_id}" exists, or you are not in it.`,
+          message: `No game by ID ${game_id}" exists, or you are not in it.`,
         },
       });
     }
@@ -136,7 +137,7 @@ export class PongManager {
       recipients: game.player_ids,
       code: user_url.ws.pong.userReportsReady.schema.responses.UserIsReady.code,
       payload: {
-        game_id: ready_id,
+        game_id: game_id,
         user_id: client_request.user_id,
       },
     });

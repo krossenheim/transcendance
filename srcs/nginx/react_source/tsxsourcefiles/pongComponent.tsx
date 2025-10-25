@@ -36,77 +36,74 @@ function mapToCanvas(x: number, y: number) {
 // =========================
 export default function PongComponent() {
   const { socket, payloadReceived } = useWebSocket();
-  const [game_id, setGame_id] = useState<number | null>(null);
+  const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] =
+    useState<TypePlayerReadyForGameSchema | null>(null);
+  const [gameState, setGameState] = useState<TypeGameStateSchema | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const [gameState, setGameState] = useState<TypeGameStateSchema>({
-    game_id: 1,
-    balls: [],
-    paddles: [],
-    edges: [],
-  });
 
   // =========================
   // Handle incoming GameState
   // =========================
 
-  const handleGetGameState = useCallback(
-    (data: z) => {
-      console.log("etting game id to ", newgame.game_id);
-      setGame_id(newgame.game_id);
+  const newGameStateReceived = useCallback(
+    (new_state: TypeGameStateSchema) => {
+      setGameState(new_state);
     },
-    [socket]
+    [gameState]
   );
 
-  const someoneReadied = useCallback(
-    (info: TypePlayerReadyForGameSchema) => {
+  const aPlayerHasReadied = useCallback(
+    (player_readied_info: TypePlayerReadyForGameSchema) => {
       console.log(
-        `Player with ID '${info.user_id}' is ready for game with ID '${info.game_id}'`
+        `Player with ID '${player_readied_info.user_id}' is ready for game with ID '${player_readied_info.game_id}'`
       );
       // A toast on the screen would suffice, with a link that loads a pongcomponent i guess.
     },
-    [socket]
+    [latestPlayerReadyPayload]
   );
-  const funcMap: Map<string, any> = new Map();
-  funcMap.set(user_url.ws.pong.getGameState.funcId, handleGetGameState);
-  funcMap.set(user_url.ws.pong.userReportsReady.funcId, someoneReadied);
 
-  const handleIncomingSocketData = useCallback<
-    <T extends WebSocketRouteDef>(
-      wshandlerinfo: T,
-      data: z.infer<T["schema"]["responses"]>
-    ) => void
-  >(
-    (wshandlerinfo, data) => {
-      if (funcMap.has(wshandlerinfo.funcId)) {
-        console.log("Consuming event fom socket funcID:", wshandlerinfo.funcId);
-        const func = funcMap.get(wshandlerinfo.funcId);
-        func(data);
-      }
+  const onFirstGameStatereceived = useCallback(
+    (game_has_started_data: TypeGameStateSchema) => {
+      console.log(`Game started: '${game_has_started_data.game_id}'`);
+      // A toast on the screen would suffice, with a link that loads a pongcomponent i guess.
     },
-    [socket]
+    [gameState]
   );
 
   useEffect(() => {
     if (!payloadReceived) return;
+
     for (const webSocketRoute of Object.values(user_url.ws.pong)) {
-      if (payloadReceived.funcId !== webSocketRoute.funcId) {
-        continue;
-      }
-      const PayloadSchema: WSResponseType = Object.values(
+      if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
+
+      const responseSchema = Object.values(
         webSocketRoute.schema.responses
       ).find((r) => r.code === payloadReceived.code);
-      if (!PayloadSchema) {
-        console.error(
-          ` payload could not be determined For code ${payloadReceived.code}`
-        );
+
+      if (!responseSchema) {
+        console.error("Unknown code", payloadReceived.code);
         return;
       }
-      const data = PayloadSchema.payload.safeParse(payloadReceived.payload);
-      handleIncomingSocketData(webSocketRoute, data);
-      return;
+
+      const parsed = responseSchema.payload.safeParse(payloadReceived.payload);
+      if (!parsed.success) {
+        console.warn("Invalid payload", parsed.error);
+        return;
+      }
+
+      // Update the appropriate state slice based on funcId
+      switch (payloadReceived.funcId) {
+        case user_url.ws.pong.getGameState.funcId:
+          setGameState(parsed.data);
+          break;
+        case user_url.ws.pong.userReportsReady.funcId:
+          setLatestPlayerReadyPayload(parsed.data);
+          break;
+        // Add other funcIds here...
+      }
+
+      return; // stop after first match
     }
-    console.error("No handler for: ", payloadReceived.funcId);
   }, [payloadReceived]);
 
   // useEffect(() => {
@@ -163,27 +160,27 @@ export default function PongComponent() {
   // =========================
   useEffect(() => {
     const keysPressed = new Set<string>();
-
     function handleKeyDown(e: KeyboardEvent) {
+      if (gameState === null) return;
       if (e.key !== "w" && e.key !== "s") return;
       if (keysPressed.has(e.key)) return; // already pressed, ignore
       keysPressed.add(e.key);
 
-      if (game_id === null) return;
+      if (gameState.game_id === null) return;
       const payload: TypeMovePaddlePayloadScheme = {
-        board_id: game_id,
+        board_id: gameState.game_id,
         m: e.key === "w",
       };
       handleUserInput(user_url.ws.pong.movePaddle, payload);
     }
 
     function handleKeyUp(e: KeyboardEvent) {
+      if (gameState === null) return;
       if (e.key !== "w" && e.key !== "s") return;
       keysPressed.delete(e.key);
 
-      if (game_id === null) return;
       const payload = {
-        board_id: game_id,
+        board_id: gameState.game_id,
         m: null, // stop movement
       };
       handleUserInput(user_url.ws.pong.movePaddle, payload);
@@ -196,7 +193,7 @@ export default function PongComponent() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [game_id]);
+  }, []);
 
   // =========================
   // Canvas Rendering
@@ -263,8 +260,10 @@ export default function PongComponent() {
     handleUserInput(user_url.ws.pong.startGame, payload);
   }, [playerListInput, ballInput, handleUserInput]);
 
-  const handleDeclareReadyClick = useCallback(() => {
-    const payload: TypePlayerDeclaresReadyForGame = { game_id: game_id! };
+  const handleDeclareReadyClick = useCallback((readyForWhichId: number) => {
+    const payload: TypePlayerDeclaresReadyForGame = {
+      game_id: readyForWhichId,
+    };
     handleUserInput(user_url.ws.pong.userReportsReady, payload);
   }, []);
 
@@ -301,10 +300,13 @@ export default function PongComponent() {
       </div>
       <div className="flex bg-green-300 space-x-2">
         <button
-          onClick={handleDeclareReadyClick}
+          onClick={() => {
+            const gametojoin = gameState === null ? 1 : gameState.game_id;
+            handleDeclareReadyClick(gametojoin);
+          }}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >
-          Start Game
+          Declare Ready{" "}
         </button>
       </div>
     </div>

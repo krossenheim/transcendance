@@ -68,13 +68,13 @@ socket.registerEvent(user_url.ws.pong.movePaddle, async (wrapper) => {
 });
 
 socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
-  console.log("Startnig new game:", wrapper.payload);
+  console.log("User attempts start new game:", wrapper.payload);
   console.log(wrapper);
   return singletonPong.startGame(wrapper);
 });
 
 socket.registerEvent(user_url.ws.pong.userReportsReady, async (wrapper) => {
-  console.log("User declares ready :", wrapper.user_id);
+  console.log("User attempts ready :", wrapper.user_id);
   console.log(wrapper);
   return singletonPong.userReportsReady(wrapper);
 });
