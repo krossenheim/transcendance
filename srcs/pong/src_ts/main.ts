@@ -83,6 +83,6 @@ console.log(
   singletonPong.startGame({
     user_id: 7,
     funcId: "/api/start_game",
-    payload: { balls: 20, player_list: [4, 5, 6, 7, 8] },
+    payload: { balls: 20, player_list: [4, 4, 5, 5, 6] },
   })
 );

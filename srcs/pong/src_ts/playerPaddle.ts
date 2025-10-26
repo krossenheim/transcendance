@@ -7,7 +7,7 @@ export enum PongLobbyStatus {
   NotConnected, // Has not joined or declared ready
   NotReady, // Has "joined" but not yet declared ready
   Ready, // has joined and has readied
-  HasDisconnected, // Was ready and went unready
+  Paused, // Was ready and re-readied
 }
 
 export class PlayerPaddle {

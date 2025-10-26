@@ -292,6 +292,10 @@ export const user_url = defineRoutes({
               code: 2,
               payload: ErrorResponse,
             },
+            AlreadyReady: {
+              code: 3,
+              payload: ErrorResponse,
+            },
           },
         },
       },

@@ -3,26 +3,18 @@ import {
   ForwardToContainerSchema,
   PayloadToUsersSchema,
 } from "./utils/api/service/hub/hub_interfaces.js";
-import { httpStatus } from "./utils/httpStatusEnum.js";
 import { z } from "zod";
-import {
-  MovePaddlePayloadScheme,
-  PongBallSchema,
-  PongPaddleSchema,
-  StartNewPongGameSchema,
-  type TypeMovePaddlePayloadScheme,
-} from "./utils/api/service/pong/pong_interfaces.js";
 import { Result } from "./utils/api/service/common/result.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
-import type { WSHandlerReturnValue } from "utils/socket_to_hub.js";
+import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
+import { PongLobbyStatus } from "./playerPaddle.js";
 
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
 const PLAYER_NO_INPUT = undefined;
 
 type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
-type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
 
 export class PongManager {
   public pong_instances: Map<number, PongGame>;
@@ -132,11 +124,30 @@ export class PongManager {
         },
       });
     }
-    const playerPaddle = game.player_id_to_paddle.get(client_request.payload);
-    if (!playerPaddle)
-    {
-      console.error("This should never happen, as the user id is in game.player_ids")
+    const playerPaddle = game.player_id_to_paddle.get(client_request.user_id);
+    if (undefined === playerPaddle) {
+      console.error(
+        "This should never happen, as the user id is in game.player_ids"
+      );
+      return Result.Err({ message: "Very weird exception" });
     }
+    let newStatus: number = -1;
+    if (playerPaddle.connectionStatus === PongLobbyStatus.Ready) {
+      newStatus = PongLobbyStatus.Paused;
+    } else {
+      if (playerPaddle.connectionStatus === PongLobbyStatus.NotConnected) {
+        console.warn(
+          "User has readied for a game that thinks they aren't connected to. Add a 'JoinGame' function or leave like this?"
+        );
+      }
+      newStatus = PongLobbyStatus.Ready;
+    }
+    for (const paddle of game.player_paddles) {
+      // Case two paddles 1 player.
+      if (paddle.player_ID === client_request.user_id)
+        playerPaddle.connectionStatus = newStatus;
+    }
+    // Send the player a snap of the game
     return Result.Ok({
       recipients: game.player_ids,
       code: user_url.ws.pong.userReportsReady.schema.responses.UserIsReady.code,

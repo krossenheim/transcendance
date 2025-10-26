@@ -38,6 +38,7 @@ export default function PongComponent() {
   const { socket, payloadReceived } = useWebSocket();
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] =
     useState<TypePlayerReadyForGameSchema | null>(null);
+  const [gameSelectedInput, setGameSelectedInput] = useState<number>(1);
   const [gameState, setGameState] = useState<TypeGameStateSchema | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -87,6 +88,11 @@ export default function PongComponent() {
       // Update the appropriate state slice based on funcId
       switch (payloadReceived.funcId) {
         case user_url.ws.pong.getGameState.funcId:
+          if (
+            payloadReceived.code !==
+            user_url.ws.pong.getGameState.schema.responses.GameUpdate.code
+          )
+            break;
           setGameState(parsed.data);
           break;
         case user_url.ws.pong.userReportsReady.funcId:
@@ -292,10 +298,16 @@ export default function PongComponent() {
         </button>
       </div>
       <div className="flex bg-green-300 space-x-2">
+        <input
+          type="text"
+          value={gameSelectedInput}
+          onChange={(e) => setGameSelectedInput(Number(e.target.value))}
+          className="border rounded px-2 py-1 w-64"
+          placeholder="Enter player IDs (e.g. 4,5,6,7,8)"
+        />
         <button
           onClick={() => {
-            const gametojoin = gameState === null ? 1 : gameState.game_id;
-            handleDeclareReadyClick(gametojoin);
+            handleDeclareReadyClick(gameSelectedInput);
           }}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
         >

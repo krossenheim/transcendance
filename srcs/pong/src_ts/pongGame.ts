@@ -1,13 +1,7 @@
 import type { Vec2 } from "./vector2.js";
 import { Result } from "./utils/api/service/common/result.js";
-import {
-  dotp,
-  normalize,
-  scale,
-  is_zero,
-  mag,
-} from "./vector2.js";
-import PlayerPaddle from "./playerPaddle.js";
+import { dotp, normalize, scale, is_zero, mag } from "./vector2.js";
+import PlayerPaddle, { PongLobbyStatus } from "./playerPaddle.js";
 import PongBall from "./pongBall.js";
 import type {
   TypePongBall,
@@ -78,10 +72,6 @@ class PongGame {
     balls: number,
     player_ids: Array<number>
   ): Result<PongGame, string> {
-    if (new Set(player_ids).size !== player_ids.length) {
-      console.error("Non unique ids passed as player_ids");
-      return Result.Err("Non unique ids passed as player_ids");
-    }
     if (player_ids.length < MIN_PLAYERS || player_ids.length > MAX_PLAYERS) {
       console.error("Less or more than 2-8 players.");
       return Result.Err("Less or more than 2-8 players.");
@@ -317,6 +307,7 @@ class PongGame {
     }
     return null;
   }
+
   checkIfBallsExitBounds(deltaFactor: number): void {
     for (const pong_ball of this.pong_balls) {
       const defeated_paddle_index = this.hitsPlayerOwnedSegment(
@@ -335,6 +326,7 @@ class PongGame {
       pong_ball.dir = normalize({ x: Math.cos(r), y: Math.sin(r) });
     }
   }
+
   gameLoop() {
     const currentTime = Date.now();
     const deltaTime = (currentTime - this.last_frame_time) / 1000; // 0.5 = half a second
@@ -342,22 +334,24 @@ class PongGame {
 
     const deltaFactor = this.timefactor * deltaTime;
 
-    if (!this.paused) {
+    if (!this.isPaused()) {
       this.setPaddleMovement(deltaFactor);
       this.checkBallsBounceOnPaddles(deltaFactor);
       this.checkIfBallsExitBounds(deltaFactor);
       this.unecessaryCheck();
     }
   }
-}
 
-function reflect(v: Vec2, n: Vec2): Vec2 {
-  // assume n is normalized
-  let dotproduct = dotp(v, n);
-  return {
-    x: v.x - 2 * dotproduct * n.x,
-    y: v.y - 2 * dotproduct * n.y,
-  };
+  isPaused(): boolean {
+    for (const paddle of this.player_paddles) {
+      if (paddle.connectionStatus !== PongLobbyStatus.Ready) {
+        this.paused = true;
+        return this.paused;
+      }
+    }
+    this.paused = false;
+    return this.paused;
+  }
 }
 
 export default PongGame;
