@@ -6,11 +6,17 @@ export const StartNewPongGameSchema = z
     balls: z.coerce.number().int().gt(0).lt(1000),
     player_list: z.array(z.coerce.number()).refine(
       (arr) => {
-        // Check uniqueness
-        return new Set(arr).size === arr.length;
+        // Count occurrences of each ID
+        const counts = arr.reduce<Record<number, number>>((acc, id) => {
+          acc[id] = (acc[id] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Ensure no ID appears more than twice
+        return Object.values(counts).every((count) => count <= 2);
       },
       {
-        message: "playerList must contain unique numbers",
+        message: "N omore than 2 player IDS in a given pong game.",
       }
     ),
   })

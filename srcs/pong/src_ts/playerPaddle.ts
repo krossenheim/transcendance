@@ -3,9 +3,17 @@ import { scale, getAngle, normalize } from "./vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 300;
 
+export enum PongLobbyStatus {
+  NotConnected, // Has not joined or declared ready
+  NotReady, // Has "joined" but not yet declared ready
+  Ready, // has joined and has readied
+  HasDisconnected, // Was ready and went unready
+}
+
 export class PlayerPaddle {
   // private constants
   private readonly start_pos: Vec2;
+  public connectionStatus: PongLobbyStatus = PongLobbyStatus.NotConnected;
   private readonly game_size: Vec2;
   public static totalPaddles: number = 0;
   public readonly id: number;
@@ -24,7 +32,7 @@ export class PlayerPaddle {
     game_size: Vec2,
     player_id: number,
     length: number,
-    pladdle_speed = DEFAULT_PADDLE_SPEED,
+    pladdle_speed = DEFAULT_PADDLE_SPEED
   ) {
     this.start_pos = start_pos;
     this.game_size = game_size;

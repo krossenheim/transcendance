@@ -132,7 +132,11 @@ export class PongManager {
         },
       });
     }
-
+    const playerPaddle = game.player_id_to_paddle.get(client_request.payload);
+    if (!playerPaddle)
+    {
+      console.error("This should never happen, as the user id is in game.player_ids")
+    }
     return Result.Ok({
       recipients: game.player_ids,
       code: user_url.ws.pong.userReportsReady.schema.responses.UserIsReady.code,

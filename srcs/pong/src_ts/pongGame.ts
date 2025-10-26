@@ -1,9 +1,6 @@
 import type { Vec2 } from "./vector2.js";
 import { Result } from "./utils/api/service/common/result.js";
 import {
-  add,
-  sub,
-  crossp,
   dotp,
   normalize,
   scale,
@@ -18,9 +15,7 @@ import type {
   TypeGameStateSchema,
   TypePongEdgeSchema,
 } from "./utils/api/service/pong/pong_interfaces.js";
-// import user from "./utils/api/service/db/user.js";
 import generateCirclePoints from "./generateCirclePoints.js";
-import { map } from "zod";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
@@ -57,13 +52,13 @@ function rotatePolygon(
 
 let debug_game_id = 1;
 class PongGame {
+  public paused: boolean = true;
   private board_size: Vec2;
   private map_polygon_edges: Vec2[];
   public readonly player_paddles: Array<PlayerPaddle>;
   public readonly player_id_to_paddle: Map<number, PlayerPaddle>;
   public readonly player_ids: Array<number>;
   public readonly pong_balls: Array<PongBall>;
-  // public debug_play_field: Array<Vec2>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
   private readonly game_id: number;
@@ -78,24 +73,6 @@ class PongGame {
     this.player_paddles = Array.from(this.player_id_to_paddle.values());
     this.last_frame_time = Date.now(); // initial timestamp in ms
   }
-
-  // function validateToken(token: string): Result<number, string> {
-  // 	let decoded: { uid: number; iat: number; exp: number; };
-  // 	try {
-  // 		decoded = jwt.verify(token, secretKey) as { uid: number; iat: number; exp: number; };
-  // 	} catch (err) {
-  // 		return Result.Err('Invalid JWT');
-  // 	}
-
-  // 	if (typeof decoded.exp !== 'number' || Date.now() >= decoded.exp * 1000) {
-  // 		return Result.Err('JWT expired');
-  // 	}
-
-  // 	if (typeof decoded.uid !== 'number' || decoded.uid < 1)
-  // 		return Result.Err('Invalid JWT payload');
-  // 	else
-  // 		return Result.Ok(decoded.uid);
-  // }
 
   static create(
     balls: number,
@@ -347,7 +324,6 @@ class PongGame {
         deltaFactor
       );
       if (defeated_paddle_index === null) continue;
-      console.log(`Player was hit:${defeated_paddle_index}`);
       // Put the ball in the middle after scoring agaisnt someone
       pong_ball.lastCollidedWith = null;
       pong_ball.pos = scale(0.5, this.board_size);
@@ -366,10 +342,12 @@ class PongGame {
 
     const deltaFactor = this.timefactor * deltaTime;
 
-    this.setPaddleMovement(deltaFactor);
-    this.checkBallsBounceOnPaddles(deltaFactor);
-    this.checkIfBallsExitBounds(deltaFactor);
-    this.unecessaryCheck();
+    if (!this.paused) {
+      this.setPaddleMovement(deltaFactor);
+      this.checkBallsBounceOnPaddles(deltaFactor);
+      this.checkIfBallsExitBounds(deltaFactor);
+      this.unecessaryCheck();
+    }
   }
 }
 

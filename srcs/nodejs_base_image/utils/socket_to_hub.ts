@@ -176,12 +176,14 @@ export class OurSocket {
       handlerType.metadata.schema.body,
       wrapped_request.payload
     );
-    if (parsedBody.isErr())
-      return Result.Err({
-        message: `Validation error: ${parsedBody.unwrapErr()} for funcId:${
-          wrapped_request.funcId
-        }`,
+    if (parsedBody.isErr()) {
+      return Result.Ok({
+        recipients: [wrapped_request.user_id],
+        funcId: wrapped_request.funcId,
+        code: 187,
+        payload: { message: `Validation error: ${parsedBody.unwrapErr()}` },
       });
+    }
     wrapped_request.payload = parsedBody.unwrap(); // Coerced string sto int thank you Zod
     const funcOutput = await this._executeHandler(
       wrapped_request,

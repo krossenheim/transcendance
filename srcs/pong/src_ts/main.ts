@@ -43,7 +43,7 @@ async function backgroundTask() {
           code: user_url.ws.pong.getGameState.schema.responses.GameUpdate.code,
           payload: payload,
         };
-        socket.getSocket().send(JSON.stringify(out));
+        if (!game.paused) socket.getSocket().send(JSON.stringify(out));
       }
       const getNextFrameTime = 35; // game.next_frame_when?
       await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
