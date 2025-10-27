@@ -24,7 +24,7 @@ fastify.register(websocketPlugin);
 
 const socket = new OurSocket("chat");
 const singletonChatRooms = new ChatRooms();
-socket.registerEvent(
+socket.registerHandler(
   user_url.ws.chat.sendMessage,
   async (body) => {
     const room = singletonChatRooms.getRoom(body.payload.roomId);
@@ -45,7 +45,7 @@ socket.registerEvent(
   }
 );
 
-socket.registerEvent(
+socket.registerHandler(
   user_url.ws.chat.addUserToRoom,
   async (body, schema) => {
     const room = singletonChatRooms.getRoom(body.payload.roomId);
@@ -63,7 +63,7 @@ socket.registerEvent(
   }
 );
 
-socket.registerEvent(
+socket.registerHandler(
   user_url.ws.chat.addRoom,
   async (body) => {
     const room = singletonChatRooms.addRoom(body);
@@ -82,7 +82,7 @@ socket.registerEvent(
   }
 );
 
-socket.registerEvent(
+socket.registerHandler(
   user_url.ws.chat.listRooms,
   async (body) => {
     const roomList = singletonChatRooms.listRooms(body);
@@ -102,7 +102,7 @@ socket.registerEvent(
     return roomList;
   }
 );
-socket.registerEvent(
+socket.registerHandler(
   user_url.ws.chat.joinRoom,
   async (body) => {
     return singletonChatRooms.userJoinRoom(body);

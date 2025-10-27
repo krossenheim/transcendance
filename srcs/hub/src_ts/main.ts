@@ -247,7 +247,18 @@ async function isAuthed(parsed: any): Promise<Result<number, string>> {
   if (authResult.isErr()) return Result.Err(authResult.unwrapErr().message);
 
   const authed_user_id = authResult.unwrap();
-
+  for (const [socket, container_name] of interContainerWebsocketsToName.entries()) {
+    const payload = {
+      source_container: "hub",
+      funcId: int_url.ws.hub.userConnected.funcId,
+      code: 0,
+      payload: [authed_user_id],
+    };
+    socket.send(JSON.stringify(payload));
+    console.log(
+      `Informed container ${container_name} of new user connection: ${authed_user_id}`
+    );
+  }
   return Result.Ok(authed_user_id);
 }
 

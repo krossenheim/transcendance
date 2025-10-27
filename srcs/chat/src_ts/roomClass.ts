@@ -3,7 +3,7 @@ import type {
   T_PayloadToUsers,
 } from "./utils/api/service/hub/hub_interfaces.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
-import type { WSInputHandlerReturnValue } from "./utils/socket_to_hub.js";
+import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
 import {
   type TypeRoomSchema,
@@ -58,7 +58,7 @@ class Room {
 
   sendMessage(
     client_metadata: T_ForwardToContainer
-  ): Result<WSInputHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>, ErrorResponseType> {
     if (
       client_metadata.payload.roomId !== this.roomId ||
       this.users.indexOf(client_metadata.user_id) === -1
@@ -92,7 +92,7 @@ class Room {
 
   addToRoom(
     client_metadata: T_ForwardToContainer
-  ): Result<WSInputHandlerReturnValue<typeof user_url.ws.chat.addUserToRoom.schema.output>, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.addUserToRoom.schema.output>, ErrorResponseType> {
     if (this.allowedUsers.indexOf(client_metadata.user_id) === -1) {
       return Result.Ok({
         recipients: [client_metadata.user_id],
@@ -162,7 +162,7 @@ class ChatRooms {
 
   addRoom(
     client_metadata: T_ForwardToContainer
-  ): Result<WSInputHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>, ErrorResponseType> {
     const newroom = new Room(client_metadata.payload.roomName, DEBUGROOMID++);
     newroom.users.push(client_metadata.user_id);
     newroom.allowedUsers.push(client_metadata.user_id);
@@ -179,7 +179,7 @@ class ChatRooms {
 
   listRooms(
     client_metadata: T_ForwardToContainer
-  ): Result<WSInputHandlerReturnValue<typeof user_url.ws.chat.listRooms.schema.output>, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.listRooms.schema.output>, ErrorResponseType> {
     const list: Array<TypeRoomSchema> = [];
 
     for (const room of this.rooms) {
@@ -198,7 +198,7 @@ class ChatRooms {
 
   userJoinRoom(
     client_metadata: T_ForwardToContainer
-  ): Result<WSInputHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>, ErrorResponseType> {
     const room = this.getRoom(client_metadata.payload.roomId);
     if (room === null) {
       return Result.Ok({

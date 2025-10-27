@@ -15,7 +15,7 @@ import {
 import { Result } from "./utils/api/service/common/result.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
-import type { WSInputHandlerReturnValue } from "utils/socket_to_hub.js";
+import type { WSHandlerReturnValue } from "utils/socket_to_hub.js";
 
 const payload_MOVE_RIGHT = 1;
 const payload_MOVE_LEFT = 0;
@@ -108,7 +108,7 @@ export class PongManager {
   //     },
   //   };
   // }
-  startGame(client_request: T_ForwardToContainer): WSInputHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.output> {
+  startGame(client_request: T_ForwardToContainer): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.output> {
     const validation = ForwardToContainerSchema.safeParse(client_request);
     if (!validation.success) {
       console.error("exact fields expected at this stage: :", validation.error);
@@ -172,7 +172,7 @@ export class PongManager {
 
   movePaddle(
     client_metadata: T_ForwardToContainer
-  ): Result<WSInputHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.output> | null, ErrorResponseType> {
+  ): Result<WSHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.output> | null, ErrorResponseType> {
     const game = this.pong_instances.get(client_metadata.payload.board_id);
     if (
       !game ||

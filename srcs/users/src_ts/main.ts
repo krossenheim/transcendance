@@ -12,18 +12,17 @@ const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
 
 // {"funcId":"test","payload":{},"target_container":"users"}
-socketToHub.registerEvent(user_url.ws.users.test, async (body, schema) => {
+socketToHub.registerHandler(user_url.ws.users.test, async (body, schema) => {
 	console.log("Received test event with body:", body);
 	const result = Result.Ok({recipients: [body.user_id], code: schema.output.Failure.code, payload: {message: "Test successful"}});
 	// socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
 	return result;
 });
 
-// socketToHub.registerEvent(user_url.ws.users.updateUserConnection, async (body, schema) => {
-// 	const currentUserConnectionsResult = await containers.db.get(int_url.http.db.getUserConnections, { userId: body.user_id });
-// });
-
-
+socketToHub.registerReceiver(int_url.ws.hub.getOnlineUsers, async (body, schema) => {
+	console.log("Received getOnlineUsers event with body:", body);
+	return Result.Ok(null);
+});
 
 registerRoute(fastify, user_url.http.users.fetchUser, async (request, reply) => {
 	const requestingUser = await containers.db.fetchUserData(request.body.userId);

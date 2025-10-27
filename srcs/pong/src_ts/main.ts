@@ -63,11 +63,11 @@ async function backgroundTask() {
 }
 backgroundTask();
 
-socket.registerEvent(user_url.ws.pong.movePaddle, async (wrapper) => {
+socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
   return singletonPong.movePaddle(wrapper);
 });
 
-// socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
+// socket.registerHandler(user_url.ws.pong.startGame, async (wrapper) => {
 //   console.log("Startnig new game:", wrapper.payload);
 //   console.log(wrapper);
 //   return singletonPong.startGame(wrapper);
