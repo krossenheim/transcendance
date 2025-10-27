@@ -15,12 +15,21 @@ const socketToHub = new OurSocket("users");
 socketToHub.registerHandler(user_url.ws.users.test, async (body, schema) => {
 	console.log("Received test event with body:", body);
 	const result = Result.Ok({recipients: [body.user_id], code: schema.output.Failure.code, payload: {message: "Test successful"}});
-	// socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
+	socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
 	return result;
 });
 
-socketToHub.registerReceiver(int_url.ws.hub.getOnlineUsers, async (body, schema) => {
-	console.log("Received getOnlineUsers event with body:", body);
+socketToHub.registerReceiver(int_url.ws.hub.userConnected, async (data, schema) => {
+	console.log("Received userConnected event with data:", data);
+
+	if (data.code === 0) {
+		console.log(`User ${data.payload[0]} connected to users container successfully.`);
+	}
+
+	if (data.code === schema.output.Failure.code) {
+		console.warn(`User connection to users container failed: ${data.payload.message}`);
+	}
+
 	return Result.Ok(null);
 });
 

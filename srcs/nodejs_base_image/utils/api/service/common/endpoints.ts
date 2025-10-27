@@ -68,9 +68,9 @@ export type WebSocketRouteDef = {
 
 // Type safety wrapper
 export function defineRoutes<
-  const TH extends Record<string, Record<string, HTTPRouteDef>> = never,
-  const TW extends Record<string, Record<string, WebSocketRouteDef>> = never
->(routes: { http: TH; ws: TW }) {
+  const TH extends Record<string, Record<string, HTTPRouteDef>>,
+  const TW extends Record<string, Record<string, WebSocketRouteDef>>
+>(routes: { http: TH; ws: TW }): { readonly http: TH; readonly ws: TW } {
   return routes;
 }
 
