@@ -245,7 +245,7 @@ export const user_url = defineRoutes({
           args: EmptySchema,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
-            MessageSent: {
+            GameUpdate: {
               code: 0,
               payload: GameStateSchema,
             },

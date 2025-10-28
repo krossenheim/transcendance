@@ -92,7 +92,12 @@ export class PongManager {
     user_id: number,
     player_list: number[],
     ball_count: number
-  ): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.output> {
+  ): Result<
+    WSHandlerReturnValue<
+      typeof user_url.ws.pong.startGame.schema.output
+    > | null,
+    ErrorResponseType
+  > {
     // const { user_id } = parsed;
     let result = PongGame.create(ball_count, player_list);
     if (result.isErr()) {

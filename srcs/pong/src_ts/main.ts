@@ -70,16 +70,17 @@ socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
   const to_right = wrapper.payload.m;
   return singletonPong.movePaddle(game_id, paddle_id, user_id, to_right);
 });
-
-socket.registerEvent(user_url.ws.pong.startGame, async (wrapper) => {
-  console.log("User attempts start new game:", wrapper.payload);
-  console.log(wrapper);
-  return singletonPong.startGame(wrapper);
+socket.registerHandler(user_url.ws.pong.startGame, async (wrapper) => {
+  const user_id = wrapper.user_id;
+  const player_list_requested = wrapper.payload.player_list;
+  const ball_count_requested = wrapper.payload.balls;
+  return singletonPong.startGame(
+    user_id,
+    player_list_requested,
+    ball_count_requested
+  );
 });
-
-socket.registerEvent(user_url.ws.pong.userReportsReady, async (wrapper) => {
-  console.log("User attempts ready :", wrapper.user_id);
-  console.log(wrapper);
+socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
   return singletonPong.userReportsReady(wrapper);
 });
 
