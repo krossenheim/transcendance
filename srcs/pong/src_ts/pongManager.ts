@@ -17,77 +17,63 @@ export class PongManager {
     PongManager.instance = this;
     return this;
   }
-
-  // playerJoinInstance(client_request: T_ForwardToContainer): T_PayloadToUsers {
-  //   const validrequest = ForwardToContainerSchema.safeParse(client_request);
-  //   if (!validrequest.success) {
-  //     console.error(
-  //       "exact fields expected at this stage: :",
-  //       validrequest.error
-  //     );
-  //     throw Error("Data should be clean at this stage.");
-  //   }
-  //   const { game_id } = validrequest.data.payload;
-  //   const { user_id } = validrequest.data;
-  //   const gameInstance: PongGame | undefined = this.pong_instances.get(game_id);
-  //   if (!gameInstance) {
-  //     return {
-  //       recipients: [user_id],
-  //       funcId: "join_instance",
-  //       payload: {
-  //         status: httpStatus.UNPROCESSABLE_ENTITY,
-  //         game_id: game_id,
-  //         pop_up_text: "No game with given, or not in the list of players.",
-  //       },
-  //     };
-  //   }
-  // playerJoinInstance(client_request: T_ForwardToContainer): T_PayloadToUsers {
-  //   const validrequest = ForwardToContainerSchema.safeParse(client_request);
-  //   if (!validrequest.success) {
-  //     console.error(
-  //       "exact fields expected at this stage: :",
-  //       validrequest.error
-  //     );
-  //     throw Error("Data should be clean at this stage.");
-  //   }
-  //   const { game_id } = validrequest.data.payload;
-  //   const { user_id } = validrequest.data;
-  //   const gameInstance: PongGame | undefined = this.pong_instances.get(game_id);
-  //   if (!gameInstance) {
-  //     return {
-  //       recipients: [user_id],
-  //       funcId: "join_instance",
-  //       payload: {
-  //         status: httpStatus.UNPROCESSABLE_ENTITY,
-  //         game_id: game_id,
-  //         pop_up_text: "No game with given, or not in the list of players.",
-  //       },
-  //     };
-  //   }
-
-  //   // debug
-  //   // debug
-  //   this.pong_instances = new Map();
-  //   this.pong_instances.set(game_id, gameInstance);
-  //   // for (const [id, instance] of this.pong_instances) {
-  //   //   if (instance !== gameInstance) {
-  //   //     this.pong_instances.delete(id);
-  //   //   }
-  //   // }
-  //   // debug
-  //   // debug
-
-  //   return {
-  //     recipients: [user_id],
-  //     funcId: "join_instance",
-
-  //     payload: {
-  //       status: httpStatus.BAD_REQUEST,
-  //       func_name: process.env.FUNC_POPUP_TEXT,
-  //       pop_up_text: "Could not start pong game.",
-  //     },
-  //   };
-  // }
+  userReportsReady(
+    client_request: T_ForwardToContainer
+  ): Result<
+    WSHandlerReturnValue<
+      typeof user_url.ws.pong.userReportsReady.schema.responses
+    >,
+    ErrorResponseType
+  > {
+    const { game_id } = client_request.payload;
+    const game: undefined | PongGame = this.pong_instances.get(game_id);
+    if (
+      game === undefined ||
+      !game.player_ids.find((id) => id === client_request.user_id)
+    ) {
+      console.warn(`User ${client_request.user_id} not in game`);
+      return Result.Ok({
+        recipients: [client_request.user_id],
+        code: user_url.ws.pong.userReportsReady.schema.responses.FailedToReady
+          .code,
+        payload: {
+          message: `No game by ID ${game_id}" exists, or you are not in it.`,
+        },
+      });
+    }
+    const playerPaddle = game.player_id_to_paddle.get(client_request.user_id);
+    if (undefined === playerPaddle) {
+      console.error(
+        "This should never happen, as the user id is in game.player_ids"
+      );
+      return Result.Err({ message: "Very weird exception" });
+    }
+    let newStatus: number = -1;
+    if (playerPaddle.connectionStatus === PongLobbyStatus.Ready) {
+      newStatus = PongLobbyStatus.Paused;
+    } else {
+      if (playerPaddle.connectionStatus === PongLobbyStatus.NotConnected) {
+        console.warn(
+          "User has readied for a game that thinks they aren't connected to. Add a 'JoinGame' function or leave like this?"
+        );
+      }
+      newStatus = PongLobbyStatus.Ready;
+    }
+    for (const paddle of game.player_paddles) {
+      // Case two paddles 1 player.
+      if (paddle.player_ID === client_request.user_id)
+        playerPaddle.connectionStatus = newStatus;
+    }
+    // Send the player a snap of the game
+    return Result.Ok({
+      recipients: game.player_ids,
+      code: user_url.ws.pong.userReportsReady.schema.responses.UserIsReady.code,
+      payload: {
+        game_id: game_id,
+        user_id: client_request.user_id,
+      },
+    });
+  }
   startGame(
     user_id: number,
     player_list: number[],
