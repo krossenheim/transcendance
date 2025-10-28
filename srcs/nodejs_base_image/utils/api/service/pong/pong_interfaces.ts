@@ -1,24 +1,25 @@
 import { z } from "zod";
 import { gameIdValue, userIdValue } from "../common/zodRules.js";
 
+const player_list_rule = z.array(z.coerce.number()).refine(
+  (arr) => {
+    // Count occurrences of each ID
+    const counts = arr.reduce<Record<number, number>>((acc, id) => {
+      acc[id] = (acc[id] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Ensure no ID appears more than twice
+    return Object.values(counts).every((count) => count <= 2);
+  },
+  {
+    message: "N omore than 2 player IDS in a given pong game.",
+  }
+);
 export const StartNewPongGameSchema = z
   .object({
     balls: z.coerce.number().int().gt(0).lt(1000),
-    player_list: z.array(z.coerce.number()).refine(
-      (arr) => {
-        // Count occurrences of each ID
-        const counts = arr.reduce<Record<number, number>>((acc, id) => {
-          acc[id] = (acc[id] || 0) + 1;
-          return acc;
-        }, {});
-
-        // Ensure no ID appears more than twice
-        return Object.values(counts).every((count) => count <= 2);
-      },
-      {
-        message: "N omore than 2 player IDS in a given pong game.",
-      }
-    ),
+    player_list: player_list_rule,
   })
   .strict();
 
@@ -69,15 +70,7 @@ export const GameStateSchema = z
 export const GetGameInfoSchema = z
   .object({
     board_id: gameIdValue,
-    player_list: z.array(z.coerce.number()).refine(
-      (arr) => {
-        // Check uniqueness
-        return new Set(arr).size === arr.length;
-      },
-      {
-        message: "playerList must contain unique numbers",
-      }
-    ),
+    player_list: player_list_rule,
   })
   .strict();
 
