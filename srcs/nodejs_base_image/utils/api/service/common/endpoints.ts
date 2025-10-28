@@ -368,6 +368,10 @@ export const user_url = defineRoutes({
             InvalidInput: {
               code: 3,
               payload: ErrorResponse,
+            },            
+            InvitationNotAccepted: {
+              code: 4,
+              payload: ErrorResponse,
             },
           },
         },

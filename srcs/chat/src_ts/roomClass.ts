@@ -64,12 +64,25 @@ class Room {
     WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>,
     ErrorResponseType
   > {
-    if (roomIdReq !== this.roomId || this.users.indexOf(user_id) === -1) {
+    if (
+      roomIdReq !== this.roomId ||
+      this.allowedUsers.indexOf(user_id) === -1
+    ) {
       return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.chat.sendMessage.schema.output.NotInRoom.code,
         payload: {
           message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
+        },
+      });
+    }
+    if (this.users.indexOf(user_id) === -1) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.sendMessage.schema.output.InvitationNotAccepted
+          .code,
+        payload: {
+          message: `You are allowed to use room with ID ${roomIdReq}, but first join it using function ${user_url.ws.chat.joinRoom.funcId}`,
         },
       });
     }

@@ -40,6 +40,8 @@ export default function PongComponent() {
     useState<TypePlayerReadyForGameSchema | null>(null);
   const [gameSelectedInput, setGameSelectedInput] = useState<number>(1);
   const [gameState, setGameState] = useState<TypeGameStateSchema | null>(null);
+  const [playerOnePaddleID, setPlayerOnePaddleID] = useState<number>(-1);
+  const [playerTwoPaddleID, setPlayerTwoPaddleID] = useState<number>(-2);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // =========================
@@ -58,7 +60,7 @@ export default function PongComponent() {
 
   const onFirstGameStatereceived = useCallback(
     (game_has_started_data: TypeGameStateSchema) => {
-      console.log(`Game started: '${game_has_started_data.game_id}'`);
+      console.log(`Game started: '${game_has_started_data.board_id}'`);
       // A toast on the screen would suffice, with a link that loads a pongcomponent i guess.
     },
     [gameState]
@@ -70,9 +72,9 @@ export default function PongComponent() {
     for (const webSocketRoute of Object.values(user_url.ws.pong)) {
       if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
 
-      const responseSchema = Object.values(
-        webSocketRoute.schema.responses
-      ).find((r) => r.code === payloadReceived.code);
+      const responseSchema = Object.values(webSocketRoute.schema.output).find(
+        (r) => r.code === payloadReceived.code
+      );
 
       if (!responseSchema) {
         console.error("Unknown code", payloadReceived.code);
@@ -90,7 +92,7 @@ export default function PongComponent() {
         case user_url.ws.pong.getGameState.funcId:
           if (
             payloadReceived.code !==
-            user_url.ws.pong.getGameState.schema.responses.GameUpdate.code
+            user_url.ws.pong.getGameState.schema.output.GameUpdate.code
           )
             break;
           setGameState(parsed.data);
@@ -110,20 +112,20 @@ export default function PongComponent() {
 
   //   if (payloadReceived.funcId === user_url.ws.pong.startGame.funcId) {
   //     const parsed =
-  //       user_url.ws.pong.startGame.schema.responses.GameInstanceCreated.payload.safeParse(
+  //       user_url.ws.pong.startGame.schema.output.GameInstanceCreated.payload.safeParse(
   //         payloadReceived.payload
   //       );
-  //     if (parsed.success) setGame_id(parsed.data.game_id);
+  //     if (parsed.success) setGame_id(parsed.data.board_id);
   //     else console.warn("Invalid new game payload:", parsed.error);
   //   } else if (
   //     payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
   //   ) {
   //     const parsed =
-  //       user_url.ws.pong.getGameState.schema.responses.GameUpdate.payload.safeParse(
+  //       user_url.ws.pong.getGameState.schema.output.GameUpdate.payload.safeParse(
   //         payloadReceived.payload
   //       );
   //     if (parsed.success) {
-  //       if (game_id === null) setGame_id(parsed.data.game_id); // Client rejoined
+  //       if (game_id === null) setGame_id(parsed.data.board_id); // Client rejoined
   //       setGameState(parsed.data);
   //     } else console.warn("Invalid GameState payload:", parsed.error);
   //   }
@@ -136,7 +138,7 @@ export default function PongComponent() {
   const handleUserInput = useCallback<
     <T extends WebSocketRouteDef>(
       wshandlerinfo: T,
-      payload: z.infer<T["schema"]["body"]>
+      payload: z.infer<T["schema"]["args"]>
     ) => void
   >(
     (wshandlerinfo, payload) => {
@@ -165,9 +167,10 @@ export default function PongComponent() {
       if (keysPressed.has(e.key)) return; // already pressed, ignore
       keysPressed.add(e.key);
 
-      if (gameState.game_id === null) return;
+      if (gameState.board_id === null) return;
       const payload: TypeMovePaddlePayloadScheme = {
-        board_id: gameState.game_id,
+        board_id: gameState.board_id,
+        paddle_id: playerOnePaddleID,
         m: e.key === "w",
       };
       handleUserInput(user_url.ws.pong.movePaddle, payload);
@@ -179,7 +182,8 @@ export default function PongComponent() {
       keysPressed.delete(e.key);
 
       const payload = {
-        board_id: gameState.game_id,
+        board_id: gameState.board_id,
+        paddle_id: playerOnePaddleID,
         m: null, // stop movement
       };
       handleUserInput(user_url.ws.pong.movePaddle, payload);

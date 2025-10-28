@@ -86,4 +86,4 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
   return singletonPong.userReportsReady(user_id, game_id);
 });
 
-console.log(singletonPong.startGame(7, [4, 5, 6, 6], 1));
+console.log(singletonPong.startGame(7, [4, 5, 5], 1));
