@@ -57,77 +57,81 @@ class Room {
   }
 
   sendMessage(
-    client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>, ErrorResponseType> {
-    if (
-      client_metadata.payload.roomId !== this.roomId ||
-      this.users.indexOf(client_metadata.user_id) === -1
-    ) {
+    user_id: number,
+    roomIdReq: number,
+    messageString: string
+  ): Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>,
+    ErrorResponseType
+  > {
+    if (roomIdReq !== this.roomId || this.users.indexOf(user_id) === -1) {
       return Result.Ok({
-        recipients: [client_metadata.user_id],
+        recipients: [user_id],
         code: user_url.ws.chat.sendMessage.schema.output.NotInRoom.code,
         payload: {
-          message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
+          message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
         },
       });
     }
-    if (!client_metadata.payload.messageString) {
-      Result.Err("Received no message body");
+    if (!messageString) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.sendMessage.schema.output.MessageTooShort.code,
+        payload: {
+          message: `No message given, at least one character required.`,
+        },
+      });
     }
     const message = {
       messageId: this._current_message_id++,
       roomId: this.roomId,
-      messageString: client_metadata.payload.messageString,
+      messageString: messageString,
       messageDate: Date.now(),
-      userId: client_metadata.user_id,
+      userId: user_id,
     };
     this.messages.add(message);
     return Result.Ok({
       recipients: this.users,
-      funcId: client_metadata.funcId,
+      funcId: user_url.ws.chat.sendMessage.funcId,
       code: user_url.ws.chat.sendMessage.schema.output.MessageSent.code,
       payload: message,
     });
   }
 
   addToRoom(
-    client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.addUserToRoom.schema.output>, ErrorResponseType> {
-    if (this.allowedUsers.indexOf(client_metadata.user_id) === -1) {
+    user_id: number,
+    userToAdd: number
+  ): Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.addUserToRoom.schema.output>,
+    ErrorResponseType
+  > {
+    if (this.allowedUsers.indexOf(user_id) === -1) {
       return Result.Ok({
-        recipients: [client_metadata.user_id],
+        recipients: [user_id],
         code: user_url.ws.chat.addUserToRoom.schema.output.NotInRoom.code,
         payload: {
           message: `Can't add users to a room you are not in.`,
         },
       });
     }
-    if (this.roomId !== client_metadata.payload.roomId) {
-      return Result.Err({
-        message: `Rooms handler incorrectly forwarded room ${this.roomId} a request for room ${client_metadata.payload.roomId}`,
-      });
-    }
-    if (this.allowedUsers.indexOf(client_metadata.payload.user_to_add) !== -1) {
+    if (this.allowedUsers.indexOf(userToAdd) !== -1) {
       return Result.Ok({
-        recipients: [client_metadata.user_id],
+        recipients: [user_id],
         code: user_url.ws.chat.addUserToRoom.schema.output.AlreadyInRoom.code,
         payload: {
-          message: `User ${client_metadata.payload.user_to_add} is already in the room.`,
-          user: client_metadata.payload.user_to_add,
+          message: `User ${userToAdd} is already in the room.`,
+          user: userToAdd,
           roomId: this.roomId,
         },
       });
     }
-    this.allowedUsers.push(client_metadata.payload.user_to_add);
+    this.allowedUsers.push(userToAdd);
     return Result.Ok({
-      recipients: [
-        client_metadata.user_id,
-        client_metadata.payload.user_to_add,
-      ],
-      funcId: client_metadata.funcId,
+      recipients: [user_id, userToAdd],
+      funcId: user_url.ws.chat.addUserToRoom.funcId,
       code: user_url.ws.chat.addUserToRoom.schema.output.UserAdded.code,
       payload: {
-        user: client_metadata.payload.user_to_add,
+        user: userToAdd,
         roomId: this.roomId,
       },
     });
@@ -161,14 +165,18 @@ class ChatRooms {
   }
 
   addRoom(
-    client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>, ErrorResponseType> {
-    const newroom = new Room(client_metadata.payload.roomName, DEBUGROOMID++);
-    newroom.users.push(client_metadata.user_id);
-    newroom.allowedUsers.push(client_metadata.user_id);
+    roomNameReq: string,
+    user_id: number
+  ): Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>,
+    ErrorResponseType
+  > {
+    const newroom = new Room(roomNameReq, DEBUGROOMID++);
+    newroom.users.push(user_id);
+    newroom.allowedUsers.push(user_id);
     this.rooms.push(newroom);
     return Result.Ok({
-      recipients: [client_metadata.user_id],
+      recipients: [user_id],
       code: user_url.ws.chat.addRoom.schema.output.AddedRoom.code,
       payload: {
         roomId: newroom.roomId,
@@ -178,69 +186,74 @@ class ChatRooms {
   }
 
   listRooms(
-    client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.listRooms.schema.output>, ErrorResponseType> {
+    user_id: number
+  ): Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.listRooms.schema.output>,
+    ErrorResponseType
+  > {
     const list: Array<TypeRoomSchema> = [];
 
     for (const room of this.rooms) {
-      if (room.users.find((id) => id === client_metadata.user_id)) {
+      if (room.users.find((id) => id === user_id)) {
         list.push({ roomName: room.room_name, roomId: room.roomId });
       }
     }
-    console.log(`User ${client_metadata.user_id} sent list of rooms:${list}.`);
+    console.log(`User ${user_id} sent list of rooms:${list}.`);
 
     return Result.Ok({
-      recipients: [client_metadata.user_id],
+      recipients: [user_id],
       code: user_url.ws.chat.listRooms.schema.output.FullListGiven.code,
       payload: list,
     });
   }
 
   userJoinRoom(
-    client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>, ErrorResponseType> {
-    const room = this.getRoom(client_metadata.payload.roomId);
+    roomIdReq: number,
+    user_id: number
+  ): Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>,
+    ErrorResponseType
+  > {
+    const room = this.getRoom(roomIdReq);
     if (room === null) {
       return Result.Ok({
-        recipients: [client_metadata.user_id],
+        recipients: [user_id],
         code: user_url.ws.chat.joinRoom.schema.output.NoSuchRoom.code,
         payload: {
-          message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
+          message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
         },
       });
     }
-    if (room.allowedUsers.find((id) => id === client_metadata.user_id)) {
-      if (room.users.find((id) => id === client_metadata.user_id)) {
+    if (room.allowedUsers.find((id) => id === user_id)) {
+      if (room.users.find((id) => id === user_id)) {
         return Result.Ok({
-          recipients: [client_metadata.user_id],
+          recipients: [user_id],
           code: user_url.ws.chat.joinRoom.schema.output.NoSuchRoom.code,
           payload: {
-            message: `You are already in room (ID: ${client_metadata.payload.roomId}).`,
-            user: client_metadata.user_id,
+            message: `You are already in room (ID: ${roomIdReq}).`,
+            user: user_id,
             roomId: room.roomId,
           },
         });
       }
-      room.users.push(client_metadata.user_id);
-      console.log(
-        `User ${client_metadata.user_id} joined room ${room.roomId}.`
-      );
+      room.users.push(user_id);
+      console.log(`User ${user_id} joined room ${room.roomId}.`);
       return Result.Ok({
         recipients: room.users,
-        funcId: client_metadata.funcId,
+        funcId: user_url.ws.chat.joinRoom.funcId,
         code: user_url.ws.chat.joinRoom.code.Joined,
         payload: {
-          user: client_metadata.user_id,
+          user: user_id,
           roomId: room.roomId,
         },
       });
     }
     return Result.Ok({
-      recipients: [client_metadata.user_id],
-      funcId: client_metadata.funcId,
+      recipients: [user_id],
+      funcId: user_url.ws.chat.joinRoom.funcId,
       code: user_url.ws.chat.joinRoom.code.NoSuchRoom,
       payload: {
-        message: `No such room (ID: ${client_metadata.payload.roomId}) or you are not in it.`,
+        message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
       },
     });
   }

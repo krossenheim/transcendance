@@ -64,7 +64,11 @@ async function backgroundTask() {
 backgroundTask();
 
 socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
-  return singletonPong.movePaddle(wrapper);
+  const game_id = wrapper.payload.board_id;
+  const paddle_id = wrapper.payload.paddle_id;
+  const user_id = wrapper.user_id;
+  const to_right = wrapper.payload.m;
+  return singletonPong.movePaddle(game_id, paddle_id, user_id, to_right);
 });
 
 // socket.registerHandler(user_url.ws.pong.startGame, async (wrapper) => {
@@ -73,10 +77,4 @@ socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
 //   return singletonPong.startGame(wrapper);
 // });
 
-console.log(
-  singletonPong.startGame({
-    user_id: 7,
-    funcId: "/api/start_game",
-    payload: { balls: 20, player_list: [4, 5, 6, 7, 8] },
-  })
-);
+console.log(singletonPong.startGame(7, [4, 5, 6, 6], 1));

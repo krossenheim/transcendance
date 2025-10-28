@@ -1,28 +1,8 @@
 import PongGame from "./pongGame.js";
-import {
-  ForwardToContainerSchema,
-  PayloadToUsersSchema,
-} from "./utils/api/service/hub/hub_interfaces.js";
-import { httpStatus } from "./utils/httpStatusEnum.js";
-import { z } from "zod";
-import {
-  MovePaddlePayloadScheme,
-  PongBallSchema,
-  PongPaddleSchema,
-  StartNewPongGameSchema,
-  type TypeMovePaddlePayloadScheme,
-} from "./utils/api/service/pong/pong_interfaces.js";
 import { Result } from "./utils/api/service/common/result.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
 import type { WSHandlerReturnValue } from "utils/socket_to_hub.js";
-
-const payload_MOVE_RIGHT = 1;
-const payload_MOVE_LEFT = 0;
-const PLAYER_NO_INPUT = undefined;
-
-type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
-type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
 
 export class PongManager {
   public pong_instances: Map<number, PongGame>;
@@ -108,40 +88,13 @@ export class PongManager {
   //     },
   //   };
   // }
-  startGame(client_request: T_ForwardToContainer): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.output> {
-    const validation = ForwardToContainerSchema.safeParse(client_request);
-    if (!validation.success) {
-      console.error("exact fields expected at this stage: :", validation.error);
-      throw Error("Data should be clean at this stage.");
-    }
-    const { user_id } = client_request;
-    const valid_gamestart = StartNewPongGameSchema.safeParse(
-      client_request.payload
-    );
-    if (!valid_gamestart.success) {
-      return {
-        recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.output.InvalidInput.code,
-        payload: {
-          message: "Could not start pong game: ",
-        },
-      };
-    }
-
-    const zodded = StartNewPongGameSchema.safeParse(validation.data.payload);
-    if (!zodded.success) {
-      console.log("Invalid payload to start a game.: " + zodded.error);
-      return {
-        recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.output.InvalidInput.code,
-        payload: {
-          message: "Could not start pong game: invalid payload structure.",
-        },
-      };
-    }
-    const { player_list } = validation.data.payload;
+  startGame(
+    user_id: number,
+    player_list: number[],
+    ball_count: number
+  ): WSHandlerReturnValue<typeof user_url.ws.pong.startGame.schema.output> {
     // const { user_id } = parsed;
-    let result = PongGame.create(client_request.payload.balls, player_list);
+    let result = PongGame.create(ball_count, player_list);
     if (result.isErr()) {
       return {
         recipients: [user_id],
@@ -159,11 +112,10 @@ export class PongManager {
     // Send the users the game id.
     {
       return {
-        recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated
-          .code,
+        recipients: player_list,
+        code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
         payload: {
-          game_id: game_id,
+          board_id: game_id,
           player_list: player_list,
         },
       };
@@ -171,24 +123,49 @@ export class PongManager {
   }
 
   movePaddle(
-    client_metadata: T_ForwardToContainer
-  ): Result<WSHandlerReturnValue<typeof user_url.ws.pong.movePaddle.schema.output> | null, ErrorResponseType> {
-    const game = this.pong_instances.get(client_metadata.payload.board_id);
-    if (
-      !game ||
-      !game.player_ids.find((id) => id === client_metadata.user_id)
-    ) {
+    game_id: number,
+    paddle_id: number,
+    user_id: number,
+    m: boolean | null // left or right movement. | stop movement.
+  ): Result<
+    WSHandlerReturnValue<
+      typeof user_url.ws.pong.movePaddle.schema.output
+    > | null,
+    ErrorResponseType
+  > {
+    const game = this.pong_instances.get(game_id);
+    if (!game || !game.player_ids.find((id) => id === user_id)) {
       return Result.Ok({
-        recipients: [client_metadata.user_id],
-        funcId: client_metadata.funcId,
+        recipients: [user_id],
+        funcId: user_url.ws.pong.movePaddle.funcId,
         code: user_url.ws.pong.movePaddle.schema.output.NotInRoom.code,
         payload: {
-          message:
-            "You're not in game with ID " + client_metadata.payload.board_id,
+          message: "You're not in game with ID " + game_id,
         },
       });
     }
-    game.setInputOnPaddle(client_metadata.user_id, client_metadata.payload.m);
+    const paddle = game.player_paddles.find((p) => p.pad_id === paddle_id);
+    if (!paddle) {
+      return Result.Ok({
+        recipients: [user_id],
+        funcId: user_url.ws.pong.movePaddle.funcId,
+        code: user_url.ws.pong.movePaddle.schema.output.NoSuchPaddle.code,
+        payload: {
+          message: `No paddle with ID ${paddle_id} in game (ID ${game_id})`,
+        },
+      });
+    }
+    if (paddle.player_ID !== user_id) {
+      return Result.Ok({
+        recipients: [user_id],
+        funcId: user_url.ws.pong.movePaddle.funcId,
+        code: user_url.ws.pong.movePaddle.schema.output.NotYourPaddle.code,
+        payload: {
+          message: `Player with ID ${paddle.player_ID} is using paddle (ID ${paddle.pad_id}).`,
+        },
+      });
+    }
+    paddle.setMoveOnNextFrame(m);
     return Result.Ok(null);
   }
 }

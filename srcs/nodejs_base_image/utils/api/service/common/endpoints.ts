@@ -24,7 +24,10 @@ import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
 import { RoomSchema } from "../chat/db_models.js";
-import { ForwardToContainerSchema, PayloadHubToUsersSchema } from "../hub/hub_interfaces.js";
+import {
+  ForwardToContainerSchema,
+  PayloadHubToUsersSchema,
+} from "../hub/hub_interfaces.js";
 import { z } from "zod";
 import { idValue, userIdValue } from "./zodRules.js";
 import { GenericAuthClientRequest } from "./clientRequest.js";
@@ -201,9 +204,9 @@ export const user_url = defineRoutes({
             Failure: {
               code: 1,
               payload: ErrorResponse,
-            }
-          }
-        }
+            },
+          },
+        },
       },
 
       updateUserConnection: {
@@ -226,8 +229,8 @@ export const user_url = defineRoutes({
               code: 2,
               payload: ErrorResponse,
             },
-          }
-        }
+          },
+        },
       },
     },
 
@@ -275,6 +278,14 @@ export const user_url = defineRoutes({
               code: 2,
               payload: ErrorResponse,
             },
+            NoSuchPaddle: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+            NotYourPaddle: {
+              code: 4,
+              payload: ErrorResponse,
+            },
           },
         },
       },
@@ -320,8 +331,12 @@ export const user_url = defineRoutes({
               code: 1,
               payload: ErrorResponse,
             },
-            InvalidInput: {
+            MessageTooShort: {
               code: 2,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 3,
               payload: ErrorResponse,
             },
           },
@@ -426,9 +441,8 @@ export const user_url = defineRoutes({
 
 /// /internal_api/*
 export const int_url = defineRoutes({
-   ws: {
+  ws: {
     hub: {
-
       userConnected: {
         funcId: "get_online_users",
         container: "hub", // Suspicious activity
@@ -641,5 +655,4 @@ export const int_url = defineRoutes({
       },
     },
   },
-
 });

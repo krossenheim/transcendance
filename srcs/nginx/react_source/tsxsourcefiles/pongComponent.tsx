@@ -27,11 +27,11 @@ function mapToCanvas(x: number, y: number) {
 // =========================
 export default function PongComponent() {
   const { socket, payloadReceived } = useWebSocket();
-  const [game_id, setGame_id] = useState<number | null>(null);
+  const [board_id, setboard_id] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [gameState, setGameState] = useState<TypeGameStateSchema>({
-    game_id: 1,
+    board_id: 1,
     balls: [],
     paddles: [],
     edges: [],
@@ -43,7 +43,7 @@ export default function PongComponent() {
 
   const handleListRoomsSchemaReceived = useCallback(
     (newgame: TypeGameStateSchema) => {
-      setGame_id(game_id);
+      setboard_id(board_id);
     },
     [socket]
   );
@@ -57,7 +57,7 @@ export default function PongComponent() {
           payloadReceived.payload
         );
       console.log("running1");
-      if (parsed.success) setGame_id(parsed.data.game_id);
+      if (parsed.success) setboard_id(parsed.data.board_id);
       else console.warn("Invalid new game payload:", parsed.error);
     } else if (
       payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
@@ -68,7 +68,7 @@ export default function PongComponent() {
           payloadReceived.payload
         );
       if (parsed.success) {
-        if (game_id === null) setGame_id(parsed.data.game_id); // Client rejoined
+        if (board_id === null) setboard_id(parsed.data.board_id); // Client rejoined
         setGameState(parsed.data);
       } else console.warn("Invalid GameState payload:", parsed.error);
     }
@@ -122,9 +122,9 @@ export default function PongComponent() {
       if (keysPressed.has(e.key)) return; // already pressed, ignore
       keysPressed.add(e.key);
 
-      if (game_id === null) return;
+      if (board_id === null) return;
       const payload = {
-        board_id: game_id,
+        board_id: board_id,
         m: e.key === "w",
       };
       handleSendMovePaddle(payload);
@@ -134,9 +134,9 @@ export default function PongComponent() {
       if (e.key !== "w" && e.key !== "s") return;
       keysPressed.delete(e.key);
 
-      if (game_id === null) return;
+      if (board_id === null) return;
       const payload = {
-        board_id: game_id,
+        board_id: board_id,
         m: null, // stop movement
       };
       handleSendMovePaddle(payload);
@@ -149,7 +149,7 @@ export default function PongComponent() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [handleSendMovePaddle, game_id]);
+  }, [handleSendMovePaddle, board_id]);
 
   // =========================
   // Canvas Rendering
