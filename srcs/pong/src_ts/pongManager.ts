@@ -2,7 +2,8 @@ import PongGame from "./pongGame.js";
 import { Result } from "./utils/api/service/common/result.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
-import type { WSHandlerReturnValue } from "utils/socket_to_hub.js";
+import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
+import { PongLobbyStatus } from "./playerPaddle.js";
 
 export class PongManager {
   public pong_instances: Map<number, PongGame>;
@@ -18,30 +19,27 @@ export class PongManager {
     return this;
   }
   userReportsReady(
-    client_request: T_ForwardToContainer
+    user_id: number,
+    gameIdReq: number
   ): Result<
     WSHandlerReturnValue<
-      typeof user_url.ws.pong.userReportsReady.schema.responses
+      typeof user_url.ws.pong.userReportsReady.schema.output
     >,
     ErrorResponseType
   > {
-    const { game_id } = client_request.payload;
-    const game: undefined | PongGame = this.pong_instances.get(game_id);
-    if (
-      game === undefined ||
-      !game.player_ids.find((id) => id === client_request.user_id)
-    ) {
-      console.warn(`User ${client_request.user_id} not in game`);
+    const game: undefined | PongGame = this.pong_instances.get(gameIdReq);
+    if (game === undefined || !game.player_ids.find((id) => id === user_id)) {
+      console.warn(`User ${user_id} not in game`);
       return Result.Ok({
-        recipients: [client_request.user_id],
-        code: user_url.ws.pong.userReportsReady.schema.responses.FailedToReady
+        recipients: [user_id],
+        code: user_url.ws.pong.userReportsReady.schema.output.FailedToReady
           .code,
         payload: {
-          message: `No game by ID ${game_id}" exists, or you are not in it.`,
+          message: `No game by ID ${gameIdReq}" exists, or you are not in it.`,
         },
       });
     }
-    const playerPaddle = game.player_id_to_paddle.get(client_request.user_id);
+    const playerPaddle = game.player_id_to_paddle.get(user_id);
     if (undefined === playerPaddle) {
       console.error(
         "This should never happen, as the user id is in game.player_ids"
@@ -61,16 +59,16 @@ export class PongManager {
     }
     for (const paddle of game.player_paddles) {
       // Case two paddles 1 player.
-      if (paddle.player_ID === client_request.user_id)
+      if (paddle.player_ID === user_id)
         playerPaddle.connectionStatus = newStatus;
     }
     // Send the player a snap of the game
     return Result.Ok({
       recipients: game.player_ids,
-      code: user_url.ws.pong.userReportsReady.schema.responses.UserIsReady.code,
+      code: user_url.ws.pong.userReportsReady.schema.output.UserIsReady.code,
       payload: {
-        game_id: game_id,
-        user_id: client_request.user_id,
+        game_id: gameIdReq,
+        user_id: user_id,
       },
     });
   }
@@ -87,13 +85,13 @@ export class PongManager {
     // const { user_id } = parsed;
     let result = PongGame.create(ball_count, player_list);
     if (result.isErr()) {
-      return {
+      return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.pong.startGame.schema.output.FailedCreateGame.code,
         payload: {
           message: "Could not start pong game: failed to create game instance.",
         },
-      };
+      });
     }
     const pong_game = result.unwrap();
     const game_id = this.debugGameID;
@@ -102,14 +100,14 @@ export class PongManager {
     this.pong_instances.set(game_id, pong_game);
     // Send the users the game id.
     {
-      return {
+      return Result.Ok({
         recipients: player_list,
         code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
         payload: {
           board_id: game_id,
           player_list: player_list,
         },
-      };
+      });
     }
   }
 

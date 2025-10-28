@@ -80,8 +80,10 @@ socket.registerHandler(user_url.ws.pong.startGame, async (wrapper) => {
     ball_count_requested
   );
 });
-socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
-  return singletonPong.userReportsReady(wrapper);
+socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
+  const user_id = wrapper.user_id;
+  const game_id = wrapper.payload.game_id;
+  return singletonPong.userReportsReady(user_id, game_id);
 });
 
 console.log(singletonPong.startGame(7, [4, 5, 6, 6], 1));
