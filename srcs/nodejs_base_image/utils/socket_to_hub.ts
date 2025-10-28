@@ -241,6 +241,9 @@ export class OurSocket {
     }
 
     const funcId = parsedData.unwrap().funcId;
+    //
+    // Validate zod schemas here, if it fails, user can be infomed with socket.send right here.
+    // ...
     const receiverCallable = this.receiverCallables[funcId];
     if (receiverCallable !== undefined) {
       const executionResult = await this._handleReceiverEndpoint(receiverCallable, rawJson);

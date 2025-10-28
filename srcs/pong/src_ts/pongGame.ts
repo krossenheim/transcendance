@@ -49,8 +49,7 @@ class PongGame {
   public paused: boolean = true;
   private board_size: Vec2;
   private map_polygon_edges: Vec2[];
-  public readonly player_paddles: Array<PlayerPaddle>;
-  public readonly player_id_to_paddle: Map<number, PlayerPaddle>;
+  public player_paddles: Array<PlayerPaddle>;
   public readonly player_ids: Array<number>;
   public readonly pong_balls: Array<PongBall>;
   private last_frame_time: number;
@@ -63,8 +62,7 @@ class PongGame {
     this.board_size = { x: 1000, y: 1000 };
     this.pong_balls = this.spawn_balls(num_balls);
     this.map_polygon_edges = this.spawn_map_edges(player_ids.length);
-    this.player_id_to_paddle = this.spawn_paddles(player_ids);
-    this.player_paddles = Array.from(this.player_id_to_paddle.values());
+    this.player_paddles = this.spawn_paddles(player_ids);
     this.last_frame_time = Date.now(); // initial timestamp in ms
   }
 
@@ -100,8 +98,8 @@ class PongGame {
     }
   }
 
-  private spawn_paddles(player_ids: Array<number>): Map<number, PlayerPaddle> {
-    const player_to_paddle_map: Map<number, PlayerPaddle> = new Map();
+  private spawn_paddles(player_ids: Array<number>): PlayerPaddle[] {
+    const paddles: PlayerPaddle[] = [];
     const paddle_positions = generateCirclePoints(
       player_ids.length,
       Math.min(this.board_size.x, this.board_size.y) * RADIUS_PLACE_PLAYERS,
@@ -122,13 +120,9 @@ class PongGame {
         length
       );
       console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.pad_id}'`);
-      player_to_paddle_map.set(player_id, paddle);
+      paddles.push(paddle);
     }
-    console.log(
-      "Spawned paddles for playerids:",
-      Array.from(player_to_paddle_map.keys())
-    );
-    return player_to_paddle_map;
+    return paddles;
   }
 
   private spawn_map_edges(player_count: number): Vec2[] {
@@ -183,16 +177,6 @@ class PongGame {
       );
     }
     return balls;
-  }
-
-  setInputOnPaddle(user_id: number, move_right: boolean | null): boolean {
-    const paddle = this.player_id_to_paddle.get(user_id);
-    if (!paddle) {
-      console.error("Couldnt find paddle for player id: ", user_id, "???");
-      return false;
-    }
-    paddle.setMoveOnNextFrame(move_right);
-    return true;
   }
 
   private unecessaryCheck() {
@@ -346,6 +330,7 @@ class PongGame {
   isPaused(): boolean {
     for (const paddle of this.player_paddles) {
       if (paddle.connectionStatus !== PongLobbyStatus.Ready) {
+        console.log("Paddle not ready", paddle.player_ID);
         this.paused = true;
         return this.paused;
       }

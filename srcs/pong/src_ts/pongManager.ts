@@ -39,28 +39,17 @@ export class PongManager {
         },
       });
     }
-    const playerPaddle = game.player_id_to_paddle.get(user_id);
-    if (undefined === playerPaddle) {
-      console.error(
-        "This should never happen, as the user id is in game.player_ids"
-      );
-      return Result.Err({ message: "Very weird exception" });
-    }
-    let newStatus: number = -1;
-    if (playerPaddle.connectionStatus === PongLobbyStatus.Ready) {
-      newStatus = PongLobbyStatus.Paused;
-    } else {
-      if (playerPaddle.connectionStatus === PongLobbyStatus.NotConnected) {
-        console.warn(
-          "User has readied for a game that thinks they aren't connected to. Add a 'JoinGame' function or leave like this?"
-        );
-      }
-      newStatus = PongLobbyStatus.Ready;
-    }
     for (const paddle of game.player_paddles) {
       // Case two paddles 1 player.
-      if (paddle.player_ID === user_id)
-        playerPaddle.connectionStatus = newStatus;
+      if (paddle.player_ID !== user_id) continue;
+      if (paddle.connectionStatus === PongLobbyStatus.Ready) {
+        paddle.connectionStatus = PongLobbyStatus.Paused;
+      } else {
+        if (paddle.connectionStatus === PongLobbyStatus.NotConnected) {
+          console.warn("    'JoinGame' first?");
+        }
+        paddle.connectionStatus = PongLobbyStatus.Ready;
+      }
     }
     // Send the player a snap of the game
     return Result.Ok({

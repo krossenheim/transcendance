@@ -4,7 +4,7 @@ import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
 import { OurSocket } from "./utils/socket_to_hub.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
-import type { T_PayloadToUsers } from "./utils/api/service/hub/hub_interfaces.js";
+import { Result } from "./utils/api/service/common/result.js";
 
 const fastify = Fastify({
   logger: {
@@ -35,9 +35,9 @@ async function backgroundTask() {
       for (const [game_id, game] of singletonPong.pong_instances) {
         game.gameLoop();
         const payload = game.getGameState();
-        const recipients = Array.from(game.player_id_to_paddle.keys());
+        const recipients = game.player_ids;
 
-        const out: T_PayloadToUsers = {
+        const out = {
           recipients: recipients,
           funcId: user_url.ws.pong.getGameState.funcId,
           code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
