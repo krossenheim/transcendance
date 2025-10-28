@@ -319,9 +319,10 @@ export const user_url = defineRoutes({
         funcId: "report_ready_for_pong_game",
         container: "pong",
         schema: {
-          wrapper: ForwardToContainerSchema,
-          body: PlayerDeclaresReadyForGame,
-          responses: {
+          args_wrapper: ForwardToContainerSchema,
+          args: PlayerDeclaresReadyForGame,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
             UserIsReady: {
               code: 0,
               payload: PlayerReadyForGameSchema,

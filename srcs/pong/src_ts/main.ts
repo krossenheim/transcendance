@@ -40,7 +40,7 @@ async function backgroundTask() {
         const out: T_PayloadToUsers = {
           recipients: recipients,
           funcId: user_url.ws.pong.getGameState.funcId,
-          code: user_url.ws.pong.getGameState.schema.responses.GameUpdate.code,
+          code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
           payload: payload,
         };
         if (!game.paused) socket.getSocket().send(JSON.stringify(out));
