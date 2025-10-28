@@ -44,7 +44,7 @@ function rotatePolygon(
   });
 }
 
-let debug_game_id = 1;
+let debug_board_id = 1;
 class PongGame {
   public paused: boolean = true;
   private board_size: Vec2;
@@ -55,10 +55,10 @@ class PongGame {
   public readonly pong_balls: Array<PongBall>;
   private last_frame_time: number;
   private readonly timefactor: number = 1;
-  private readonly game_id: number;
+  private readonly board_id: number;
 
   private constructor(num_balls: number, player_ids: Array<number>) {
-    this.game_id = debug_game_id++;
+    this.board_id = debug_board_id++;
     this.player_ids = player_ids;
     this.board_size = { x: 1000, y: 1000 };
     this.pong_balls = this.spawn_balls(num_balls);
@@ -121,7 +121,7 @@ class PongGame {
         player_id,
         length
       );
-      console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.id}'`);
+      console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.pad_id}'`);
       player_to_paddle_map.set(player_id, paddle);
     }
     console.log(
@@ -185,13 +185,14 @@ class PongGame {
     return balls;
   }
 
-  setInputOnPaddle(user_id: number, move_right: boolean | null) {
+  setInputOnPaddle(user_id: number, move_right: boolean | null): boolean {
     const paddle = this.player_id_to_paddle.get(user_id);
     if (!paddle) {
       console.error("Couldnt find paddle for player id: ", user_id, "???");
-      return;
+      return false;
     }
     paddle.setMoveOnNextFrame(move_right);
+    return true;
   }
 
   private unecessaryCheck() {
@@ -220,12 +221,12 @@ class PongGame {
 
   getGameState(): TypeGameStateSchema {
     const payload: {
-      game_id: number;
+      board_id: number;
       balls: TypePongBall[];
       paddles: TypePongPaddle[];
       edges: TypePongEdgeSchema[];
     } = {
-      game_id: this.game_id,
+      board_id: this.board_id,
       balls: [],
       paddles: [],
       edges: [],

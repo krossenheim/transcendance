@@ -51,14 +51,15 @@ const PongEdgeSchema = z
 
 export const MovePaddlePayloadScheme = z
   .object({
-    board_id: gameIdValue, //board id
+    board_id: z.coerce.number().int().gte(0), // board id
+    paddle_id: z.coerce.number().int().gte(0), // paddle id
     m: z.union([z.boolean(), z.null()]), // move right = yyes , left = no, not = null
   })
   .strict();
 
 export const GameStateSchema = z
   .object({
-    game_id: gameIdValue,
+    board_id: z.number().int().gte(0),
     balls: z.array(PongBallSchema),
     paddles: z.array(PongPaddleSchema),
     edges: z.array(PongEdgeSchema),
@@ -67,7 +68,7 @@ export const GameStateSchema = z
 
 export const GetGameInfoSchema = z
   .object({
-    game_id: gameIdValue,
+    board_id: z.number().int().gte(0),
     player_list: z.array(z.coerce.number()).refine(
       (arr) => {
         // Check uniqueness
