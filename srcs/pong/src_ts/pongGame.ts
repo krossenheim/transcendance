@@ -330,7 +330,6 @@ class PongGame {
   isPaused(): boolean {
     for (const paddle of this.player_paddles) {
       if (paddle.connectionStatus !== PongLobbyStatus.Ready) {
-        console.log("Paddle not ready", paddle.player_ID);
         this.paused = true;
         return this.paused;
       }
