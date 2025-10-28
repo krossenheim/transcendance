@@ -177,13 +177,54 @@ export default function PongComponent() {
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null) return;
+      if (gameState === null || playerOnePaddleID === -1) return;
       if (e.key !== "w" && e.key !== "s") return;
       keysPressed.delete(e.key);
 
       const payload = {
         board_id: gameState.board_id,
         paddle_id: playerOnePaddleID,
+        m: null, // stop movement
+      };
+      handleUserInput(user_url.ws.pong.movePaddle, payload);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [gameState]);
+  // =========================
+  // Keyboard input (O / L)
+  // =========================
+  useEffect(() => {
+    const keysPressed = new Set<string>();
+    function handleKeyDown(e: KeyboardEvent) {
+      if (gameState === null || playerTwoPaddleID === -1) return;
+      if (e.key !== "o" && e.key !== "l") return;
+      if (keysPressed.has(e.key)) return; // already pressed, ignore
+      keysPressed.add(e.key);
+
+      if (gameState.board_id === null) return;
+      const payload: TypeMovePaddlePayloadScheme = {
+        board_id: gameState.board_id,
+        paddle_id: playerTwoPaddleID,
+        m: e.key === "o",
+      };
+      handleUserInput(user_url.ws.pong.movePaddle, payload);
+    }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      if (gameState === null) return;
+      if (e.key !== "o" && e.key !== "l") return;
+      keysPressed.delete(e.key);
+
+      const payload = {
+        board_id: gameState.board_id,
+        paddle_id: playerTwoPaddleID,
         m: null, // stop movement
       };
       handleUserInput(user_url.ws.pong.movePaddle, payload);
