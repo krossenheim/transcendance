@@ -81,9 +81,9 @@ services:
     build:
       context: ./${PONG_NAME}
     restart: always
-    # depends_on:
-    #   hub:
-    #     condition: service_healthy
+    depends_on:
+      hub:
+        condition: service_healthy
     networks:
       transcendance_network:
         ipv4_address: ${PONG_IPV4_ADDRESS}
@@ -96,9 +96,9 @@ services:
     build:
       context: ./${USERS_NAME}
     restart: always
-    # depends_on:
-    #   hub:
-    #     condition: service_healthy
+    depends_on:
+      hub:
+        condition: service_healthy
     networks:
       transcendance_network:
         ipv4_address: ${USERS_IPV4_ADDRESS}

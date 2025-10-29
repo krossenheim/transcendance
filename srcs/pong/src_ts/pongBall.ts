@@ -105,14 +105,14 @@ export class PongBall {
     const diff = sub(ballPos, closest);
     const dist2 = dotp(diff, diff);
 
-    if (dist2 <= effectiveRadius * effectiveRadius) {
-      const normal = normalize(diff);
-      return {
-        normal,
-        pos: closest,
-        alpha: 0,
-      };
-    }
+    // if (dist2 <= effectiveRadius * effectiveRadius) {
+    //   const normal = normalize(diff);
+    //   return {
+    //     normal,
+    //     pos: closest,
+    //     alpha: 0,
+    //   };
+    // }
 
     // Quadratic terms
     const a = dotp(movementRel, movementRel);

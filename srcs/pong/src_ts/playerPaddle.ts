@@ -13,7 +13,7 @@ export enum PongLobbyStatus {
 export class PlayerPaddle {
   // private constants
   private readonly start_pos: Vec2;
-  public connectionStatus: PongLobbyStatus = PongLobbyStatus.NotConnected;
+  public connectionStatus: PongLobbyStatus = PongLobbyStatus.Ready;
   private readonly game_size: Vec2;
   public static totalPaddles: number = 0;
   public readonly pad_id: number;
