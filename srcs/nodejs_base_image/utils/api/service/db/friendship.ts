@@ -4,7 +4,8 @@ import { z } from 'zod';
 export enum UserFriendshipStatusEnum {
 	None = 0,
 	Pending = 1,
-	Accepted = 2
+	Accepted = 2,
+	Blocked = 3
 }
 
 export const UserFriendshipStatus = z.enum(UserFriendshipStatusEnum);
@@ -17,7 +18,6 @@ export const UserConnectionStatusSchema = z.object({
 
 export const RequestUpdateFriendship = z.object({
 	friendId: userIdValue,
-	status: UserFriendshipStatus
 }).strict();
 
 export type UserConnectionStatusType = z.infer<typeof UserConnectionStatusSchema>;

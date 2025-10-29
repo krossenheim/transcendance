@@ -25,12 +25,16 @@ async function verifyPassword(plainPassword: string, hashedPassword: string): Pr
 }
 
 async function userRoutes(fastify: FastifyInstance) {
-	registerRoute(fastify, int_url.http.db.listUsers, async (_, reply) => {
+	registerRoute(fastify, int_url.http.db.fetchMultipleUsers, async (request, reply) => {
+		const requestedUsers: number[] = request.body;
 		const usersResult = userService.fetchAllUsers();
 		if (usersResult.isErr())
 			return reply.status(500).send({ message: usersResult.unwrapErr() });
-		else
-			return reply.status(200).send(usersResult.unwrap());
+		else {
+			const allUsers = usersResult.unwrap();
+			const filteredUsers = allUsers.filter((user) => requestedUsers.includes(user.id));
+			return reply.status(200).send(filteredUsers);
+		}
 	});
 
 	registerRoute(fastify, int_url.http.db.loginUser, async (request, reply) => {

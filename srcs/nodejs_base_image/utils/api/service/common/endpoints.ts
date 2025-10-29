@@ -211,8 +211,8 @@ export const user_url = defineRoutes({
         },
       },
 
-      updateUserConnection: {
-        funcId: "update_user_connection",
+      requestFriendship: {
+        funcId: "request_friendship",
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
@@ -223,12 +223,12 @@ export const user_url = defineRoutes({
               code: 0,
               payload: z.null(),
             },
-            InvitedUserDoesNotExist: {
+            UserDoesNotExist: {
               code: 1,
               payload: ErrorResponse,
             },
-            InvalidStatusTransition: {
-              code: 2,
+            InvalidStatusRequest: {
+              code: 3,
               payload: ErrorResponse,
             },
           },
@@ -539,11 +539,12 @@ export const int_url = defineRoutes({
   http: {
     db: {
       // Userdata endpoints
-      listUsers: {
+      fetchMultipleUsers: {
         // DEBUG ONLY
         endpoint: "/internal_api/db/users",
-        method: "GET",
+        method: "POST",
         schema: {
+          body: z.array(userIdValue),
           response: {
             200: z.array(FullUser),
             500: ErrorResponse,

@@ -1,15 +1,80 @@
-import { UserConnectionStatusSchema } from "./utils/api/service/db/friendship.js";
-import { createFastify } from "./utils/api/service/common/fastify.js";
+import { UserConnectionStatusSchema, UserFriendshipStatusEnum } from "./utils/api/service/db/friendship.js";
+import { createFastify, registerRoute } from "./utils/api/service/common/fastify.js";
+import { user_url, int_url } from "./utils/api/service/common/endpoints.js";
+import { Result } from "./utils/api/service/common/result.js";
+import { OurSocket } from "./utils/socket_to_hub.js";
 import containers from "./utils/internal_api.js";
 
+import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import type { FastifyInstance } from "fastify";
-import { registerRoute } from "./utils/api/service/common/fastify.js";
-import { user_url, int_url } from "./utils/api/service/common/endpoints.js";
-import { OurSocket } from "./utils/socket_to_hub.js";
-import { Result } from "./utils/api/service/common/result.js";
+import type { FullUserType } from "./utils/api/service/db/user.js";
 
 const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
+
+enum UserPermission {
+	Guest = 1,
+	User = 2,
+	Admin = 6
+};
+
+interface UserPermissionData {
+	userPermissionScope: UserPermission;
+	allowedPlayersToFetchProfile: number[];
+}
+
+interface UserMetadata {
+	id: number;
+	username: string;
+	permissions: UserPermissionData;
+}
+
+class UserHandler {
+	private users: Map<number, UserMetadata> = new Map();
+
+	addUser(user: UserMetadata): void {
+		this.users.set(user.id, user);
+	}
+
+	getUser(userId: number): Result<UserMetadata, string> {
+		const user = this.users.get(userId);
+		if (user === undefined)
+			return Result.Err("User not found");
+		return Result.Ok(user);
+	}
+
+	removeUser(userId: number): Result<null, string> {
+		if (!this.users.has(userId))
+			return Result.Err("User not found");
+		this.users.delete(userId);
+		return Result.Ok(null);
+	}
+}
+
+// interface PlayerConnection {
+	// userId: number;
+	// user
+// }
+
+async function getUsersById(userIds: number[]): Promise<Result<Record<number, FullUserType>, ErrorResponseType>> {
+	const usersResult = await containers.db.fetchMultipleUsers(userIds);
+	if (usersResult.isErr())
+		return Result.Err(usersResult.unwrapErr());
+
+	const usersMap: Record<number, FullUserType> = {};
+	for (const user of usersResult.unwrap()) {
+		usersMap[user.id] = user;
+	}
+
+	return Result.Ok(usersMap);
+}
+
+function retrieveUserConnectionStatus(from: FullUserType, to: FullUserType): UserFriendshipStatusEnum {
+	const friendship = from.friends.find((f) => f.id === to.id);
+	if (friendship === undefined)
+		return UserFriendshipStatusEnum.None;
+	return friendship.status;
+}
 
 // {"funcId":"test","payload":{},"target_container":"users"}
 socketToHub.registerHandler(user_url.ws.users.test, async (body, schema) => {
@@ -17,6 +82,29 @@ socketToHub.registerHandler(user_url.ws.users.test, async (body, schema) => {
 	const result = Result.Ok({recipients: [body.user_id], code: schema.output.Failure.code, payload: {message: "Test successful"}});
 	socketToHub.sendMessage(user_url.ws.users.test, {recipients: [body.user_id], code: schema.output.Success.code, payload: "42"});
 	return result;
+});
+
+// {"funcId":"request_friendship","payload":{"friendId":2},"target_container":"users"}
+socketToHub.registerHandler(user_url.ws.users.requestFriendship, async (body, schema) => {
+	const usersMapResult = await getUsersById([body.user_id, body.payload.friendId]);
+	if (usersMapResult.isErr())
+		return Result.Err(usersMapResult.unwrapErr());
+
+	const me = usersMapResult.unwrap()[body.user_id];
+	const friend = usersMapResult.unwrap()[body.payload.friendId];
+	if (me === undefined || friend === undefined)
+		return Result.Ok({recipients: [body.user_id], code: schema.output.UserDoesNotExist.code, payload: {message: "User not found"}});
+
+	switch (retrieveUserConnectionStatus(me, friend)) {
+		case UserFriendshipStatusEnum.Blocked:
+		case UserFriendshipStatusEnum.Accepted:
+		case UserFriendshipStatusEnum.Pending:
+			return Result.Ok({recipients: [body.user_id], code: schema.output.InvalidStatusRequest.code, payload: {message: "Invalid friendship status request"}});
+		case UserFriendshipStatusEnum.None:
+			console.log("No friendship status found");
+	}
+
+	throw new Error("Not implemented yet");
 });
 
 socketToHub.registerReceiver(int_url.ws.hub.userConnected, async (data, schema) => {
