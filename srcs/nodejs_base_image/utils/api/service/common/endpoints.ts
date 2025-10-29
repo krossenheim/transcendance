@@ -157,6 +157,7 @@ export const pub_url = defineRoutes({
 
 export const user_url = defineRoutes({
   http: {
+
     users: {
       fetchUser: {
         endpoint: "/api/users/fetch",
@@ -368,7 +369,7 @@ export const user_url = defineRoutes({
             InvalidInput: {
               code: 3,
               payload: ErrorResponse,
-            },            
+            },
             InvitationNotAccepted: {
               code: 4,
               payload: ErrorResponse,
@@ -475,6 +476,7 @@ export const user_url = defineRoutes({
 
 /// /internal_api/*
 export const int_url = defineRoutes({
+
   ws: {
     hub: {
       userConnected: {
@@ -537,6 +539,22 @@ export const int_url = defineRoutes({
     },
   },
   http: {
+    pong:
+    {
+      startGame: {
+        endpoint: "/internal_api/pong/start_game_http",
+        method: "POST",
+        schema: {
+          body: StartNewPongGameSchema,
+          response: {
+            200: GameStateSchema,
+            401: ErrorResponse,
+            404: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+    },
     db: {
       // Userdata endpoints
       fetchMultipleUsers: {

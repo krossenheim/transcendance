@@ -349,14 +349,16 @@ fastify.get(
         console.log("Unparsed", string);
       } catch (e) {
         console.log(`Unrecognized message: ${message}`);
+        socket.send("Cannot deserialize message into JSON");
         return;
       }
 
       let user_id = openSocketToUserID.get(socket);
       if (user_id === undefined) {
         const authResult = await handleWebsocketAuth(socket, parsed);
-        if (authResult.isErr())
+        if (authResult.isErr()) {
           console.error("Authentication failed: " + authResult.unwrapErr());
+        }
         else
         {
 

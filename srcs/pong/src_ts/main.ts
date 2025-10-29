@@ -3,22 +3,15 @@ import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
 import { OurSocket } from "./utils/socket_to_hub.js";
-import { user_url } from "./utils/api/service/common/endpoints.js";
+import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import { Result } from "./utils/api/service/common/result.js";
+import type { FastifyInstance } from "fastify";
+import { createFastify } from "./utils/api/service/common/fastify.js";
+import { registerRoute } from "./utils/api/service/common/fastify.js";
+import PongGame from "./pongGame.js";
 
-const fastify = Fastify({
-  logger: {
-    level: "info", // or 'debug' for more verbosity
-    transport: {
-      target: "pino-pretty", // pretty-print logs in development
-      options: {
-        colorize: true,
-        translateTime: "HH:MM:ss Z",
-        ignore: "pid,hostname",
-      },
-    },
-  },
-});
+const fastify: FastifyInstance = createFastify();
+
 fastify.register(websocketPlugin);
 
 const singletonPong = new PongManager();
@@ -58,7 +51,7 @@ async function backgroundTask() {
     console.error(
       "INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES."
     );
-    while (true) {}
+    while (true) { }
   }
 }
 backgroundTask();
@@ -87,3 +80,28 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
 });
 
 console.log(singletonPong.startGame(7, [4, 5, 5], 1));
+
+registerRoute(fastify, int_url.http.pong.startGame, async (request, reply) => {
+  const { balls, player_list } = request.body;
+  let result = PongGame.create(balls, player_list);
+
+  if (result.isErr()) {
+    return reply.status(500).send({ message: result.unwrapErr() });
+  }
+  return reply.status(200).send(result.unwrap().getGameState());
+});
+
+const port = parseInt(
+  process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
+  10
+);
+const host = process.env.PONG_BIND_TO || "0.0.0.0";
+
+fastify.listen({ port, host }, (err, address) => {
+  if (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+  fastify.log.info(`Server listening at ${address}`);
+});
+
