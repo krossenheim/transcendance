@@ -65,6 +65,23 @@ export class OurSocket {
     this._setupSocketListeners();
   }
 
+  async invokeHandler<T extends WebSocketRouteDef>(
+    handlerEndpoint: T,
+    userId: number,
+    payload: z.infer<T["schema"]["args"]>
+  ): Promise<Result<void, ErrorResponseType>> {
+    const handler = this.handlerCallables[handlerEndpoint.funcId];
+    if (handler === undefined)
+      return Promise.resolve(Result.Err({ message: `No handler found for funcId "${handlerEndpoint.funcId}"` }));
+
+    return this._handleHandlerEndpoint(handler, {funcId: handlerEndpoint.funcId, user_id: userId, payload}).then((result) => {
+      if (result.isErr())
+        return Result.Err(result.unwrapErr());
+      this.socket.send(JSON.stringify(result.unwrap()));
+      return Result.Ok(undefined);
+    });
+  }
+
   registerHandler<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
     handler: InferWSHandler<T>

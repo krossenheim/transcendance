@@ -101,7 +101,7 @@ socketToHub.registerHandler(user_url.ws.users.requestFriendship, async (body, sc
 		case UserFriendshipStatusEnum.Pending:
 			return Result.Ok({recipients: [body.user_id], code: schema.output.InvalidStatusRequest.code, payload: {message: "Invalid friendship status request"}});
 		case UserFriendshipStatusEnum.None:
-			console.log("No friendship status found");
+			await socketToHub.invokeHandler(user_url.ws.users.test, 1, {});
 	}
 
 	throw new Error("Not implemented yet");
