@@ -126,7 +126,6 @@ export class OurSocket {
       metadata: handlerEndpoint,
       handler,
     };
-    console.log(`"Added new handler: ${JSON.stringify(handlerEndpoint)}"`);
   }
 
   private _constructWSHandlerOutput<T extends WebSocketRouteDef>(
@@ -311,7 +310,7 @@ export class OurSocket {
     return (
       await this._executeHandler(
         handler,
-        outputSchemaResult.unwrap().payload,
+        outputSchemaResult.unwrap(),
         handler.metadata.schema
       )
     ).map(() => undefined);
@@ -345,9 +344,6 @@ export class OurSocket {
     }
 
     const funcId = parsedData.unwrap().funcId;
-    //
-    // Validate zod schemas here, if it fails, user can be infomed with socket.send right here.
-    // ...
     const receiverCallable = this.receiverCallables[funcId];
     if (receiverCallable !== undefined) {
       console.log("Awaiting handler to deal with:" + str);
@@ -357,8 +353,9 @@ export class OurSocket {
       );
       if (executionResult.isErr()) {
         console.warn("Receiver handler error:", executionResult.unwrapErr());
+        return Result.Err({ message: "Receiver handler error" });
       }
-      return Result.Err({ message: "Receiver handler error" });
+      return executionResult;
     }
 
     const handleCallable = this.handlerCallables[funcId];

@@ -83,8 +83,9 @@ socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
   if (
     wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
   ) {
-    wrapper.payload.userId;
+    console.log("Wrapper is: ", JSON.stringify(wrapper));
     const userId = wrapper.payload.userId;
+    if (!userId) throw new Error("Schema not validated.");
     singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
   } else
     return Result.Err(
@@ -94,6 +95,7 @@ socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
         wrapper
       )}`
     );
+  console.log("Returning ok, null");
   return Result.Ok(null);
 });
 
