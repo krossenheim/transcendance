@@ -1,5 +1,5 @@
 import type { Vec2 } from "./vector2.js";
-import { scale, getAngle, normalize } from "./vector2.js";
+import { scale, getAngle, normalize, sub } from "./vector2.js";
 
 const DEFAULT_PADDLE_SPEED = 300;
 
@@ -10,6 +10,8 @@ export enum PongLobbyStatus {
   Paused, // Was ready and re-readied
   Disconnected, // Left mid game because hub told us they left mid game.
 }
+
+const RATIO_LENGTH_PADDLE = 0.33;
 
 export class PlayerPaddle {
   // private constants
@@ -24,6 +26,7 @@ export class PlayerPaddle {
   public player_ID: number;
   public is_moving_right: boolean | null;
   public s: number;
+  private readonly edge_length: number;
   public length: number;
   public readonly width: number;
   public segment: Vec2[];
@@ -32,7 +35,7 @@ export class PlayerPaddle {
     start_pos: Vec2,
     game_size: Vec2,
     player_id: number,
-    length: number,
+    edge_length: number, // size of the area paddle must guard
     pladdle_speed = DEFAULT_PADDLE_SPEED
   ) {
     this.start_pos = start_pos;
@@ -43,8 +46,9 @@ export class PlayerPaddle {
       y: this.game_size.y / 2,
     });
     this.d = { x: Math.cos(this.r), y: Math.sin(this.r) };
-    this.length = length; //Math.min(game_size.y, game_size.x) * 0.25;
-    this.width = length / 10;
+    this.edge_length = edge_length;
+    this.length = this.edge_length * RATIO_LENGTH_PADDLE; // len of polygon segment behind paddle * n;
+    this.width = this.length / 10;
     this.segment = this.makeSegment(this.pos, this.d, this.length);
     this.lastMovement = { x: 0, y: 0 };
     this.player_ID = player_id;
@@ -79,7 +83,19 @@ export class PlayerPaddle {
     const lateral = this.is_moving_right
       ? { x: this.d.y, y: -this.d.x } // right
       : { x: -this.d.y, y: this.d.x }; // left
-    return scale(deltaFactor * this.s, lateral);
+    const offset = sub(this.pos, this.start_pos);
+
+    const currentDist = offset.x * lateral.x + offset.y * lateral.y;
+
+    const desiredDist = currentDist + deltaFactor * this.s;
+
+    const maxDist = ((1 - RATIO_LENGTH_PADDLE) / 2) * this.edge_length;
+
+    const clampedDist = Math.max(-maxDist, Math.min(maxDist, desiredDist));
+
+    const moveDist = clampedDist - currentDist;
+
+    return scale(moveDist, lateral);
   }
 }
 
