@@ -95,10 +95,48 @@ socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
         wrapper
       )}`
     );
-  console.log("Returning ok, null");
   return Result.Ok(null);
 });
 
+socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
+  if (
+    wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
+  ) {
+    console.log("Wrapper is: ", JSON.stringify(wrapper));
+    const userId = wrapper.payload.userId;
+    if (!userId) {
+      console.error("INVALID SCHEMA");
+      throw new Error("Schema not validated.");
+    }
+    singletonPong.setPlayerStatus(userId, PongLobbyStatus.Paused);
+    // find any games the user is on and send a getGameState from each
+    const ongoing_user_games = singletonPong.getGamesWithPlayerById(userId);
+    if (!ongoing_user_games) {
+      console.log("No ongoing games for user ", userId);
+      return Result.Ok(null);
+    }
+    for (const game of ongoing_user_games) {
+      const payload = game.getGameState();
+      const recipients = game.player_ids;
+
+      const out = {
+        recipients: recipients,
+        funcId: user_url.ws.pong.getGameState.funcId,
+        code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+        payload: payload,
+      };
+      console.log("Sending out: ", JSON.stringify(out));
+      socket.getSocket().send(JSON.stringify(out));
+    }
+  } else
+    return Result.Err(
+      `Unhandled code(${
+        wrapper.code
+      }) for int_url.ws.hub.userConnected, wrapper: ${JSON.stringify(wrapper)}`
+    );
+
+  return Result.Ok(null);
+});
 console.log(singletonPong.startGame(7, [4, 5, 5], 1));
 
 registerRoute(fastify, int_url.http.pong.startGame, async (request, reply) => {

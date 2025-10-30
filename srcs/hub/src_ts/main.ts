@@ -33,7 +33,7 @@ import {
   pub_url,
   user_url,
 } from "./utils/api/service/common/endpoints.js";
-import type { GetUserType } from "utils/api/service/db/user.js";
+import type { GetUserType } from "./utils/api/service/db/user.js";
 
 const fastify: FastifyInstance = Fastify();
 

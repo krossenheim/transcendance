@@ -157,6 +157,12 @@ export class PongManager {
     paddle.setMoveOnNextFrame(m);
     return Result.Ok(null);
   }
+
+  getGamesWithPlayerById(playerId: number): PongGame[] {
+    return [...this.pong_instances.values()].filter((g) =>
+      g.player_paddles.find((n) => n.player_ID === playerId)
+    );
+  }
 }
 
 export default PongManager;
