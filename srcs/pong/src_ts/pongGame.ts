@@ -233,6 +233,8 @@ class PongGame {
         r: obj.r,
         w: obj.width,
         l: obj.length,
+        paddle_id: obj.pad_id,
+        owner_id: obj.player_ID,
       });
     }
     payload.edges = this.map_polygon_edges;

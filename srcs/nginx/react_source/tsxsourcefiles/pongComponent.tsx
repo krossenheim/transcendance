@@ -35,7 +35,7 @@ function mapToCanvas(x: number, y: number) {
 // Component
 // =========================
 export default function PongComponent() {
-  const { socket, payloadReceived } = useWebSocket();
+  const { socket, payloadReceived, authResponse } = useWebSocket();
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] =
     useState<TypePlayerReadyForGameSchema | null>(null);
   const [gameSelectedInput, setGameSelectedInput] = useState<number>(1);
@@ -58,10 +58,18 @@ export default function PongComponent() {
     [latestPlayerReadyPayload]
   );
 
-  const onFirstGameStatereceived = useCallback(
-    (game_has_started_data: TypeGameStateSchema) => {
-      console.log(`Game started: '${game_has_started_data.board_id}'`);
-      // A toast on the screen would suffice, with a link that loads a pongcomponent i guess.
+  const setPlayerIDsHelper = useCallback(
+    (game_data: TypeGameStateSchema) => {
+      if (!game_data) return;
+      let odd = true;
+      for (const paddle of game_data.paddles) {
+        if (paddle.owner_id === authResponse.user.id) {
+          if (odd) {
+            setPlayerOnePaddleID(paddle.paddle_id);
+            odd = false;
+          } else setPlayerTwoPaddleID(paddle.paddle_id);
+        }
+      }
     },
     [gameState]
   );
@@ -96,6 +104,7 @@ export default function PongComponent() {
           )
             break;
           setGameState(parsed.data);
+          setPlayerIDsHelper(parsed.data);
           break;
         case user_url.ws.pong.userReportsReady.funcId:
           setLatestPlayerReadyPayload(parsed.data);

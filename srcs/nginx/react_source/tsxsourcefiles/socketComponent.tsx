@@ -18,10 +18,8 @@ interface SocketComponentProps {
 interface WebSocketContextValue {
   socket: React.MutableRefObject<WebSocket | null>; // renamed from ws
   payloadReceived: TypePayloadHubToUsersSchema | null;
+  authResponse: AuthResponseType;
 }
-
-// Global singleton socket
-let globalSocket: WebSocket | null = null;
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
@@ -29,7 +27,7 @@ export default function SocketComponent({
   children,
   AuthResponseObject,
 }: SocketComponentProps) {
-  const socket = useRef<WebSocket | null>(globalSocket);
+  const socket = useRef<WebSocket | null>(null);
   const [payloadReceived, setPayloadReceived] =
     useState<TypePayloadHubToUsersSchema | null>(null);
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -38,7 +36,6 @@ export default function SocketComponent({
   useEffect(() => {
     if (!socket.current) {
       socket.current = new WebSocket(wsUrl);
-      globalSocket = socket.current;
 
       socket.current.onopen = () => {
         console.log("WebSocket connected, authorizing:");
@@ -66,33 +63,38 @@ export default function SocketComponent({
     }
   }, [wsUrl, AuthResponseObject.tokens.jwt]);
 
-return (
-  <WebSocketContext.Provider
-    value={{ socket, payloadReceived } as WebSocketContextValue}
-  >
-    {children}
-    <input
-      type="text"
-      placeholder="debug ws send string"
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && socket.current) {
-          socket.current.send((e.target as HTMLInputElement).value);
-          (e.target as HTMLInputElement).value = "";
-        }
-      }}
-      style={{
-        backgroundColor: "black",
-        color: "yellow",
-        border: "1px solid yellow",
-        padding: "5px 10px",
-        marginTop: "10px",
-        width: "100%",
-        boxSizing: "border-box",
-      }}
-    />
-  </WebSocketContext.Provider>
-);
-
+  return (
+    <WebSocketContext.Provider
+      value={
+        {
+          socket,
+          payloadReceived,
+          authResponse: AuthResponseObject,
+        } as WebSocketContextValue
+      }
+    >
+      {children}
+      <input
+        type="text"
+        placeholder="debug ws send string"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && socket.current) {
+            socket.current.send((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).value = "";
+          }
+        }}
+        style={{
+          backgroundColor: "black",
+          color: "yellow",
+          border: "1px solid yellow",
+          padding: "5px 10px",
+          marginTop: "10px",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      />
+    </WebSocketContext.Provider>
+  );
 }
 
 // Hook to consume the context
