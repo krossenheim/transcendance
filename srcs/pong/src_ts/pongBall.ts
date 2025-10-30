@@ -105,21 +105,21 @@ export class PongBall {
     const diff = sub(ballPos, closest);
     const dist2 = dotp(diff, diff);
 
-    // if (dist2 <= effectiveRadius * effectiveRadius) {
-    //   const normal = normalize(diff);
-    //   return {
-    //     normal,
-    //     pos: closest,
-    //     alpha: 0,
-    //   };
-    // }
+    if (dist2 <= effectiveRadius * effectiveRadius) {
+      const normal = normalize(diff);
+      return {
+        normal,
+        pos: closest,
+        alpha: 0,
+      };
+    }
 
     // Quadratic terms
     const a = dotp(movementRel, movementRel);
     if (a < 1e-8) return null;
 
-    let b = -2 * dotp(movementRel, diff);
-    let c = dotp(diff, diff) - effectiveRadius * effectiveRadius;
+    let b = 2 * dotp(movementRel, diff);
+    let c = dist2 - effectiveRadius * effectiveRadius;
     const t = solveQuadratic(a, b, c);
 
     if (t === null || t < 0 || t > 1) return null;
@@ -152,7 +152,7 @@ export class PongBall {
       const corner = add(B_or_A, scale(segment_width / 2, normal));
       const cornerRel = sub(ballPos, corner);
 
-      b = -2 * dotp(movementRel, cornerRel);
+      b = 2 * dotp(movementRel, cornerRel);
       c = dotp(cornerRel, cornerRel) - effectiveRadius * effectiveRadius;
       const t_to_corner = solveQuadratic(a, b, c);
 
