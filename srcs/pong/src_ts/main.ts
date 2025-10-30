@@ -112,7 +112,7 @@ socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
     // find any games the user is on and send a getGameState from each
     const ongoing_user_games = singletonPong.getGamesWithPlayerById(userId);
     if (!ongoing_user_games) {
-      console.log("No ongoing games for user ", userId);
+      // console.log("No ongoing games for user ", userId);
       return Result.Ok(null);
     }
     for (const game of ongoing_user_games) {
@@ -125,7 +125,7 @@ socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
         payload: payload,
       };
-      console.log("Sending out: ", JSON.stringify(out));
+      // console.log("Sending out: ", JSON.stringify(out));
       socket.getSocket().send(JSON.stringify(out));
     }
   } else

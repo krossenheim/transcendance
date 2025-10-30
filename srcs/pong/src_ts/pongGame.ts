@@ -13,7 +13,7 @@ import generateCirclePoints from "./generateCirclePoints.js";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-const MAP_GAMEOVER_EDGES_WIDTH = 10;
+const MAP_GAMEOVER_EDGES_WIDTH = 1;
 const RADIUS_PLACE_PLAYERS = 0.33;
 
 function rotatePolygon(
@@ -115,8 +115,6 @@ class PongGame {
       if (vector === undefined) {
         throw Error("Constructor failed to validate player ids.");
       }
-      const a = this.map_polygon_edges[0];
-      const b = this.map_polygon_edges[1];
 
       const edge_length = get_edge_len(this.map_polygon_edges);
       const paddle = new PlayerPaddle(
