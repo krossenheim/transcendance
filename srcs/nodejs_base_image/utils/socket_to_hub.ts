@@ -126,6 +126,7 @@ export class OurSocket {
       metadata: handlerEndpoint,
       handler,
     };
+    console.log(`"Added new handler: ${JSON.stringify(handlerEndpoint)}"`);
   }
 
   private _constructWSHandlerOutput<T extends WebSocketRouteDef>(
@@ -349,6 +350,7 @@ export class OurSocket {
     // ...
     const receiverCallable = this.receiverCallables[funcId];
     if (receiverCallable !== undefined) {
+      console.log("Awaiting handler to deal with:" + str);
       const executionResult = await this._handleReceiverEndpoint(
         receiverCallable,
         rawJson

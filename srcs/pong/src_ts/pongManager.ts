@@ -18,6 +18,17 @@ export class PongManager {
     PongManager.instance = this;
     return this;
   }
+
+  setPlayerStatus(user_id: number, status: PongLobbyStatus) {
+    for (const [game_id, game] of this.pong_instances) {
+      for (const paddle of game.player_paddles) {
+        if (paddle.player_ID === user_id) {
+          paddle.connectionStatus = status;
+        }
+      }
+    }
+  }
+
   userReportsReady(
     user_id: number,
     gameIdReq: number

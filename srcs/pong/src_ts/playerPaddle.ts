@@ -8,6 +8,7 @@ export enum PongLobbyStatus {
   NotReady, // Has "joined" but not yet declared ready
   Ready, // has joined and has readied
   Paused, // Was ready and re-readied
+  Disconnected, // Left mid game because hub told us they left mid game.
 }
 
 export class PlayerPaddle {

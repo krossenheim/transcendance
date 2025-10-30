@@ -157,7 +157,6 @@ export const pub_url = defineRoutes({
 
 export const user_url = defineRoutes({
   http: {
-
     users: {
       fetchUser: {
         endpoint: "/api/users/fetch",
@@ -476,20 +475,19 @@ export const user_url = defineRoutes({
 
 /// /internal_api/*
 export const int_url = defineRoutes({
-
   ws: {
     hub: {
       userConnected: {
-        funcId: "get_online_users",
+        funcId: "user_connected",
         container: "hub", // Suspicious activity
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: z.array(z.number()), // not really meant to ever be called
+          args: EmptySchema, // not really meant to ever be called
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             Success: {
               code: 0,
-              payload: z.array(z.number()),
+              payload: GetUser,
             },
             Failure: {
               code: 1,
@@ -539,8 +537,7 @@ export const int_url = defineRoutes({
     },
   },
   http: {
-    pong:
-    {
+    pong: {
       startGame: {
         endpoint: "/internal_api/pong/start_game_http",
         method: "POST",

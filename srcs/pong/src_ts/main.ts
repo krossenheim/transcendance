@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 import { createFastify } from "./utils/api/service/common/fastify.js";
 import { registerRoute } from "./utils/api/service/common/fastify.js";
 import PongGame from "./pongGame.js";
+import { PongLobbyStatus } from "./playerPaddle.js";
 
 const fastify: FastifyInstance = createFastify();
 
@@ -51,7 +52,7 @@ async function backgroundTask() {
     console.error(
       "INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES."
     );
-    while (true) { }
+    while (true) {}
   }
 }
 backgroundTask();
@@ -77,6 +78,23 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
   const user_id = wrapper.user_id;
   const game_id = wrapper.payload.game_id;
   return singletonPong.userReportsReady(user_id, game_id);
+});
+socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
+  if (
+    wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
+  ) {
+    wrapper.payload.userId;
+    const userId = wrapper.payload.userId;
+    singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
+  } else
+    return Result.Err(
+      `Unhandled code(${
+        wrapper.code
+      }) for int_url.ws.hub.userDisconnected, wrapper: ${JSON.stringify(
+        wrapper
+      )}`
+    );
+  return Result.Ok(null);
 });
 
 console.log(singletonPong.startGame(7, [4, 5, 5], 1));
@@ -104,4 +122,3 @@ fastify.listen({ port, host }, (err, address) => {
   }
   fastify.log.info(`Server listening at ${address}`);
 });
-
