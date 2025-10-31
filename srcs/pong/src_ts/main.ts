@@ -81,7 +81,6 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
   const game_id = wrapper.payload.game_id;
   return singletonPong.userReportsReady(user_id, game_id);
 });
-
 // Handle output from a function funcId
 socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
   if (

@@ -122,10 +122,10 @@ export class OurSocket {
       );
     }
 
-    this.receiverCallables[handlerEndpoint.funcId] = {
+    const result = (this.receiverCallables[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
       handler,
-    };
+    });
   }
 
   private _constructWSHandlerOutput<T extends WebSocketRouteDef>(
