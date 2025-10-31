@@ -65,9 +65,18 @@ export class OurSocket {
 
   async invokeHandler<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
-    userId: number,
+    userId: number | number[],
     payload: z.infer<T["schema"]["args"]>
   ): Promise<Result<void, ErrorResponseType>> {
+    if (userId instanceof Array) {
+      const results = await Promise.all(
+        userId.map((id) => this.invokeHandler(handlerEndpoint, id, payload))
+      );
+      const firstErr = results.find((r) => r.isErr());
+      if (firstErr !== undefined) return firstErr;
+      return Result.Ok(undefined);
+    }
+
     const handler = this.handlerCallables[handlerEndpoint.funcId];
     if (handler === undefined)
       return Promise.resolve(

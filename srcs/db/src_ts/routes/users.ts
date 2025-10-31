@@ -99,12 +99,27 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(200).send(avatarResult.unwrap());
 	});
 
-	registerRoute(fastify, int_url.http.db.updateUserFriendshipStatus, async (request, reply) => {
-		const { userId, friendId, status } = request.body;
-		const updateResult = userService.updateMutualUserConnection(userId, friendId, status);
+	registerRoute(fastify, int_url.http.db.fetchUserConnections, async (request, reply) => {
+		const { userId } = request.params;
+		const connectionsResult = userService.fetchUserFriendlist(userId);
 
-		if (updateResult.isErr())
-			return reply.status(400).send({ message: updateResult.unwrapErr() });
+		if (connectionsResult.isErr())
+			return reply.status(500).send({ message: connectionsResult.unwrapErr() });
+		else
+			return reply.status(200).send(connectionsResult.unwrap());
+	});
+
+	registerRoute(fastify, int_url.http.db.updateUserConnectionStatus, async (request, reply) => {
+		let results = [];
+
+		for (const item of request.body) {
+			const { userId, friendId, status } = item;
+			const updateResult = userService.updateMutualUserConnection(userId, friendId, status);
+			results.push(updateResult);
+		}
+
+		if (results.some((result) => result.isErr()))
+			return reply.status(400).send({ message: results.find((result) => result.isErr())?.unwrapErr() || "Unknown Error" });
 		else
 			return reply.status(200).send(null);
 	});

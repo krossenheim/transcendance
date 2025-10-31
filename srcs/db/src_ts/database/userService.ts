@@ -35,9 +35,25 @@ export class UserService {
 		this.db = db;
 	}
 
+	fetchUserPendingFriendRequests(userId: number): Result<FriendType[], string> {
+		const result = this.db.all(
+			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, uf.status, uf.createdAt
+			FROM user_friendships uf
+			JOIN users u ON u.id = uf.friendId
+			WHERE uf.friendId = ? AND uf.status = ?`,
+			Friend,
+			[userId, UserFriendshipStatusEnum.Pending]
+		);
+		if (result.isErr()) {
+			console.log('Error fetching pending friend requests for userId', userId, ':', result.unwrapErr());
+			return Result.Err(result.unwrapErr());
+		}
+		return result;
+	}
+
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.status, uf.createdAt
+			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.userId = ?`,
@@ -48,7 +64,18 @@ export class UserService {
 			console.log('Error fetching friendlist for userId', userId, ':', result.unwrapErr());
 			return Result.Err(result.unwrapErr());
 		}
-		return result;
+
+		const invitesResult = this.fetchUserPendingFriendRequests(userId);
+		if (invitesResult.isErr()) {
+			console.log('Error fetching pending friend requests for userId', userId, ':', invitesResult.unwrapErr());
+			return Result.Err(invitesResult.unwrapErr());
+		}
+
+		const friends = result.unwrap();
+		const invites = invitesResult.unwrap();
+
+		const combinedList = [...friends, ...invites];
+		return Result.Ok(combinedList);
 	}
 
 	fetchAllUsers(): Result<FullUserType[], string> {
@@ -138,8 +165,8 @@ export class UserService {
 
 	updateMutualUserConnection(userId1: number, userId2: number, status: UserFriendshipStatusEnum): Result<null, string> {
 		return this.db.run(
-			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?), (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
-			[userId1, userId2, status, userId2, userId1, status]
+			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
+			[userId1, userId2, status]
 		).map(() => null);
 	}
 }

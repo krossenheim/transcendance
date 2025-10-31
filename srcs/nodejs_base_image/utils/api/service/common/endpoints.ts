@@ -19,7 +19,7 @@ import {
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
-import { FullUser, GetUser } from "../db/user.js";
+import { Friend, FullUser, GetUser } from "../db/user.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
@@ -229,6 +229,50 @@ export const user_url = defineRoutes({
             },
             InvalidStatusRequest: {
               code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      confirmFriendship: {
+        funcId: "confirm_friendship",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestUpdateFriendship,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      fetchUserConnections: {
+        funcId: "fetch_user_connections",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.null(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: z.array(Friend),
+            },
+            Failure: {
+              code: 1,
               payload: ErrorResponse,
             },
           },
@@ -627,14 +671,26 @@ export const int_url = defineRoutes({
         },
       },
 
-      updateUserFriendshipStatus: {
-        endpoint: "/internal_api/db/users/update_friendship_status",
+      updateUserConnectionStatus: {
+        endpoint: "/internal_api/db/users/update_connection_status",
         method: "POST",
         schema: {
-          body: UserConnectionStatusSchema,
+          body: z.array(UserConnectionStatusSchema),
           response: {
             200: z.null(), // Updated successfully
             400: ErrorResponse, // Invalid status transition
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      fetchUserConnections: {
+        endpoint: "/internal_api/db/users/get_user_connections/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.array(Friend), // Retrieved friendlist
             500: ErrorResponse, // Internal server error
           },
         },

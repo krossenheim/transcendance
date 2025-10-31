@@ -13,7 +13,8 @@ import containers from "./utils/internal_api.js";
 
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import type { FastifyInstance } from "fastify";
-import type { FullUserType } from "./utils/api/service/db/user.js";
+import { User, type FullUserType } from "./utils/api/service/db/user.js";
+import { zodParse } from "./utils/api/service/common/zodUtils.js";
 
 const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
@@ -21,7 +22,7 @@ const socketToHub = new OurSocket("users");
 enum UserPermission {
   Guest = 1,
   User = 2,
-  Admin = 6,
+  Admin = 10,
 }
 
 interface UserPermissionData {
@@ -128,10 +129,143 @@ socketToHub.registerHandler(
           payload: { message: "Invalid friendship status request" },
         });
       case UserFriendshipStatusEnum.None:
-        await socketToHub.invokeHandler(user_url.ws.users.test, 1, {});
+        if (retrieveUserConnectionStatus(friend, me) === UserFriendshipStatusEnum.Blocked) {
+          return Result.Ok({
+            recipients: [body.user_id],
+            code: schema.output.InvalidStatusRequest.code,
+            payload: { message: "Invalid friendship status request" },
+          });
+        }
+        break;
     }
 
-    throw new Error("Not implemented yet");
+    const storageResult = await containers.db.post(
+      int_url.http.db.updateUserConnectionStatus,
+      [{userId: me.id, friendId: friend.id, status: UserFriendshipStatusEnum.Pending}]
+    );
+
+    if (storageResult.isErr()) {
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.InvalidStatusRequest.code,
+        payload: { message: "Failed to update friendship status" },
+      });
+    }
+
+    socketToHub.invokeHandler(
+      user_url.ws.users.fetchUserConnections,
+      [me.id, friend.id],
+      null
+    );
+    return Result.Ok({
+      recipients: [body.user_id],
+      code: schema.output.ConnectionUpdated.code,
+      payload: null,
+    });
+  }
+);
+
+// {"funcId":"confirm_friendship","payload":{"friendId":1},"target_container":"users"}
+socketToHub.registerHandler(
+  user_url.ws.users.confirmFriendship,
+  async (body, schema) => {
+    const usersMapResult = await getUsersById([
+      body.user_id,
+      body.payload.friendId,
+    ]);
+    if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
+
+    const me = usersMapResult.unwrap()[body.user_id];
+    const friend = usersMapResult.unwrap()[body.payload.friendId];
+    if (me === undefined || friend === undefined)
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.UserDoesNotExist.code,
+        payload: { message: "User not found" },
+      });
+
+    switch (retrieveUserConnectionStatus(me, friend)) {
+      case UserFriendshipStatusEnum.Blocked:
+        return Result.Ok({
+          recipients: [body.user_id],
+          code: schema.output.InvalidStatusRequest.code,
+          payload: { message: "Invalid friendship status request" },
+        });
+      case UserFriendshipStatusEnum.Accepted:
+        return Result.Ok({
+          recipients: [body.user_id],
+          code: schema.output.InvalidStatusRequest.code,
+          payload: { message: "Friendship already accepted" },
+        });
+      case UserFriendshipStatusEnum.Pending:
+        break;
+    }
+
+    if (retrieveUserConnectionStatus(friend, me) === UserFriendshipStatusEnum.Blocked) {
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.InvalidStatusRequest.code,
+        payload: { message: "Invalid friendship status request" },
+      });
+    }
+
+    const storageResult = await containers.db.post(
+      int_url.http.db.updateUserConnectionStatus,
+      [{userId: me.id, friendId: friend.id, status: UserFriendshipStatusEnum.Accepted},
+      {userId: friend.id, friendId: me.id, status: UserFriendshipStatusEnum.Accepted}]
+    );
+
+    if (storageResult.isErr()) {
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.InvalidStatusRequest.code,
+        payload: { message: "Failed to update friendship status" },
+      });
+    }
+
+    socketToHub.invokeHandler(
+      user_url.ws.users.fetchUserConnections,
+      [me.id, friend.id],
+      null
+    );
+
+    return Result.Ok({
+      recipients: [body.user_id],
+      code: schema.output.ConnectionUpdated.code,
+      payload: null,
+    });
+  }
+);
+
+socketToHub.registerHandler(
+  user_url.ws.users.fetchUserConnections,
+  async (body, schema) => {
+    const connectionsResult = await containers.db.get(
+      int_url.http.db.fetchUserConnections,
+      { userId: body.user_id }
+    );
+
+    if (connectionsResult.isErr()) {
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.Failure.code,
+        payload: { message: "Failed to fetch user connections" },
+      });
+    }
+
+    const result = connectionsResult.unwrap();
+    if (result.status !== 200)
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.Failure.code,
+        payload: { message: "Failed to fetch user connections" },
+      });
+
+    return Result.Ok({
+      recipients: [body.user_id],
+      code: schema.output.Success.code,
+      payload: zodParse(int_url.http.db.fetchUserConnections.schema.response[200], result.data).unwrapOr([]),
+    });
   }
 );
 
@@ -173,27 +307,27 @@ registerRoute(
   }
 );
 
-registerRoute(
-  fastify,
-  user_url.http.users.requestFriendship,
-  async (request, reply) => {
-    const { friendId, status } = request.body.payload;
-    const updateResult = await containers.db.post(
-      int_url.http.db.updateUserFriendshipStatus,
-      UserConnectionStatusSchema.parse({
-        userId: request.body.userId,
-        friendId,
-        status,
-      })
-    );
-    if (updateResult.isErr()) {
-      return reply
-        .status(500)
-        .send({ message: "Failed to update friendship status" });
-    }
-    return reply.status(200).send(null);
-  }
-);
+// registerRoute(
+//   fastify,
+//   user_url.http.users.requestFriendship,
+//   async (request, reply) => {
+//     const { friendId, status } = request.body.payload;
+//     const updateResult = await containers.db.post(
+//       int_url.http.db.updateUserFriendshipStatus,
+//       UserConnectionStatusSchema.parse({
+//         userId: request.body.userId,
+//         friendId,
+//         status,
+//       })
+//     );
+//     if (updateResult.isErr()) {
+//       return reply
+//         .status(500)
+//         .send({ message: "Failed to update friendship status" });
+//     }
+//     return reply.status(200).send(null);
+//   }
+// );
 
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
