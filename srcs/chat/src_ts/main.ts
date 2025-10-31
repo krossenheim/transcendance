@@ -4,7 +4,8 @@ import Fastify from "fastify";
 import ChatRooms from "./roomClass.js";
 import websocketPlugin from "@fastify/websocket";
 import { Result } from "./utils/api/service/common/result.js";
-import { user_url } from "./utils/api/service/common/endpoints.js";
+import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
+import type { TypeEmptySchema } from "utils/api/service/chat/chat_interfaces.js";
 
 const fastify = Fastify({
   logger: {
@@ -99,4 +100,38 @@ socket.registerHandler(user_url.ws.chat.joinRoom, async (wrapper) => {
   const room_id_requested = wrapper.payload.roomId;
   const user_id = wrapper.user_id;
   return singletonChatRooms.userJoinRoom(room_id_requested, user_id);
+});
+
+// socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
+//   if (
+//     wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
+//   ) {
+//     console.log("Wrapper is: ", JSON.stringify(wrapper));
+//     const user_id = wrapper.payload.userId;
+//     if (!user_id) {
+//       console.error("No userId to handle at receiver for userDisconnect");
+//       return Result.Err({ message: "No userId received at handler." });
+//     }
+//     const roomsUserIsIn = singletonChatRooms.listRooms(user_id);
+//     for (const room of roomsUserIsIn)
+//     {
+//       room.
+//     }
+//     socket.invokeHandler(user_url.ws.chat.sendMessage, wrapper.payload.userId);
+//   }
+//   return Result.Ok(null);
+// });
+socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
+  if (
+    wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
+  ) {
+    console.log("Wrapper is: ", JSON.stringify(wrapper));
+    const emptyPayload: TypeEmptySchema = {};
+    socket.invokeHandler(
+      user_url.ws.chat.listRooms,
+      wrapper.payload.userId,
+      emptyPayload
+    );
+  }
+  return Result.Ok(null);
 });
