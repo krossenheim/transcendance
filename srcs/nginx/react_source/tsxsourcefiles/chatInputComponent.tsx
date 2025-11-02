@@ -10,7 +10,11 @@ import { useWebSocket } from "./socketComponent";
 
 /* -------------------- ChatBox Component -------------------- */
 interface ChatBoxProps {
-  messages: TypeStoredMessageSchema[];
+  messages: Array<{
+    user: string;
+    content: string;
+    timestamp?: string;
+  }>;
   onSendMessage: (content: string) => void;
   currentRoom: string | null;
   currentRoomName: string | null;
@@ -262,7 +266,11 @@ export default function ChatInputComponent() {
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([]);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null);
-  const [messages, setMessages] = useState<TypeStoredMessageSchema[]>([]);
+  const [messages, setMessages] = useState<Array<{
+    user: string;
+    content: string;
+    timestamp?: string;
+  }>>([]);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   const sendToSocket = useCallback(
@@ -273,7 +281,10 @@ export default function ChatInputComponent() {
           payload,
           target_container: "chat",
         };
+        console.log("Sending to socket:", toSend);
         socket.current.send(JSON.stringify(toSend));
+      } else {
+        console.warn("Socket not open, cannot send:", funcId);
       }
     },
     [socket]
@@ -282,53 +293,69 @@ export default function ChatInputComponent() {
   /* -------------------- Handle Incoming Messages -------------------- */
   useEffect(() => {
     if (!payloadReceived) return;
+    
+    console.log("Received payload:", payloadReceived);
+
     switch (payloadReceived.funcId) {
       case user_url.ws.chat.sendMessage.funcId:
-        setMessages((prev) => [...prev, payloadReceived.payload]);
+        // Transform the StoredMessageSchema to our local message format
+        const messagePayload = payloadReceived.payload as TypeStoredMessageSchema;
+        const transformedMessage = {
+          user: `User ${messagePayload.userId}`,
+          content: messagePayload.messageString,
+          timestamp: new Date(messagePayload.messageDate * 1000).toISOString(), // Unix timestamp to ISO string
+        };
+        console.log("Adding message:", transformedMessage);
+        setMessages((prev) => [...prev, transformedMessage]);
         break;
 
       case user_url.ws.chat.listRooms.funcId:
+        console.log("Setting rooms:", payloadReceived.payload);
         setRooms(payloadReceived.payload);
         break;
 
       case user_url.ws.chat.joinRoom.funcId:
-        if (payloadReceived.payload.messages)
-          setMessages(payloadReceived.payload.messages);
+        console.log("Joined room:", payloadReceived.payload);
+        // When joining a room, we might receive initial messages
+        // Check if the payload has a messages array
+        if (payloadReceived.payload.messages) {
+          const roomMessages = payloadReceived.payload.messages.map((msg: TypeStoredMessageSchema) => ({
+            user: `User ${msg.userId}`,
+            content: msg.messageString,
+            timestamp: String(msg.messageDate),
+          }));
+          setMessages(roomMessages);
+        } else {
+          // No messages, start fresh
+          setMessages([]);
+        }
         break;
 
       case user_url.ws.chat.addRoom.funcId:
+        console.log("Room added, refreshing list");
         sendToSocket(user_url.ws.chat.listRooms.funcId, {});
         break;
 
       case user_url.ws.chat.addUserToRoom.funcId:
+        console.log("User added to room:", payloadReceived.payload);
         const roomData = payloadReceived.payload as TypeRoomMessagesSchema;
-        if (roomData.messages) setMessages(roomData.messages);
-        break;
-
-      case user_url.ws.chat.startDirectMessage.funcId:
-        const dmRoom = payloadReceived.payload;
-        setRooms((prev) => [...prev, dmRoom]);
-        setCurrentRoomId(dmRoom.roomId);
-        setCurrentRoomName(dmRoom.roomName);
-        setMessages(dmRoom.messages || []);
-        break;
-
-      case user_url.ws.chat.inviteToPong.funcId:
-        const invite = payloadReceived.payload;
-        alert(`${invite.from} invited you to a Pong match!`);
-        break;
-
-      case user_url.ws.tournament.nextMatch.funcId:
-        const { opponent, startTime } = payloadReceived.payload;
-        alert(`Next match vs ${opponent} at ${new Date(startTime).toLocaleTimeString()}`);
+        if (roomData.messages) {
+          const roomMessages = roomData.messages.map((msg: TypeStoredMessageSchema) => ({
+            user: `User ${msg.userId}`,
+            content: msg.messageString,
+            timestamp: String(msg.messageDate),
+          }));
+          setMessages(roomMessages);
+        }
         break;
 
       default:
-        console.warn("Unknown funcId:", payloadReceived.funcId);
+        console.log("Unhandled funcId:", payloadReceived.funcId);
     }
   }, [payloadReceived, sendToSocket]);
 
   useEffect(() => {
+    console.log("Requesting room list on mount");
     sendToSocket(user_url.ws.chat.listRooms.funcId, {});
   }, [sendToSocket]);
 
@@ -336,6 +363,7 @@ export default function ChatInputComponent() {
   const handleSendMessage = useCallback(
     (content: string) => {
       if (!currentRoomId) return;
+      console.log("Sending message to room:", currentRoomId, content);
       sendToSocket(user_url.ws.chat.sendMessage.funcId, {
         roomId: currentRoomId,
         messageString: content,
@@ -347,6 +375,7 @@ export default function ChatInputComponent() {
   const handleSelectRoom = useCallback(
     (roomId: string) => {
       const room = rooms.find((r) => r.roomId === roomId);
+      console.log("Selecting room:", roomId, room);
       setCurrentRoomId(roomId);
       setCurrentRoomName(room?.roomName || null);
       setMessages([]);
@@ -357,19 +386,23 @@ export default function ChatInputComponent() {
 
   const handleCreateRoom = useCallback(
     (roomName: string) => {
+      console.log("Creating room:", roomName);
       sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName });
     },
     [sendToSocket]
   );
 
   const handleRefreshRooms = useCallback(() => {
+    console.log("Refreshing rooms");
     sendToSocket(user_url.ws.chat.listRooms.funcId, {});
   }, [sendToSocket]);
 
   const handleInvitePong = useCallback(() => {
     if (!currentRoomId) return;
-    sendToSocket(user_url.ws.chat.inviteToPong.funcId, { roomId: currentRoomId });
-  }, [currentRoomId, sendToSocket]);
+    console.log("Inviting to pong in room:", currentRoomId);
+    // This funcId might not exist yet - adjust based on your endpoints
+    alert("Pong invitation feature not yet implemented");
+  }, [currentRoomId]);
 
   const handleBlockUser = useCallback((username: string) => {
     setBlockedUsers((prev) =>
@@ -378,12 +411,16 @@ export default function ChatInputComponent() {
   }, []);
 
   const handleOpenProfile = useCallback((username: string) => {
-    window.location.href = `/profile/${username}`;
+    console.log("Opening profile for:", username);
+    // Implement profile view
+    alert(`Profile view for ${username} - not yet implemented`);
   }, []);
 
   const handleStartDM = useCallback(
     (username: string) => {
-      sendToSocket(user_url.ws.chat.startDirectMessage.funcId, { targetUserId: username });
+      console.log("Starting DM with:", username);
+      // This funcId might not exist yet - adjust based on your endpoints
+      alert("DM feature not yet implemented");
     },
     [sendToSocket]
   );
