@@ -266,12 +266,16 @@ export default function ChatInputComponent() {
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([]);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Array<{
+  // Store messages per room to prevent losing them when switching
+  const [messagesByRoom, setMessagesByRoom] = useState<Record<string, Array<{
     user: string;
     content: string;
     timestamp?: string;
-  }>>([]);
+  }>>>({});
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+
+  // Get messages for current room
+  const messages = currentRoomId ? (messagesByRoom[currentRoomId] || []) : [];
 
   const sendToSocket = useCallback(
     (funcId: string, payload: any) => {
@@ -298,15 +302,37 @@ export default function ChatInputComponent() {
 
     switch (payloadReceived.funcId) {
       case user_url.ws.chat.sendMessage.funcId:
-        // Transform the StoredMessageSchema to our local message format
-        const messagePayload = payloadReceived.payload as TypeStoredMessageSchema;
-        const transformedMessage = {
-          user: `User ${messagePayload.userId}`,
-          content: messagePayload.messageString,
-          timestamp: new Date(messagePayload.messageDate * 1000).toISOString(), // Unix timestamp to ISO string
-        };
-        console.log("Adding message:", transformedMessage);
-        setMessages((prev) => [...prev, transformedMessage]);
+        try {
+          // Transform the StoredMessageSchema to our local message format
+          const messagePayload = payloadReceived.payload as TypeStoredMessageSchema;
+          
+          if (!messagePayload || !messagePayload.roomId) {
+            console.error("Invalid message payload:", messagePayload);
+            break;
+          }
+          
+          // Check if messageDate is in seconds or milliseconds
+          // If it's less than year 3000 timestamp in seconds, it's likely in seconds
+          const timestamp = messagePayload.messageDate < 32503680000 
+            ? new Date(messagePayload.messageDate * 1000).toISOString()
+            : new Date(messagePayload.messageDate).toISOString();
+            
+          const transformedMessage = {
+            user: `User ${messagePayload.userId}`,
+            content: messagePayload.messageString,
+            timestamp: timestamp,
+          };
+          console.log("Adding message:", transformedMessage, "messageDate:", messagePayload.messageDate);
+          
+          // Add message to the specific room
+          const roomIdStr = String(messagePayload.roomId);
+          setMessagesByRoom((prev) => ({
+            ...prev,
+            [roomIdStr]: [...(prev[roomIdStr] || []), transformedMessage],
+          }));
+        } catch (error) {
+          console.error("Error processing message:", error);
+        }
         break;
 
       case user_url.ws.chat.listRooms.funcId:
@@ -315,19 +341,31 @@ export default function ChatInputComponent() {
         break;
 
       case user_url.ws.chat.joinRoom.funcId:
-        console.log("Joined room:", payloadReceived.payload);
-        // When joining a room, we might receive initial messages
-        // Check if the payload has a messages array
-        if (payloadReceived.payload.messages) {
-          const roomMessages = payloadReceived.payload.messages.map((msg: TypeStoredMessageSchema) => ({
-            user: `User ${msg.userId}`,
-            content: msg.messageString,
-            timestamp: String(msg.messageDate),
-          }));
-          setMessages(roomMessages);
-        } else {
-          // No messages, start fresh
-          setMessages([]);
+        try {
+          console.log("Joined room:", payloadReceived.payload);
+          // When joining a room, we might receive initial messages
+          // Check if the payload has a messages array
+          if (payloadReceived.payload.messages && payloadReceived.payload.roomId) {
+            const roomIdStr = String(payloadReceived.payload.roomId);
+            const roomMessages = payloadReceived.payload.messages.map((msg: TypeStoredMessageSchema) => {
+              const timestamp = msg.messageDate < 32503680000 
+                ? new Date(msg.messageDate * 1000).toISOString()
+                : new Date(msg.messageDate).toISOString();
+              return {
+                user: `User ${msg.userId}`,
+                content: msg.messageString,
+                timestamp: timestamp,
+              };
+            });
+            setMessagesByRoom((prev) => ({
+              ...prev,
+              [roomIdStr]: roomMessages,
+            }));
+          } else {
+            console.log("No messages received from server");
+          }
+        } catch (error) {
+          console.error("Error processing join room:", error);
         }
         break;
 
@@ -339,13 +377,17 @@ export default function ChatInputComponent() {
       case user_url.ws.chat.addUserToRoom.funcId:
         console.log("User added to room:", payloadReceived.payload);
         const roomData = payloadReceived.payload as TypeRoomMessagesSchema;
-        if (roomData.messages) {
+        if (roomData.messages && roomData.roomId) {
+          const roomIdStr = String(roomData.roomId);
           const roomMessages = roomData.messages.map((msg: TypeStoredMessageSchema) => ({
             user: `User ${msg.userId}`,
             content: msg.messageString,
-            timestamp: String(msg.messageDate),
+            timestamp: new Date(msg.messageDate * 1000).toISOString(),
           }));
-          setMessages(roomMessages);
+          setMessagesByRoom((prev) => ({
+            ...prev,
+            [roomIdStr]: roomMessages,
+          }));
         }
         break;
 
@@ -378,7 +420,6 @@ export default function ChatInputComponent() {
       console.log("Selecting room:", roomId, room);
       setCurrentRoomId(roomId);
       setCurrentRoomName(room?.roomName || null);
-      setMessages([]);
       sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId });
     },
     [rooms, sendToSocket]
