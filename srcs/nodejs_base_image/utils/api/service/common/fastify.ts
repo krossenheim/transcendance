@@ -36,7 +36,7 @@ type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
 
 type RouteBody<T extends HTTPRouteDef> =
 	T["wrapper"] extends z.ZodTypeAny
-		? z.infer<T["wrapper"] & { payload: z.infer<T["schema"]["body"]> }>
+		? Omit<z.infer<T["wrapper"]>, "payload"> & { payload: z.infer<T["schema"]["body"]> }
 		: T["schema"] extends { body: z.ZodTypeAny }
 			? z.infer<T["schema"]["body"]>
 			: never;

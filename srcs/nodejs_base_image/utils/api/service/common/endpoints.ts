@@ -20,7 +20,7 @@ import {
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
-import { Friend, FullUser, GetUser } from "../db/user.js";
+import user, { Friend, FullUser, GetUser, PublicUserData } from "../db/user.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
@@ -159,30 +159,14 @@ export const pub_url = defineRoutes({
 export const user_url = defineRoutes({
   http: {
     users: {
-      fetchUser: {
-        endpoint: "/api/users/fetch",
+      fetchUserAvatar: {
+        endpoint: "/api/users/pfp",
         wrapper: GenericAuthClientRequest,
         method: "POST",
         schema: {
           body: userIdValue,
           response: {
             200: z.array(FullUser),
-            401: ErrorResponse,
-            404: ErrorResponse,
-            500: ErrorResponse,
-          },
-        },
-      },
-
-      requestFriendship: {
-        endpoint: "/api/users/request_friendship",
-        wrapper: GenericAuthClientRequest,
-        method: "POST",
-        schema: {
-          body: RequestUpdateFriendship,
-          response: {
-            200: z.null(),
-            401: ErrorResponse,
             500: ErrorResponse,
           },
         },
@@ -297,6 +281,26 @@ export const user_url = defineRoutes({
               payload: z.array(Friend),
             },
             Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      requestUserProfileData: {
+        funcId: "user_profile",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: PublicUserData,
+            },
+            UserDoesNotExist: {
               code: 1,
               payload: ErrorResponse,
             },

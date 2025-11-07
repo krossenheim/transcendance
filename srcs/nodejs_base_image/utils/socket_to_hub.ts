@@ -415,4 +415,8 @@ export class OurSocket {
       console.error("WebSocket error:", err.message);
     });
   }
+
+  register(func: (socket: OurSocket) => void) {
+    func(this);
+  }
 }

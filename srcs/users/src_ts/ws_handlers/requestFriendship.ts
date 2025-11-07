@@ -1,0 +1,114 @@
+import { UserFriendshipStatusEnum } from "../utils/api/service/db/friendship.js";
+import { int_url, user_url } from "../utils/api/service/common/endpoints.js";
+import { getUsersById, retrieveUserConnectionStatus } from "../userUtils.js";
+import { Result } from "../utils/api/service/common/result.js";
+import { OurSocket } from "../utils/socket_to_hub.js";
+
+import containers from "../utils/internal_api.js";
+
+import type { FullUserType } from "../utils/api/service/db/user.js";
+
+export enum FriendshipCreationResult {
+  Success,
+  SameUser,
+  AlreadyFriends,
+  PendingRequestExists,
+  UserBlocked,
+  FailedToUpdate,
+}
+
+export type FriendshipCreationResponse =
+  | { result: FriendshipCreationResult.Success }
+  | { result: FriendshipCreationResult.SameUser }
+  | { result: FriendshipCreationResult.AlreadyFriends }
+  | { result: FriendshipCreationResult.PendingRequestExists }
+  | { result: FriendshipCreationResult.UserBlocked }
+  | { result: FriendshipCreationResult.FailedToUpdate };
+
+export async function requestUserFriendship(
+  requester: FullUserType,
+  target: FullUserType,
+): Promise<FriendshipCreationResponse> {
+  if (requester.id === target.id)
+    return { result: FriendshipCreationResult.SameUser };
+
+  const existingStatus = retrieveUserConnectionStatus(requester, target);
+  switch (existingStatus) {
+    case UserFriendshipStatusEnum.Accepted:
+      return { result: FriendshipCreationResult.AlreadyFriends };
+    case UserFriendshipStatusEnum.Pending:
+      return { result: FriendshipCreationResult.PendingRequestExists };
+    case UserFriendshipStatusEnum.Blocked:
+      return { result: FriendshipCreationResult.UserBlocked };
+  }
+
+  const reverseStatus = retrieveUserConnectionStatus(target, requester);
+  if (reverseStatus === UserFriendshipStatusEnum.Blocked)
+    return { result: FriendshipCreationResult.UserBlocked };
+
+  const storageResult = await containers.db.post(
+    int_url.http.db.updateUserConnectionStatus,
+    [{ userId: requester.id, friendId: target.id, status: UserFriendshipStatusEnum.Pending }]
+  );
+
+  if (storageResult.isErr()) {
+    return { result: FriendshipCreationResult.FailedToUpdate };
+  }
+
+  return { result: FriendshipCreationResult.Success };
+}
+
+// {"funcId":"request_friendship","payload":2,"target_container":"users"}
+export function wsRequestFriendshipHandlers(socket: OurSocket) {
+  socket.registerHandler(
+    user_url.ws.users.requestFriendship,
+    async (body, schema) => {
+      const usersMapResult = await getUsersById([
+        body.user_id,
+        body.payload,
+      ]);
+      if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
+
+      const me = usersMapResult.unwrap()[body.user_id];
+      const friend = usersMapResult.unwrap()[body.payload];
+      if (me === undefined || friend === undefined)
+        return Result.Ok({
+          recipients: [body.user_id],
+          code: schema.output.UserDoesNotExist.code,
+          payload: { message: "User not found" },
+        });
+
+      const friendshipResult = await requestUserFriendship(me, friend);
+      console.log("Friendship request result:", friendshipResult);
+      switch (friendshipResult.result) {
+        case FriendshipCreationResult.SameUser:
+        case FriendshipCreationResult.AlreadyFriends:
+        case FriendshipCreationResult.PendingRequestExists:
+        case FriendshipCreationResult.UserBlocked:
+          return Result.Ok({
+            recipients: [body.user_id],
+            code: schema.output.InvalidStatusRequest.code,
+            payload: { message: "Invalid friendship status request" },
+          });
+        case FriendshipCreationResult.FailedToUpdate:
+          return Result.Ok({
+            recipients: [body.user_id],
+            code: schema.output.InvalidStatusRequest.code,
+            payload: { message: "Failed to update friendship status" },
+          });
+      }
+
+      socket.invokeHandler(
+        user_url.ws.users.fetchUserConnections,
+        [me.id, friend.id],
+        null
+      );
+
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.ConnectionUpdated.code,
+        payload: null,
+      });
+    }
+  );
+}

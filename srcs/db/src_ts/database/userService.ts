@@ -37,7 +37,7 @@ export class UserService {
 
 	fetchUserPendingFriendRequests(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, uf.status, uf.createdAt
+			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, u.bio, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.friendId = ? AND uf.status = ?`,
@@ -53,7 +53,7 @@ export class UserService {
 
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, uf.status, uf.createdAt
+			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, u.bio, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.userId = ?`,
@@ -80,7 +80,7 @@ export class UserService {
 
 	fetchAllUsers(): Result<FullUserType[], string> {
 		return this.db.all(
-			`SELECT id, createdAt, username, alias, email, isGuest, hasAvatar FROM users`,
+			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users`,
 			User
 		).map(users =>
 			users.map(user => ({
@@ -100,7 +100,7 @@ export class UserService {
 
 	fetchUserById(id: number): Result<FullUserType, string> {
 		return this.db.get(
-			`SELECT id, createdAt, username, alias, email, isGuest, hasAvatar FROM users WHERE id = ?`,
+			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users WHERE id = ?`,
 			User,
 			[id]
 		).map((user) => ({

@@ -7,6 +7,7 @@ export const Friend = z.object({
 	friendId: userIdValue,
 	username: z.string(),
 	alias: z.string().nullable(),
+	bio: z.string().nullable(),
 	hasAvatar: z.coerce.boolean(),
 	status: UserFriendshipStatus,
 	createdAt: z.number(),
@@ -18,8 +19,14 @@ export const User = z.object({
 	username: z.string(),
 	alias: z.string().nullable(),
 	email: z.string(),
+	bio: z.string().nullable(),
 	isGuest: z.coerce.boolean(),
 	hasAvatar: z.coerce.boolean(),
+});
+
+export const PublicUserData = User.omit({
+	email: true,
+	isGuest: true
 });
 
 export const FullUser = User.extend({
@@ -41,6 +48,7 @@ export type UserType = z.infer<typeof User>;
 export type FullUserType = z.infer<typeof FullUser>;
 export type UserAuthDataType = z.infer<typeof UserAuthData>;
 export type GetUserType = z.infer<typeof GetUser>;
+export type PublicUserDataType = z.infer<typeof PublicUserData>;
 
 export default {
 	User,
