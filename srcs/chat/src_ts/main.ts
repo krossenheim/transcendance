@@ -9,6 +9,7 @@ import {
   type TypeEmptySchema,
   type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
+import { FullRoomInfoSchema, type TypeFullRoomInfoSchema } from "utils/api/service/chat/db_models.js";
 
 const fastify = Fastify({
   logger: {
@@ -98,7 +99,26 @@ socket.registerHandler(user_url.ws.chat.listRooms, async (wrapper) => {
   }
   return roomList;
 });
-
+socket.registerHandler(user_url.ws.chat.getMessages, async (wrapper) => {
+  const user_id = wrapper.user_id;
+  const room_id = wrapper.payload.roomId;
+  const room = singletonChatRooms.getRoom(room_id);
+  if (room === null || !room.allowedUsers.find((n) => { n === user_id})) {
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.chat.getMessages.schema.output.NoListGiven.code,
+      payload: {
+        message: `No such room.`,
+      },
+    });
+  }
+  const payload : TypeFullRoomInfoSchema = {roomName : room.room_name, roomId: room_id, 
+    messages : room.messages.getList(), users : room.allowedUsers};
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.chat.getMessages.schema.output.FullRoomInfoGiven.code,
+      payload: payload});
+});
 socket.registerHandler(user_url.ws.chat.joinRoom, async (wrapper) => {
   const room_id_requested = wrapper.payload.roomId;
   const user_id = wrapper.user_id;

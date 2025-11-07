@@ -16,6 +16,7 @@ import {
   StoredMessageSchema,
   RoomEventSchema,
   ListRoomsSchema,
+  FullRoomInfoSchema,
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
@@ -505,6 +506,29 @@ export const user_url = defineRoutes({
             FullListGiven: {
               code: 0,
               payload: ListRoomsSchema,
+            },
+            NoListGiven: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      getMessages: {
+        funcId: "/api/chat/get_messages",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z
+            .object({
+              roomId: room_id_rule,
+            })
+            .strict(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            FullRoomInfoGiven: {
+              code: 0,
+              payload: FullRoomInfoSchema,
             },
             NoListGiven: {
               code: 1,
