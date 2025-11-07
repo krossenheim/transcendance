@@ -100,18 +100,63 @@ socketToHub.registerHandler(user_url.ws.users.test, async (body, schema) => {
   return result;
 });
 
-// {"funcId":"request_friendship","payload":{"friendId":2},"target_container":"users"}
+export enum FriendshipCreationResult {
+  Success,
+  AlreadyFriends,
+  PendingRequestExists,
+  UserBlocked,
+  FailedToUpdate,
+}
+
+export type FriendshipCreationResponse =
+  | { result: FriendshipCreationResult.Success }
+  | { result: FriendshipCreationResult.AlreadyFriends }
+  | { result: FriendshipCreationResult.PendingRequestExists }
+  | { result: FriendshipCreationResult.UserBlocked }
+  | { result: FriendshipCreationResult.FailedToUpdate };
+
+async function requestUserFriendship(
+  requester: FullUserType,
+  target: FullUserType,
+): Promise<FriendshipCreationResponse> {
+  const existingStatus = retrieveUserConnectionStatus(requester, target);
+  switch (existingStatus) {
+    case UserFriendshipStatusEnum.Accepted:
+      return { result: FriendshipCreationResult.AlreadyFriends };
+    case UserFriendshipStatusEnum.Pending:
+      return { result: FriendshipCreationResult.PendingRequestExists };
+    case UserFriendshipStatusEnum.Blocked:
+      return { result: FriendshipCreationResult.UserBlocked };
+  }
+
+  const reverseStatus = retrieveUserConnectionStatus(target, requester);
+  if (reverseStatus === UserFriendshipStatusEnum.Blocked)
+    return { result: FriendshipCreationResult.UserBlocked };
+
+  const storageResult = await containers.db.post(
+    int_url.http.db.updateUserConnectionStatus,
+    [{userId: requester.id, friendId: target.id, status: UserFriendshipStatusEnum.Pending}]
+  );
+
+  if (storageResult.isErr()) {
+    return { result: FriendshipCreationResult.FailedToUpdate };
+  }
+
+  return { result: FriendshipCreationResult.Success };
+}
+
+// {"funcId":"request_friendship","payload":2,"target_container":"users"}
 socketToHub.registerHandler(
   user_url.ws.users.requestFriendship,
   async (body, schema) => {
     const usersMapResult = await getUsersById([
       body.user_id,
-      body.payload.friendId,
+      body.payload,
     ]);
     if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
     const me = usersMapResult.unwrap()[body.user_id];
-    const friend = usersMapResult.unwrap()[body.payload.friendId];
+    const friend = usersMapResult.unwrap()[body.payload];
     if (me === undefined || friend === undefined)
       return Result.Ok({
         recipients: [body.user_id],
@@ -119,37 +164,23 @@ socketToHub.registerHandler(
         payload: { message: "User not found" },
       });
 
-    switch (retrieveUserConnectionStatus(me, friend)) {
-      case UserFriendshipStatusEnum.Blocked:
-      case UserFriendshipStatusEnum.Accepted:
-      case UserFriendshipStatusEnum.Pending:
+    const friendshipResult = await requestUserFriendship(me, friend);
+    console.log("Friendship request result:", friendshipResult);
+    switch (friendshipResult.result) {
+      case FriendshipCreationResult.AlreadyFriends:
+      case FriendshipCreationResult.PendingRequestExists:
+      case FriendshipCreationResult.UserBlocked:
         return Result.Ok({
           recipients: [body.user_id],
           code: schema.output.InvalidStatusRequest.code,
           payload: { message: "Invalid friendship status request" },
         });
-      case UserFriendshipStatusEnum.None:
-        if (retrieveUserConnectionStatus(friend, me) === UserFriendshipStatusEnum.Blocked) {
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Invalid friendship status request" },
-          });
-        }
-        break;
-    }
-
-    const storageResult = await containers.db.post(
-      int_url.http.db.updateUserConnectionStatus,
-      [{userId: me.id, friendId: friend.id, status: UserFriendshipStatusEnum.Pending}]
-    );
-
-    if (storageResult.isErr()) {
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.InvalidStatusRequest.code,
-        payload: { message: "Failed to update friendship status" },
-      });
+      case FriendshipCreationResult.FailedToUpdate:
+        return Result.Ok({
+          recipients: [body.user_id],
+          code: schema.output.InvalidStatusRequest.code,
+          payload: { message: "Failed to update friendship status" },
+        });
     }
 
     socketToHub.invokeHandler(
@@ -157,6 +188,7 @@ socketToHub.registerHandler(
       [me.id, friend.id],
       null
     );
+
     return Result.Ok({
       recipients: [body.user_id],
       code: schema.output.ConnectionUpdated.code,
@@ -165,18 +197,64 @@ socketToHub.registerHandler(
   }
 );
 
-// {"funcId":"confirm_friendship","payload":{"friendId":1},"target_container":"users"}
+export enum ConfirmFriendshipResult {
+  Success,
+  UserBlocked,
+  NoPendingInvite,
+  FailedToUpdate,
+  AlreadyConfirmed
+};
+
+export type ConfirmFriendshipResponse =
+  | { result: ConfirmFriendshipResult.Success }
+  | { result: ConfirmFriendshipResult.UserBlocked }
+  | { result: ConfirmFriendshipResult.NoPendingInvite }
+  | { result: ConfirmFriendshipResult.FailedToUpdate }
+  | { result: ConfirmFriendshipResult.AlreadyConfirmed }
+
+async function confirmUserFriendship(
+  confirmer: FullUserType,
+  requester: FullUserType,
+): Promise<ConfirmFriendshipResponse> {
+  const existingStatus = retrieveUserConnectionStatus(confirmer, requester);
+  switch (existingStatus) {
+    case UserFriendshipStatusEnum.Blocked:
+      return { result: ConfirmFriendshipResult.UserBlocked };
+    case UserFriendshipStatusEnum.Accepted:
+      return { result: ConfirmFriendshipResult.AlreadyConfirmed };
+    case UserFriendshipStatusEnum.None:
+      return { result: ConfirmFriendshipResult.NoPendingInvite };
+  }
+
+  const reverseStatus = retrieveUserConnectionStatus(requester, confirmer);
+  if (reverseStatus !== UserFriendshipStatusEnum.Pending)
+    return { result: ConfirmFriendshipResult.NoPendingInvite };
+
+  const storageResult = await containers.db.post(
+    int_url.http.db.updateUserConnectionStatus,
+    [{userId: confirmer.id, friendId: requester.id, status: UserFriendshipStatusEnum.Accepted},
+    {userId: requester.id, friendId: confirmer.id, status: UserFriendshipStatusEnum.Accepted}]
+  );
+
+  if (storageResult.isErr()) {
+    return { result: ConfirmFriendshipResult.FailedToUpdate };
+  }
+
+  return { result: ConfirmFriendshipResult.Success };
+}
+
+// {"funcId":"confirm_friendship","payload":1,"target_container":"users"}
 socketToHub.registerHandler(
   user_url.ws.users.confirmFriendship,
   async (body, schema) => {
     const usersMapResult = await getUsersById([
       body.user_id,
-      body.payload.friendId,
+      body.payload,
     ]);
     if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
     const me = usersMapResult.unwrap()[body.user_id];
-    const friend = usersMapResult.unwrap()[body.payload.friendId];
+    const friend = usersMapResult.unwrap()[body.payload];
     if (me === undefined || friend === undefined)
       return Result.Ok({
         recipients: [body.user_id],
@@ -184,43 +262,23 @@ socketToHub.registerHandler(
         payload: { message: "User not found" },
       });
 
-    switch (retrieveUserConnectionStatus(me, friend)) {
-      case UserFriendshipStatusEnum.Blocked:
+    const confirmResult = await confirmUserFriendship(me, friend);
+    console.log("Friendship confirmation result:", confirmResult);
+    switch (confirmResult.result) {
+      case ConfirmFriendshipResult.UserBlocked:
+      case ConfirmFriendshipResult.NoPendingInvite:
+      case ConfirmFriendshipResult.AlreadyConfirmed:
         return Result.Ok({
           recipients: [body.user_id],
           code: schema.output.InvalidStatusRequest.code,
           payload: { message: "Invalid friendship status request" },
         });
-      case UserFriendshipStatusEnum.Accepted:
+      case ConfirmFriendshipResult.FailedToUpdate:
         return Result.Ok({
           recipients: [body.user_id],
           code: schema.output.InvalidStatusRequest.code,
-          payload: { message: "Friendship already accepted" },
+          payload: { message: "Failed to update friendship status" },
         });
-      case UserFriendshipStatusEnum.Pending:
-        break;
-    }
-
-    if (retrieveUserConnectionStatus(friend, me) === UserFriendshipStatusEnum.Blocked) {
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.InvalidStatusRequest.code,
-        payload: { message: "Invalid friendship status request" },
-      });
-    }
-
-    const storageResult = await containers.db.post(
-      int_url.http.db.updateUserConnectionStatus,
-      [{userId: me.id, friendId: friend.id, status: UserFriendshipStatusEnum.Accepted},
-      {userId: friend.id, friendId: me.id, status: UserFriendshipStatusEnum.Accepted}]
-    );
-
-    if (storageResult.isErr()) {
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.InvalidStatusRequest.code,
-        payload: { message: "Failed to update friendship status" },
-      });
     }
 
     socketToHub.invokeHandler(
@@ -228,6 +286,93 @@ socketToHub.registerHandler(
       [me.id, friend.id],
       null
     );
+
+    return Result.Ok({
+      recipients: [body.user_id],
+      code: schema.output.ConnectionUpdated.code,
+      payload: null,
+    });
+  }
+);
+
+export enum BlockUserResult {
+  Success,
+  AlreadyBlocked,
+  FailedToUpdate,
+};
+
+export type BlockUserResponse =
+  | { result: BlockUserResult.Success, usersUpdated: number[] }
+  | { result: BlockUserResult.AlreadyBlocked }
+  | { result: BlockUserResult.FailedToUpdate };
+
+async function blockUser(
+  blocker: FullUserType,
+  target: FullUserType,
+): Promise<BlockUserResponse> {
+  const existingStatus = retrieveUserConnectionStatus(blocker, target);
+  if (existingStatus === UserFriendshipStatusEnum.Blocked)
+    return { result: BlockUserResult.AlreadyBlocked };
+
+  let updates = [{userId: blocker.id, friendId: target.id, status: UserFriendshipStatusEnum.Blocked}];
+  const reverseStatus = retrieveUserConnectionStatus(target, blocker);
+  if (reverseStatus !== UserFriendshipStatusEnum.Blocked)
+    updates.push({userId: target.id, friendId: blocker.id, status: UserFriendshipStatusEnum.None});
+
+  const storageResult = await containers.db.post(
+    int_url.http.db.updateUserConnectionStatus,
+    updates
+  );
+
+  if (storageResult.isErr())
+    return { result: BlockUserResult.FailedToUpdate };
+
+  return { result: BlockUserResult.Success, usersUpdated: updates.map(u => u.userId) };
+}
+
+// {"funcId":"block_user","payload":2,"target_container":"users"}
+socketToHub.registerHandler(
+  user_url.ws.users.blockUser,
+  async (body, schema) => {
+    const usersMapResult = await getUsersById([
+      body.user_id,
+      body.payload
+    ]);
+
+    if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
+
+    const me = usersMapResult.unwrap()[body.user_id];
+    const blockedUser = usersMapResult.unwrap()[body.payload];
+    if (me === undefined || blockedUser === undefined) {
+      return Result.Ok({
+        recipients: [body.user_id],
+        code: schema.output.UserDoesNotExist.code,
+        payload: { message: "User not found" },
+      });
+    }
+
+    const blockResult = await blockUser(me, blockedUser);
+    console.log("Block user result:", blockResult);
+    switch (blockResult.result) {
+      case BlockUserResult.AlreadyBlocked:
+        return Result.Ok({
+          recipients: [body.user_id],
+          code: schema.output.InvalidStatusRequest.code,
+          payload: { message: "Invalid friendship status request" },
+        });
+      case BlockUserResult.FailedToUpdate:
+        return Result.Ok({
+          recipients: [body.user_id],
+          code: schema.output.InvalidStatusRequest.code,
+          payload: { message: "Failed to update friendship status" },
+        });
+      case BlockUserResult.Success:
+        socketToHub.invokeHandler(
+          user_url.ws.users.fetchUserConnections,
+          blockResult.usersUpdated,
+          null
+        );
+    }
 
     return Result.Ok({
       recipients: [body.user_id],
@@ -277,6 +422,12 @@ socketToHub.registerReceiver(
     if (data.code === 0) {
       console.log(
         `User ${data.payload.userId} has opened a websocket between itself and hub.`
+      );
+
+      socketToHub.invokeHandler(
+        user_url.ws.users.fetchUserConnections,
+        data.payload.userId,
+        null
       );
     }
 

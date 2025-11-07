@@ -164,9 +164,16 @@ export class UserService {
 	}
 
 	updateMutualUserConnection(userId1: number, userId2: number, status: UserFriendshipStatusEnum): Result<null, string> {
-		return this.db.run(
-			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
-			[userId1, userId2, status]
-		).map(() => null);
+		if (status == UserFriendshipStatusEnum.None) {
+			return this.db.run(
+				`DELETE FROM user_friendships WHERE (userId = ? AND friendId = ?)`,
+				[userId1, userId2]
+			).map(() => null);
+		} else {
+			return this.db.run(
+				`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
+				[userId1, userId2, status]
+			).map(() => null);
+		}
 	}
 }

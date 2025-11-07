@@ -216,7 +216,7 @@ export const user_url = defineRoutes({
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: RequestUpdateFriendship,
+          args: userIdValue,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             ConnectionUpdated: {
@@ -240,7 +240,31 @@ export const user_url = defineRoutes({
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: RequestUpdateFriendship,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      blockUser: {
+        funcId: "block_user",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             ConnectionUpdated: {
