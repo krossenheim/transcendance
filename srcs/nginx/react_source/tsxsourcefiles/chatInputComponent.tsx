@@ -1,27 +1,26 @@
-import type {
-  TypeStoredMessageSchema,
-  TypeListRoomsSchema,
-  TypeRoomMessagesSchema,
-  TypeRoomSchema,
-} from "../../../nodejs_base_image/utils/api/service/chat/db_models";
-import React, { useCallback, useEffect, useState, useRef } from "react";
-import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints";
-import { useWebSocket } from "./socketComponent";
+"use client"
+
+import type { TypeStoredMessageSchema, TypeRoomMessagesSchema, TypeRoomSchema } from "@/types/chat-models"
+import type React from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
+import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
+import { useWebSocket } from "./socketComponent"
+import ProfileComponent from "./profileComponent"
 
 /* -------------------- ChatBox Component -------------------- */
 interface ChatBoxProps {
   messages: Array<{
-    user: string;
-    content: string;
-    timestamp?: string;
-  }>;
-  onSendMessage: (content: string) => void;
-  currentRoom: string | null;
-  currentRoomName: string | null;
-  onInvitePong: () => void;
-  onBlockUser: (username: string) => void;
-  blockedUsers: string[];
-  onOpenProfile: (username: string) => void;
+    user: string
+    content: string
+    timestamp?: string
+  }>
+  onSendMessage: (content: string) => void
+  currentRoom: string | null
+  currentRoomName: string | null
+  onInvitePong: () => void
+  onBlockUser: (username: string) => void
+  blockedUsers: string[]
+  onOpenProfile: (username: string) => void
 }
 
 const ChatBox: React.FC<ChatBoxProps> = ({
@@ -34,22 +33,22 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   blockedUsers,
   onOpenProfile,
 }) => {
-  const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    scrollToBottom()
+  }, [messages])
 
   const handleSend = () => {
-    if (!input.trim() || !currentRoom) return;
-    onSendMessage(input);
-    setInput("");
-  };
+    if (!input.trim() || !currentRoom) return
+    onSendMessage(input)
+    setInput("")
+  }
 
   return (
     <div className="flex flex-col bg-white shadow-lg rounded-2xl border border-gray-200 h-[600px]">
@@ -59,9 +58,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           <h2 className="text-lg font-semibold text-white">
             {currentRoom ? `${currentRoomName || "Room"}` : "Select a room"}
           </h2>
-          {currentRoom && (
-            <p className="text-xs text-white opacity-75">ID: {currentRoom}</p>
-          )}
+          {currentRoom && <p className="text-xs text-white opacity-75">ID: {currentRoom}</p>}
         </div>
         {currentRoom && (
           <button
@@ -88,10 +85,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                     >
                       {msg.user}
                     </span>
-                    <button
-                      onClick={() => onBlockUser(msg.user)}
-                      className="text-xs text-red-500 hover:underline"
-                    >
+                    <button onClick={() => onBlockUser(msg.user)} className="text-xs text-red-500 hover:underline">
                       {blockedUsers.includes(msg.user) ? "Unblock" : "Block"}
                     </button>
                   </div>
@@ -107,9 +101,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-400 text-center text-sm italic">
-              {currentRoom
-                ? "No messages yet. Start the conversation!"
-                : "Join a room to start chatting"}
+              {currentRoom ? "No messages yet. Start the conversation!" : "Join a room to start chatting"}
             </p>
           </div>
         )}
@@ -121,9 +113,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         <div className="flex space-x-2">
           <input
             type="text"
-            placeholder={
-              currentRoom ? "Type a message..." : "Select a room first..."
-            }
+            placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
             className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -140,17 +130,17 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
 /* -------------------- Room List Component -------------------- */
 interface RoomListProps {
-  rooms: TypeRoomSchema[];
-  currentRoom: string | null;
-  onSelectRoom: (roomId: string) => void;
-  onCreateRoom: (roomName: string) => void;
-  onRefreshRooms: () => void;
-  onStartDM: (username: string) => void;
+  rooms: TypeRoomSchema[]
+  currentRoom: string | null
+  onSelectRoom: (roomId: string) => void
+  onCreateRoom: (roomName: string) => void
+  onRefreshRooms: () => void
+  onStartDM: (username: string) => void
 }
 
 const RoomList: React.FC<RoomListProps> = ({
@@ -161,15 +151,15 @@ const RoomList: React.FC<RoomListProps> = ({
   onRefreshRooms,
   onStartDM,
 }) => {
-  const [newRoomName, setNewRoomName] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newRoomName, setNewRoomName] = useState("")
+  const [showCreateForm, setShowCreateForm] = useState(false)
 
   const handleCreate = () => {
-    if (!newRoomName.trim()) return;
-    onCreateRoom(newRoomName);
-    setNewRoomName("");
-    setShowCreateForm(false);
-  };
+    if (!newRoomName.trim()) return
+    onCreateRoom(newRoomName)
+    setNewRoomName("")
+    setShowCreateForm(false)
+  }
 
   return (
     <div className="bg-white shadow-lg rounded-2xl border border-gray-200 h-[600px] flex flex-col">
@@ -194,9 +184,7 @@ const RoomList: React.FC<RoomListProps> = ({
             </button>
           ))
         ) : (
-          <p className="text-gray-400 text-center text-sm italic py-8">
-            No rooms available. Create one!
-          </p>
+          <p className="text-gray-400 text-center text-sm italic py-8">No rooms available. Create one!</p>
         )}
       </div>
 
@@ -221,8 +209,8 @@ const RoomList: React.FC<RoomListProps> = ({
               </button>
               <button
                 onClick={() => {
-                  setShowCreateForm(false);
-                  setNewRoomName("");
+                  setShowCreateForm(false)
+                  setNewRoomName("")
                 }}
                 className="flex-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 text-sm"
               >
@@ -246,8 +234,8 @@ const RoomList: React.FC<RoomListProps> = ({
             </button>
             <button
               onClick={() => {
-                const username = prompt("Enter username to start DM:");
-                if (username) onStartDM(username);
+                const username = prompt("Enter username to start DM:")
+                if (username) onStartDM(username)
               }}
               className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all"
             >
@@ -257,214 +245,232 @@ const RoomList: React.FC<RoomListProps> = ({
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
 /* -------------------- Main Chat Component -------------------- */
 export default function ChatInputComponent() {
-  const { socket, payloadReceived } = useWebSocket();
-  const [rooms, setRooms] = useState<TypeRoomSchema[]>([]);
-  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
-  const [currentRoomName, setCurrentRoomName] = useState<string | null>(null);
+  const { socket, payloadReceived, isConnected } = useWebSocket()
+  const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
+  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
+  const [currentRoomName, setCurrentRoomName] = useState<string | null>(null)
   // Store messages per room to prevent losing them when switching
-  const [messagesByRoom, setMessagesByRoom] = useState<Record<string, Array<{
-    user: string;
-    content: string;
-    timestamp?: string;
-  }>>>({});
-  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [messagesByRoom, setMessagesByRoom] = useState<
+    Record<
+      string,
+      Array<{
+        user: string
+        content: string
+        timestamp?: string
+      }>
+    >
+  >({})
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([])
+  const [profileUserId, setProfileUserId] = useState<number | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
 
   // Get messages for current room
-  const messages = currentRoomId ? (messagesByRoom[currentRoomId] || []) : [];
+  const messages = currentRoomId ? messagesByRoom[currentRoomId] || [] : []
 
   const sendToSocket = useCallback(
     (funcId: string, payload: any) => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      if (socket.current && isConnected) {
         const toSend = {
           funcId,
           payload,
           target_container: "chat",
-        };
-        console.log("Sending to socket:", toSend);
-        socket.current.send(JSON.stringify(toSend));
+        }
+        console.log("[v0] Sending to socket:", toSend)
+        socket.current.send(JSON.stringify(toSend))
       } else {
-        console.warn("Socket not open, cannot send:", funcId);
+        console.warn("[v0] Socket not connected, cannot send:", funcId)
+        console.warn("[v0] isConnected:", isConnected)
+        console.warn("[v0] Socket state:", socket.current?.readyState)
       }
     },
-    [socket]
-  );
+    [socket, isConnected],
+  )
 
   /* -------------------- Handle Incoming Messages -------------------- */
   useEffect(() => {
-    if (!payloadReceived) return;
-    
-    console.log("Received payload:", payloadReceived);
+    if (!payloadReceived) return
+
+    console.log("Received payload:", payloadReceived)
 
     switch (payloadReceived.funcId) {
       case user_url.ws.chat.sendMessage.funcId:
         try {
           // Transform the StoredMessageSchema to our local message format
-          const messagePayload = payloadReceived.payload as TypeStoredMessageSchema;
-          
+          const messagePayload = payloadReceived.payload as TypeStoredMessageSchema
+
           if (!messagePayload || !messagePayload.roomId) {
-            console.error("Invalid message payload:", messagePayload);
-            break;
+            console.error("Invalid message payload:", messagePayload)
+            break
           }
-          
+
           // Check if messageDate is in seconds or milliseconds
           // If it's less than year 3000 timestamp in seconds, it's likely in seconds
-          const timestamp = messagePayload.messageDate < 32503680000 
-            ? new Date(messagePayload.messageDate * 1000).toISOString()
-            : new Date(messagePayload.messageDate).toISOString();
-            
+          const timestamp =
+            messagePayload.messageDate < 32503680000
+              ? new Date(messagePayload.messageDate * 1000).toISOString()
+              : new Date(messagePayload.messageDate).toISOString()
+
           const transformedMessage = {
             user: `User ${messagePayload.userId}`,
             content: messagePayload.messageString,
             timestamp: timestamp,
-          };
-          console.log("Adding message:", transformedMessage, "messageDate:", messagePayload.messageDate);
-          
+          }
+          console.log("Adding message:", transformedMessage, "messageDate:", messagePayload.messageDate)
+
           // Add message to the specific room
-          const roomIdStr = String(messagePayload.roomId);
+          const roomIdStr = String(messagePayload.roomId)
           setMessagesByRoom((prev) => ({
             ...prev,
             [roomIdStr]: [...(prev[roomIdStr] || []), transformedMessage],
-          }));
+          }))
         } catch (error) {
-          console.error("Error processing message:", error);
+          console.error("Error processing message:", error)
         }
-        break;
+        break
 
       case user_url.ws.chat.listRooms.funcId:
-        console.log("Setting rooms:", payloadReceived.payload);
-        setRooms(payloadReceived.payload);
-        break;
+        console.log("Setting rooms:", payloadReceived.payload)
+        setRooms(payloadReceived.payload)
+        break
 
       case user_url.ws.chat.joinRoom.funcId:
         try {
-          console.log("Joined room:", payloadReceived.payload);
-          // When joining a room, we might receive initial messages
-          // Check if the payload has a messages array
-          if (payloadReceived.payload.messages && payloadReceived.payload.roomId) {
-            const roomIdStr = String(payloadReceived.payload.roomId);
-            const roomMessages = payloadReceived.payload.messages.map((msg: TypeStoredMessageSchema) => {
-              const timestamp = msg.messageDate < 32503680000 
-                ? new Date(msg.messageDate * 1000).toISOString()
-                : new Date(msg.messageDate).toISOString();
-              return {
-                user: `User ${msg.userId}`,
-                content: msg.messageString,
-                timestamp: timestamp,
-              };
-            });
-            setMessagesByRoom((prev) => ({
-              ...prev,
-              [roomIdStr]: roomMessages,
-            }));
-          } else {
-            console.log("No messages received from server");
+          console.log("Joined room - full payload:", JSON.stringify(payloadReceived.payload, null, 2))
+
+          // joinRoom only returns RoomEventSchema { user, roomId } - no messages!
+          // The backend doesn't send message history, so we keep what we have in memory
+          const payload = payloadReceived.payload
+
+          if (payload.roomId) {
+            const roomIdStr = String(payload.roomId)
+            console.log("Successfully joined room:", roomIdStr)
+
+            // Check if we have messages for this room already
+            if (messagesByRoom[roomIdStr] && messagesByRoom[roomIdStr].length > 0) {
+              console.log("Found", messagesByRoom[roomIdStr].length, "messages in memory for this room")
+            } else {
+              console.log("No messages in memory for this room - starting fresh")
+              // Initialize empty message array for this room if it doesn't exist
+              setMessagesByRoom((prev) => ({
+                ...prev,
+                [roomIdStr]: prev[roomIdStr] || [],
+              }))
+            }
           }
         } catch (error) {
-          console.error("Error processing join room:", error);
+          console.error("Error processing join room:", error)
         }
-        break;
+        break
 
       case user_url.ws.chat.addRoom.funcId:
-        console.log("Room added, refreshing list");
-        sendToSocket(user_url.ws.chat.listRooms.funcId, {});
-        break;
+        console.log("Room added, refreshing list")
+        sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+        break
 
       case user_url.ws.chat.addUserToRoom.funcId:
-        console.log("User added to room:", payloadReceived.payload);
-        const roomData = payloadReceived.payload as TypeRoomMessagesSchema;
+        console.log("User added to room:", payloadReceived.payload)
+        const roomData = payloadReceived.payload as TypeRoomMessagesSchema
         if (roomData.messages && roomData.roomId) {
-          const roomIdStr = String(roomData.roomId);
+          const roomIdStr = String(roomData.roomId)
           const roomMessages = roomData.messages.map((msg: TypeStoredMessageSchema) => ({
             user: `User ${msg.userId}`,
             content: msg.messageString,
             timestamp: new Date(msg.messageDate * 1000).toISOString(),
-          }));
+          }))
           setMessagesByRoom((prev) => ({
             ...prev,
             [roomIdStr]: roomMessages,
-          }));
+          }))
         }
-        break;
+        break
 
       default:
-        console.log("Unhandled funcId:", payloadReceived.funcId);
+        console.log("Unhandled funcId:", payloadReceived.funcId)
     }
-  }, [payloadReceived, sendToSocket]);
+  }, [payloadReceived, sendToSocket])
 
   useEffect(() => {
-    console.log("Requesting room list on mount");
-    sendToSocket(user_url.ws.chat.listRooms.funcId, {});
-  }, [sendToSocket]);
+    console.log("Requesting room list on mount")
+    sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+  }, [sendToSocket])
 
   /* -------------------- Handlers -------------------- */
   const handleSendMessage = useCallback(
     (content: string) => {
-      if (!currentRoomId) return;
-      console.log("Sending message to room:", currentRoomId, content);
+      if (!currentRoomId) return
+      console.log("Sending message to room:", currentRoomId, content)
       sendToSocket(user_url.ws.chat.sendMessage.funcId, {
         roomId: currentRoomId,
         messageString: content,
-      });
+      })
     },
-    [currentRoomId, sendToSocket]
-  );
+    [currentRoomId, sendToSocket],
+  )
 
   const handleSelectRoom = useCallback(
     (roomId: string) => {
-      const room = rooms.find((r) => r.roomId === roomId);
-      console.log("Selecting room:", roomId, room);
-      setCurrentRoomId(roomId);
-      setCurrentRoomName(room?.roomName || null);
-      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId });
+      const room = rooms.find((r) => r.roomId === roomId)
+      console.log("Selecting room:", roomId, room)
+      setCurrentRoomId(roomId)
+      setCurrentRoomName(room?.roomName || null)
+      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
     },
-    [rooms, sendToSocket]
-  );
+    [rooms, sendToSocket],
+  )
 
   const handleCreateRoom = useCallback(
     (roomName: string) => {
-      console.log("Creating room:", roomName);
-      sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName });
+      console.log("[v0] handleCreateRoom called with roomName:", roomName)
+      console.log("[v0] Socket current:", socket.current)
+      console.log("[v0] Socket readyState:", socket.current?.readyState)
+      console.log("[v0] Creating room with funcId:", user_url.ws.chat.addRoom.funcId)
+      sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName })
     },
-    [sendToSocket]
-  );
+    [sendToSocket],
+  )
 
   const handleRefreshRooms = useCallback(() => {
-    console.log("Refreshing rooms");
-    sendToSocket(user_url.ws.chat.listRooms.funcId, {});
-  }, [sendToSocket]);
+    console.log("Refreshing rooms")
+    sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+  }, [sendToSocket])
 
   const handleInvitePong = useCallback(() => {
-    if (!currentRoomId) return;
-    console.log("Inviting to pong in room:", currentRoomId);
+    if (!currentRoomId) return
+    console.log("Inviting to pong in room:", currentRoomId)
     // This funcId might not exist yet - adjust based on your endpoints
-    alert("Pong invitation feature not yet implemented");
-  }, [currentRoomId]);
+    alert("Pong invitation feature not yet implemented")
+  }, [currentRoomId])
 
   const handleBlockUser = useCallback((username: string) => {
-    setBlockedUsers((prev) =>
-      prev.includes(username) ? prev.filter((u) => u !== username) : [...prev, username]
-    );
-  }, []);
+    setBlockedUsers((prev) => (prev.includes(username) ? prev.filter((u) => u !== username) : [...prev, username]))
+  }, [])
 
   const handleOpenProfile = useCallback((username: string) => {
-    console.log("Opening profile for:", username);
-    // Implement profile view
-    alert(`Profile view for ${username} - not yet implemented`);
-  }, []);
+    console.log("Opening profile for:", username)
+    // Extract userId from username (assuming format "User {userId}")
+    const userIdMatch = username.match(/User (\d+)/)
+    if (userIdMatch) {
+      const userId = Number.parseInt(userIdMatch[1])
+      setProfileUserId(userId)
+      setShowProfileModal(true)
+    } else {
+      alert(`Cannot open profile for ${username} - invalid format`)
+    }
+  }, [])
 
   const handleStartDM = useCallback(
     (username: string) => {
-      console.log("Starting DM with:", username);
+      console.log("Starting DM with:", username)
       // This funcId might not exist yet - adjust based on your endpoints
-      alert("DM feature not yet implemented");
+      alert("DM feature not yet implemented")
     },
-    [sendToSocket]
-  );
+    [sendToSocket],
+  )
 
   /* -------------------- Render -------------------- */
   return (
@@ -496,6 +502,17 @@ export default function ChatInputComponent() {
           </div>
         </div>
       </div>
+
+      {showProfileModal && profileUserId && (
+        <ProfileComponent
+          userId={profileUserId}
+          isOpen={showProfileModal}
+          onClose={() => {
+            setShowProfileModal(false)
+            setProfileUserId(null)
+          }}
+        />
+      )}
     </div>
-  );
+  )
 }
