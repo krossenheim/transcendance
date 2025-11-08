@@ -14,7 +14,10 @@ import {
   type TypePayloadHubToUsersSchema,
   type T_ForwardToContainer,
 } from "./utils/api/service/hub/hub_interfaces.js";
-import { containersIpToName, containersNameToIp } from "./utils/container_names.js";
+import {
+  containersIpToName,
+  containersNameToIp,
+} from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
 
 import { Result } from "./utils/api/service/common/result.js";
@@ -25,7 +28,12 @@ import {
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
 import containers from "./utils/internal_api.js";
 import { z } from "zod";
-import { int_url, pub_url } from "./utils/api/service/common/endpoints.js";
+import {
+  int_url,
+  pub_url,
+  user_url,
+} from "./utils/api/service/common/endpoints.js";
+import type { GetUserType } from "./utils/api/service/db/user.js";
 
 const fastify: FastifyInstance = Fastify();
 
@@ -87,8 +95,29 @@ function disconnectUserSocket(socket: WebSocket) {
     socket.close();
   }
   const user_id = openSocketToUserID.get(socket);
-  if (user_id !== undefined) openUserIdToSocket.delete(user_id);
-  openSocketToUserID.delete(socket);
+  if (user_id !== undefined) {
+    for (const [
+      socket,
+      container_name,
+    ] of interContainerWebsocketsToName.entries()) {
+      const payload: GetUserType = { userId: user_id };
+      const wrapper: TypePayloadHubToUsersSchema = {
+        source_container: "hub",
+        funcId: int_url.ws.hub.userDisconnected.funcId,
+        code: 0,
+        payload: payload,
+      };
+      if (socket.readyState > 1)
+        console.error("Socket to container not open, cantsend.");
+      else {
+        socket.send(JSON.stringify(wrapper));
+        console.log(
+          `Informed container ${container_name} of user dis-connection: ${user_id}`
+        );
+      }
+      openSocketToUserID.delete(socket);
+    }
+  }
 }
 
 function forwardToContainer(
@@ -157,7 +186,8 @@ function forwardPayloadToUsers(
   recipients: Array<number>,
   payload: TypePayloadHubToUsersSchema
 ) {
-  if (payload.funcId !== "get_game_state")
+  if (payload.funcId !== user_url.ws.pong.getGameState.funcId)
+    // avoid log spam
     console.log(
       "Sending payload to recipients:",
       recipients,
@@ -247,12 +277,15 @@ async function isAuthed(parsed: any): Promise<Result<number, string>> {
   if (authResult.isErr()) return Result.Err(authResult.unwrapErr().message);
 
   const authed_user_id = authResult.unwrap();
-  for (const [socket, container_name] of interContainerWebsocketsToName.entries()) {
+  for (const [
+    socket,
+    container_name,
+  ] of interContainerWebsocketsToName.entries()) {
     const payload = {
       source_container: "hub",
       funcId: int_url.ws.hub.userConnected.funcId,
       code: 0,
-      payload: [authed_user_id],
+      payload: { userId: authed_user_id },
     };
     socket.send(JSON.stringify(payload));
     console.log(
@@ -319,12 +352,16 @@ function translateUserPackage(
   ]);
 }
 
-function forwardToContainers(forwarded: T_ForwardToContainer): Result<null, string> {
-  if (forwarded.user_id !== -1){
-    return Result.Err("user_id must be -1 when forwarding to multiple containers");
+function forwardToContainers(
+  forwarded: T_ForwardToContainer
+): Result<null, string> {
+  if (forwarded.user_id !== -1) {
+    return Result.Err(
+      "user_id must be -1 when forwarding to multiple containers"
+    );
   }
   for (const target_container of containersNameToIp.keys()) {
-    if (target_container === "hub") continue; 
+    if (target_container === "hub") continue;
     const wsToContainer = interContainerNameToWebsockets.get(target_container);
     if (!wsToContainer)
       return Result.Err(target_container + " has never opened a socket.");
@@ -349,17 +386,16 @@ fastify.get(
         console.log("Unparsed", string);
       } catch (e) {
         console.log(`Unrecognized message: ${message}`);
+        socket.send("Cannot deserialize message into JSON");
         return;
       }
 
       let user_id = openSocketToUserID.get(socket);
       if (user_id === undefined) {
         const authResult = await handleWebsocketAuth(socket, parsed);
-        if (authResult.isErr())
+        if (authResult.isErr()) {
           console.error("Authentication failed: " + authResult.unwrapErr());
-        else
-        {
-
+        } else {
           // const payloadInformAll : T_ForwardToContainer= {
           //   user_id: -1,
           //   funcId: int_url.ws.hub.getUserConnections.funcId,
@@ -370,12 +406,10 @@ fastify.get(
           //   console.error(
           //     "Failed to inform containers of new user connection: " +
           //     forwardResult.unwrapErr()
-          //   );  
+          //   );
           // }
         }
-          console.log(
-            "User authenticated with user_id: " + authResult.unwrap()
-          );
+        console.log("User authenticated with user_id: " + authResult.unwrap());
         return;
       }
 

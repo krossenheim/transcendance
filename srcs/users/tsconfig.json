@@ -39,7 +39,7 @@
     "skipLibCheck": true,
 	    "baseUrl": "src_ts",            // base folder for imports
 	    "paths": {
-      "utils/*": ["utils/*"]
+      "utils/*": ["./utils/*"]
     },
   },
   "include": ["./**/*.ts"]

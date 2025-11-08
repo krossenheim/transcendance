@@ -13,19 +13,8 @@ import generateCirclePoints from "./generateCirclePoints.js";
 
 const MIN_PLAYERS: number = 2;
 const MAX_PLAYERS: number = 8;
-const MAP_GAMEOVER_EDGES_WIDTH = 10;
+const MAP_GAMEOVER_EDGES_WIDTH = 1;
 const RADIUS_PLACE_PLAYERS = 0.33;
-function truncDecimals(num: number, n: number = 6) {
-  const factor = Math.pow(10, n);
-  return Math.trunc(num * factor) / factor;
-}
-
-function calculatePaddleLength(map_edges: Vec2[]) {
-  const a = map_edges[0]!;
-  const b = map_edges[1]!;
-
-  return mag({ x: b.x - a.x, y: b.y - a.y }) * 0.4;
-}
 
 function rotatePolygon(
   points: Vec2[], // array of vertices
@@ -42,6 +31,20 @@ function rotatePolygon(
       y: dx * sin + dy * cos + center.y,
     };
   });
+}
+
+function get_edge_len(mapEdges: Vec2[]) {
+  const a = mapEdges[0];
+  const b = mapEdges[1];
+
+  if (!a || !b) {
+    throw new Error("Fatal error, polygon exists for the pong map.");
+  }
+  const edge_length = mag({
+    x: b.x - a.x,
+    y: b.y - a.y,
+  });
+  return edge_length;
 }
 
 let debug_board_id = 1;
@@ -112,12 +115,13 @@ class PongGame {
       if (vector === undefined) {
         throw Error("Constructor failed to validate player ids.");
       }
-      const length = calculatePaddleLength(this.map_polygon_edges);
+
+      const edge_length = get_edge_len(this.map_polygon_edges);
       const paddle = new PlayerPaddle(
         vector,
         this.board_size,
         player_id,
-        length
+        edge_length
       );
       console.log(`Player_ID '${player_id}' has paddle_ID '${paddle.pad_id}'`);
       paddles.push(paddle);
@@ -233,6 +237,8 @@ class PongGame {
         r: obj.r,
         w: obj.width,
         l: obj.length,
+        paddle_id: obj.pad_id,
+        owner_id: obj.player_ID,
       });
     }
     payload.edges = this.map_polygon_edges;

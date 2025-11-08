@@ -40,6 +40,8 @@ export const PongPaddleSchema = z
     l: z.coerce.number().gt(0),
     w: z.coerce.number().gt(0),
     r: z.coerce.number(),
+    paddle_id: gameIdValue, // paddle id
+    owner_id: userIdValue, 
   })
   .strict();
 

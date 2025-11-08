@@ -7,7 +7,10 @@ import {
   PayloadToUsersSchema,
 } from "./api/service/hub/hub_interfaces.js";
 import type { WebSocketRouteDef } from "./api/service/common/endpoints.js";
-import { ErrorResponse, type ErrorResponseType } from "./api/service/common/error.js";
+import {
+  ErrorResponse,
+  type ErrorResponseType,
+} from "./api/service/common/error.js";
 
 import WebSocket from "ws";
 import { z, ZodType } from "zod";
@@ -28,10 +31,7 @@ type InferWSHandler<T extends WebSocketRouteDef> = (
   },
   schema: T["schema"]
 ) => Promise<
-  Result<
-    WSHandlerReturnValue<T["schema"]["output"]> | null,
-    ErrorResponseType
-  >
+  Result<WSHandlerReturnValue<T["schema"]["output"]> | null, ErrorResponseType>
 >;
 
 export type WSReceiverInputValue<
@@ -46,9 +46,7 @@ export type WSReceiverInputValue<
 type InferWSReceiver<T extends WebSocketRouteDef> = (
   input: WSReceiverInputValue<T["schema"]["output"]>,
   schema: T["schema"]
-) => Promise<
-  Result<null, string>
->;
+) => Promise<Result<null, string>>;
 
 export class OurSocket {
   private socket: WebSocket;
@@ -65,6 +63,39 @@ export class OurSocket {
     this._setupSocketListeners();
   }
 
+  async invokeHandler<T extends WebSocketRouteDef>(
+    handlerEndpoint: T,
+    userId: number | number[],
+    payload: z.infer<T["schema"]["args"]>
+  ): Promise<Result<void, ErrorResponseType>> {
+    if (userId instanceof Array) {
+      const results = await Promise.all(
+        userId.map((id) => this.invokeHandler(handlerEndpoint, id, payload))
+      );
+      const firstErr = results.find((r) => r.isErr());
+      if (firstErr !== undefined) return firstErr;
+      return Result.Ok(undefined);
+    }
+
+    const handler = this.handlerCallables[handlerEndpoint.funcId];
+    if (handler === undefined)
+      return Promise.resolve(
+        Result.Err({
+          message: `No handler found for funcId "${handlerEndpoint.funcId}"`,
+        })
+      );
+
+    return this._handleHandlerEndpoint(handler, {
+      funcId: handlerEndpoint.funcId,
+      user_id: userId,
+      payload,
+    }).then((result) => {
+      if (result.isErr()) return Result.Err(result.unwrapErr());
+      this.socket.send(JSON.stringify(result.unwrap()));
+      return Result.Ok(undefined);
+    });
+  }
+
   registerHandler<T extends WebSocketRouteDef>(
     handlerEndpoint: T,
     handler: InferWSHandler<T>
@@ -75,7 +106,10 @@ export class OurSocket {
       );
     }
 
-    if (this.handlerCallables[handlerEndpoint.funcId] || this.receiverCallables[handlerEndpoint.funcId]) {
+    if (
+      this.handlerCallables[handlerEndpoint.funcId] ||
+      this.receiverCallables[handlerEndpoint.funcId]
+    ) {
       throw new Error(
         `Handler for funcId "${handlerEndpoint.funcId}" is already registered`
       );
@@ -97,16 +131,22 @@ export class OurSocket {
       );
     }
 
-    this.receiverCallables[handlerEndpoint.funcId] = {
+    const result = (this.receiverCallables[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
       handler,
-    };
+    });
   }
 
   private _constructWSHandlerOutput<T extends WebSocketRouteDef>(
     route: T,
     response: WSHandlerReturnValue<T["schema"]["output"]>
-  ): Result<T_PayloadToUsers, ErrorResponseType> {
+  ): Result<T_PayloadToUsers | null, ErrorResponseType> {
+    if (!response) {
+      console.debug(
+        "Handler returns null. This is fine, it means it does not directly return a response for a client."
+      );
+      return Result.Ok(null);
+    }
     const responseCode: number = Number(response.code);
     let matched = false;
 
@@ -118,26 +158,31 @@ export class OurSocket {
         matched = true;
         const validation = zodParse(value.payload, response.payload);
         if (validation.isErr()) {
+          console.error(
+            `Response payload does not match schema for code ${responseCode}: ${validation.unwrapErr()}`
+          );
           return Result.Err({
-            message: `Response payload does not match schema for code ${responseCode}: ${validation.unwrapErr()}`,
+            message: "Internal schema mismatch - failed payload parsing",
           });
         }
         break;
       }
     }
 
-    if (!matched) {
+    if (!matched)
       return Result.Err({
-        message: `No response schema found for code ${responseCode}`,
+        message: "Internal schema mismatch - undefined code",
       });
-    }
 
     return zodParse(PayloadToUsersSchema, {
       recipients: response.recipients,
       funcId: route.funcId,
       code: responseCode,
       payload: response.payload,
-    }).mapErr((err) => ({ message: err }));
+    }).mapErr((err) => {
+      console.warn(err);
+      return { message: "Internal schema mismatch - failed schema parsing" };
+    });
   }
 
   sendMessage<T extends WebSocketRouteDef>(
@@ -158,11 +203,10 @@ export class OurSocket {
     };
     const parseResult = this._constructWSHandlerOutput(
       handlerEndpoint,
-      rawData,
-    )
-    if (parseResult.isErr())
-      return Result.Err(parseResult.unwrapErr());
-  
+      rawData
+    );
+    if (parseResult.isErr()) return Result.Err(parseResult.unwrapErr());
+
     try {
       this.socket.send(JSON.stringify(rawData));
     } catch (err) {
@@ -175,53 +219,119 @@ export class OurSocket {
     return this.socket;
   }
 
-  private async _executeHandler(handler: any, ...args: any[]): Promise<Result<any, ErrorResponseType>> {
+  private async _executeHandler(
+    handler: any,
+    ...args: any[]
+  ): Promise<Result<any, ErrorResponseType>> {
     try {
       let result = handler.handler(...args);
       if (result instanceof Promise) result = await result;
       return result;
     } catch (err) {
-      console.error("Error in _handleOutputEndpoint:", err);
-      return Result.Err({ message: "Error handling output endpoint" });
+      return Result.Err({ message: `Error running handler: ${err}` });
     }
   }
 
-  private async _handleHandlerEndpoint(handler: any, rawJson: any): Promise<Result<T_PayloadToUsers, ErrorResponseType>> {
-    const inputSchemaResult = zodParse(handler.metadata.schema.args_wrapper.extend({payload: handler.metadata.schema.args}), rawJson);
-    if (inputSchemaResult.isErr())
-      return Result.Err(ErrorResponse.parse({ message: `Invalid input: ${inputSchemaResult.unwrapErr()}` }));
+  private async _handleHandlerEndpoint(
+    handler: any,
+    rawJson: any
+  ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
+    const inputSchemaResult = zodParse(
+      handler.metadata.schema.args_wrapper.extend({
+        payload: handler.metadata.schema.args,
+      }),
+      rawJson
+    );
+    if (inputSchemaResult.isErr()) {
+      console.error(
+        "Input schema validation failed:",
+        inputSchemaResult.unwrapErr()
+      );
+      return Result.Err(
+        ErrorResponse.parse({
+          message: `Invalid input: ${inputSchemaResult.unwrapErr()}`,
+        })
+      );
+    }
 
-    const handlerResult = await this._executeHandler(handler, inputSchemaResult.unwrap(), handler.metadata.schema);
-    if (handlerResult.isErr())
-      return Result.Err(ErrorResponse.parse({ message: `Handler execution failed: ${handlerResult.unwrapErr()}` }));
+    const handlerResult = await this._executeHandler(
+      handler,
+      inputSchemaResult.unwrap(),
+      handler.metadata.schema
+    );
+    if (handlerResult.isErr()) {
+      console.error("Handler execution failed:", handlerResult.unwrapErr());
+      return Result.Err(
+        ErrorResponse.parse({ message: "Handler execution failed" })
+      );
+    }
 
-    return this._constructWSHandlerOutput(handler.metadata, handlerResult.unwrap());
+    return this._constructWSHandlerOutput(
+      handler.metadata,
+      handlerResult.unwrap()
+    );
   }
 
-  private async _handleReceiverEndpoint(handler: any, rawJson: any): Promise<Result<void, ErrorResponseType>> {
-    const inputSchemaResult = zodParse(handler.metadata.schema.output_wrapper, rawJson);
-    if (inputSchemaResult.isErr())
-      return Result.Err(ErrorResponse.parse({ message: `Invalid input schema: ${inputSchemaResult.unwrapErr()}` }));
+  private async _handleReceiverEndpoint(
+    handler: any,
+    rawJson: any
+  ): Promise<Result<void, ErrorResponseType>> {
+    const inputSchemaResult = zodParse(
+      handler.metadata.schema.output_wrapper,
+      rawJson
+    );
+    if (inputSchemaResult.isErr()) {
+      console.error(
+        "Input schema validation failed:",
+        inputSchemaResult.unwrapErr()
+      );
+      return Result.Err(
+        ErrorResponse.parse({
+          message: `Invalid input schema: ${inputSchemaResult.unwrapErr()}`,
+        })
+      );
+    }
 
     const schema = inputSchemaResult.unwrap();
     const code: number = Number(schema.code);
-    const schemaEntry = Object.values(handler.metadata.schema.output).find((entry: any) => Number(entry.code) === code);
+    const schemaEntry = Object.values(handler.metadata.schema.output).find(
+      (entry: any) => Number(entry.code) === code
+    );
     if (schemaEntry === undefined || schemaEntry === null)
-      return Result.Err(ErrorResponse.parse({ message: `No schema found for output code: ${code}` }));
+      return Result.Err(
+        ErrorResponse.parse({
+          message: `No schema found for output code: ${code}`,
+        })
+      );
 
     const payloadSchema = (schemaEntry as { payload: z.ZodTypeAny }).payload;
-    const outputSchemaResult = zodParse(handler.metadata.schema.output_wrapper.extend({ payload: payloadSchema }), rawJson);
+    const outputSchemaResult = zodParse(
+      handler.metadata.schema.output_wrapper.extend({ payload: payloadSchema }),
+      rawJson
+    );
     if (outputSchemaResult.isErr())
-      return Result.Err(ErrorResponse.parse({ message: `Invalid output: ${outputSchemaResult.unwrapErr()}` }));
+      return Result.Err(
+        ErrorResponse.parse({
+          message: `Invalid output: ${outputSchemaResult.unwrapErr()}`,
+        })
+      );
 
-    return (await this._executeHandler(handler, outputSchemaResult.unwrap().payload, handler.metadata.schema)).map(() => undefined);
+    return (
+      await this._executeHandler(
+        handler,
+        outputSchemaResult.unwrap(),
+        handler.metadata.schema
+      )
+    ).map(() => undefined);
   }
 
-  private async _handleOnMessage(data: WebSocket.RawData): Promise<Result<void, ErrorResponseType>> {
+  private async _handleOnMessage(
+    data: WebSocket.RawData
+  ): Promise<Result<void, ErrorResponseType>> {
     const str = rawDataToString(data);
-    if (!str) return Result.Err({ message: "Failed to convert WS data to string" });
+    if (!str)
+      return Result.Err({ message: "Failed to convert WS data to string" });
     console.log("Received WS message:", str);
-
 
     let rawJson;
     try {
@@ -237,20 +347,24 @@ export class OurSocket {
         "Schema validation failed for incoming WS payload: " +
           parsedData.unwrapErr()
       );
-      return Result.Err({ message: "Schema validation failed for incoming WS payload" });
+      return Result.Err({
+        message: "Schema validation failed for incoming WS payload",
+      });
     }
 
     const funcId = parsedData.unwrap().funcId;
-    //
-    // Validate zod schemas here, if it fails, user can be infomed with socket.send right here.
-    // ...
     const receiverCallable = this.receiverCallables[funcId];
     if (receiverCallable !== undefined) {
-      const executionResult = await this._handleReceiverEndpoint(receiverCallable, rawJson);
+      console.log("Awaiting handler to deal with:" + str);
+      const executionResult = await this._handleReceiverEndpoint(
+        receiverCallable,
+        rawJson
+      );
       if (executionResult.isErr()) {
         console.warn("Receiver handler error:", executionResult.unwrapErr());
+        return Result.Err({ message: "Receiver handler error" });
       }
-      return Result.Err({ message: "Receiver handler error" });
+      return executionResult;
     }
 
     const handleCallable = this.handlerCallables[funcId];
@@ -259,9 +373,24 @@ export class OurSocket {
       return Result.Err({ message: `No handler found for funcId "${funcId}"` });
     }
 
-    const executionResult = await this._handleHandlerEndpoint(handleCallable, rawJson);
+    const executionResult = await this._handleHandlerEndpoint(
+      handleCallable,
+      rawJson
+    );
     if (executionResult.isErr()) {
       console.warn("Handler error:", executionResult.unwrapErr());
+      const userIdResult = zodParse(z.object({ user_id: z.number() }), rawJson);
+      if (userIdResult.isErr()) return Result.Err({ message: "Handler error" });
+
+      const userId = userIdResult.unwrap().user_id;
+      this.socket.send(
+        JSON.stringify({
+          recipients: [userId],
+          funcId: funcId,
+          code: -1,
+          payload: executionResult.unwrapErr(),
+        })
+      );
       return Result.Err({ message: "Handler error" });
     }
 
@@ -274,7 +403,10 @@ export class OurSocket {
     this.socket.on("message", async (data: WebSocket.RawData) => {
       const result = await this._handleOnMessage(data);
       if (result.isErr()) {
-        console.error("Error handling incoming WS message:", result.unwrapErr());
+        console.error(
+          "Error handling incoming WS message:",
+          result.unwrapErr()
+        );
         return;
       }
     });
@@ -282,5 +414,9 @@ export class OurSocket {
     this.socket.on("error", (err: Error) => {
       console.error("WebSocket error:", err.message);
     });
+  }
+
+  register(func: (socket: OurSocket) => void) {
+    func(this);
   }
 }

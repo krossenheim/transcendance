@@ -396,7 +396,7 @@ export default function ChatInputComponent() {
 
   useEffect(() => {
     console.log("Requesting room list on mount")
-    sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+    // sendToSocket(user_url.ws.chat.listRooms.funcId, {})
   }, [sendToSocket])
 
   /* -------------------- Handlers -------------------- */

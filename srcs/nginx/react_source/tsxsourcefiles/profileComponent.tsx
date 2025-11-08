@@ -56,7 +56,7 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
       console.log("[v0] ProfileComponent: Fetching profile for userId:", userId)
       setLoading(true)
       setError(null)
-      sendToSocket(user_url.ws.users.getProfile.funcId, { userId })
+      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
 
       const timeout = setTimeout(() => {
         setLoading(false)
@@ -72,10 +72,10 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
     if (!payloadReceived) return
 
     console.log("[v0] Profile component received payload:", payloadReceived)
-    console.log("[v0] Expected funcId:", user_url.ws.users.getProfile.funcId)
+    console.log("[v0] Expected funcId:", user_url.ws.users.requestUserProfileData.funcId)
     console.log("[v0] Received funcId:", payloadReceived.funcId)
 
-    if (payloadReceived.funcId === user_url.ws.users.getProfile.funcId) {
+    if (payloadReceived.funcId === user_url.ws.users.requestUserProfileData.funcId) {
       console.log("[v0] Profile data response matched! Code:", payloadReceived.code)
       if (payloadReceived.code === 0) {
         console.log("[v0] Profile data:", payloadReceived.payload)

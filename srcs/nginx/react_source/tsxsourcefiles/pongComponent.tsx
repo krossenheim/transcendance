@@ -53,7 +53,7 @@ export default function PongComponent() {
 
   const onFirstGameStatereceived = useCallback(
     (game_has_started_data: TypeGameStateSchema) => {
-      console.log(`Game started: '${game_has_started_data.board_id}'`)
+      console.log(`Game started: '${game_has_started_data.board_id}'`);
     },
     [gameState],
   )
@@ -68,7 +68,77 @@ export default function PongComponent() {
     } else if (payloadReceived.funcId === user_url.ws.pong.userReportsReady.funcId) {
       setLatestPlayerReadyPayload(payloadReceived.payload)
     }
-  }, [payloadReceived])
+  }, [payloadReceived]);
+
+  useEffect(() => {
+    if (!payloadReceived) return;
+
+    for (const webSocketRoute of Object.values(user_url.ws.pong)) {
+      if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
+
+      const responseSchema = Object.values(webSocketRoute.schema.output).find(
+        (r) => r.code === payloadReceived.code
+      );
+
+      if (!responseSchema) {
+        console.error("Unknown code", payloadReceived.code);
+        return;
+      }
+
+      const parsed = responseSchema.payload.safeParse(payloadReceived.payload);
+      if (!parsed.success) {
+        console.warn("Invalid payload", parsed.error);
+        return;
+      }
+
+      // Update the appropriate state slice based on funcId
+      switch (payloadReceived.funcId) {
+        case user_url.ws.pong.getGameState.funcId:
+          if (
+            payloadReceived.code !==
+            user_url.ws.pong.getGameState.schema.output.GameUpdate.code
+          )
+            break;
+          setGameState(parsed.data);
+          // setPlayerIDsHelper(parsed.data);
+          break;
+        case user_url.ws.pong.userReportsReady.funcId:
+          setLatestPlayerReadyPayload(parsed.data);
+          break;
+        // Add other funcIds here...
+      }
+
+      return; // stop after first match
+    }
+  }, [payloadReceived]);
+
+  // useEffect(() => {
+  //   if (!payloadReceived) return;
+
+  //   if (payloadReceived.funcId === user_url.ws.pong.startGame.funcId) {
+  //     const parsed =
+  //       user_url.ws.pong.startGame.schema.output.GameInstanceCreated.payload.safeParse(
+  //         payloadReceived.payload
+  //       );
+  //     if (parsed.success) setGame_id(parsed.data.board_id);
+  //     else console.warn("Invalid new game payload:", parsed.error);
+  //   } else if (
+  //     payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
+  //   ) {
+  //     const parsed =
+  //       user_url.ws.pong.getGameState.schema.output.GameUpdate.payload.safeParse(
+  //         payloadReceived.payload
+  //       );
+  //     if (parsed.success) {
+  //       if (game_id === null) setGame_id(parsed.data.board_id); // Client rejoined
+  //       setGameState(parsed.data);
+  //     } else console.warn("Invalid GameState payload:", parsed.error);
+  //   }
+  // }, [payloadReceived]);
+
+  // // =========================
+  // WebSocket Send Helpers
+  // =========================
 
   const handleUserInput = useCallback(
     (wshandlerinfo: any, payload: any) => {

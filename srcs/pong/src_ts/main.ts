@@ -3,22 +3,16 @@ import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
 import { OurSocket } from "./utils/socket_to_hub.js";
-import { user_url } from "./utils/api/service/common/endpoints.js";
+import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import { Result } from "./utils/api/service/common/result.js";
+import type { FastifyInstance } from "fastify";
+import { createFastify } from "./utils/api/service/common/fastify.js";
+import { registerRoute } from "./utils/api/service/common/fastify.js";
+import PongGame from "./pongGame.js";
+import { PongLobbyStatus } from "./playerPaddle.js";
 
-const fastify = Fastify({
-  logger: {
-    level: "info", // or 'debug' for more verbosity
-    transport: {
-      target: "pino-pretty", // pretty-print logs in development
-      options: {
-        colorize: true,
-        translateTime: "HH:MM:ss Z",
-        ignore: "pid,hostname",
-      },
-    },
-  },
-});
+const fastify: FastifyInstance = createFastify();
+
 fastify.register(websocketPlugin);
 
 const singletonPong = new PongManager();
@@ -45,7 +39,7 @@ async function backgroundTask() {
         };
         if (!game.paused) socket.getSocket().send(JSON.stringify(out));
       }
-      const getNextFrameTime = 35; // game.next_frame_when?
+      const getNextFrameTime = 100; // game.next_frame_when?
       await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
     }
   } catch (err) {
@@ -61,8 +55,10 @@ async function backgroundTask() {
     while (true) {}
   }
 }
+
 backgroundTask();
 
+//handle input to a function funcId
 socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
   const game_id = wrapper.payload.board_id;
   const paddle_id = wrapper.payload.paddle_id;
@@ -85,5 +81,86 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
   const game_id = wrapper.payload.game_id;
   return singletonPong.userReportsReady(user_id, game_id);
 });
+// Handle output from a function funcId
+socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
+  if (
+    wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
+  ) {
+    console.log("Wrapper is: ", JSON.stringify(wrapper));
+    const userId = wrapper.payload.userId;
+    if (!userId) throw new Error("Schema not validated.");
+    singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
+  } else
+    return Result.Err(
+      `Unhandled code(${
+        wrapper.code
+      }) for int_url.ws.hub.userDisconnected, wrapper: ${JSON.stringify(
+        wrapper
+      )}`
+    );
+  return Result.Ok(null);
+});
+socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
+  if (
+    wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
+  ) {
+    console.log("Wrapper is: ", JSON.stringify(wrapper));
+    const userId = wrapper.payload.userId;
+    if (!userId) {
+      console.error("INVALID SCHEMA");
+      throw new Error("Schema not validated.");
+    }
+    singletonPong.setPlayerStatus(userId, PongLobbyStatus.Paused);
+    // find any games the user is on and send a getGameState from each
+    const ongoing_user_games = singletonPong.getGamesWithPlayerById(userId);
+    if (!ongoing_user_games) {
+      // console.log("No ongoing games for user ", userId);
+      return Result.Ok(null);
+    }
+    for (const game of ongoing_user_games) {
+      const payload = game.getGameState();
+      const recipients = game.player_ids;
 
+      const out = {
+        recipients: recipients,
+        funcId: user_url.ws.pong.getGameState.funcId,
+        code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+        payload: payload,
+      };
+      // console.log("Sending out: ", JSON.stringify(out));
+      socket.getSocket().send(JSON.stringify(out));
+    }
+  } else
+    return Result.Err(
+      `Unhandled code(${
+        wrapper.code
+      }) for int_url.ws.hub.userConnected, wrapper: ${JSON.stringify(wrapper)}`
+    );
+
+  return Result.Ok(null);
+});
 console.log(singletonPong.startGame(7, [4, 5, 5], 1));
+
+registerRoute(fastify, int_url.http.pong.startGame, async (request, reply) => {
+  const { balls, player_list } = request.body;
+  let result = PongGame.create(balls, player_list);
+
+  if (result.isErr()) {
+    return reply.status(500).send({ message: result.unwrapErr() });
+  }
+  return reply.status(200).send(result.unwrap().getGameState());
+});
+
+const port = parseInt(
+  process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
+  10
+);
+const host = process.env.PONG_BIND_TO || "0.0.0.0";
+
+fastify.listen({ port, host }, (err, address) => {
+  if (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+  fastify.log.info(`Server listening at ${address}`);
+});

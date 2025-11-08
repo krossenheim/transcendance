@@ -16,10 +16,11 @@ import {
   StoredMessageSchema,
   RoomEventSchema,
   ListRoomsSchema,
+  FullRoomInfoSchema,
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
-import { FullUser, GetUser } from "../db/user.js";
+import user, { Friend, FullUser, GetUser, PublicUserData } from "../db/user.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
@@ -158,30 +159,14 @@ export const pub_url = defineRoutes({
 export const user_url = defineRoutes({
   http: {
     users: {
-      fetchUser: {
-        endpoint: "/api/users/fetch",
+      fetchUserAvatar: {
+        endpoint: "/api/users/pfp",
         wrapper: GenericAuthClientRequest,
         method: "POST",
         schema: {
           body: userIdValue,
           response: {
             200: z.array(FullUser),
-            401: ErrorResponse,
-            404: ErrorResponse,
-            500: ErrorResponse,
-          },
-        },
-      },
-
-      requestFriendship: {
-        endpoint: "/api/users/request_friendship",
-        wrapper: GenericAuthClientRequest,
-        method: "POST",
-        schema: {
-          body: RequestUpdateFriendship,
-          response: {
-            200: z.null(),
-            401: ErrorResponse,
             500: ErrorResponse,
           },
         },
@@ -211,24 +196,112 @@ export const user_url = defineRoutes({
         },
       },
 
-      updateUserConnection: {
-        funcId: "update_user_connection",
+      requestFriendship: {
+        funcId: "request_friendship",
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: RequestUpdateFriendship,
+          args: userIdValue,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             ConnectionUpdated: {
               code: 0,
               payload: z.null(),
             },
-            InvitedUserDoesNotExist: {
+            UserDoesNotExist: {
               code: 1,
               payload: ErrorResponse,
             },
-            InvalidStatusTransition: {
-              code: 2,
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      confirmFriendship: {
+        funcId: "confirm_friendship",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      blockUser: {
+        funcId: "block_user",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      fetchUserConnections: {
+        funcId: "fetch_user_connections",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.null(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: z.array(Friend),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      requestUserProfileData: {
+        funcId: "user_profile",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: PublicUserData,
+            },
+            UserDoesNotExist: {
+              code: 1,
               payload: ErrorResponse,
             },
           },
@@ -425,7 +498,7 @@ getProfile: {
             InvalidInput: {
               code: 3,
               payload: ErrorResponse,
-            },            
+            },
             InvitationNotAccepted: {
               code: 4,
               payload: ErrorResponse,
@@ -502,6 +575,29 @@ getProfile: {
           },
         },
       },
+      getMessages: {
+        funcId: "/api/chat/get_messages",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z
+            .object({
+              roomId: room_id_rule,
+            })
+            .strict(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            FullRoomInfoGiven: {
+              code: 0,
+              payload: FullRoomInfoSchema,
+            },
+            NoListGiven: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
       joinRoom: {
         funcId: "/api/chat/join_room",
         container: "chat",
@@ -535,16 +631,16 @@ export const int_url = defineRoutes({
   ws: {
     hub: {
       userConnected: {
-        funcId: "get_online_users",
+        funcId: "user_connected",
         container: "hub", // Suspicious activity
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: z.array(z.number()), // not really meant to ever be called
+          args: EmptySchema, // not really meant to ever be called
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             Success: {
               code: 0,
-              payload: z.array(z.number()),
+              payload: GetUser,
             },
             Failure: {
               code: 1,
@@ -594,13 +690,29 @@ export const int_url = defineRoutes({
     },
   },
   http: {
+    pong: {
+      startGame: {
+        endpoint: "/internal_api/pong/start_game_http",
+        method: "POST",
+        schema: {
+          body: StartNewPongGameSchema,
+          response: {
+            200: GameStateSchema,
+            401: ErrorResponse,
+            404: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+    },
     db: {
       // Userdata endpoints
-      listUsers: {
+      fetchMultipleUsers: {
         // DEBUG ONLY
         endpoint: "/internal_api/db/users",
-        method: "GET",
+        method: "POST",
         schema: {
+          body: z.array(userIdValue),
           response: {
             200: z.array(FullUser),
             500: ErrorResponse,
@@ -668,14 +780,26 @@ export const int_url = defineRoutes({
         },
       },
 
-      updateUserFriendshipStatus: {
-        endpoint: "/internal_api/db/users/update_friendship_status",
+      updateUserConnectionStatus: {
+        endpoint: "/internal_api/db/users/update_connection_status",
         method: "POST",
         schema: {
-          body: UserConnectionStatusSchema,
+          body: z.array(UserConnectionStatusSchema),
           response: {
             200: z.null(), // Updated successfully
             400: ErrorResponse, // Invalid status transition
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      fetchUserConnections: {
+        endpoint: "/internal_api/db/users/get_user_connections/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.array(Friend), // Retrieved friendlist
             500: ErrorResponse, // Internal server error
           },
         },

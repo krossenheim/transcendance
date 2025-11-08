@@ -4,6 +4,7 @@ import { int_url, type HTTPRouteDef } from './api/service/common/endpoints.js';
 import { zodParse } from './api/service/common/zodUtils.js';
 import axios, { Axios, type AxiosResponse } from 'axios';
 import { Result } from './api/service/common/result.js';
+import { z } from 'zod';
 
 class ContainerTarget {
   target: string;
@@ -61,6 +62,18 @@ class DatabaseTarget extends ContainerTarget {
     const response = responseResult.unwrap();
     if (response.status === 200)
       return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
+
+    return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
+  }
+
+  async fetchMultipleUsers(userIds: number[]): Promise<Result<FullUserType[], ErrorResponseType>> {
+    const responseResult = await this.post(int_url.http.db.fetchMultipleUsers, userIds);
+    if (responseResult.isErr())
+      return Result.Err({ message: 'Database service unreachable' });
+
+    const response = responseResult.unwrap();
+    if (response.status === 200)
+      return zodParse(z.array(FullUser), response.data).mapErr((err) => ({ message: err }));
 
     return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
   }

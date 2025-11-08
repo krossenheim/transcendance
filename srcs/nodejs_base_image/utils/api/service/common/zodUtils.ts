@@ -5,15 +5,16 @@ export function zodParse<T extends z.ZodTypeAny>(schema: T, data: unknown): Resu
 	const parsed = schema.safeParse(data);
 	if (parsed.success) return Result.Ok(parsed.data);
 
-	const issues = parsed.error.issues
-		.map(i => {
-			const path = i.path.length ? i.path.join('.') : '<root>';
-			return `${path}: ${i.message}${i.code ? ` (${i.code})` : ''}`;
-		})
-		.join('; ');
+	const messages = parsed.error.issues.map(issue => {
+		const path = issue.path.length ? issue.path.join('.') : '<root>';
+		return `- ${path}: ${issue.message}`;
+	});
 
-	const details = JSON.stringify(z.treeifyError(parsed.error), null, 2);
-	return Result.Err(`Failed to parse schema: ${issues}\nDetails: ${details}`);
+	return Result.Err([
+		'Schema validation failed:',
+		...messages,
+		`(Total ${messages.length} issue${messages.length !== 1 ? 's' : ''})`,
+	].join('\n'));
 }
 
 export type ZodSchema<T extends {

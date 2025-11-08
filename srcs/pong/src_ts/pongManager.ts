@@ -18,6 +18,17 @@ export class PongManager {
     PongManager.instance = this;
     return this;
   }
+
+  setPlayerStatus(user_id: number, status: PongLobbyStatus) {
+    for (const [game_id, game] of this.pong_instances) {
+      for (const paddle of game.player_paddles) {
+        if (paddle.player_ID === user_id) {
+          paddle.connectionStatus = status;
+        }
+      }
+    }
+  }
+
   userReportsReady(
     user_id: number,
     gameIdReq: number
@@ -145,6 +156,12 @@ export class PongManager {
     }
     paddle.setMoveOnNextFrame(m);
     return Result.Ok(null);
+  }
+
+  getGamesWithPlayerById(playerId: number): PongGame[] {
+    return [...this.pong_instances.values()].filter((g) =>
+      g.player_paddles.find((n) => n.player_ID === playerId)
+    );
   }
 }
 

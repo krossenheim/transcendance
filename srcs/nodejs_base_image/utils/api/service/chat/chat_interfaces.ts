@@ -32,7 +32,7 @@ export const message_rule = z.coerce
     message: `Must contain at least ${MESSAGE_MIN_LEN} non-space characters`,
   })
   .refine((val) => whitelistedPattern.test(val), {
-    message: `String contains invalid characters; only alphanumerics are allowed`,
+    message: `String contains invalid characters; only numbers and letters are allowed`,
   });
 
 export const AddRoomPayloadSchema = z

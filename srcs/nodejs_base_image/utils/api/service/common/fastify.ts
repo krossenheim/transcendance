@@ -7,7 +7,19 @@ import { z } from "zod";
 import type { HTTPRouteDef } from "./endpoints.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-export function createFastify(options = { logger: true }): FastifyInstance {
+export function createFastify(options = {
+  logger: {
+    level: "info", // or 'debug' for more verbosity
+    transport: {
+      target: "pino-pretty", // pretty-print logs in development
+      options: {
+        colorize: true,
+        translateTime: "HH:MM:ss Z",
+        ignore: "pid,hostname",
+      },
+    },
+  },
+}): FastifyInstance {
 	const server = Fastify(options);
 	server.setValidatorCompiler(validatorCompiler);
 	server.setSerializerCompiler(serializerCompiler);
@@ -24,7 +36,7 @@ type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
 
 type RouteBody<T extends HTTPRouteDef> =
 	T["wrapper"] extends z.ZodTypeAny
-		? z.infer<T["wrapper"] & { payload: z.infer<T["schema"]["body"]> }>
+		? Omit<z.infer<T["wrapper"]>, "payload"> & { payload: z.infer<T["schema"]["body"]> }
 		: T["schema"] extends { body: z.ZodTypeAny }
 			? z.infer<T["schema"]["body"]>
 			: never;

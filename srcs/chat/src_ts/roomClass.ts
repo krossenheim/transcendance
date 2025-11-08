@@ -1,7 +1,3 @@
-import type {
-  T_ForwardToContainer,
-  T_PayloadToUsers,
-} from "./utils/api/service/hub/hub_interfaces.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
 import { user_url } from "./utils/api/service/common/endpoints.js";
@@ -157,7 +153,7 @@ class Room {
 
 let DEBUGROOMID = 1;
 class ChatRooms {
-  private rooms: Array<Room>;
+  public rooms: Array<Room>;
   public static instance: ChatRooms;
 
   constructor() {
@@ -207,7 +203,7 @@ class ChatRooms {
     const list: Array<TypeRoomSchema> = [];
 
     for (const room of this.rooms) {
-      if (room.users.find((id) => id === user_id)) {
+      if (room.allowedUsers.find((id) => id === user_id)) {
         list.push({ roomName: room.room_name, roomId: room.roomId });
       }
     }
