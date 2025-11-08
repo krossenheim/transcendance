@@ -19,19 +19,47 @@ socketToHub.registerHandler(user_url.ws.users.test, async (body, schema) => {
 	return result;
 });
 
-socketToHub.registerReceiver(int_url.ws.hub.userConnected, async (data, schema) => {
-	console.log("Received userConnected event with data:", data);
+socketToHub.registerHandler(user_url.ws.users.getProfile, async (body, schema) => {
+  console.log("Received getProfile request with body:", body);
 
-	if (data.code === 0) {
-		console.log(`User ${data.payload[0]} connected to users container successfully.`);
-	}
+  const requestedUserId = body.payload.userId;
+  const userResult = await containers.db.fetchUserData(requestedUserId);
 
-	if (data.code === schema.output.Failure.code) {
-		console.warn(`User connection to users container failed: ${data.payload.message}`);
-	}
+  if (userResult.isErr()) {
+    console.error("Failed to fetch user:", userResult.unwrapErr());
+    socketToHub.sendMessage(user_url.ws.users.getProfile, {
+      recipients: [body.user_id],
+      code: schema.output.UserNotFound.code,
+      payload: { message: "User not found" },
+    });
+    return Result.Ok(null);
+  }
 
-	return Result.Ok(null);
+  const userData = userResult.unwrap();
+  const avatarUrl = userData.hasAvatar ? `/avatars/${userData.id}.png` : undefined;
+
+  const profileData = {
+    userId: userData.id,
+    username: userData.username,
+    email: userData.email ?? undefined,
+    bio: userData.alias ?? undefined,
+    avatar: avatarUrl,
+    status: "online" as const,
+    joinDate: new Date(userData.createdAt).toISOString(),
+    stats: { gamesPlayed: 0, wins: 0, losses: 0 },
+    isFriend: false,
+    isBlocked: false,
+  };
+
+  socketToHub.sendMessage(user_url.ws.users.getProfile, {
+    recipients: [body.user_id],
+    code: schema.output.ProfileFound.code,
+    payload: profileData,
+  });
+
+  return Result.Ok(null);
 });
+
 
 registerRoute(fastify, user_url.http.users.fetchUser, async (request, reply) => {
 	const requestingUser = await containers.db.fetchUserData(request.body.userId);

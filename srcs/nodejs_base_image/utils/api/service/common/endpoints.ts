@@ -236,64 +236,64 @@ export const user_url = defineRoutes({
       },
 
       
-    getProfile: {
-      funcId: "/api/users/get_profile",
-      container: "users",
-      schema: {
-        args_wrapper: ForwardToContainerSchema,
-        args: z.object({ userId: idValue }),
-        output_wrapper: PayloadHubToUsersSchema,
-        output: {
-          ProfileFound: {
-            code: 0,
-            payload: z.object({
-              userId: idValue,
-              username: z.string(),
-              email: z.string().optional(),
-              avatar: z.string().optional(),
-              bio: z.string().optional(),
-              status: z.enum(["online", "offline", "in-game"]).optional(),
-              joinDate: z.string().optional(),
-              stats: z.object({
-                gamesPlayed: z.number(),
-                wins: z.number(),
-                losses: z.number(),
-              }).optional(),
-              isFriend: z.boolean().optional(),
-              isBlocked: z.boolean().optional(),
-            }),
-          },
-          UserNotFound: {
-            code: 1,
-            payload: ErrorResponse,
+getProfile: {
+        funcId: "/api/users/get_profile",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ userId: idValue }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ProfileFound: {
+              code: 0,
+              payload: z.object({
+                userId: idValue,
+                username: z.string(),
+                email: z.string().optional(),
+                avatar: z.string().optional(),
+                bio: z.string().optional(),
+                status: z.enum(["online", "offline", "in-game"]).optional(),
+                joinDate: z.string().optional(),
+                stats: z.object({
+                  gamesPlayed: z.number(),
+                  wins: z.number(),
+                  losses: z.number(),
+                }).optional(),
+                isFriend: z.boolean().optional(),
+                isBlocked: z.boolean().optional(),
+              }),
+            },
+            UserNotFound: {
+              code: 1,
+              payload: ErrorResponse,
+            },
           },
         },
       },
-    },
 
-    updateProfile: {
-      funcId: "/api/users/update_profile",
-      container: "users",
-      schema: {
-        args_wrapper: ForwardToContainerSchema,
-        args: z.object({ bio: z.string().optional() }),
-        output_wrapper: PayloadHubToUsersSchema,
-        output: {
-          ProfileUpdated: { 
-            code: 0, 
-            payload: z.object({
-              userId: idValue,
-              username: z.string(),
-              bio: z.string().optional(),
-            })
+      updateProfile: {
+        funcId: "/api/users/update_profile",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ bio: z.string().optional() }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ProfileUpdated: { 
+              code: 0, 
+              payload: z.object({
+                userId: idValue,
+                username: z.string(),
+                bio: z.string().optional(),
+              })
+            },
+            Unauthorized: { code: 1, payload: ErrorResponse },
           },
-          Unauthorized: { code: 1, payload: ErrorResponse },
         },
       },
-    },
-  },
+    },  // <-- CLOSE users HERE
 
-    pong: {
+    pong: {  // <-- pong should be at the same level as users
       getGameState: {
         funcId: "get_game_state",
         container: "pong",
