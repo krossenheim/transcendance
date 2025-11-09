@@ -50,6 +50,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     setInput("")
   }
 
+  const isCommand = input.startsWith("/")
+
   return (
     <div className="flex flex-col bg-white shadow-lg rounded-2xl border border-gray-200 h-[600px]">
       {/* Header */}
@@ -85,7 +87,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                     >
                       {msg.user}
                     </span>
-                    <button onClick={() => onBlockUser(msg.user)} className="text-xs text-red-500 hover:underline">
+                    <button
+                      onClick={() => onBlockUser(msg.user)}
+                      className="text-xs text-red-500 hover:underline"
+                    >
                       {blockedUsers.includes(msg.user) ? "Unblock" : "Block"}
                     </button>
                   </div>
@@ -114,7 +119,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           <input
             type="text"
             placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
-            className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+            className={`flex-1 border rounded-full px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 ${
+              isCommand
+                ? "border-purple-500 text-purple-600 focus:ring-purple-400"
+                : "border-gray-300 focus:ring-blue-400"
+            } disabled:bg-gray-100`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -420,18 +429,82 @@ export default function ChatInputComponent() {
     // sendToSocket(user_url.ws.chat.listRooms.funcId, {})
   }, [sendToSocket])
 
+
+
+  const parseSlashCommand = (input: string) => {
+  if (!input.startsWith("/")) return null
+
+  const parts = input.trim().split(/\s+/)
+  const command = parts[0].substring(1).toLowerCase()
+  const args = parts.slice(1)
+
+  return { command, args }
+}
+
   /* -------------------- Handlers -------------------- */
-  const handleSendMessage = useCallback(
-    (content: string) => {
-      if (!currentRoomId) return
-      console.log("Sending message to room:", currentRoomId, content)
-      sendToSocket(user_url.ws.chat.sendMessage.funcId, {
-        roomId: currentRoomId,
-        messageString: content,
-      })
-    },
-    [currentRoomId, sendToSocket],
-  )
+ const handleSendMessage = useCallback(
+  (content: string) => {
+    if (!currentRoomId) return
+    const commandInfo = parseSlashCommand(content)
+
+    // ✅ Handle slash commands
+    if (commandInfo) {
+      const { command, args } = commandInfo
+      console.log("Slash command detected:", command, args)
+
+      switch (command) {
+        case "me":
+          // Send a special “emote-style” message
+          sendToSocket(user_url.ws.chat.sendMessage.funcId, {
+            roomId: currentRoomId,
+            messageString: `*${args.join(" ")}*`,
+          })
+          break
+
+        case "whisper":
+        case "w":
+          if (args.length < 2) {
+            alert("Usage: /whisper <username> <message>")
+            return
+          }
+          const [target, ...messageParts] = args
+          sendToSocket(user_url.ws.chat.whisper.funcId, {
+            target,
+            message: messageParts.join(" "),
+          })
+          break
+
+        case "invite":
+          if (args.length !== 1) {
+            alert("Usage: /invite <username>")
+            return
+          }
+          sendToSocket(user_url.ws.chat.invite.funcId, { target: args[0] })
+          break
+
+        case "help":
+          alert(`Available commands:
+  /me <action> - emote style message
+  /whisper <user> <message> - private message
+  /invite <user> - invite to room
+  /help - show this help`)
+          break
+
+        default:
+          alert(`Unknown command: /${command}`)
+      }
+
+      return // Don’t send the raw message
+    }
+
+    // ✅ Regular chat message
+    sendToSocket(user_url.ws.chat.sendMessage.funcId, {
+      roomId: currentRoomId,
+      messageString: content,
+    })
+  },
+  [currentRoomId, sendToSocket],
+)
 
   const handleSelectRoom = useCallback(
     (roomId: string) => {
