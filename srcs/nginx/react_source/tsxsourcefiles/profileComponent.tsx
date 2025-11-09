@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 
@@ -28,45 +28,66 @@ interface ProfileComponentProps {
 }
 
 export default function ProfileComponent({ userId, isOpen, onClose }: ProfileComponentProps) {
-  const { socket, payloadReceived } = useWebSocket()
+  const { socket, payloadReceived, isConnected } = useWebSocket()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [editedBio, setEditedBio] = useState("")
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
-
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sendToSocket = useCallback(
     (funcId: string, payload: any) => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      if (socket.current && isConnected) {
         const toSend = {
           funcId,
           payload,
           target_container: "users",
         }
         console.log("[v0] Sending profile request:", toSend)
+        console.log("[v0] Payload detail:", JSON.stringify(payload, null, 2))
+        console.log("[v0] Payload type:", typeof payload)
         socket.current.send(JSON.stringify(toSend))
+      } else {
+        console.warn("[v0] Socket not connected, cannot send profile request")
+        console.warn("[v0] isConnected:", isConnected)
+        console.warn("[v0] Socket state:", socket.current?.readyState)
+        setLoading(false)
+        setError("WebSocket is not connected. Please check your connection.")
       }
     },
-    [socket],
+    [socket, isConnected],
   )
 
-  useEffect(() => {
-    if (isOpen && userId) {
-      console.log("[v0] ProfileComponent: Fetching profile for userId:", userId)
-      setLoading(true)
-      setError(null)
-      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
+useEffect(() => {
+  if (isOpen && userId) {
+    console.log("[v0] ProfileComponent: Fetching profile for userId:", userId)
+    setLoading(true)
+    setError(null)
 
-      const timeout = setTimeout(() => {
-        setLoading(false)
-        setError("Unable to load profile. The backend may not have implemented the get_profile endpoint yet.")
-        console.error("[v0] Profile request timed out after 5 seconds")
-      }, 5000)
+    // ✅ Clear any previous timeout before starting a new one
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-      return () => clearTimeout(timeout)
+    // Send request
+    sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
+
+    // ✅ Set a new timeout
+    timeoutRef.current = setTimeout(() => {
+      setLoading(false)
+      setError("Request timed out. The profile endpoint may not be implemented or is not responding.")
+      console.error("[v0] Profile request timed out after 5 seconds")
+    }, 5000)
+  }
+
+  // Cleanup when closing modal or changing user
+  return () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
-  }, [isOpen, userId, sendToSocket])
+  }
+}, [isOpen, userId, sendToSocket])
+
 
   useEffect(() => {
     if (!payloadReceived) return
@@ -76,11 +97,32 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
     console.log("[v0] Received funcId:", payloadReceived.funcId)
 
     if (payloadReceived.funcId === user_url.ws.users.requestUserProfileData.funcId) {
+      // ✅ Clear timeout once we receive the profile response
+if (timeoutRef.current) {
+  clearTimeout(timeoutRef.current)
+  timeoutRef.current = null
+}
+
       console.log("[v0] Profile data response matched! Code:", payloadReceived.code)
       if (payloadReceived.code === 0) {
         console.log("[v0] Profile data:", payloadReceived.payload)
-        setProfile(payloadReceived.payload as UserProfile)
-        setEditedBio(payloadReceived.payload.bio || "")
+        
+        // Transform backend response to our UserProfile format
+        const backendData = payloadReceived.payload
+        const transformedProfile: UserProfile = {
+          userId: backendData.id,
+          username: backendData.username,
+          email: backendData.email,
+          avatar: backendData.hasAvatar ? `/api/users/${backendData.id}/avatar` : undefined,
+          bio: backendData.bio,
+          status: "online", // Default status, backend doesn't provide this
+          joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
+          stats: backendData.stats, // Pass through if exists
+        }
+        
+        console.log("[v0] Transformed profile:", transformedProfile)
+        setProfile(transformedProfile)
+        setEditedBio(transformedProfile.bio || "")
         setLoading(false)
         setError(null)
       } else {
@@ -99,7 +141,7 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
   }, [payloadReceived])
 
   const handleSaveBio = () => {
-    sendToSocket(user_url.ws.users.updateProfile.funcId, { bio: editedBio })
+    sendToSocket(user_url.ws.users.updateProfile.funcId, { userId: userId, bio: editedBio })
   }
 
   const isOwnProfile = currentUserId === userId
@@ -115,6 +157,7 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="ml-3 text-gray-600">Loading profile...</p>
           </div>
         ) : error ? (
           <>
@@ -128,8 +171,11 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
               </button>
             </div>
             <div className="py-8 px-6 text-center">
-              <div className="text-red-600 mb-4">⚠️</div>
-              <p className="text-gray-700">{error}</p>
+              <div className="text-red-600 mb-4 text-4xl">⚠️</div>
+              <p className="text-gray-700 mb-2">{error}</p>
+              <p className="text-sm text-gray-500 mb-4">
+                Check the console for more details. The backend may need to implement the profile endpoint.
+              </p>
               <button
                 onClick={onClose}
                 className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"

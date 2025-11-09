@@ -295,7 +295,7 @@ export default function ChatInputComponent() {
   useEffect(() => {
     if (!payloadReceived) return
 
-    console.log("Received payload:", payloadReceived)
+    console.log("[Chat] Received payload:", payloadReceived)
 
     switch (payloadReceived.funcId) {
       case user_url.ws.chat.sendMessage.funcId:
@@ -303,8 +303,20 @@ export default function ChatInputComponent() {
           // Transform the StoredMessageSchema to our local message format
           const messagePayload = payloadReceived.payload as TypeStoredMessageSchema
 
+          console.log("=== Incoming message ===")
+          console.log("Full payload:", JSON.stringify(messagePayload, null, 2))
+          console.log("userId:", messagePayload.userId)
+          console.log("userId type:", typeof messagePayload.userId)
+
           if (!messagePayload || !messagePayload.roomId) {
             console.error("Invalid message payload:", messagePayload)
+            break
+          }
+
+          // Validate userId before using it
+          if (!messagePayload.userId || typeof messagePayload.userId !== 'number') {
+            console.error("❌ Invalid userId in message:", messagePayload.userId, "Full payload:", messagePayload)
+            console.error("Message will be skipped because userId is missing or invalid")
             break
           }
 
@@ -320,7 +332,7 @@ export default function ChatInputComponent() {
             content: messagePayload.messageString,
             timestamp: timestamp,
           }
-          console.log("Adding message:", transformedMessage, "messageDate:", messagePayload.messageDate)
+          console.log("✓ Transformed message:", transformedMessage)
 
           // Add message to the specific room
           const roomIdStr = String(messagePayload.roomId)
@@ -377,11 +389,20 @@ export default function ChatInputComponent() {
         const roomData = payloadReceived.payload as TypeRoomMessagesSchema
         if (roomData.messages && roomData.roomId) {
           const roomIdStr = String(roomData.roomId)
-          const roomMessages = roomData.messages.map((msg: TypeStoredMessageSchema) => ({
-            user: `User ${msg.userId}`,
-            content: msg.messageString,
-            timestamp: new Date(msg.messageDate * 1000).toISOString(),
-          }))
+          const roomMessages = roomData.messages
+            .filter((msg: TypeStoredMessageSchema) => {
+              if (!msg.userId || typeof msg.userId !== 'number') {
+                console.warn("Skipping message with invalid userId:", msg)
+                return false
+              }
+              return true
+            })
+            .map((msg: TypeStoredMessageSchema) => ({
+              user: `User ${msg.userId}`,
+              content: msg.messageString,
+              timestamp: new Date(msg.messageDate * 1000).toISOString(),
+            }))
+          console.log("Loaded", roomMessages.length, "messages for room", roomIdStr)
           setMessagesByRoom((prev) => ({
             ...prev,
             [roomIdStr]: roomMessages,
@@ -431,7 +452,7 @@ export default function ChatInputComponent() {
       console.log("[v0] Creating room with funcId:", user_url.ws.chat.addRoom.funcId)
       sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName })
     },
-    [sendToSocket],
+    [sendToSocket, socket],
   )
 
   const handleRefreshRooms = useCallback(() => {
@@ -451,15 +472,36 @@ export default function ChatInputComponent() {
   }, [])
 
   const handleOpenProfile = useCallback((username: string) => {
-    console.log("Opening profile for:", username)
+    console.log("=== Opening profile ===")
+    console.log("Username received:", username)
+    console.log("Username type:", typeof username)
+    console.log("Username length:", username.length)
+    console.log("Username charCodes:", Array.from(username).map(c => c.charCodeAt(0)))
+    
     // Extract userId from username (assuming format "User {userId}")
     const userIdMatch = username.match(/User (\d+)/)
-    if (userIdMatch) {
-      const userId = Number.parseInt(userIdMatch[1])
-      setProfileUserId(userId)
-      setShowProfileModal(true)
+    console.log("Regex match result:", userIdMatch)
+    
+    if (userIdMatch && userIdMatch[1]) {
+      const userIdStr = userIdMatch[1]
+      console.log("Extracted userId string:", userIdStr)
+      
+      const userId = Number.parseInt(userIdStr, 10)
+      console.log("Parsed userId:", userId)
+      console.log("Is NaN?", isNaN(userId))
+      
+      if (!isNaN(userId)) {
+        console.log("✓ Valid userId, opening profile modal")
+        setProfileUserId(userId)
+        setShowProfileModal(true)
+      } else {
+        console.error("✗ Failed to parse userId from:", userIdStr)
+        alert(`Cannot open profile for ${username} - invalid user ID (parsed as NaN)`)
+      }
     } else {
-      alert(`Cannot open profile for ${username} - invalid format`)
+      console.error("✗ Username format doesn't match 'User {number}':", username)
+      console.error("Expected format: 'User 123' but got:", username)
+      alert(`Cannot open profile for ${username} - invalid format. Expected format: "User 123"`)
     }
   }, [])
 

@@ -6,7 +6,7 @@
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/ip": "^1.1.3",
 		"@types/jsonwebtoken": "^9.0.10",
-		"@types/node": "^24.7.2",
+		"@types/node": "^24.10.0",
 		"@types/ws": "^8.18.1",
 		"axios": "^1.12.2",
 		"typescript": "^5.9.3",
