@@ -40,38 +40,53 @@ export default function LoginComponent({
     return null;
   };
 
-  const handleLogin = async () => {
-    setError(null);
+const handleLogin = async () => {
+  setError(null);
 
-    const usernameError = validateUsername(username);
-    const passwordError = validatePassword(password);
-    if (usernameError || passwordError) {
-      setError(usernameError || passwordError);
-      return;
+  const usernameError = validateUsername(username);
+  const passwordError = validatePassword(password);
+  if (usernameError || passwordError) {
+    setError(usernameError || passwordError);
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const response = await fetch("/public_api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || "Login failed");
     }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch("/public_api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+    const data = await response.json();
+    console.log("[v0] Login response:", data);
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Login failed");
-      }
-
-      const data = await response.json();
-      onLoginSuccess(data);
-    } catch (err: any) {
-      // !!
-      setError(err.message || "Login failed");
-    } finally {
-      setIsLoading(false);
+    // ✅ Save the JWT and refresh tokens in localStorage
+    if (data?.tokens?.jwt) {
+      localStorage.setItem("jwt", data.tokens.jwt);
+      console.log("[v0] Stored JWT token:", data.tokens.jwt);
+    } else {
+      console.warn("[v0] No JWT token found in login response");
     }
-  };
+
+    if (data?.tokens?.refresh) {
+      localStorage.setItem("refreshToken", data.tokens.refresh);
+    }
+
+    // Continue app flow
+    onLoginSuccess(data);
+  } catch (err: any) {
+    setError(err.message || "Login failed");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">

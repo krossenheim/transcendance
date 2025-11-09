@@ -35,6 +35,7 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
   const [editing, setEditing] = useState(false)
   const [editedBio, setEditedBio] = useState("")
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sendToSocket = useCallback(
     (funcId: string, payload: any) => {
@@ -140,6 +141,46 @@ if (timeoutRef.current) {
     }
   }, [payloadReceived])
 
+  // 🔒 Fetch avatar securely with JWT
+useEffect(() => {
+  const fetchAvatarWithAuth = async () => {
+    if (!profile?.avatar) return
+
+    try {
+      const token = localStorage.getItem("jwt") // Adjust if your token lives elsewhere
+      if (!token) {
+        console.warn("[v0] No JWT token found; cannot fetch avatar")
+        return
+      }
+
+      const response = await fetch(profile.avatar, {
+        headers: {
+          Authorization: `Bearer ${token}`, // ✅ correct header
+        },
+      })
+
+      if (!response.ok) {
+        console.error("[v0] Failed to fetch avatar:", response.status)
+        return
+      }
+
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      setAvatarUrl(objectUrl)
+    } catch (err) {
+      console.error("[v0] Error loading avatar:", err)
+    }
+  }
+
+  fetchAvatarWithAuth()
+
+  // Cleanup to avoid memory leaks when switching users
+  return () => {
+    if (avatarUrl) URL.revokeObjectURL(avatarUrl)
+  }
+}, [profile?.avatar])
+
+
   const handleSaveBio = () => {
     sendToSocket(user_url.ws.users.updateProfile.funcId, { userId: userId, bio: editedBio })
   }
@@ -202,11 +243,12 @@ if (timeoutRef.current) {
               <div className="flex items-center space-x-4">
                 <div className="relative h-20 w-20 rounded-full overflow-hidden bg-gray-200">
                   {profile.avatar ? (
-                    <img
-                      src={profile.avatar || "/placeholder.svg"}
-                      alt={profile.username}
-                      className="h-full w-full object-cover"
-                    />
+                  <img
+  src={avatarUrl || "/placeholder.svg"}
+  alt={profile.username}
+  className="h-full w-full object-cover"
+/>
+
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-blue-500 text-white text-2xl font-bold">
                       {profile.username.slice(0, 2).toUpperCase()}
