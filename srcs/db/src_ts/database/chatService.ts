@@ -14,7 +14,6 @@ import type {
 } from "../utils/api/service/chat/db_models.js";
 import type { TypeRoomSchema } from "../utils/api/service/chat/db_models.js";
 import { userService } from "../main.js";
-import { userIdValue } from "../utils/api/service/common/zodRules.js";
 import type { PublicUserDataType } from "../utils/api/service/db/user.js";
 
 const storedMessagesTableName = "messages";
@@ -101,7 +100,7 @@ export class ChatService {
   }
 
   fetchRoomById(roomId: number): Result<TypeFullRoomInfoSchema, string> {
-    // try {
+    try {
       const userConnections = this.getRoomUserConnections(roomId).unwrap();
       return Result.Ok({
         room: this.getRawRoomInfo(roomId).unwrap(),
@@ -109,9 +108,9 @@ export class ChatService {
         userConnections,
         users: this.getRoomUsers(userConnections).unwrap(),
       });
-    // } catch (e) {
-      // return Result.Err((e as Error).message);
-    // }
+    } catch (e) {
+      return Result.Err((e as Error).message);
+    }
   }
 
   sendMessageToRoom(roomId: number, userId: number, messageString: string): Result<TypeStoredMessageSchema, string> {

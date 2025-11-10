@@ -538,6 +538,10 @@ getProfile: {
               code: 4,
               payload: ErrorResponse,
             },
+            FailedToAddUser: {
+              code: 5,
+              payload: ErrorResponse,
+            },
           },
         },
       },
@@ -595,6 +599,10 @@ getProfile: {
               code: 1,
               payload: ErrorResponse,
             },
+            FailedToJoinRoom: {
+              code: 2,
+              payload: ErrorResponse,
+            }
           },
         },
         code: {
@@ -889,6 +897,18 @@ export const int_url = defineRoutes({
           params: GetUser,
           response: {
             200: ListRoomsSchema, // Retrieved list of rooms
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      addUserToRoom: {
+        endpoint: "/internal_api/chat/rooms/add_user",
+        method: "POST",
+        schema: {
+          body: AddToRoomPayloadSchema.extend({ type: z.number() }),
+          response: {
+            200: z.null(), // User added successfully
             500: ErrorResponse, // Internal server error
           },
         },

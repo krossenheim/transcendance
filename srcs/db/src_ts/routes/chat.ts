@@ -36,6 +36,17 @@ export async function chatRoutes(fastify: FastifyInstance) {
             return reply.status(500).send({ message: userRoomsResult.unwrapErr() });
         else return reply.status(200).send(userRoomsResult.unwrap());
     });
+
+    registerRoute(fastify, int_url.http.db.addUserToRoom, async (request, reply) => {
+        const addUserResult = chatService.setUserRoomAccessType(
+            request.body.user_to_add,
+            request.body.roomId,
+            request.body.type
+        );
+        if (addUserResult.isErr())
+            return reply.status(500).send({ message: addUserResult.unwrapErr() });
+        else return reply.status(200).send(null);
+    });
 }
 
 export default chatRoutes;

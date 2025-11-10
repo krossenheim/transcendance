@@ -63,7 +63,7 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
     });
   }
   const user_to_add = wrapper.payload.user_to_add;
-  return room.addToRoom(user_id, user_to_add);
+  return await room.addToRoom(user_id, user_to_add);
 });
 
 socket.registerHandler(user_url.ws.chat.addRoom, async (wrapper) => {
@@ -121,7 +121,7 @@ socket.registerHandler(user_url.ws.chat.listRooms, async (wrapper) => {
 socket.registerHandler(user_url.ws.chat.joinRoom, async (wrapper) => {
   const room_id_requested = wrapper.payload.roomId;
   const user_id = wrapper.user_id;
-  return singletonChatRooms.userJoinRoom(room_id_requested, user_id);
+  return await singletonChatRooms.userJoinRoom(room_id_requested, user_id);
 });
 
 socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {

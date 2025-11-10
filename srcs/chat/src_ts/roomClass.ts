@@ -129,13 +129,13 @@ class Room {
     });
   }
 
-  addToRoom(
+  async addToRoom(
     user_id: number,
     userToAdd: number
-  ): Result<
+  ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.addUserToRoom.schema.output>,
     ErrorResponseType
-  > {
+  >> {
     if (this.allowedUsers.indexOf(user_id) === -1) {
       return Result.Ok({
         recipients: [user_id],
@@ -153,6 +153,21 @@ class Room {
           message: `User ${userToAdd} is already in the room.`,
           user: userToAdd,
           roomId: this.roomId,
+        },
+      });
+    }
+    const storageResult = await containers.db.post(int_url.http.db.addUserToRoom, {
+      roomId: this.roomId,
+      user_to_add: userToAdd,
+      type: ChatRoomUserAccessType.INVITED,
+    });
+    
+    if (storageResult.isErr() || storageResult.unwrap().status !== 200) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.addUserToRoom.schema.output.FailedToAddUser.code,
+        payload: {
+          message: `Could not add user ${userToAdd} to room.`,
         },
       });
     }
@@ -283,13 +298,13 @@ class ChatRooms {
     });
   }
 
-  userJoinRoom(
+  async userJoinRoom(
     roomIdReq: number,
     user_id: number
-  ): Result<
+  ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>,
     ErrorResponseType
-  > {
+  >> {
     const room = this.getRoom(roomIdReq);
     if (room === null) {
       return Result.Ok({
@@ -312,6 +327,22 @@ class ChatRooms {
           },
         });
       }
+
+      const userConnectionResult = await containers.db.post(int_url.http.db.addUserToRoom, {
+        roomId: room.roomId,
+        user_to_add: user_id,
+        type: ChatRoomUserAccessType.JOINED,
+      });
+      if (userConnectionResult.isErr() || userConnectionResult.unwrap().status !== 200) {
+        return Result.Ok({
+          recipients: [user_id],
+          code: user_url.ws.chat.joinRoom.schema.output.FailedToJoinRoom.code,
+          payload: {
+            message: `Could not join room (ID: ${roomIdReq}).`,
+          },
+        });
+      }
+
       room.users.push(user_id);
       console.log(`User ${user_id} joined room ${room.roomId}.`);
       return Result.Ok({
