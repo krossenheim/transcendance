@@ -89,9 +89,9 @@ const handleLogin = async () => {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <div className="w-full max-w-md shadow-lg p-6 rounded-2xl bg-white">
-        <h1 className="text-2xl font-bold text-center mb-4">Login</h1>
+    <div className="flex items-start justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 px-4 py-4">
+      <div className="w-full max-w-md shadow-lg p-4 md:p-6 mt-4 md:mt-6 rounded-2xl bg-white dark:bg-gray-800">
+          <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Login</h1>
 
         {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
 
@@ -100,7 +100,7 @@ const handleLogin = async () => {
           <div>
             <label
               htmlFor={`${id}-login-username`}
-              className="block mb-1 font-semibold"
+                className="block mb-1 font-semibold text-gray-700 dark:text-gray-200"
             >
               Username
             </label>
@@ -110,7 +110,7 @@ const handleLogin = async () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-              className="w-full border px-3 py-2 rounded"
+                className="w-full border px-3 py-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
               disabled={isLoading}
               placeholder="Your username"
             />
@@ -120,7 +120,7 @@ const handleLogin = async () => {
           <div>
             <label
               htmlFor={`${id}-login-password`}
-              className="block mb-1 font-semibold"
+                className="block mb-1 font-semibold text-gray-700 dark:text-gray-200"
             >
               Password
             </label>
@@ -130,7 +130,7 @@ const handleLogin = async () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-              className="w-full border px-3 py-2 rounded"
+                className="w-full border px-3 py-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
               disabled={isLoading}
               placeholder="Your password"
             />
@@ -139,7 +139,7 @@ const handleLogin = async () => {
           {/* Submit Button */}
           <button
             onClick={handleLogin}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+              className="w-full bg-blue-500 dark:bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? "Logging in..." : "Login"}

@@ -34,8 +34,12 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [editedBio, setEditedBio] = useState("")
+  const [editedUsername, setEditedUsername] = useState("")
+  const [editedEmail, setEditedEmail] = useState("")
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sendToSocket = useCallback(
     (funcId: string, payload: any) => {
@@ -59,6 +63,19 @@ export default function ProfileComponent({ userId, isOpen, onClose }: ProfileCom
     },
     [socket, isConnected],
   )
+
+// Get current user ID from JWT token
+useEffect(() => {
+  const jwt = localStorage.getItem('jwt')
+  if (jwt) {
+    try {
+      const payload = JSON.parse(atob(jwt.split('.')[1]))
+      setCurrentUserId(payload.uid)
+    } catch (error) {
+      console.error('[v0] Error decoding JWT:', error)
+    }
+  }
+}, [])
 
 useEffect(() => {
   if (isOpen && userId) {
@@ -124,6 +141,8 @@ if (timeoutRef.current) {
         console.log("[v0] Transformed profile:", transformedProfile)
         setProfile(transformedProfile)
         setEditedBio(transformedProfile.bio || "")
+        setEditedUsername(transformedProfile.username)
+        setEditedEmail(transformedProfile.email || "")
         setLoading(false)
         setError(null)
       } else {
@@ -181,8 +200,60 @@ useEffect(() => {
 }, [profile?.avatar])
 
 
-  const handleSaveBio = () => {
-    sendToSocket(user_url.ws.users.updateProfile.funcId, { userId: userId, bio: editedBio })
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError("Avatar file must be less than 5MB")
+        return
+      }
+      setAvatarFile(file)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    try {
+      // First update profile info
+      sendToSocket(user_url.ws.users.updateProfile.funcId, {
+        userId: userId,
+        username: editedUsername,
+        email: editedEmail,
+        bio: editedBio
+      })
+
+      // If there's a new avatar file, upload it
+      if (avatarFile) {
+        const formData = new FormData()
+        formData.append('avatar', avatarFile)
+        const response = await fetch(`/api/users/${userId}/avatar`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+          },
+          body: formData
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to upload avatar')
+        }
+
+        // Refresh avatar
+        const avatarResponse = await fetch(`/api/users/${userId}/avatar`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+          }
+        })
+        if (avatarResponse.ok) {
+          const blob = await avatarResponse.blob()
+          setAvatarUrl(URL.createObjectURL(blob))
+        }
+        setAvatarFile(null)
+      }
+
+      setEditing(false)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to update profile')
+    }
   }
 
   const isOwnProfile = currentUserId === userId
@@ -243,28 +314,53 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative h-20 w-20 rounded-full overflow-hidden bg-gray-200">
                   {profile.avatar ? (
-                  <img
-  src={avatarUrl || "/placeholder.svg"}
-  alt={profile.username}
-  className="h-full w-full object-cover"
-/>
-
+                    <img
+                      src={avatarUrl || "/placeholder.svg"}
+                      alt={profile.username}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-blue-500 text-white text-2xl font-bold">
                       {profile.username.slice(0, 2).toUpperCase()}
                     </div>
                   )}
+                  {isOwnProfile && editing && (
+                    <>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs py-1 text-center"
+                      >
+                        Change Avatar
+                      </button>
+                    </>
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold">{profile.username}</h3>
+                  {editing && isOwnProfile ? (
+                    <input
+                      type="text"
+                      value={editedUsername}
+                      onChange={(e) => setEditedUsername(e.target.value)}
+                      className="text-2xl font-bold border-b border-gray-300 focus:outline-none focus:border-blue-500"
+                    />
+                  ) : (
+                    <h3 className="text-2xl font-bold">{profile.username}</h3>
+                  )}
                   {profile.status && (
                     <span
                       className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
                         profile.status === "online"
                           ? "bg-green-100 text-green-800"
                           : profile.status === "in-game"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-gray-100 text-gray-800"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {profile.status}
@@ -272,6 +368,23 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+
+              {/* Email */}
+              {isOwnProfile && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Email</h4>
+                  {editing ? (
+                    <input
+                      type="email"
+                      value={editedEmail}
+                      onChange={(e) => setEditedEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600">{profile.email}</p>
+                  )}
+                </div>
+              )}
 
               {/* Bio */}
               <div>
@@ -284,38 +397,48 @@ useEffect(() => {
                       placeholder="Tell us about yourself..."
                       className="w-full min-h-[100px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <div className="flex space-x-2">
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600">{profile.bio || "No bio yet"}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Edit/Save Buttons */}
+              {isOwnProfile && (
+                <div className="flex space-x-2 mt-4">
+                  {editing ? (
+                    <>
                       <button
-                        onClick={handleSaveBio}
+                        onClick={handleSaveProfile}
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
                       >
-                        Save
+                        Save Changes
                       </button>
                       <button
                         onClick={() => {
                           setEditing(false)
                           setEditedBio(profile.bio || "")
+                          setEditedUsername(profile.username)
+                          setEditedEmail(profile.email || "")
+                          setAvatarFile(null)
                         }}
                         className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors text-sm"
                       >
                         Cancel
                       </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-gray-600">{profile.bio || "No bio yet"}</p>
-                    {isOwnProfile && (
-                      <button
-                        onClick={() => setEditing(true)}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        Edit Bio
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setEditing(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      Edit Profile
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Stats */}
               {profile.stats && (

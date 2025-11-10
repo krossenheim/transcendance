@@ -120,17 +120,19 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <div className="w-full max-w-md shadow-lg rounded-lg bg-white p-6">
-        <h1 className="text-2xl font-bold text-center mb-4">Create Account</h1>
-        <p className="text-center mb-4 text-gray-500">Fill in your details to register</p>
+    <div className="flex items-start justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 px-4 py-4">
+      <div className="w-full max-w-md shadow-lg rounded-lg bg-white dark:bg-gray-800 p-4 md:p-6 mt-4 md:mt-6">
+        <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Create Account</h1>
+        <p className="text-center mb-4 text-gray-500 dark:text-gray-300">Fill in your details to register</p>
 
-        {error && <div className="bg-red-100 text-red-700 p-2 rounded mb-4 text-center">⚠️ {error}</div>}
+        {error && (
+          <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-2 rounded mb-4 text-center">⚠️ {error}</div>
+        )}
 
         <div className="space-y-4">
           {/* Username */}
           <div>
-            <label htmlFor="register-username" className="block font-semibold">
+            <label htmlFor="register-username" className="block font-semibold text-gray-700 dark:text-gray-200">
               Username
             </label>
             <input
@@ -139,17 +141,19 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="johndoe"
               value={registerUsername}
               onChange={(e) => setRegisterUsername(e.target.value)}
-              className={`border p-2 w-full rounded ${validationErrors.registerUsername ? "border-red-500" : ""}`}
+              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+                validationErrors.registerUsername ? "border-red-500 dark:border-red-400" : ""
+              }`}
               disabled={isLoading}
             />
             {validationErrors.registerUsername && (
-              <p className="text-sm text-red-500">{validationErrors.registerUsername}</p>
+              <p className="text-sm text-red-500 dark:text-red-300">{validationErrors.registerUsername}</p>
             )}
           </div>
 
           {/* Email */}
           <div>
-            <label htmlFor="register-email" className="block font-semibold">
+            <label htmlFor="register-email" className="block font-semibold text-gray-700 dark:text-gray-200">
               Email
             </label>
             <input
@@ -158,15 +162,19 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="you@example.com"
               value={registerEmail}
               onChange={(e) => setRegisterEmail(e.target.value)}
-              className={`border p-2 w-full rounded ${validationErrors.registerEmail ? "border-red-500" : ""}`}
+              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+                validationErrors.registerEmail ? "border-red-500 dark:border-red-400" : ""
+              }`}
               disabled={isLoading}
             />
-            {validationErrors.registerEmail && <p className="text-sm text-red-500">{validationErrors.registerEmail}</p>}
+            {validationErrors.registerEmail && (
+              <p className="text-sm text-red-500 dark:text-red-300">{validationErrors.registerEmail}</p>
+            )}
           </div>
 
           {/* Password */}
           <div>
-            <label htmlFor="register-password" className="block font-semibold">
+            <label htmlFor="register-password" className="block font-semibold text-gray-700 dark:text-gray-200">
               Password
             </label>
             <input
@@ -175,24 +183,26 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="••••••••"
               value={registerPassword}
               onChange={(e) => setRegisterPassword(e.target.value)}
-              className={`border p-2 w-full rounded ${validationErrors.registerPassword ? "border-red-500" : ""}`}
+              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+                validationErrors.registerPassword ? "border-red-500 dark:border-red-400" : ""
+              }`}
               disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-              className="text-sm text-gray-600 mt-1"
+              className="text-sm text-gray-600 dark:text-gray-300 mt-1"
             >
               {showRegisterPassword ? "Hide" : "Show"} Password
             </button>
             {validationErrors.registerPassword && (
-              <p className="text-sm text-red-500">{validationErrors.registerPassword}</p>
+              <p className="text-sm text-red-500 dark:text-red-300">{validationErrors.registerPassword}</p>
             )}
           </div>
 
           {/* Confirm Password */}
           <div>
-            <label htmlFor="register-confirm-password" className="block font-semibold">
+            <label htmlFor="register-confirm-password" className="block font-semibold text-gray-700 dark:text-gray-200">
               Confirm Password
             </label>
             <input
@@ -201,27 +211,27 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="••••••••"
               value={registerConfirmPassword}
               onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-              className={`border p-2 w-full rounded ${
-                validationErrors.registerConfirmPassword ? "border-red-500" : ""
+              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+                validationErrors.registerConfirmPassword ? "border-red-500 dark:border-red-400" : ""
               }`}
               disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="text-sm text-gray-600 mt-1"
+              className="text-sm text-gray-600 dark:text-gray-300 mt-1"
             >
               {showConfirmPassword ? "Hide" : "Show"} Password
             </button>
             {validationErrors.registerConfirmPassword && (
-              <p className="text-sm text-red-500">{validationErrors.registerConfirmPassword}</p>
+              <p className="text-sm text-red-500 dark:text-red-300">{validationErrors.registerConfirmPassword}</p>
             )}
           </div>
 
           {/* Submit */}
           <button
             onClick={handleRegister}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            className="w-full bg-blue-600 dark:bg-blue-600 text-white py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? "Creating account..." : "Create Account"}

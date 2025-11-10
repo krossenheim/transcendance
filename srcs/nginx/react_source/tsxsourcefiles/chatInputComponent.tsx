@@ -53,9 +53,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const isCommand = input.startsWith("/")
 
   return (
-    <div className="flex flex-col bg-white shadow-lg rounded-2xl border border-gray-200 h-[600px]">
+    <div className="flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700 h-[600px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-500 to-purple-500 rounded-t-2xl">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500 rounded-t-2xl">
         <div>
           <h2 className="text-lg font-semibold text-white">
             {currentRoom ? `${currentRoomName || "Room"}` : "Select a room"}
@@ -73,13 +73,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 space-y-3">
         {messages.length > 0 ? (
           messages
             .filter((msg) => !blockedUsers.includes(msg.user))
             .map((msg, i) => (
               <div key={i} className="flex justify-start">
-                <div className="px-4 py-2 rounded-2xl max-w-[70%] shadow-sm bg-white text-gray-800 border border-gray-200">
+                <div className="px-4 py-2 rounded-2xl max-w-[70%] shadow-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between items-center">
                     <span
                       onClick={() => onOpenProfile(msg.user)}
@@ -114,16 +114,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200 bg-white rounded-b-2xl">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
         <div className="flex space-x-2">
           <input
             type="text"
             placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
-            className={`flex-1 border rounded-full px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 ${
+            className={`flex-1 border rounded-full px-4 py-2 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 ${
               isCommand
-                ? "border-purple-500 text-purple-600 focus:ring-purple-400"
-                : "border-gray-300 focus:ring-blue-400"
-            } disabled:bg-gray-100`}
+                ? "border-purple-500 text-purple-600 dark:text-purple-400 focus:ring-purple-400"
+                : "border-gray-300 dark:border-gray-600 focus:ring-blue-400"
+            } disabled:bg-gray-100 dark:disabled:bg-gray-900 dark:bg-gray-700`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -171,8 +171,8 @@ const RoomList: React.FC<RoomListProps> = ({
   }
 
   return (
-    <div className="bg-white shadow-lg rounded-2xl border border-gray-200 h-[600px] flex flex-col">
-      <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-2xl">
+    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700 h-[600px] flex flex-col">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-2xl">
         <h2 className="text-lg font-semibold text-white">Chat Rooms</h2>
       </div>
 
@@ -185,7 +185,7 @@ const RoomList: React.FC<RoomListProps> = ({
               className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
                 currentRoom === room.roomId
                   ? "bg-blue-500 text-white shadow-md"
-                  : "bg-gray-50 hover:bg-gray-100 text-gray-800"
+                  : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"
               }`}
             >
               <div className="font-medium">{room.roomName}</div>
@@ -193,11 +193,11 @@ const RoomList: React.FC<RoomListProps> = ({
             </button>
           ))
         ) : (
-          <p className="text-gray-400 text-center text-sm italic py-8">No rooms available. Create one!</p>
+          <p className="text-gray-400 dark:text-gray-500 text-center text-sm italic py-8">No rooms available. Create one!</p>
         )}
       </div>
 
-      <div className="p-3 border-t border-gray-200 space-y-2">
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
         {showCreateForm ? (
           <div className="space-y-2">
             <input
@@ -206,7 +206,7 @@ const RoomList: React.FC<RoomListProps> = ({
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 dark:bg-gray-700 dark:text-gray-200"
               autoFocus
             />
             <div className="flex space-x-2">
@@ -479,7 +479,7 @@ export default function ChatInputComponent() {
             alert("Usage: /invite <username>")
             return
           }
-          sendToSocket(user_url.ws.chat.invite.funcId, { target: args[0] })
+          sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { roomId: 1, user_to_add: args[0] })
           break
 
         case "help":
@@ -589,7 +589,7 @@ export default function ChatInputComponent() {
 
   /* -------------------- Render -------------------- */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 p-4">
       <div className="w-full max-w-6xl">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-1">
