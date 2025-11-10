@@ -479,7 +479,7 @@ export default function ChatInputComponent() {
             alert("Usage: /invite <username>")
             return
           }
-          sendToSocket(user_url.ws.chat.invite.funcId, { target: args[0] })
+          sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { roomId: 1, user_to_add: args[0] })
           break
 
         case "help":
