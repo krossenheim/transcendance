@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 CREATE INDEX IF NOT EXISTS idx_tokens_userId ON user_tokens(userId);
 
 CREATE TABLE IF NOT EXISTS chat_rooms (
-  roomId INTEGER PRIMARY KEY AUTOINCREMENT, 
+  roomId INTEGER PRIMARY KEY AUTOINCREMENT,
+  roomType INTEGER NOT NULL, -- 1: private, 2: direct message
   roomName TEXT NOT NULL
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_id ON chat_rooms(roomId);
@@ -55,7 +56,7 @@ CREATE TABLE IF NOT EXISTS users_room_relationships (
   FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS chat_messages (
   messageId INTEGER PRIMARY KEY AUTOINCREMENT,
   userId INTEGER NOT NULL,
   roomId INTEGER NOT NULL,
@@ -64,6 +65,6 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY(roomId) REFERENCES chat_rooms(roomId) ON UPDATE CASCADE ON DELETE CASCADE
 ) STRICT;
-CREATE INDEX IF NOT EXISTS idx_messagesId ON messages(roomId);
+CREATE INDEX IF NOT EXISTS idx_messagesId ON chat_messages(roomId);
 
 PRAGMA foreign_keys = ON;

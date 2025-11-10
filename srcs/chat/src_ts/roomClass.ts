@@ -1,11 +1,14 @@
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
-import { user_url } from "./utils/api/service/common/endpoints.js";
+import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import {
+  ChatRoomUserAccessType,
+  type TypeFullRoomInfoSchema,
   type TypeRoomSchema,
   type TypeStoredMessageSchema,
 } from "./utils/api/service/chat/db_models.js";
 import { Result } from "./utils/api/service/common/result.js";
+import containers from "./utils/internal_api.js";
 
 class FixedSizeList<T> {
   public list: Array<T>;
@@ -35,16 +38,14 @@ class Room {
   public messages: FixedSizeList<TypeStoredMessageSchema>;
   public allowedUsers: Array<any>;
   public readonly max_messages: number;
-  private _current_message_id: number = 0; // Get from db on init as well as the last X stored messages
 
-  constructor(room_name: string, roomId: number) {
-    this.roomId = roomId;
-    this.room_name = room_name;
-    this.users = new Array();
+  constructor(room_data: TypeRoomSchema, user_connections? : Array<[number, number]>) {
+    this.roomId = room_data.roomId;
+    this.room_name = room_data.roomName;
+    this.users = user_connections ? user_connections.filter(uc => uc[1] === ChatRoomUserAccessType.JOINED).map(uc => uc[0]) : new Array();
     this.max_messages = 20;
     this.messages = new FixedSizeList(this.max_messages);
-    this.allowedUsers = new Array();
-    this._current_message_id = 1; // Get from db as well as the last max_messages stored messages
+    this.allowedUsers = user_connections ? user_connections.map(uc => uc[0]) : new Array();
   }
 
   //////
@@ -52,14 +53,14 @@ class Room {
     this.users = this.users.filter((u) => u !== user);
   }
 
-  sendMessage(
+  async sendMessage(
     user_id: number,
     roomIdReq: number,
     messageString: string
-  ): Result<
+  ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>,
     ErrorResponseType
-  > {
+  >> {
     if (
       roomIdReq !== this.roomId ||
       this.allowedUsers.indexOf(user_id) === -1
@@ -91,13 +92,34 @@ class Room {
         },
       });
     }
-    const message = {
-      messageId: this._current_message_id++,
+
+    const storeMessageResult = await containers.db.post(int_url.http.db.sendMessage, {
       roomId: this.roomId,
       messageString: messageString,
-      messageDate: Date.now(),
       userId: user_id,
-    };
+    });
+
+    if (storeMessageResult.isErr()) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.sendMessage.schema.output.FailedToStoreMessage.code,
+        payload: {
+          message: `Could not store your message, try again later.`,
+        },
+      });
+    }
+
+    if (storeMessageResult.unwrap().status !== 200) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.sendMessage.schema.output.FailedToStoreMessage.code,
+        payload: {
+          message: `Could not store your message, try again later.`,
+        },
+      });
+    }
+
+    const message = storeMessageResult.unwrap().data as TypeStoredMessageSchema;
     this.messages.add(message);
     return Result.Ok({
       recipients: this.users,
@@ -173,42 +195,87 @@ class ChatRooms {
     return room;
   }
 
-  addRoom(
+  async fetchRoomById(roomId: number, userId: number): Promise<Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.getRoomData.schema.output>,
+    ErrorResponseType
+  >> {
+    const roomInfoResult = await containers.db.get(int_url.http.db.getRoomInfo, { roomId });
+
+    if (roomInfoResult.isErr() || roomInfoResult.unwrap().status !== 200) {
+      if (roomInfoResult.isErr()) {
+        console.error("Error fetching room info:", roomInfoResult.unwrapErr());
+      } else {
+        console.error("Error fetching room info, status:", roomInfoResult.unwrap().status);
+        console.error("Response data:", roomInfoResult.unwrap().data);
+      }
+      return Result.Ok({
+        recipients: [userId],
+        code: user_url.ws.chat.getRoomData.schema.output.NoSuchRoom.code,
+        payload: {
+          message: `No such room (ID: ${roomId}) or you are not in it.`,
+        },
+      });
+    }
+
+    const roomInfo = roomInfoResult.unwrap().data as TypeFullRoomInfoSchema;
+    return Result.Ok({
+      recipients: [userId],
+      code: user_url.ws.chat.getRoomData.schema.output.RoomDataProvided.code,
+      payload: roomInfo,
+    });
+  }
+
+  async addRoom(
     roomNameReq: string,
     user_id: number
-  ): Result<
+  ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>,
     ErrorResponseType
-  > {
-    const newroom = new Room(roomNameReq, DEBUGROOMID++);
-    newroom.users.push(user_id);
-    newroom.allowedUsers.push(user_id);
+  >> {
+    const newRoomResult = await containers.db.post(int_url.http.db.createChatRoom, {
+      roomName: roomNameReq,
+      roomType: 1,
+      owner: user_id,
+    });
+
+    if (newRoomResult.isErr() || newRoomResult.unwrap().status !== 201) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.addRoom.schema.output.FailedToAddRoom.code,
+        payload: {
+          message: `Could not create requested room by name: ${roomNameReq}`,
+        },
+      });
+    }
+
+    const room_data = newRoomResult.unwrap().data as TypeRoomSchema;
+    const newroom = new Room(room_data, [[user_id, ChatRoomUserAccessType.JOINED]]);
     this.rooms.push(newroom);
     return Result.Ok({
       recipients: [user_id],
       code: user_url.ws.chat.addRoom.schema.output.AddedRoom.code,
-      payload: {
-        roomId: newroom.roomId,
-        roomName: newroom.room_name,
-      },
+      payload: room_data,
     });
   }
 
-  listRooms(
+  async listRooms(
     user_id: number
-  ): Result<
+  ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.listRooms.schema.output>,
     ErrorResponseType
-  > {
-    const list: Array<TypeRoomSchema> = [];
-
-    for (const room of this.rooms) {
-      if (room.allowedUsers.find((id) => id === user_id)) {
-        list.push({ roomName: room.room_name, roomId: room.roomId });
-      }
+  >> {
+    const listRoomsResult = await containers.db.get(int_url.http.db.getUserRooms, { userId: user_id });
+    if (listRoomsResult.isErr() || listRoomsResult.unwrap().status !== 200) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.listRooms.schema.output.NoListGiven.code,
+        payload: {
+          message: `Could not retrieve your rooms.`,
+        },
+      });
     }
-    console.log(`User ${user_id} sent list of rooms:${list}.`);
 
+    const list = listRoomsResult.unwrap().data as TypeRoomSchema[];
     return Result.Ok({
       recipients: [user_id],
       code: user_url.ws.chat.listRooms.schema.output.FullListGiven.code,

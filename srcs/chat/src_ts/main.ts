@@ -45,7 +45,7 @@ socket.registerHandler(user_url.ws.chat.sendMessage, async (wrapper) => {
   }
   const room_id_requested = wrapper.payload.roomId;
   const message_string = wrapper.payload.messageString;
-  return room.sendMessage(user_id, room_id_requested, message_string);
+  return await room.sendMessage(user_id, room_id_requested, message_string);
 });
 
 socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
@@ -69,7 +69,7 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
 socket.registerHandler(user_url.ws.chat.addRoom, async (wrapper) => {
   const room_name_requested = wrapper.payload.roomName;
   const user_id = wrapper.user_id;
-  const room = singletonChatRooms.addRoom(room_name_requested, user_id);
+  const room = await singletonChatRooms.addRoom(room_name_requested, user_id);
   if (!room) {
     console.error("Mega warning, could not add a room.");
     return Result.Ok({
@@ -84,9 +84,28 @@ socket.registerHandler(user_url.ws.chat.addRoom, async (wrapper) => {
   return room;
 });
 
+socket.registerHandler(user_url.ws.chat.getRoomData, async (wrapper) => {
+  const room_id_requested = wrapper.payload.roomId;
+  const user_id = wrapper.user_id;
+  const roomInfoResult = await singletonChatRooms.fetchRoomById(room_id_requested, user_id);
+  if (roomInfoResult.isErr()) {
+    console.error("Mega warning, could not get room data for room:", room_id_requested);
+    return Result.Ok({
+      recipients: [user_id],
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.getRoomData.schema.output.NoSuchRoom.code,
+      payload: {
+        message: `Could not get data for room ID: ${room_id_requested}`,
+      },
+    });
+  }
+
+  return roomInfoResult;
+});
+
 socket.registerHandler(user_url.ws.chat.listRooms, async (wrapper) => {
   const user_id = wrapper.user_id;
-  const roomList = singletonChatRooms.listRooms(user_id);
+  const roomList = await singletonChatRooms.listRooms(user_id);
   if (roomList.isErr()) {
     console.error("Mega warning, could not list rooms for an user:", user_id);
     return Result.Ok({
@@ -98,26 +117,6 @@ socket.registerHandler(user_url.ws.chat.listRooms, async (wrapper) => {
     });
   }
   return roomList;
-});
-socket.registerHandler(user_url.ws.chat.getMessages, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const room_id = wrapper.payload.roomId;
-  const room = singletonChatRooms.getRoom(room_id);
-  if (room === null || !room.allowedUsers.find((n) => { n === user_id})) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.chat.getMessages.schema.output.NoListGiven.code,
-      payload: {
-        message: `No such room.`,
-      },
-    });
-  }
-  const payload : TypeFullRoomInfoSchema = {roomName : room.room_name, roomId: room_id, 
-    messages : room.messages.getList(), users : room.allowedUsers};
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.chat.getMessages.schema.output.FullRoomInfoGiven.code,
-      payload: payload});
 });
 socket.registerHandler(user_url.ws.chat.joinRoom, async (wrapper) => {
   const room_id_requested = wrapper.payload.roomId;

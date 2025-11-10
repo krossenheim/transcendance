@@ -1,5 +1,5 @@
-import type { FullUserType, UserType, FriendType, UserAuthDataType } from '../utils/api/service/db/user.js';
-import { User, FullUser, Friend, UserAuthData } from '../utils/api/service/db/user.js';
+import type { FullUserType, UserType, FriendType, UserAuthDataType, PublicUserDataType } from '../utils/api/service/db/user.js';
+import { User, FullUser, Friend, UserAuthData, PublicUserData } from '../utils/api/service/db/user.js';
 import { UserFriendshipStatusEnum } from '../utils/api/service/db/friendship.js';
 import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
@@ -107,6 +107,19 @@ export class UserService {
 			...user,
 			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
 		}));
+	}
+
+	fetchUsersByIds(ids: number[]): Result<PublicUserDataType[], string> {
+		if (ids.length === 0) {
+			return Result.Ok([]);
+		}
+
+		const placeholders = ids.map(() => '?').join(', ');
+		return this.db.all(
+			`SELECT id, createdAt, username, alias, bio, hasAvatar FROM users WHERE id IN (${placeholders})`,
+			PublicUserData,
+			ids
+		);
 	}
 
 	async createNewUser(username: string, email: string, passwordHash: string | null, isGuest: boolean): Promise<Result<FullUserType, string>> {
