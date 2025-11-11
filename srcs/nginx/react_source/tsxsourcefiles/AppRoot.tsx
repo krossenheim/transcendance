@@ -33,8 +33,19 @@ export default function AppRoot() {
   }
 
   return (
-    <div className={`min-h-screen bg-gray-100 dark:bg-dark-900 transition-colors duration-200`}>
-      {authResponse ? (
+    <div 
+      className={`min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200`}
+      style={{
+        backgroundImage: darkMode 
+          ? 'url(/static/react_dist/bg_dark.jpg)' 
+          : 'url(/static/react_dist/bg_light.jpg)',
+      }}
+    >
+      {/* Semi-transparent overlay for better text readability */}
+      <div className="fixed inset-0 bg-black/5 dark:bg-black/20 pointer-events-none"></div>
+      
+      <div className="relative z-10">
+        {authResponse ? (
         <SocketComponent AuthResponseObject={authResponse}>
           <div className="flex flex-col h-screen">
             {/* Header */}
@@ -145,6 +156,7 @@ export default function AppRoot() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
