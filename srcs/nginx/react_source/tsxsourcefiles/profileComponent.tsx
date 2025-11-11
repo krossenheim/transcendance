@@ -263,34 +263,34 @@ useEffect(() => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
       <div
-        className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
+        className="bg-white dark:bg-dark-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="ml-3 text-gray-600">Loading profile...</p>
+            <p className="ml-3 text-gray-600 dark:text-gray-400">Loading profile...</p>
           </div>
         ) : error ? (
           <>
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Error</h2>
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Error</h2>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors text-2xl leading-none"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none"
               >
                 ×
               </button>
             </div>
             <div className="py-8 px-6 text-center">
               <div className="text-red-600 mb-4 text-4xl">⚠️</div>
-              <p className="text-gray-700 mb-2">{error}</p>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-gray-700 dark:text-gray-300 mb-2">{error}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 Check the console for more details. The backend may need to implement the profile endpoint.
               </p>
               <button
                 onClick={onClose}
-                className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                className="mt-4 px-4 py-2 bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors"
               >
                 Close
               </button>
@@ -299,11 +299,11 @@ useEffect(() => {
         ) : profile ? (
           <>
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-semibold">User Profile</h2>
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">User Profile</h2>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors text-2xl leading-none"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none"
               >
                 ×
               </button>
@@ -312,7 +312,7 @@ useEffect(() => {
             <div className="p-6 space-y-6">
               {/* Avatar and Username */}
               <div className="flex items-center space-x-4">
-                <div className="relative h-20 w-20 rounded-full overflow-hidden bg-gray-200">
+                <div className="relative h-20 w-20 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700">
                   {profile.avatar ? (
                     <img
                       src={avatarUrl || "/placeholder.svg"}
@@ -348,19 +348,19 @@ useEffect(() => {
                       type="text"
                       value={editedUsername}
                       onChange={(e) => setEditedUsername(e.target.value)}
-                      className="text-2xl font-bold border-b border-gray-300 focus:outline-none focus:border-blue-500"
+                      className="text-2xl font-bold border-b border-gray-300 dark:border-dark-600 focus:outline-none focus:border-blue-500 bg-white dark:bg-dark-800 text-gray-900 dark:text-white"
                     />
                   ) : (
-                    <h3 className="text-2xl font-bold">{profile.username}</h3>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{profile.username}</h3>
                   )}
                   {profile.status && (
                     <span
                       className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
                         profile.status === "online"
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                           : profile.status === "in-game"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
+                          ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"
+                          : "bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-gray-200"
                       }`}
                     >
                       {profile.status}
@@ -372,35 +372,35 @@ useEffect(() => {
               {/* Email */}
               {isOwnProfile && (
                 <div>
-                  <h4 className="text-sm font-semibold mb-2">Email</h4>
+                  <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Email</h4>
                   {editing ? (
                     <input
                       type="email"
                       value={editedEmail}
                       onChange={(e) => setEditedEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-700 text-gray-900 dark:text-white"
                     />
                   ) : (
-                    <p className="text-sm text-gray-600">{profile.email}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{profile.email}</p>
                   )}
                 </div>
               )}
 
               {/* Bio */}
               <div>
-                <h4 className="text-sm font-semibold mb-2">Bio</h4>
+                <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Bio</h4>
                 {editing ? (
                   <div className="space-y-2">
                     <textarea
                       value={editedBio}
                       onChange={(e) => setEditedBio(e.target.value)}
                       placeholder="Tell us about yourself..."
-                      className="w-full min-h-[100px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full min-h-[100px] px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                     />
                   </div>
                 ) : (
                   <div>
-                    <p className="text-sm text-gray-600">{profile.bio || "No bio yet"}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{profile.bio || "No bio yet"}</p>
                   </div>
                 )}
               </div>
@@ -424,7 +424,7 @@ useEffect(() => {
                           setEditedEmail(profile.email || "")
                           setAvatarFile(null)
                         }}
-                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors text-sm"
+                        className="px-4 py-2 bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors text-sm"
                       >
                         Cancel
                       </button>
@@ -443,19 +443,19 @@ useEffect(() => {
               {/* Stats */}
               {profile.stats && (
                 <div>
-                  <h4 className="text-sm font-semibold mb-2">Stats</h4>
+                  <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Stats</h4>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-2xl font-bold">{profile.stats.gamesPlayed}</div>
-                      <div className="text-xs text-gray-500">Games Played</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{profile.stats.gamesPlayed}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Games Played</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-green-600">{profile.stats.wins}</div>
-                      <div className="text-xs text-gray-500">Wins</div>
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">{profile.stats.wins}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Wins</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-red-600">{profile.stats.losses}</div>
-                      <div className="text-xs text-gray-500">Losses</div>
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">{profile.stats.losses}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Losses</div>
                     </div>
                   </div>
                 </div>
@@ -467,7 +467,7 @@ useEffect(() => {
                   <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                     Add Friend
                   </button>
-                  <button className="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
+                  <button className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors">
                     Send Message
                   </button>
                 </div>
@@ -475,7 +475,7 @@ useEffect(() => {
             </div>
           </>
         ) : (
-          <div className="py-8 px-6 text-center text-gray-500">Profile not found</div>
+          <div className="py-8 px-6 text-center text-gray-500 dark:text-gray-400">Profile not found</div>
         )}
       </div>
     </div>
