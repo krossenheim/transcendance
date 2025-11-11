@@ -512,7 +512,7 @@ export default function ChatInputComponent() {
       console.log("Selecting room:", roomId, room)
       setCurrentRoomId(roomId)
       setCurrentRoomName(room?.roomName || null)
-      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
+      sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
     [rooms, sendToSocket],
   )
@@ -523,7 +523,7 @@ export default function ChatInputComponent() {
       console.log("[v0] Socket current:", socket.current)
       console.log("[v0] Socket readyState:", socket.current?.readyState)
       console.log("[v0] Creating room with funcId:", user_url.ws.chat.addRoom.funcId)
-      sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName })
+      sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName, roomType: 1 })
     },
     [sendToSocket, socket],
   )

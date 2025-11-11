@@ -503,6 +503,10 @@ getProfile: {
               code: 4,
               payload: ErrorResponse,
             },
+            FailedToStoreMessage: {
+              code: 5,
+              payload: ErrorResponse,
+            },
           },
         },
       },
@@ -532,6 +536,10 @@ getProfile: {
             },
             NoSuchRoom: {
               code: 4,
+              payload: ErrorResponse,
+            },
+            FailedToAddUser: {
+              code: 5,
               payload: ErrorResponse,
             },
           },
@@ -575,29 +583,6 @@ getProfile: {
           },
         },
       },
-      getMessages: {
-        funcId: "/api/chat/get_messages",
-        container: "chat",
-        schema: {
-          args_wrapper: ForwardToContainerSchema,
-          args: z
-            .object({
-              roomId: room_id_rule,
-            })
-            .strict(),
-          output_wrapper: PayloadHubToUsersSchema,
-          output: {
-            FullRoomInfoGiven: {
-              code: 0,
-              payload: FullRoomInfoSchema,
-            },
-            NoListGiven: {
-              code: 1,
-              payload: ErrorResponse,
-            },
-          },
-        },
-      },
       joinRoom: {
         funcId: "/api/chat/join_room",
         container: "chat",
@@ -614,12 +599,35 @@ getProfile: {
               code: 1,
               payload: ErrorResponse,
             },
+            FailedToJoinRoom: {
+              code: 2,
+              payload: ErrorResponse,
+            }
           },
         },
         code: {
           Joined: 0,
           NoSuchRoom: 1,
           AlreadyInRoom: 2,
+        },
+      },
+      getRoomData: {
+        funcId: "/api/chat/get_room_data",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestRoomByIdSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            RoomDataProvided: {
+              code: 0,
+              payload: FullRoomInfoSchema,
+            },
+            NoSuchRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
         },
       },
     },
@@ -848,7 +856,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/chat/rooms/create",
         method: "POST",
         schema: {
-          body: AddRoomPayloadSchema,
+          body: AddRoomPayloadSchema.extend({ owner: userIdValue }),
           response: {
             201: RoomSchema, // Created room
             500: ErrorResponse, // Internal server error
@@ -856,14 +864,51 @@ export const int_url = defineRoutes({
         },
       },
 
-      getRoomMessages: {
-        endpoint: "/internal_api/chat/rooms/get_messages",
+      getRoomInfo: {
+        endpoint: "/internal_api/chat/rooms/info/:roomId",
+        method: "GET",
+        schema: {
+          params: RequestRoomByIdSchema,
+          response: {
+            200: FullRoomInfoSchema, // Retrieved room info
+            404: ErrorResponse, // Room not found
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      sendMessage: {
+        endpoint: "/internal_api/chat/rooms/send_message",
         method: "POST",
         schema: {
-          body: VerifyTokenPayload,
+          body: SendMessagePayloadSchema.extend({ userId: idValue }),
           response: {
-            200: StoredMessageSchema, // Messages retrieved successfully
-            401: ErrorResponse, // Token invalid
+            200: StoredMessageSchema, // Message sent successfully
+            400: ErrorResponse, // Invalid message data
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      getUserRooms: {
+        endpoint: "/internal_api/chat/rooms/user_rooms/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: ListRoomsSchema, // Retrieved list of rooms
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      addUserToRoom: {
+        endpoint: "/internal_api/chat/rooms/add_user",
+        method: "POST",
+        schema: {
+          body: AddToRoomPayloadSchema.extend({ type: z.number() }),
+          response: {
+            200: z.null(), // User added successfully
             500: ErrorResponse, // Internal server error
           },
         },
