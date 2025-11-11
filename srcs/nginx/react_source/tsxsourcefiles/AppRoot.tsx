@@ -87,14 +87,14 @@ export default function AppRoot() {
 
             {/* Main Content */}
             <main className="flex-1 overflow-hidden flex justify-center">
-              <div className="w-full max-w-5xl px-4 py-6">
-                <div className="bg-white dark:bg-dark-800 rounded-lg shadow dark:shadow-dark-700">
+              <div className="w-full max-w-5xl px-4 py-6 flex flex-col">
+                <div className="bg-white dark:bg-dark-800 rounded-lg shadow dark:shadow-dark-700 flex-1 overflow-hidden flex flex-col">
                   {currentPage === 'chat' ? (
                     <div className="p-6">
                       <ChatInputComponent />
                     </div>
                   ) : (
-                    <div className="p-6">
+                    <div className="p-6 flex-1 flex overflow-hidden">
                       <PongComponent />
                     </div>
                   )}

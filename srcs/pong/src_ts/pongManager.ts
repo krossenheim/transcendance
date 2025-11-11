@@ -163,6 +163,43 @@ export class PongManager {
       g.player_paddles.find((n) => n.player_ID === playerId)
     );
   }
+
+  getFirstGameIdForPlayer(playerId: number): number | null {
+    for (const [game_id, game] of this.pong_instances) {
+      if (game.player_ids.find((id) => id === playerId)) {
+        return game_id;
+      }
+    }
+    return null;
+  }
+
+  getGameState(
+    user_id: number,
+    game_id: number
+  ): Result<
+    WSHandlerReturnValue<
+      typeof user_url.ws.pong.getGameState.schema.output
+    >,
+    ErrorResponseType
+  > {
+    const game = this.pong_instances.get(game_id);
+    if (game === undefined || !game.player_ids.find((id) => id === user_id)) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.pong.getGameState.schema.output.NotInRoom.code,
+        payload: {
+          message: `Game with ID ${game_id} does not exist or you are not in it.`,
+        },
+      });
+    }
+    // Return the current game state to the requesting user
+    const gameState = game.getGameState();
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+      payload: gameState,
+    });
+  }
 }
 
 export default PongManager;

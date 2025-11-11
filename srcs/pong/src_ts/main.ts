@@ -2,6 +2,7 @@
 import Fastify from "fastify";
 import PongManager from "./pongManager.js";
 import websocketPlugin from "@fastify/websocket";
+import WebSocket from "ws";
 import { OurSocket } from "./utils/socket_to_hub.js";
 import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import { Result } from "./utils/api/service/common/result.js";
@@ -22,7 +23,8 @@ async function backgroundTask() {
   let loops = 0;
   try {
     while (true) {
-      if (socket.getSocket().readyState != socket.getSocket().OPEN) {
+      // Use the ws library OPEN constant to reliably compare readyState
+      if (socket.getSocket().readyState !== WebSocket.OPEN) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         continue;
       }
@@ -80,6 +82,22 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
   const user_id = wrapper.user_id;
   const game_id = wrapper.payload.game_id;
   return singletonPong.userReportsReady(user_id, game_id);
+});
+socket.registerHandler(user_url.ws.pong.getGameState, async (wrapper) => {
+  const user_id = wrapper.user_id;
+  const game_id_optional = wrapper.payload.game_id;
+  // If no game_id provided, get first active game for the user
+  const game_id = game_id_optional ?? singletonPong.getFirstGameIdForPlayer(user_id);
+  if (!game_id) {
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.pong.getGameState.schema.output.NotInRoom.code,
+      payload: {
+        message: "User is not in any active game.",
+      },
+    });
+  }
+  return singletonPong.getGameState(user_id, game_id);
 });
 // Handle output from a function funcId
 socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
