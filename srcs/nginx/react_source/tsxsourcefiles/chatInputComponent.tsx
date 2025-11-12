@@ -132,7 +132,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           <button
             onClick={handleSend}
             disabled={!currentRoom}
-            className="bg-blue-500 text-white px-6 py-2 rounded-full hover:bg-blue-600 active:scale-95 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className={`px-6 py-2 rounded-full active:scale-95 transition-all ${
+              currentRoom
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-200 text-gray-700 cursor-not-allowed'
+            }`}
           >
             Send
           </button>
@@ -277,6 +281,7 @@ export default function ChatInputComponent() {
   const [blockedUsers, setBlockedUsers] = useState<string[]>([])
   const [profileUserId, setProfileUserId] = useState<number | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [userMap, setUserMap] = useState<Record<number, string>>({}) // userId -> username map
 
   // Get messages for current room
   const messages = currentRoomId ? messagesByRoom[currentRoomId] || [] : []
@@ -336,8 +341,11 @@ export default function ChatInputComponent() {
               ? new Date(messagePayload.messageDate * 1000).toISOString()
               : new Date(messagePayload.messageDate).toISOString()
 
+          // Resolve username from userMap if available
+          const resolvedUser = userMap[messagePayload.userId] || `User ${messagePayload.userId}`
+
           const transformedMessage = {
-            user: `User ${messagePayload.userId}`,
+            user: resolvedUser,
             content: messagePayload.messageString,
             timestamp: timestamp,
           }
@@ -407,7 +415,7 @@ export default function ChatInputComponent() {
               return true
             })
             .map((msg: TypeStoredMessageSchema) => ({
-              user: `User ${msg.userId}`,
+              user: userMap[msg.userId] || `User ${msg.userId}`,
               content: msg.messageString,
               timestamp: new Date(msg.messageDate * 1000).toISOString(),
             }))
@@ -419,10 +427,50 @@ export default function ChatInputComponent() {
         }
         break
 
+      case user_url.ws.chat.getRoomData.funcId:
+        try {
+          console.log("Received full room data:", payloadReceived.payload)
+          const roomData = payloadReceived.payload as any // FullRoomInfoSchema
+          const roomIdStr = String(roomData.room.roomId)
+
+          // Build user map from provided users array
+          if (Array.isArray(roomData.users)) {
+            const newMap: Record<number, string> = {}
+            roomData.users.forEach((u: any) => {
+              if (u && typeof u.id === 'number' && typeof u.username === 'string') {
+                newMap[u.id] = u.username
+              }
+            })
+            setUserMap((prev) => ({ ...prev, ...newMap }))
+          }
+
+          // Map messages (if any) using userMap/newMap
+          if (Array.isArray(roomData.messages)) {
+            const roomMessages = roomData.messages
+              .filter((msg: TypeStoredMessageSchema) => typeof msg.userId === 'number')
+              .map((msg: TypeStoredMessageSchema) => ({
+                user: (roomData.users && roomData.users.find((u: any) => u.id === msg.userId)?.username) || userMap[msg.userId] || `User ${msg.userId}`,
+                content: msg.messageString,
+                timestamp: new Date(msg.messageDate * 1000).toISOString(),
+              }))
+
+            setMessagesByRoom((prev) => ({
+              ...prev,
+              [roomIdStr]: roomMessages,
+            }))
+          } else {
+            // Ensure room has an empty array
+            setMessagesByRoom((prev) => ({ ...prev, [roomIdStr]: prev[roomIdStr] || [] }))
+          }
+        } catch (err) {
+          console.error("Error processing getRoomData:", err)
+        }
+        break
+
       default:
         console.log("Unhandled funcId:", payloadReceived.funcId)
     }
-  }, [payloadReceived, sendToSocket])
+  }, [payloadReceived, sendToSocket, userMap])
 
   useEffect(() => {
     console.log("Requesting room list on mount")
@@ -547,36 +595,29 @@ export default function ChatInputComponent() {
   const handleOpenProfile = useCallback((username: string) => {
     console.log("=== Opening profile ===")
     console.log("Username received:", username)
-    console.log("Username type:", typeof username)
-    console.log("Username length:", username.length)
-    console.log("Username charCodes:", Array.from(username).map(c => c.charCodeAt(0)))
-    
-    // Extract userId from username (assuming format "User {userId}")
+
+    // Try to extract userId from formats like "User {id}"
     const userIdMatch = username.match(/User (\d+)/)
-    console.log("Regex match result:", userIdMatch)
-    
     if (userIdMatch && userIdMatch[1]) {
-      const userIdStr = userIdMatch[1]
-      console.log("Extracted userId string:", userIdStr)
-      
-      const userId = Number.parseInt(userIdStr, 10)
-      console.log("Parsed userId:", userId)
-      console.log("Is NaN?", isNaN(userId))
-      
+      const userId = Number.parseInt(userIdMatch[1], 10)
       if (!isNaN(userId)) {
-        console.log("✓ Valid userId, opening profile modal")
         setProfileUserId(userId)
         setShowProfileModal(true)
-      } else {
-        console.error("✗ Failed to parse userId from:", userIdStr)
-        alert(`Cannot open profile for ${username} - invalid user ID (parsed as NaN)`)
+        return
       }
-    } else {
-      console.error("✗ Username format doesn't match 'User {number}':", username)
-      console.error("Expected format: 'User 123' but got:", username)
-      alert(`Cannot open profile for ${username} - invalid format. Expected format: "User 123"`)
     }
-  }, [])
+
+    // If username is a plain username, try to resolve via userMap
+    const found = Object.entries(userMap).find(([, uname]) => uname === username)
+    if (found) {
+      const id = Number(found[0])
+      setProfileUserId(id)
+      setShowProfileModal(true)
+      return
+    }
+
+    alert(`Cannot open profile for ${username} - unknown user`) 
+  }, [userMap])
 
   const handleStartDM = useCallback(
     (username: string) => {
