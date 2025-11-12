@@ -19,6 +19,19 @@ let globalSocket: WebSocket | null = null
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null)
 
+// Exported helper to forcibly close the global socket (useful on logout)
+export function closeGlobalSocket() {
+  if (globalSocket) {
+    try {
+      console.log('[v0] Closing global WebSocket connection')
+      globalSocket.close()
+    } catch (e) {
+      console.warn('[v0] Error while closing global socket:', e)
+    }
+    globalSocket = null
+  }
+}
+
 export default function SocketComponent({ children, AuthResponseObject }: SocketComponentProps) {
   const socket = useRef<WebSocket | null>(globalSocket)
   const [payloadReceived, setPayloadReceived] = useState<any | null>(null)

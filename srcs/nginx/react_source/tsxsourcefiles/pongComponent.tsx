@@ -425,13 +425,18 @@ export default function PongComponent() {
   )
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-grey p-4 space-y-4">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 dark:bg-dark-600 p-4 space-y-4">
       <canvas
         ref={canvasRef}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        className="rounded-2xl shadow-lg border border-gray-800"
+        className="rounded-2xl shadow-lg border border-gray-800 bg-black"
+        style={{ display: 'block' }}
       />
+
+      {!gameState && (
+        <div className="text-sm text-gray-600 dark:text-gray-300">Waiting for game state...</div>
+      )}
 
       {/* Debug overlay: visible, always-on button to start a game (helps diagnose missing buttons) */}
       <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 9999 }}>
