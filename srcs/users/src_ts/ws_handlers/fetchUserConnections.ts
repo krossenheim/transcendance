@@ -35,7 +35,7 @@ export function wsFetchUserConnectionsHandlers(socket: OurSocket, onlineUsers: S
       console.log(`Online users: ${Array.from(onlineUsers).join(", ")}`);
       const friends = result.data.map((friend: FriendType) => {
         if (friend.status == UserFriendshipStatusEnum.Accepted)
-          return { ...friend, isOnline: onlineUsers.has(friend.id) } as FriendType;
+          return { ...friend, onlineStatus: onlineUsers.has(friend.id) ? 1 : 0 } as FriendType;
         return friend;
       });
 

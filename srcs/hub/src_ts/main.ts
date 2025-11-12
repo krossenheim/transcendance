@@ -90,12 +90,12 @@ async function isRequestAuthenticated(
   return await validateJWTToken(jwtToken);
 }
 
-function disconnectUserSocket(socket: WebSocket) {
+function disconnectUserSocket(socket: WebSocket, shouldNotifyContainers: boolean) {
   if (socket.readyState <= 1) {
     socket.close();
   }
   const user_id = openSocketToUserID.get(socket);
-  if (user_id !== undefined) {
+  if (user_id !== undefined && shouldNotifyContainers) {
     for (const [
       socket,
       container_name,
@@ -115,9 +115,10 @@ function disconnectUserSocket(socket: WebSocket) {
           `Informed container ${container_name} of user dis-connection: ${user_id}`
         );
       }
-      openSocketToUserID.delete(socket);
     }
   }
+
+  openSocketToUserID.delete(socket);
 }
 
 function forwardToContainer(
@@ -300,7 +301,7 @@ function updateWebSocketConnection(socket: WebSocket, user_id: number) {
     const old_socket = openUserIdToSocket.get(user_id);
     if (old_socket && old_socket !== socket) {
       old_socket.send("You have been disconnected due to a new connection.");
-      disconnectUserSocket(old_socket);
+      disconnectUserSocket(old_socket, false);
     }
   }
   openSocketToUserID.set(socket, user_id);
@@ -319,7 +320,7 @@ async function handleWebsocketAuth(
       "Websocket authentication failed: " + authMessageResult.unwrapErr()
     );
     socket.send("Unauthorized: " + authMessageResult.unwrapErr());
-    disconnectUserSocket(socket);
+    disconnectUserSocket(socket, true);
     return Result.Err(null);
   }
 
@@ -430,7 +431,7 @@ fastify.get(
     });
 
     socket.on("close", () => {
-      disconnectUserSocket(socket);
+      disconnectUserSocket(socket, true);
     });
   }
 );
