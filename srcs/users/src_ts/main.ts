@@ -115,9 +115,9 @@ registerRoute(
     console.log(request.body);
     const fetchResult = await containers.db.get(
       int_url.http.db.getUserPfp,
-      undefined,
       { userId: String(request.body.payload) }
     );
+    console.log("Fetch result:", fetchResult);
     if (fetchResult.isErr()) {
       reply.code(500).send({ message: "Internal server error" });
       return;
@@ -129,6 +129,7 @@ registerRoute(
       return;
     }
 
+    reply.header('Content-Type', 'image/svg+xml');
     reply.code(200).send(result.data);
   }
 );

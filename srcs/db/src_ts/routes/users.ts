@@ -94,9 +94,10 @@ async function userRoutes(fastify: FastifyInstance) {
 
 		if (avatarResult.isErr())
 			return reply.status(404).send({ message: avatarResult.unwrapErr() });
-		else
+		else {
 			reply.header('Content-Type', 'image/svg+xml');
 			return reply.status(200).send(avatarResult.unwrap());
+		}
 	});
 
 	registerRoute(fastify, int_url.http.db.fetchUserConnections, async (request, reply) => {

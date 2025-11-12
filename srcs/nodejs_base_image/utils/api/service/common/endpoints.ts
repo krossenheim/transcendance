@@ -166,7 +166,7 @@ export const user_url = defineRoutes({
         schema: {
           body: userIdValue,
           response: {
-            200: z.array(FullUser),
+            200: z.string(), // SVG image string
             500: ErrorResponse,
           },
         },
