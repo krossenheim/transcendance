@@ -192,6 +192,23 @@ registerRoute(fastify, pub_url.http.auth.refreshToken, async (request, reply) =>
 	return reply.status(500).send(ErrorResponse.parse(response.data));
 });
 
+registerRoute(fastify, user_url.http.auth.logoutUser, async (request, reply) => {
+	const responseResult = await containers.db.post(int_url.http.db.logoutUser, {
+		userId: request.body.userId,
+	});
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		return reply.status(200).send(null);
+	} else {
+		return reply.status(500).send({ message: 'Failed to log out' });
+	}
+});
+
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);
 const host = process.env.AUTH_BIND_TO || '0.0.0.0';
 

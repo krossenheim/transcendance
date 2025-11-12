@@ -38,8 +38,6 @@ async function confirmUserFriendship(
       return { result: ConfirmFriendshipResult.UserBlocked };
     case UserFriendshipStatusEnum.Accepted:
       return { result: ConfirmFriendshipResult.AlreadyConfirmed };
-    case UserFriendshipStatusEnum.None:
-      return { result: ConfirmFriendshipResult.NoPendingInvite };
   }
 
   const reverseStatus = retrieveUserConnectionStatus(requester, confirmer);

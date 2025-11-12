@@ -11,6 +11,7 @@ export const Friend = z.object({
 	hasAvatar: z.coerce.boolean(),
 	status: UserFriendshipStatus,
 	createdAt: z.number(),
+	onlineStatus: z.number().optional()
 });
 
 export const User = z.object({

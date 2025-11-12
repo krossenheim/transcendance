@@ -24,6 +24,13 @@ export class TokenService {
 			[token]
 		).map(row => row.userId);
 	}
+
+	removeTokenByUserId(userId: number): Result<null, string> {
+		return this.db.run(
+			`DELETE FROM user_tokens WHERE userId = ?`,
+			[userId]
+		).map(() => null);
+	}
 }
 
 export default TokenService;

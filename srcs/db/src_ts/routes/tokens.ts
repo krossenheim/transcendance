@@ -45,6 +45,17 @@ async function tokenRoutes(fastify: FastifyInstance) {
 
 		return reply.status(200).send(null);
 	});
+
+	registerRoute(fastify, int_url.http.db.logoutUser, async (request, reply) => {
+		const { userId } = request.body;
+
+		const result = tokenService.removeTokenByUserId(userId);
+		if (result.isErr()) {
+			return reply.status(500).send({ message: result.unwrapErr() });
+		}
+
+		return reply.status(200).send(null);
+	});
 }
 
 export default tokenRoutes;

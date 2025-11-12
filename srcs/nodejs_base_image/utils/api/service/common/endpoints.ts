@@ -172,6 +172,21 @@ export const user_url = defineRoutes({
         },
       },
     },
+
+    auth: {
+      logoutUser: {
+        endpoint: "/api/auth/logout",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: z.null(),
+          response: {
+            200: z.null(),
+            500: ErrorResponse,
+          },
+        },
+      },
+    }
   },
 
   ws: {
@@ -783,6 +798,18 @@ export const int_url = defineRoutes({
           response: {
             200: FullUser, // Successful login; return user data
             401: ErrorResponse, // Invalid username or password
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      logoutUser: {
+        endpoint: "/internal_api/db/tokens/logout",
+        method: "POST",
+        schema: {
+          body: z.object({ userId: userIdValue }),
+          response: {
+            200: z.null(), // Logged out successfully
             500: ErrorResponse, // Internal server error
           },
         },
