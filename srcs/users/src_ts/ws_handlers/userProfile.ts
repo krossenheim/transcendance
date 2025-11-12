@@ -81,18 +81,6 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 		});
 	  }
 
-	  const userConnectionsResult = await containers.db.get(
-		int_url.http.db.fetchUserConnections,
-		{ userId: body.user_id }
-	  );
-
-	  let onlineStatus = null;
-	  if (userConnectionsResult.isOk() && userConnectionsResult.unwrap().status === 200) {
-		const hasAccessToOnlineStatus = userConnectionsResult.unwrap().data.some((friend: FriendType) => friend.friendId === targetUser.id);
-		if (hasAccessToOnlineStatus)
-		  onlineStatus = onlineUsers.has(targetUser.id) ? 1 : 0;
-	  }
-
 	  return Result.Ok({
 		recipients: [body.user_id],
 		code: schema.output.Success.code,
@@ -103,7 +91,7 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 			alias: targetUser.alias,
 			bio: targetUser.bio,
 			hasAvatar: targetUser.hasAvatar,
-			onlineStatus: onlineStatus,
+			onlineStatus: onlineUsers.has(targetUser.id) ? 1 : 0,
 		},
 	  })
 	}

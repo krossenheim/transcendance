@@ -31,12 +31,9 @@ export function wsFetchUserConnectionsHandlers(socket: OurSocket, onlineUsers: S
           code: schema.output.Failure.code,
           payload: { message: "Failed to fetch user connections" },
         });
-      
-      console.log(`Online users: ${Array.from(onlineUsers).join(", ")}`);
+
       const friends = result.data.map((friend: FriendType) => {
-        if (friend.status == UserFriendshipStatusEnum.Accepted)
           return { ...friend, onlineStatus: onlineUsers.has(friend.friendId) ? 1 : 0 } as FriendType;
-        return friend;
       });
 
       return Result.Ok({
