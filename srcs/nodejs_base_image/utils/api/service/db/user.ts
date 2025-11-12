@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 export const Friend = z.object({
 	id: userIdValue,
+	friendId: userIdValue,
 	username: z.string(),
 	alias: z.string().nullable(),
 	bio: z.string().nullable(),

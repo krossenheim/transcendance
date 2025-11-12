@@ -298,6 +298,7 @@ class ChatRooms {
     });
   }
 
+  // {"funcId":"/api/chat/join_room","payload":{"roomId":1},"target_container":"chat"}
   async userJoinRoom(
     roomIdReq: number,
     user_id: number

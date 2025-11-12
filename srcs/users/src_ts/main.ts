@@ -27,7 +27,7 @@ import { wsRequestFriendshipHandlers } from "./ws_handlers/requestFriendship.js"
 socketToHub.register(wsRequestFriendshipHandlers);
 
 import { wsUserProfileHandlers } from "./ws_handlers/userProfile.js";
-socketToHub.register(wsUserProfileHandlers);
+wsUserProfileHandlers(socketToHub, onlineUsers);
 
 async function handleUserConnectionUpdateNotification(userId: number) {
   const userConnections = await containers.db.get(
@@ -42,12 +42,12 @@ async function handleUserConnectionUpdateNotification(userId: number) {
 
   const result = userConnections.unwrap().data as Array<FriendType>;
   for (const friend of result) {
-    if (friend.status === UserFriendshipStatusEnum.Accepted && onlineUsers.has(friend.id)) {
+    if (friend.status === UserFriendshipStatusEnum.Accepted && onlineUsers.has(friend.friendId)) {
       await socketToHub.invokeHandler(
         user_url.ws.users.fetchUserConnections,
-        friend.id,
+        friend.friendId,
         null
-      )
+      );
     }
   }
 }

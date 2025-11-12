@@ -37,7 +37,7 @@ export class UserService {
 
 	fetchUserPendingFriendRequests(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, u.bio, uf.status, uf.createdAt
+			`SELECT u.id as friendId, u.username, u.alias, u.hasAvatar, u.bio, uf.userId as id, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.friendId = ? AND uf.status = ?`,
@@ -53,7 +53,7 @@ export class UserService {
 
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, u.bio, uf.status, uf.createdAt
+			`SELECT u.id as friendId, u.username, u.alias, u.hasAvatar, u.bio, uf.userId as id, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.userId = ?`,

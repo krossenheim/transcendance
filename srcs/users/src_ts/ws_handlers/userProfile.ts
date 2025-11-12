@@ -6,7 +6,7 @@ import { OurSocket } from "../utils/socket_to_hub.js";
 
 import containers from "../utils/internal_api.js";
 
-import type { FullUserType } from "../utils/api/service/db/user.js";
+import type { FriendType, FullUserType } from "../utils/api/service/db/user.js";
 
 export enum FriendshipCreationResult {
   Success,
@@ -59,7 +59,7 @@ export async function requestUserFriendship(
 }
 
 // {"funcId":"user_profile","payload":2,"target_container":"users"}
-export function wsUserProfileHandlers(socket: OurSocket) {
+export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number>) {
   socket.registerHandler(
 	user_url.ws.users.requestUserProfileData,
 	async (body, schema) => {
@@ -81,6 +81,18 @@ export function wsUserProfileHandlers(socket: OurSocket) {
 		});
 	  }
 
+	  const userConnectionsResult = await containers.db.get(
+		int_url.http.db.fetchUserConnections,
+		{ userId: body.user_id }
+	  );
+
+	  let onlineStatus = null;
+	  if (userConnectionsResult.isOk() && userConnectionsResult.unwrap().status === 200) {
+		const hasAccessToOnlineStatus = userConnectionsResult.unwrap().data.some((friend: FriendType) => friend.friendId === targetUser.id);
+		if (hasAccessToOnlineStatus)
+		  onlineStatus = onlineUsers.has(targetUser.id) ? 1 : 0;
+	  }
+
 	  return Result.Ok({
 		recipients: [body.user_id],
 		code: schema.output.Success.code,
@@ -91,6 +103,7 @@ export function wsUserProfileHandlers(socket: OurSocket) {
 			alias: targetUser.alias,
 			bio: targetUser.bio,
 			hasAvatar: targetUser.hasAvatar,
+			onlineStatus: onlineStatus,
 		},
 	  })
 	}
