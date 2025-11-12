@@ -243,17 +243,29 @@ useEffect(() => {
             'Authorization': `Bearer ${localStorage.getItem('jwt')}`
           }
         })
+        
         if (avatarResponse.ok) {
           const blob = await avatarResponse.blob()
           setAvatarUrl(URL.createObjectURL(blob))
         }
-        setAvatarFile(null)
       }
 
       setEditing(false)
+      setAvatarFile(null)
+      
+      // Refresh profile data
+      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to update profile')
+      console.error('Error saving profile:', error)
+      alert('Failed to save profile')
     }
+  }
+
+  const handleAddFriend = () => {
+    if (!userId) return
+    console.log("[ProfileComponent] Sending friend request to userId:", userId)
+    sendToSocket(user_url.ws.users.requestFriendship.funcId, userId)
+    // TODO: Show success/error message based on response
   }
 
   const isOwnProfile = currentUserId === userId
@@ -464,7 +476,10 @@ useEffect(() => {
               {/* Actions */}
               {!isOwnProfile && (
                 <div className="flex space-x-2">
-                  <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                  <button 
+                    onClick={handleAddFriend}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
                     Add Friend
                   </button>
                   <button className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors">

@@ -5,6 +5,8 @@ import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState, useEffect } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
+import { FriendshipProvider } from "./friendshipContext";
+import FriendshipNotifications from "./friendshipNotifications";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
@@ -227,35 +229,36 @@ export default function AppRoot() {
           </div>
         )}
         {authResponse ? (
-        <SocketComponent AuthResponseObject={authResponse}>
-          <div className="flex flex-col h-screen">
-            {/* Header */}
-            <header className="bg-white dark:bg-dark-800 shadow dark:shadow-dark-700">
-              <div className="max-w-5xl mx-auto px-4 py-4">
-                <div className="flex justify-between items-center">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
-                  <div className="flex items-center space-x-4">
-                    <nav className="flex space-x-4">
-                      <button
-                        onClick={() => setCurrentPage('chat')}
-                        className={`px-4 py-2 rounded-md ${
-                          currentPage === 'chat'
-                            ? 'bg-blue-500 text-white'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
-                        }`}
-                      >
-                        Chat
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage('pong')}
-                        className={`px-4 py-2 rounded-md ${
-                          currentPage === 'pong'
-                            ? 'bg-blue-500 text-white'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
-                        }`}
-                      >
-                        Pong
-                      </button>
+        <FriendshipProvider>
+          <SocketComponent AuthResponseObject={authResponse}>
+            <div className="flex flex-col h-screen">
+              {/* Header */}
+              <header className="bg-white dark:bg-dark-800 shadow dark:shadow-dark-700">
+                <div className="max-w-5xl mx-auto px-4 py-4">
+                  <div className="flex justify-between items-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
+                    <div className="flex items-center space-x-4">
+                      <nav className="flex space-x-4">
+                        <button
+                          onClick={() => setCurrentPage('chat')}
+                          className={`px-4 py-2 rounded-md ${
+                            currentPage === 'chat'
+                              ? 'bg-blue-500 text-white'
+                              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+                          }`}
+                        >
+                          Chat
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage('pong')}
+                          className={`px-4 py-2 rounded-md ${
+                            currentPage === 'pong'
+                              ? 'bg-blue-500 text-white'
+                              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+                          }`}
+                        >
+                          Pong
+                        </button>
                     </nav>
 
                     <button
@@ -273,6 +276,8 @@ export default function AppRoot() {
                         </svg>
                       )}
                     </button>
+
+                    <FriendshipNotifications isLoading={false} />
 
                     <button
                       onClick={handleLogout}
@@ -305,6 +310,7 @@ export default function AppRoot() {
             </main>
           </div>
         </SocketComponent>
+        </FriendshipProvider>
       ) : (
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
           {isAutoLoggingIn ? (

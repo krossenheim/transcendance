@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState, useRef } from "react"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 import { useWebSocket } from "./socketComponent"
 import ProfileComponent from "./profileComponent"
+import FriendshipNotifications from "./friendshipNotifications"
+import { useFriendshipContext } from "./friendshipContext"
 
 /* -------------------- ChatBox Component -------------------- */
 interface ChatBoxProps {
@@ -264,6 +266,7 @@ const RoomList: React.FC<RoomListProps> = ({
 /* -------------------- Main Chat Component -------------------- */
 export default function ChatInputComponent() {
   const { socket, payloadReceived, isConnected } = useWebSocket()
+  const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null)
@@ -282,17 +285,28 @@ export default function ChatInputComponent() {
   const [profileUserId, setProfileUserId] = useState<number | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [userMap, setUserMap] = useState<Record<number, string>>({}) // userId -> username map
+  const [pendingFriendshipRequests, setPendingFriendshipRequests] = useState<Array<{ userId: number; username: string; alias?: string | null }>>([])
 
   // Get messages for current room
   const messages = currentRoomId ? messagesByRoom[currentRoomId] || [] : []
 
   const sendToSocket = useCallback(
-    (funcId: string, payload: any) => {
+    (funcId: string, payload: any, targetContainer?: string) => {
       if (socket.current && isConnected) {
+        // Determine target container based on funcId if not explicitly provided
+        let container = targetContainer
+        if (!container) {
+          if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_')) {
+            container = "users"
+          } else {
+            container = "chat"
+          }
+        }
+        
         const toSend = {
           funcId,
           payload,
-          target_container: "chat",
+          target_container: container,
         }
         console.log("[v0] Sending to socket:", toSend)
         socket.current.send(JSON.stringify(toSend))
@@ -312,7 +326,20 @@ export default function ChatInputComponent() {
     console.log("[Chat] Received payload:", payloadReceived)
 
     switch (payloadReceived.funcId) {
-      case user_url.ws.chat.sendMessage.funcId:
+            case user_url.ws.users.fetchUserConnections.funcId:
+        console.log("Setting user connections:", payloadReceived.payload)
+        // Filter for pending friendship requests where someone requested friendship with us
+        const connections = payloadReceived.payload || []
+        const pending = connections
+          .filter((conn: any) => conn.status === 1) // 1 = Pending in UserFriendshipStatusEnum
+          .map((conn: any) => ({
+            userId: conn.id,
+            username: conn.username,
+            alias: conn.alias,
+          }))
+        setPendingFriendshipRequests(pending)
+        console.log("Pending friendship requests:", pending)
+        break
         try {
           // Transform the StoredMessageSchema to our local message format
           const messagePayload = payloadReceived.payload as TypeStoredMessageSchema
@@ -467,10 +494,34 @@ export default function ChatInputComponent() {
         }
         break
 
+      case user_url.ws.users.confirmFriendship.funcId:
+        console.log("Friendship accepted response:", payloadReceived)
+        if (payloadReceived.code === 0) {
+          console.log("✅ Friendship request accepted successfully")
+          // Refresh the connections list to update UI
+          sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+        } else {
+          console.error("❌ Failed to accept friendship:", payloadReceived)
+        }
+        break
+
+      case user_url.ws.users.denyFriendship.funcId:
+        console.log("Friendship denied response:", payloadReceived)
+        if (payloadReceived.code === 0) {
+          console.log("✅ Friendship request denied successfully")
+          // Refresh the connections list to update UI
+          sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+        } else {
+          console.error("❌ Failed to deny friendship:", payloadReceived)
+        }
+        break
+
       default:
         console.log("Unhandled funcId:", payloadReceived.funcId)
     }
-  }, [payloadReceived, sendToSocket, userMap])
+  }, [payloadReceived, sendToSocket])
+  // Note: userMap removed from dependencies to prevent infinite loop
+  // userMap is only read inside the effect, not used as a trigger
 
   useEffect(() => {
     console.log("Requesting room list on mount")
@@ -587,6 +638,43 @@ export default function ChatInputComponent() {
     // This funcId might not exist yet - adjust based on your endpoints
     alert("Pong invitation feature not yet implemented")
   }, [currentRoomId])
+
+  const handleAcceptFriendship = useCallback(
+    (userId: number) => {
+      console.log("Accepting friendship request from:", userId)
+      sendToSocket(user_url.ws.users.confirmFriendship.funcId, userId)
+      // Refresh connections after accepting
+      setTimeout(() => {
+        sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+      }, 500)
+    },
+    [sendToSocket],
+  )
+
+  const handleDenyFriendship = useCallback(
+    (userId: number) => {
+      console.log("Denying friendship request from:", userId)
+      sendToSocket(user_url.ws.users.denyFriendship.funcId, userId)
+      // Refresh connections after denying
+      setTimeout(() => {
+        sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+      }, 500)
+    },
+    [sendToSocket],
+  )
+
+  // Sync pending requests and handlers to context (unless in test mode)
+  useEffect(() => {
+    const testMode = localStorage.getItem('FRIENDSHIP_TEST_MODE') === 'true'
+    if (!testMode) {
+      setPendingRequests(pendingFriendshipRequests)
+    }
+  }, [pendingFriendshipRequests, setPendingRequests])
+
+  useEffect(() => {
+    setAcceptHandler(() => handleAcceptFriendship)
+    setDenyHandler(() => handleDenyFriendship)
+  }, [handleAcceptFriendship, handleDenyFriendship, setAcceptHandler, setDenyHandler])
 
   const handleBlockUser = useCallback((username: string) => {
     setBlockedUsers((prev) => (prev.includes(username) ? prev.filter((u) => u !== username) : [...prev, username]))
