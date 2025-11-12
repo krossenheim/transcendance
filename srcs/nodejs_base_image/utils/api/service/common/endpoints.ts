@@ -259,6 +259,34 @@ export const user_url = defineRoutes({
         },
       },
 
+      denyFriendship: {
+        funcId: "deny_friendship",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NoPendingRequest: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+            FailedToUpdate: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       blockUser: {
         funcId: "block_user",
         container: "users",

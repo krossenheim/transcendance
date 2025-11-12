@@ -20,6 +20,9 @@ socketToHub.register(wsBlockUserHandlers);
 import { wsConfirmFriendshipHandlers } from "./ws_handlers/confirmFriendship.js";
 socketToHub.register(wsConfirmFriendshipHandlers);
 
+import { wsDenyFriendshipHandlers } from "./ws_handlers/denyFriendship.js";
+socketToHub.register(wsDenyFriendshipHandlers);
+
 import { wsFetchUserConnectionsHandlers } from "./ws_handlers/fetchUserConnections.js";
 wsFetchUserConnectionsHandlers(socketToHub, onlineUsers);
 
