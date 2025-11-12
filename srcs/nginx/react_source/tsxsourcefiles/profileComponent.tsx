@@ -172,10 +172,13 @@ useEffect(() => {
         return
       }
 
-      const response = await fetch(profile.avatar, {
+      const response = await fetch(user_url.http.users.fetchUserAvatar.endpoint, {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`, // ✅ correct header
+          "Content-Type": "application/json",
         },
+        body: userId.toString(),
       })
 
       if (!response.ok) {
@@ -197,7 +200,7 @@ useEffect(() => {
   return () => {
     if (avatarUrl) URL.revokeObjectURL(avatarUrl)
   }
-}, [profile?.avatar])
+}, [profile?.userId])
 
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
