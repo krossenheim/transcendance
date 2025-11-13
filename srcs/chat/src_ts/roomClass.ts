@@ -53,6 +53,10 @@ class Room {
     this.users = this.users.filter((u) => u !== user);
   }
 
+  getId(): number {
+    return this.roomId;
+  }
+
   async sendMessage(
     user_id: number,
     roomIdReq: number,
@@ -210,6 +214,16 @@ class ChatRooms {
     return room;
   }
 
+  getAllUsers(): Set<number> {
+    const allUsers = new Set<number>();
+    for (const room of this.rooms) {
+      for (const userId of room.users) {
+        allUsers.add(userId);
+      }
+    }
+    return allUsers;
+  }
+
   async fetchRoomById(roomId: number, userId: number): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.getRoomData.schema.output>,
     ErrorResponseType
@@ -271,6 +285,64 @@ class ChatRooms {
       code: user_url.ws.chat.addRoom.schema.output.AddedRoom.code,
       payload: room_data,
     });
+  }
+
+  async getOrCreateDMRoom(user1_id: number, user2_id: number): Promise<Room | null> {
+    // DM room naming convention: "DM {lower_id} {higher_id}" (spaces allowed, underscores not)
+    const [lowerId, higherId] = user1_id < user2_id ? [user1_id, user2_id] : [user2_id, user1_id];
+    const dmRoomName = `DM ${lowerId} ${higherId}`;
+
+    console.log(`[DM] Looking for DM room between ${user1_id} and ${user2_id}: ${dmRoomName}`);
+
+    // Check if DM room already exists
+    const existingRoom = this.rooms.find(room => room.room_name === dmRoomName);
+    if (existingRoom) {
+      console.log(`[DM] Found existing DM room ${existingRoom.roomId}`);
+      return existingRoom;
+    }
+
+    console.log(`[DM] Creating new DM room ${dmRoomName}`);
+
+    // Create new DM room
+    const newRoomResult = await containers.db.post(int_url.http.db.createChatRoom, {
+      roomName: dmRoomName,
+      roomType: 2, // Type 2 for DM rooms
+      owner: user1_id,
+    });
+
+    if (newRoomResult.isErr()) {
+      console.error("[DM] Failed to create DM room - error:", newRoomResult.unwrapErr());
+      return null;
+    }
+
+    if (newRoomResult.unwrap().status !== 201) {
+      console.error("[DM] Failed to create DM room - status:", newRoomResult.unwrap().status);
+      return null;
+    }
+
+    const room_data = newRoomResult.unwrap().data as TypeRoomSchema;
+    console.log(`[DM] Created room ${room_data.roomId}, adding both users to DB`);
+
+    // Add user2 to the room in the database
+    const addUser2Result = await containers.db.post(int_url.http.db.addUserToRoom, {
+      roomId: room_data.roomId,
+      userId: user2_id,
+      accessType: ChatRoomUserAccessType.JOINED,
+    });
+
+    if (addUser2Result.isErr() || addUser2Result.unwrap().status !== 200) {
+      console.error("[DM] Failed to add user2 to room");
+    }
+
+    // Add both users as joined members in the Room object
+    const newRoom = new Room(room_data, [
+      [user1_id, ChatRoomUserAccessType.JOINED],
+      [user2_id, ChatRoomUserAccessType.JOINED]
+    ]);
+    this.rooms.push(newRoom);
+
+    console.log(`[DM] Successfully created DM room ${newRoom.roomId}`);
+    return newRoom;
   }
 
   async listRooms(

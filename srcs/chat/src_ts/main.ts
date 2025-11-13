@@ -48,6 +48,82 @@ socket.registerHandler(user_url.ws.chat.sendMessage, async (wrapper) => {
   return await room.sendMessage(user_id, room_id_requested, message_string);
 });
 
+socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (wrapper) => {
+  const sender_id = wrapper.user_id;
+  const target_user_id = wrapper.payload.targetUserId;
+  const message_string = wrapper.payload.messageString;
+
+  // Validate message length
+  if (!message_string || message_string.length < 1) {
+    return Result.Ok({
+      recipients: [sender_id],
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.MessageTooShort.code,
+      payload: {
+        message: `Message must be at least 1 character`,
+      },
+    });
+  }
+
+  // Create or get DM room for these two users
+  const dm_room = await singletonChatRooms.getOrCreateDMRoom(sender_id, target_user_id);
+  
+  if (!dm_room) {
+    console.error("Failed to create/get DM room");
+    return Result.Ok({
+      recipients: [sender_id],
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.UserNotFound.code,
+      payload: {
+        message: `User not found or failed to create DM room`,
+      },
+    });
+  }
+
+  // Send the message in the DM room
+  const result = await dm_room.sendMessage(sender_id, dm_room.getId(), message_string);
+  
+  if (result.isErr()) {
+    return Result.Ok({
+      recipients: [sender_id],
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.FailedToStoreMessage.code,
+      payload: {
+        message: `Failed to store message`,
+      },
+    });
+  }
+
+  const response = result.unwrap();
+  
+  // Map sendMessage response to sendDirectMessage response
+  // sendDirectMessage only has codes 0-4, while sendMessage has 0-5
+  // We need to map the response appropriately
+  if (response.code === 0) {
+    // MessageSent - return as-is but update funcId
+    return Result.Ok({
+      ...response,
+      funcId: wrapper.funcId,
+    });
+  } else if (response.code === 2) {
+    // MessageTooShort
+    return Result.Ok({
+      recipients: response.recipients,
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.MessageTooShort.code,
+      payload: response.payload,
+    });
+  } else {
+    // Any other error -> FailedToStoreMessage
+    return Result.Ok({
+      recipients: response.recipients,
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.FailedToStoreMessage.code,
+      payload: response.payload,
+    });
+  }
+});
+
 socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
   const room_id_requested = wrapper.payload.roomId;
   const room = singletonChatRooms.getRoom(room_id_requested);
@@ -156,13 +232,25 @@ socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
   if (
     wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
   ) {
-    console.log("Wrapper is: ", JSON.stringify(wrapper));
+    console.log("User connected - broadcasting to all clients:", wrapper.payload.userId);
     const emptyPayload: TypeEmptySchema = {};
-    socket.invokeHandler(
+    await socket.invokeHandler(
       user_url.ws.chat.listRooms,
       wrapper.payload.userId,
       emptyPayload
     );
+    
+    // Broadcast user_connected event to ALL connected users so they can fetch the username
+    const allConnectedUsers = Array.from(singletonChatRooms.getAllUsers());
+    const broadcastResult = socket.sendMessage(user_url.ws.chat.userConnected, {
+      recipients: allConnectedUsers,
+      code: 0,
+      payload: { userId: wrapper.payload.userId }
+    });
+    
+    if (broadcastResult.isErr()) {
+      console.error("Failed to broadcast user_connected:", broadcastResult.unwrapErr());
+    }
   }
   return Result.Ok(null);
 });

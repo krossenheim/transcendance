@@ -167,8 +167,14 @@ export default function PongComponent() {
           if (
             payloadReceived.code !==
             user_url.ws.pong.getGameState.schema.output.GameUpdate.code
-          )
+          ) {
+            console.warn("[Pong] getGameState returned non-GameUpdate code:", payloadReceived.code);
+            console.warn("[Pong] Payload:", payloadReceived.payload);
+            if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.NotInRoom.code) {
+              console.log("[Pong] User not in any game room - this is normal if no game exists");
+            }
             break;
+          }
           console.log("[Pong] Setting gameState:", parsed.data);
           setGameState(parsed.data);
           gameStateReceivedRef.current = true;

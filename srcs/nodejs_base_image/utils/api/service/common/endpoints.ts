@@ -553,6 +553,40 @@ getProfile: {
           },
         },
       },
+      sendDirectMessage: {
+        funcId: "/api/chat/send_direct_message",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({
+            targetUserId: idValue,
+            messageString: z.string().min(1).max(500),
+          }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            MessageSent: {
+              code: 0,
+              payload: StoredMessageSchema,
+            },
+            UserNotFound: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            MessageTooShort: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+            FailedToStoreMessage: {
+              code: 4,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
       addUserToRoom: {
         funcId: "/api/chat/add_user_to_room",
         container: "chat",
@@ -669,6 +703,21 @@ getProfile: {
             NoSuchRoom: {
               code: 1,
               payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      userConnected: {
+        funcId: "user_connected",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            UserConnected: {
+              code: 0,
+              payload: GetUser,
             },
           },
         },

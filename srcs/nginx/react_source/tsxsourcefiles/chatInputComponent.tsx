@@ -249,8 +249,8 @@ const RoomList: React.FC<RoomListProps> = ({
             </button>
             <button
               onClick={() => {
-                const username = prompt("Enter username to start DM:")
-                if (username) onStartDM(username)
+                const usernameOrId = prompt("Enter username or user ID to start DM:")
+                if (usernameOrId) onStartDM(usernameOrId)
               }}
               className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all"
             >
@@ -296,7 +296,7 @@ export default function ChatInputComponent() {
         // Determine target container based on funcId if not explicitly provided
         let container = targetContainer
         if (!container) {
-          if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_')) {
+          if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_') || funcId === 'user_profile') {
             container = "users"
           } else {
             container = "chat"
@@ -324,12 +324,24 @@ export default function ChatInputComponent() {
     if (!payloadReceived) return
 
     console.log("[Chat] Received payload:", payloadReceived)
+    console.log("[Chat] FuncId:", payloadReceived.funcId, "Type:", typeof payloadReceived.funcId)
 
     switch (payloadReceived.funcId) {
             case user_url.ws.users.fetchUserConnections.funcId:
         console.log("Setting user connections:", payloadReceived.payload)
         // Filter for pending friendship requests where someone requested friendship with us
         const connections = payloadReceived.payload || []
+        
+        // Add all connections to userMap (friends, pending, etc.)
+        const connectionUserMap: Record<number, string> = {}
+        connections.forEach((conn: any) => {
+          if (conn && typeof conn.id === 'number' && typeof conn.username === 'string') {
+            connectionUserMap[conn.id] = conn.username
+          }
+        })
+        setUserMap((prev) => ({ ...prev, ...connectionUserMap }))
+        console.log("Updated userMap with", Object.keys(connectionUserMap).length, "users from connections")
+        
         const pending = connections
           .filter((conn: any) => conn.status === 1) // 1 = Pending in UserFriendshipStatusEnum
           .map((conn: any) => ({
@@ -340,6 +352,8 @@ export default function ChatInputComponent() {
         setPendingFriendshipRequests(pending)
         console.log("Pending friendship requests:", pending)
         break
+
+      case user_url.ws.chat.sendMessage.funcId:
         try {
           // Transform the StoredMessageSchema to our local message format
           const messagePayload = payloadReceived.payload as TypeStoredMessageSchema
@@ -368,8 +382,13 @@ export default function ChatInputComponent() {
               ? new Date(messagePayload.messageDate * 1000).toISOString()
               : new Date(messagePayload.messageDate).toISOString()
 
-          // Resolve username from userMap if available
-          const resolvedUser = userMap[messagePayload.userId] || `User ${messagePayload.userId}`
+          // Resolve username from userMap if available, otherwise fetch it
+          let resolvedUser = userMap[messagePayload.userId]
+          if (!resolvedUser) {
+            console.log(`Username not in map for user ${messagePayload.userId}, fetching...`)
+            fetchUsername(messagePayload.userId) // Async fetch, will update userMap
+            resolvedUser = `User ${messagePayload.userId}` // Temporary until fetch completes
+          }
 
           const transformedMessage = {
             user: resolvedUser,
@@ -392,6 +411,18 @@ export default function ChatInputComponent() {
       case user_url.ws.chat.listRooms.funcId:
         console.log("Setting rooms:", payloadReceived.payload)
         setRooms(payloadReceived.payload)
+        
+        // Fetch room data for all rooms to populate userMap with all users
+        const roomList = payloadReceived.payload as TypeRoomSchema[]
+        if (Array.isArray(roomList)) {
+          console.log("Fetching data for", roomList.length, "rooms to populate usernames")
+          roomList.forEach((room: TypeRoomSchema, index: number) => {
+            // Stagger requests slightly to avoid overwhelming the server
+            setTimeout(() => {
+              sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId: room.roomId })
+            }, index * 50)
+          })
+        }
         break
 
       case user_url.ws.chat.joinRoom.funcId:
@@ -471,6 +502,11 @@ export default function ChatInputComponent() {
             setUserMap((prev) => ({ ...prev, ...newMap }))
           }
 
+          // Always try to join the room to ensure we're a member
+          // The backend will handle if we're already joined
+          console.log("Auto-joining room", roomIdStr)
+          sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId: Number(roomIdStr) })
+
           // Map messages (if any) using userMap/newMap
           if (Array.isArray(roomData.messages)) {
             const roomMessages = roomData.messages
@@ -516,6 +552,60 @@ export default function ChatInputComponent() {
         }
         break
 
+      case user_url.ws.chat.sendDirectMessage.funcId:
+        console.log("sendDirectMessage response:", payloadReceived)
+        if (payloadReceived.code === 0) {
+          console.log("✅ Direct message sent successfully")
+          const dmPayload = payloadReceived.payload as TypeStoredMessageSchema
+          const roomIdStr = String(dmPayload.roomId)
+          
+          // First, refresh the room list to get the new DM room
+          sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+          
+          // Then fetch room data to get usernames and messages
+          setTimeout(() => {
+            sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId: Number(dmPayload.roomId) })
+          }, 100)
+          
+          // Finally switch to the DM room
+          setTimeout(() => {
+            setCurrentRoomId(String(dmPayload.roomId))
+          }, 200)
+        } else {
+          console.error("❌ Failed to send direct message:", payloadReceived)
+          alert(`Failed to send DM: ${payloadReceived.code}`)
+        }
+        break
+
+      case "user_connected":
+        console.log("User connected event:", payloadReceived.payload)
+        if (payloadReceived.code === 0 && payloadReceived.payload) {
+          const userId = payloadReceived.payload.userId
+          if (userId && typeof userId === 'number') {
+            console.log(`User ${userId} connected, fetching username...`)
+            fetchUsername(userId)
+          }
+        }
+        break
+
+      case "user_disconnected":
+        console.log("User disconnected event:", payloadReceived.payload)
+        // Could remove from userMap or mark as offline if needed
+        break
+
+      case user_url.ws.users.requestUserProfileData.funcId:
+        console.log("[requestUserProfileData] Response received:", payloadReceived)
+        if (payloadReceived.code === 0 && payloadReceived.payload) {
+          const profile = payloadReceived.payload
+          if (profile.id && profile.username) {
+            console.log(`[requestUserProfileData] Adding to userMap: ${profile.id} -> ${profile.username}`)
+            setUserMap((prev) => ({ ...prev, [profile.id]: profile.username }))
+          }
+        } else {
+          console.warn("[requestUserProfileData] Failed to fetch profile:", payloadReceived)
+        }
+        break
+
       default:
         console.log("Unhandled funcId:", payloadReceived.funcId)
     }
@@ -523,11 +613,24 @@ export default function ChatInputComponent() {
   // Note: userMap removed from dependencies to prevent infinite loop
   // userMap is only read inside the effect, not used as a trigger
 
-  useEffect(() => {
-    console.log("Requesting room list on mount")
-    // sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+  // Helper function to fetch username by userId via WebSocket
+  const fetchUsername = useCallback(async (userId: number): Promise<string | null> => {
+    try {
+      console.log(`[fetchUsername] Fetching username for user ${userId} via WebSocket...`)
+      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
+      // The response will be handled in the payloadReceived effect
+      return null // We'll update userMap when the response arrives
+    } catch (err) {
+      console.warn(`[fetchUsername] Error fetching username for user ${userId}:`, err)
+    }
+    return null
   }, [sendToSocket])
 
+  useEffect(() => {
+    console.log("Requesting room list and user connections on mount")
+    sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+    sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+  }, [sendToSocket])
 
 
   const parseSlashCommand = (input: string) => {
@@ -575,10 +678,48 @@ export default function ChatInputComponent() {
 
         case "invite":
           if (args.length !== 1) {
-            alert("Usage: /invite <username>")
+            alert("Usage: /invite <username or userId>")
             return
           }
-          sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { roomId: 1, user_to_add: args[0] })
+          // Resolve username to userId
+          const usernameOrId = args[0]
+          const isNumericInput = /^\d+$/.test(usernameOrId)
+          let userIdToInvite: number | null = null
+          
+          if (isNumericInput) {
+            userIdToInvite = Number(usernameOrId)
+          } else {
+            // First, look up username in userMap
+            console.log("Looking for username:", usernameOrId, "in userMap:", userMap)
+            const foundUser = Object.entries(userMap).find(([, uname]) => 
+              uname.toLowerCase() === usernameOrId.toLowerCase()
+            )
+            
+            if (foundUser) {
+              userIdToInvite = Number(foundUser[0])
+            } else {
+              // Not in cache - show helpful error
+              const knownUsers = Object.entries(userMap)
+                .map(([id, name]) => `  ${name} (ID: ${id})`)
+                .join("\n")
+              alert(`User "${usernameOrId}" not found in known users.\n\n` +
+                    `Known users:\n${knownUsers || "  (none yet)"}\n\n` +
+                    `To invite a user not in this list:\n` +
+                    `1. Ask them for their user ID, then use: /invite <userId>\n` +
+                    `2. Or join a room with them first to cache their username`)
+              return
+            }
+          }
+          
+          if (userIdToInvite === null) {
+            alert("Could not determine user ID")
+            return
+          }
+          
+          sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
+            roomId: currentRoomId, 
+            user_to_add: userIdToInvite 
+          })
           break
 
         case "help":
@@ -593,7 +734,7 @@ export default function ChatInputComponent() {
           alert(`Unknown command: /${command}`)
       }
 
-      return // Don’t send the raw message
+      return // Don't send the raw message
     }
 
     // ✅ Regular chat message
@@ -602,7 +743,7 @@ export default function ChatInputComponent() {
       messageString: content,
     })
   },
-  [currentRoomId, sendToSocket],
+  [currentRoomId, sendToSocket, userMap],
 )
 
   const handleSelectRoom = useCallback(
@@ -708,12 +849,35 @@ export default function ChatInputComponent() {
   }, [userMap])
 
   const handleStartDM = useCallback(
-    (username: string) => {
-      console.log("Starting DM with:", username)
-      // This funcId might not exist yet - adjust based on your endpoints
-      alert("DM feature not yet implemented")
+    (usernameOrId: string) => {
+      console.log("Starting DM with:", usernameOrId)
+      
+      // Check if input is a number (userId)
+      const isNumeric = /^\d+$/.test(usernameOrId)
+      let targetUserId: number
+      
+      if (isNumeric) {
+        // Direct userId provided
+        targetUserId = Number(usernameOrId)
+        console.log("Using userId directly:", targetUserId)
+      } else {
+        // Username provided - look up in userMap
+        const found = Object.entries(userMap).find(([, uname]) => uname === usernameOrId)
+        if (!found) {
+          alert(`Cannot start DM - user "${usernameOrId}" not found in current session.\nTry entering their user ID number instead.`)
+          return
+        }
+        targetUserId = Number(found[0])
+        console.log("Resolved username to userId:", targetUserId)
+      }
+      
+      // Send a welcome message to create the DM room
+      sendToSocket(user_url.ws.chat.sendDirectMessage.funcId, {
+        targetUserId,
+        messageString: "Started a conversation",
+      })
     },
-    [sendToSocket],
+    [sendToSocket, userMap],
   )
 
   /* -------------------- Render -------------------- */
