@@ -66,9 +66,9 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (wrapper) => {
   }
 
   // Create or get DM room for these two users
-  const dm_room = await singletonChatRooms.getOrCreateDMRoom(sender_id, target_user_id);
+  const dmResult = await singletonChatRooms.getOrCreateDMRoom(sender_id, target_user_id);
   
-  if (!dm_room) {
+  if (!dmResult.room) {
     console.error("Failed to create/get DM room");
     return Result.Ok({
       recipients: [sender_id],
@@ -78,6 +78,19 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (wrapper) => {
         message: `User not found or failed to create DM room`,
       },
     });
+  }
+
+  const dm_room = dmResult.room;
+
+  // Always send room list update to the target user so they see the DM room
+  // This ensures the recipient sees the room even if they weren't online when it was created
+  console.log(`[DM] Sending room list update to recipient (user ${target_user_id})`);
+  await socket.invokeHandler(user_url.ws.chat.listRooms, target_user_id, {});
+  
+  // If room was just created, also send to sender
+  if (dmResult.wasCreated) {
+    console.log(`[DM] New room created, also updating sender's room list`);
+    await socket.invokeHandler(user_url.ws.chat.listRooms, sender_id, {});
   }
 
   // Send the message in the DM room
@@ -139,7 +152,18 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
     });
   }
   const user_to_add = wrapper.payload.user_to_add;
-  return await room.addToRoom(user_id, user_to_add);
+  const result = await room.addToRoom(user_id, user_to_add);
+  
+  // If user was successfully added, send them an updated room list
+  if (result.isOk()) {
+    const response = result.unwrap();
+    if (response.code === user_url.ws.chat.addUserToRoom.schema.output.UserAdded.code) {
+      console.log(`[addUserToRoom] User ${user_to_add} added successfully, sending room list update`);
+      await socket.invokeHandler(user_url.ws.chat.listRooms, user_to_add, {});
+    }
+  }
+  
+  return result;
 });
 
 socket.registerHandler(user_url.ws.chat.addRoom, async (wrapper) => {

@@ -410,6 +410,13 @@ export default function ChatInputComponent() {
 
       case user_url.ws.chat.listRooms.funcId:
         console.log("Setting rooms:", payloadReceived.payload)
+        const receivedRooms = payloadReceived.payload as TypeRoomSchema[]
+        console.log("Number of rooms received:", receivedRooms?.length)
+        if (Array.isArray(receivedRooms)) {
+          receivedRooms.forEach(room => {
+            console.log(`  - Room ${room.roomId}: "${room.roomName}" (type: ${room.roomType})`)
+          })
+        }
         setRooms(payloadReceived.payload)
         
         // Fetch room data for all rooms to populate userMap with all users
@@ -422,6 +429,15 @@ export default function ChatInputComponent() {
               sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId: room.roomId })
             }, index * 50)
           })
+          
+          // Also fetch profiles for common user IDs (1-10) to populate cache
+          // This helps with /invite <username> for users not in our rooms
+          console.log("Pre-fetching common user profiles (IDs 1-10)")
+          for (let userId = 1; userId <= 10; userId++) {
+            setTimeout(() => {
+              fetchUsername(userId)
+            }, (roomList.length * 50) + (userId * 100))
+          }
         }
         break
 

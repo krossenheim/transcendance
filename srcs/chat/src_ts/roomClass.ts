@@ -287,18 +287,44 @@ class ChatRooms {
     });
   }
 
-  async getOrCreateDMRoom(user1_id: number, user2_id: number): Promise<Room | null> {
+  async getOrCreateDMRoom(user1_id: number, user2_id: number): Promise<{ room: Room | null, wasCreated: boolean }> {
     // DM room naming convention: "DM {lower_id} {higher_id}" (spaces allowed, underscores not)
     const [lowerId, higherId] = user1_id < user2_id ? [user1_id, user2_id] : [user2_id, user1_id];
     const dmRoomName = `DM ${lowerId} ${higherId}`;
 
     console.log(`[DM] Looking for DM room between ${user1_id} and ${user2_id}: ${dmRoomName}`);
 
-    // Check if DM room already exists
-    const existingRoom = this.rooms.find(room => room.room_name === dmRoomName);
+    // Check if DM room already exists in memory
+    let existingRoom = this.rooms.find(room => room.room_name === dmRoomName);
     if (existingRoom) {
-      console.log(`[DM] Found existing DM room ${existingRoom.roomId}`);
-      return existingRoom;
+      console.log(`[DM] Found existing DM room in memory: ${existingRoom.roomId}`);
+      return { room: existingRoom, wasCreated: false };
+    }
+
+    // Check if DM room exists in database but not in memory
+    console.log(`[DM] Checking database for existing DM room...`);
+    const userRoomsResult = await containers.db.get(int_url.http.db.getUserRooms, { userId: user1_id });
+    if (userRoomsResult.isOk() && userRoomsResult.unwrap().status === 200) {
+      const userRooms = userRoomsResult.unwrap().data as TypeRoomSchema[];
+      const existingDMInDB = userRooms.find(room => room.roomName === dmRoomName);
+      
+      if (existingDMInDB) {
+        console.log(`[DM] Found existing DM room in database: ${existingDMInDB.roomId}, loading into memory`);
+        
+        // Fetch full room info to get user connections
+        const roomInfoResult = await containers.db.get(int_url.http.db.getRoomInfo, { roomId: existingDMInDB.roomId });
+        if (roomInfoResult.isOk() && roomInfoResult.unwrap().status === 200) {
+          const roomInfo = roomInfoResult.unwrap().data as TypeFullRoomInfoSchema;
+          
+          // Create Room object with proper user connections
+          const userConnections: Array<[number, number]> = roomInfo.userConnections.map(uc => [uc.userId, uc.userState]);
+          existingRoom = new Room(existingDMInDB, userConnections);
+          this.rooms.push(existingRoom);
+          
+          console.log(`[DM] Loaded existing DM room ${existingRoom.roomId} with ${existingRoom.users.length} joined users`);
+          return { room: existingRoom, wasCreated: false };
+        }
+      }
     }
 
     console.log(`[DM] Creating new DM room ${dmRoomName}`);
@@ -312,12 +338,12 @@ class ChatRooms {
 
     if (newRoomResult.isErr()) {
       console.error("[DM] Failed to create DM room - error:", newRoomResult.unwrapErr());
-      return null;
+      return { room: null, wasCreated: false };
     }
 
     if (newRoomResult.unwrap().status !== 201) {
       console.error("[DM] Failed to create DM room - status:", newRoomResult.unwrap().status);
-      return null;
+      return { room: null, wasCreated: false };
     }
 
     const room_data = newRoomResult.unwrap().data as TypeRoomSchema;
@@ -326,12 +352,14 @@ class ChatRooms {
     // Add user2 to the room in the database
     const addUser2Result = await containers.db.post(int_url.http.db.addUserToRoom, {
       roomId: room_data.roomId,
-      userId: user2_id,
-      accessType: ChatRoomUserAccessType.JOINED,
+      user_to_add: user2_id,
+      type: ChatRoomUserAccessType.JOINED,
     });
 
     if (addUser2Result.isErr() || addUser2Result.unwrap().status !== 200) {
-      console.error("[DM] Failed to add user2 to room");
+      console.error("[DM] Failed to add user2 to room:", addUser2Result.isErr() ? addUser2Result.unwrapErr() : addUser2Result.unwrap());
+    } else {
+      console.log(`[DM] Successfully added user ${user2_id} to room ${room_data.roomId}`);
     }
 
     // Add both users as joined members in the Room object
@@ -342,7 +370,7 @@ class ChatRooms {
     this.rooms.push(newRoom);
 
     console.log(`[DM] Successfully created DM room ${newRoom.roomId}`);
-    return newRoom;
+    return { room: newRoom, wasCreated: true };
   }
 
   async listRooms(
