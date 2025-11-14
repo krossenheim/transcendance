@@ -34,6 +34,7 @@ class FixedSizeList<T> {
 class Room {
   public room_name: string;
   public readonly roomId: number;
+  public readonly room_type: number;
   public users: Array<number>;
   public messages: FixedSizeList<TypeStoredMessageSchema>;
   public allowedUsers: Array<any>;
@@ -42,6 +43,8 @@ class Room {
   constructor(room_data: TypeRoomSchema, user_connections? : Array<[number, number]>) {
     this.roomId = room_data.roomId;
     this.room_name = room_data.roomName;
+    // Persist room type so handlers can enforce DM invariants (2 = DM)
+    this.room_type = (room_data as any).roomType ?? 1;
     this.users = user_connections ? user_connections.filter(uc => uc[1] === ChatRoomUserAccessType.JOINED).map(uc => uc[0]) : new Array();
     this.max_messages = 20;
     this.messages = new FixedSizeList(this.max_messages);
@@ -189,6 +192,10 @@ class Room {
 
   equals(otherRoom: Room) {
     return otherRoom && this.roomId == otherRoom.roomId;
+  }
+
+  getRoomType(): number {
+    return this.room_type;
   }
 }
 

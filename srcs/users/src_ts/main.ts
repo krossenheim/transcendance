@@ -17,6 +17,9 @@ let onlineUsers: Set<number> = new Set();
 import { wsBlockUserHandlers } from "./ws_handlers/blockUser.js";
 socketToHub.register(wsBlockUserHandlers);
 
+import { wsUnblockUserHandlers } from "./ws_handlers/unblockUser.js";
+socketToHub.register(wsUnblockUserHandlers);
+
 import { wsConfirmFriendshipHandlers } from "./ws_handlers/confirmFriendship.js";
 socketToHub.register(wsConfirmFriendshipHandlers);
 

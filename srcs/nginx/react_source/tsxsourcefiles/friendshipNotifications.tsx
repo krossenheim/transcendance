@@ -9,6 +9,16 @@ interface FriendshipNotificationsProps {
 
 const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({ isLoading = false }) => {
   const { pendingRequests, handleAcceptFriendship, handleDenyFriendship, setPendingRequests } = useFriendshipContext()
+  const selfIdRef = React.useRef<number | null>(null)
+  React.useEffect(() => {
+    try {
+      const jwt = localStorage.getItem('jwt')
+      if (jwt) {
+        const payload = JSON.parse(atob(jwt.split('.')[1]))
+        if (typeof payload.uid === 'number') selfIdRef.current = payload.uid
+      }
+    } catch {}
+  }, [])
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [processingId, setProcessingId] = useState<number | null>(null)
 
@@ -103,7 +113,7 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({ isLoading =
           <div className="max-h-96 overflow-y-auto">
             {pendingRequests.length > 0 ? (
               <div className="space-y-2 p-2">
-                {pendingRequests.map((req) => (
+                {pendingRequests.filter(req => req.userId !== selfIdRef.current).map((req) => (
                   <div
                     key={req.userId}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"

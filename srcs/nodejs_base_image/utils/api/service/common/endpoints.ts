@@ -311,6 +311,30 @@ export const user_url = defineRoutes({
         },
       },
 
+      unblockUser: {
+        funcId: "unblock_user",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       fetchUserConnections: {
         funcId: "fetch_user_connections",
         container: "users",

@@ -292,6 +292,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null)
+  const [currentRoomType, setCurrentRoomType] = useState<number | null>(null)
   // Store messages per room to prevent losing them when switching
   const [messagesByRoom, setMessagesByRoom] = useState<
     Record<
@@ -492,14 +493,8 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
             }, index * 50)
           })
           
-          // Also fetch profiles for common user IDs (1-10) to populate cache
-          // This helps with /invite <username> for users not in our rooms
-          console.log("Pre-fetching common user profiles (IDs 1-10)")
-          for (let userId = 1; userId <= 10; userId++) {
-            setTimeout(() => {
-              fetchUsername(userId)
-            }, (roomList.length * 50) + (userId * 100))
-          }
+          // Removed aggressive pre-fetch of arbitrary user IDs (1-10) to reduce load.
+          // Usernames now fetched on-demand via user_connected events, profile opens, DMs, invites.
         }
         break
 
@@ -751,6 +746,10 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
             alert("Usage: /invite <username or userId>")
             return
           }
+          if (currentRoomType === 2) {
+            alert("Cannot invite users into a direct message room.")
+            return
+          }
           // Resolve username to userId
           const usernameOrId = args[0]
           const isNumericInput = /^\d+$/.test(usernameOrId)
@@ -822,6 +821,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
       console.log("Selecting room:", roomId, room)
       setCurrentRoomId(roomId)
       setCurrentRoomName(computeRoomDisplayName(room))
+      setCurrentRoomType(room?.roomType ?? null)
       sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
     [rooms, sendToSocket, computeRoomDisplayName],

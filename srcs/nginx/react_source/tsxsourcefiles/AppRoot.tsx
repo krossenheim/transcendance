@@ -160,7 +160,8 @@ export default function AppRoot() {
     try {
       // Attempt to notify backend to revoke refresh token for this user
       let backendOk = false
-      if (authResponse && authResponse.user && typeof authResponse.user.id === 'number') {
+      const jwt = localStorage.getItem('jwt');
+      if (authResponse && authResponse.user && typeof authResponse.user.id === 'number' && jwt) {
         try {
           const res = await fetch('/api/auth/logout', {
             method: 'POST',
@@ -184,6 +185,8 @@ export default function AppRoot() {
       try {
         localStorage.removeItem('jwt');
         localStorage.removeItem('refreshToken');
+        // Clear any cached auth artifacts to prevent phantom refresh attempts
+        sessionStorage.removeItem('jwt');
       } catch (e) {
         console.warn('Error clearing tokens on logout:', e);
       }

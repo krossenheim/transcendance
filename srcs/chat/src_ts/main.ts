@@ -151,6 +151,14 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
       },
     });
   }
+  // Prevent inviting users into DM rooms (roomType 2)
+  if (room.getRoomType && room.getRoomType() === 2) {
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.chat.addUserToRoom.schema.output.FailedToAddUser.code,
+      payload: { message: "Cannot invite users into a direct message room." },
+    });
+  }
   const user_to_add = wrapper.payload.user_to_add;
   const result = await room.addToRoom(user_id, user_to_add);
   
