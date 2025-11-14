@@ -298,7 +298,7 @@ export default function AppRoot() {
                 <div className="bg-white dark:bg-dark-800 rounded-lg shadow dark:shadow-dark-700 flex-1 overflow-hidden flex flex-col">
                   {currentPage === 'chat' ? (
                     <div className="p-6">
-                      <ChatInputComponent />
+                      <ChatInputComponent selfUserId={authResponse.user.id} />
                     </div>
                   ) : (
                     <div className="p-6 flex-1 flex overflow-hidden">

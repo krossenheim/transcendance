@@ -155,7 +155,9 @@ interface RoomListProps {
   onSelectRoom: (roomId: string) => void
   onCreateRoom: (roomName: string) => void
   onRefreshRooms: () => void
-  onStartDM: (username: string) => void
+  onStartDM: (username: string | number) => void
+  selfUserId: number
+  userMap: Record<number, string>
 }
 
 const RoomList: React.FC<RoomListProps> = ({
@@ -165,9 +167,29 @@ const RoomList: React.FC<RoomListProps> = ({
   onCreateRoom,
   onRefreshRooms,
   onStartDM,
+  selfUserId,
+  userMap,
 }) => {
   const [newRoomName, setNewRoomName] = useState("")
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const getDisplayName = useCallback((room: TypeRoomSchema) => {
+    try {
+      if (room?.roomType === 2 && typeof room.roomName === 'string' && room.roomName.startsWith('DM ')) {
+        const parts = room.roomName.split(' ')
+        if (parts.length === 3) {
+          const a = Number(parts[1])
+          const b = Number(parts[2])
+          if (!Number.isNaN(a) && !Number.isNaN(b)) {
+            const otherId = a === selfUserId ? b : (b === selfUserId ? a : null)
+            if (otherId != null) {
+              return userMap[otherId] || `DM with User ${otherId}`
+            }
+          }
+        }
+      }
+    } catch {}
+    return room.roomName
+  }, [selfUserId, userMap])
 
   const handleCreate = () => {
     if (!newRoomName.trim()) return
@@ -194,7 +216,7 @@ const RoomList: React.FC<RoomListProps> = ({
                   : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"
               }`}
             >
-              <div className="font-medium">{room.roomName}</div>
+              <div className="font-medium">{getDisplayName(room)}</div>
               <div className="text-xs opacity-75">ID: {room.roomId}</div>
             </button>
           ))
@@ -264,7 +286,7 @@ const RoomList: React.FC<RoomListProps> = ({
 }
 
 /* -------------------- Main Chat Component -------------------- */
-export default function ChatInputComponent() {
+export default function ChatInputComponent({ selfUserId }: { selfUserId: number }) {
   const { socket, payloadReceived, isConnected } = useWebSocket()
   const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
@@ -286,9 +308,30 @@ export default function ChatInputComponent() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [userMap, setUserMap] = useState<Record<number, string>>({}) // userId -> username map
   const [pendingFriendshipRequests, setPendingFriendshipRequests] = useState<Array<{ userId: number; username: string; alias?: string | null }>>([])
+  const [pendingDMTargetId, setPendingDMTargetId] = useState<number | null>(null)
 
   // Get messages for current room
   const messages = currentRoomId ? messagesByRoom[currentRoomId] || [] : []
+
+  const computeRoomDisplayName = useCallback((room: TypeRoomSchema | undefined | null) => {
+    if (!room) return null
+    try {
+      if (room?.roomType === 2 && typeof room.roomName === 'string' && room.roomName.startsWith('DM ')) {
+        const parts = room.roomName.split(' ')
+        if (parts.length === 3) {
+          const a = Number(parts[1])
+          const b = Number(parts[2])
+          if (!Number.isNaN(a) && !Number.isNaN(b)) {
+            const otherId = a === selfUserId ? b : (b === selfUserId ? a : null)
+            if (otherId != null) {
+              return userMap[otherId] || `DM with User ${otherId}`
+            }
+          }
+        }
+      }
+    } catch {}
+    return room?.roomName || null
+  }, [selfUserId, userMap])
 
   const sendToSocket = useCallback(
     (funcId: string, payload: any, targetContainer?: string) => {
@@ -418,6 +461,25 @@ export default function ChatInputComponent() {
           })
         }
         setRooms(payloadReceived.payload)
+        // If we're waiting to open a DM to a specific user, try to select it now
+        if (pendingDMTargetId != null && Array.isArray(receivedRooms)) {
+          const dm = receivedRooms.find(r => {
+            if (r.roomType !== 2 || typeof r.roomName !== 'string') return false
+            if (!r.roomName.startsWith('DM ')) return false
+            const parts = r.roomName.split(' ')
+            if (parts.length !== 3) return false
+            const a = Number(parts[1]); const b = Number(parts[2])
+            if (Number.isNaN(a) || Number.isNaN(b)) return false
+            // roomName uses sorted ids, so just check both are present
+            const hasSelf = (a === selfUserId) || (b === selfUserId)
+            const hasTarget = (a === pendingDMTargetId) || (b === pendingDMTargetId)
+            return hasSelf && hasTarget
+          })
+          if (dm) {
+            handleSelectRoom(dm.roomId)
+            setPendingDMTargetId(null)
+          }
+        }
         
         // Fetch room data for all rooms to populate userMap with all users
         const roomList = payloadReceived.payload as TypeRoomSchema[]
@@ -681,15 +743,7 @@ export default function ChatInputComponent() {
 
         case "whisper":
         case "w":
-          if (args.length < 2) {
-            alert("Usage: /whisper <username> <message>")
-            return
-          }
-          const [target, ...messageParts] = args
-          sendToSocket(user_url.ws.chat.whisper.funcId, {
-            target,
-            message: messageParts.join(" "),
-          })
+          alert("Private whisper feature is not implemented yet.")
           break
 
         case "invite":
@@ -767,10 +821,10 @@ export default function ChatInputComponent() {
       const room = rooms.find((r) => r.roomId === roomId)
       console.log("Selecting room:", roomId, room)
       setCurrentRoomId(roomId)
-      setCurrentRoomName(room?.roomName || null)
+      setCurrentRoomName(computeRoomDisplayName(room))
       sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
-    [rooms, sendToSocket],
+    [rooms, sendToSocket, computeRoomDisplayName],
   )
 
   const handleCreateRoom = useCallback(
@@ -865,16 +919,16 @@ export default function ChatInputComponent() {
   }, [userMap])
 
   const handleStartDM = useCallback(
-    (usernameOrId: string) => {
+    (usernameOrId: string | number) => {
       console.log("Starting DM with:", usernameOrId)
       
       // Check if input is a number (userId)
-      const isNumeric = /^\d+$/.test(usernameOrId)
+      const isNumeric = typeof usernameOrId === 'number' || /^\d+$/.test(String(usernameOrId))
       let targetUserId: number
       
       if (isNumeric) {
         // Direct userId provided
-        targetUserId = Number(usernameOrId)
+        targetUserId = typeof usernameOrId === 'number' ? usernameOrId : Number(usernameOrId)
         console.log("Using userId directly:", targetUserId)
       } else {
         // Username provided - look up in userMap
@@ -887,11 +941,17 @@ export default function ChatInputComponent() {
         console.log("Resolved username to userId:", targetUserId)
       }
       
-      // Send a welcome message to create the DM room
+      // Send a welcome message to create/open the DM room
       sendToSocket(user_url.ws.chat.sendDirectMessage.funcId, {
         targetUserId,
         messageString: "Started a conversation",
       })
+      // Remember we want to switch to this DM when rooms arrive
+      setPendingDMTargetId(targetUserId)
+      // Nudge a rooms refresh to get the DM in the list quickly
+      setTimeout(() => {
+        sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+      }, 100)
     },
     [sendToSocket, userMap],
   )
@@ -909,6 +969,8 @@ export default function ChatInputComponent() {
               onCreateRoom={handleCreateRoom}
               onRefreshRooms={handleRefreshRooms}
               onStartDM={handleStartDM}
+              selfUserId={selfUserId}
+              userMap={userMap}
             />
           </div>
 
@@ -935,6 +997,7 @@ export default function ChatInputComponent() {
             setShowProfileModal(false)
             setProfileUserId(null)
           }}
+          onStartDM={handleStartDM}
         />
       )}
     </div>

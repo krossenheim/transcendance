@@ -25,9 +25,10 @@ interface ProfileComponentProps {
   userId: number
   isOpen: boolean
   onClose: () => void
+  onStartDM?: (userId: number) => void
 }
 
-export default function ProfileComponent({ userId, isOpen, onClose }: ProfileComponentProps) {
+export default function ProfileComponent({ userId, isOpen, onClose, onStartDM }: ProfileComponentProps) {
   const { socket, payloadReceived, isConnected } = useWebSocket()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -485,7 +486,15 @@ useEffect(() => {
                   >
                     Add Friend
                   </button>
-                  <button className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors">
+                  <button
+                    onClick={() => {
+                      if (onStartDM && userId) {
+                        onStartDM(userId)
+                        onClose()
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors"
+                  >
                     Send Message
                   </button>
                 </div>
