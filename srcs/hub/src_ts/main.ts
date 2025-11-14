@@ -42,6 +42,7 @@ await fastify.register(websocketPlugin);
 
 const openSocketToUserID: Map<WebSocket, number> = new Map();
 const openUserIdToSocket: Map<number, WebSocket> = new Map();
+const openSocketPreVerifyMessageStack: Map<WebSocket, Array<any>> = new Map();
 
 const interContainerWebsocketsToName: Map<WebSocket, string> = new Map();
 const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
@@ -160,10 +161,10 @@ function listIncomingContainerWebsocket(
     socket.send("Goodbye, unauthorized");
     console.log(
       "Undefined container name, socket address was: " +
-        req.ip +
-        " parsed into : '" +
-        incoming_ipv4_address +
-        "'"
+      req.ip +
+      " parsed into : '" +
+      incoming_ipv4_address +
+      "'"
     );
     socket.close(1008, "Unauthorized container");
     return returnType.UNKNOWN;
@@ -332,6 +333,15 @@ async function handleWebsocketAuth(
   // for (const socket of internal_sockets) {
   //   socket.send(JSON.stringify({ user_id: user_id }));
   // }
+
+  const preAuthMessages = openSocketPreVerifyMessageStack.get(socket);
+  if (preAuthMessages) {
+    for (const msg of preAuthMessages) {
+      await handleClientJSONMessage(socket, msg);
+    }
+    openSocketPreVerifyMessageStack.delete(socket);
+  }
+
   return Result.Ok(user_id);
 }
 
@@ -374,6 +384,55 @@ function forwardToContainers(
   return Result.Ok(null);
 }
 
+async function handleClientJSONMessage(
+  socket: WebSocket,
+  parsed: any,
+): Promise<void> {
+  let user_id = openSocketToUserID.get(socket);
+  if (user_id === undefined) {
+    if (openSocketPreVerifyMessageStack.has(socket)) {
+      openSocketPreVerifyMessageStack.get(socket)?.push(parsed);
+      return ;
+    }
+
+    openSocketPreVerifyMessageStack.set(socket, []);
+    const authResult = await handleWebsocketAuth(socket, parsed);
+    if (authResult.isErr()) {
+      console.error("Authentication failed: " + authResult.unwrapErr());
+    } else {
+      // const payloadInformAll : T_ForwardToContainer= {
+      //   user_id: -1,
+      //   funcId: int_url.ws.hub.getUserConnections.funcId,
+      //   payload: { user_id: authResult.unwrap() },
+      // };
+      // const forwardResult = forwardToContainers(payloadInformAll);
+      // if (forwardResult.isErr()) {
+      //   console.error(
+      //     "Failed to inform containers of new user connection: " +
+      //     forwardResult.unwrapErr()
+      //   );
+      // }
+    }
+    console.log("User authenticated with user_id: " + authResult.unwrap());
+    return;
+  }
+
+  const translationResult = translateUserPackage(parsed, user_id);
+  if (translationResult.isErr()) {
+    socket.send("Invalid message format: " + translationResult.unwrapErr());
+    return;
+  }
+
+  console.log("Parsed:", parsed);
+  const [validated, target_container] = translationResult.unwrap();
+  console.log("vaidated:", validated);
+  const forwardResult = forwardToContainer(target_container, validated);
+  if (forwardResult.isErr())
+    socket.send(
+      "Failed to forward to container: " + forwardResult.unwrapErr()
+    );
+}
+
 fastify.get(
   "/ws",
   { websocket: true },
@@ -391,43 +450,7 @@ fastify.get(
         return;
       }
 
-      let user_id = openSocketToUserID.get(socket);
-      if (user_id === undefined) {
-        const authResult = await handleWebsocketAuth(socket, parsed);
-        if (authResult.isErr()) {
-          console.error("Authentication failed: " + authResult.unwrapErr());
-        } else {
-          // const payloadInformAll : T_ForwardToContainer= {
-          //   user_id: -1,
-          //   funcId: int_url.ws.hub.getUserConnections.funcId,
-          //   payload: { user_id: authResult.unwrap() },
-          // };
-          // const forwardResult = forwardToContainers(payloadInformAll);
-          // if (forwardResult.isErr()) {
-          //   console.error(
-          //     "Failed to inform containers of new user connection: " +
-          //     forwardResult.unwrapErr()
-          //   );
-          // }
-        }
-        console.log("User authenticated with user_id: " + authResult.unwrap());
-        return;
-      }
-
-      const translationResult = translateUserPackage(parsed, user_id);
-      if (translationResult.isErr()) {
-        socket.send("Invalid message format: " + translationResult.unwrapErr());
-        return;
-      }
-
-      console.log("Parsed:", parsed);
-      const [validated, target_container] = translationResult.unwrap();
-      console.log("vaidated:", validated);
-      const forwardResult = forwardToContainer(target_container, validated);
-      if (forwardResult.isErr())
-        socket.send(
-          "Failed to forward to container: " + forwardResult.unwrapErr()
-        );
+      await handleClientJSONMessage(socket, parsed);
     });
 
     socket.on("close", () => {
