@@ -10,6 +10,7 @@ import type {
 } from "@/types/pong-interfaces"
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
+import type { AuthResponseType } from "@/types/auth-response"
 
 
 const BACKEND_WIDTH = 1000
@@ -29,8 +30,8 @@ function mapToCanvas(x: number, y: number) {
 // =========================
 // Component
 // =========================
-export default function PongComponent() {
-  const { socket, payloadReceived, authResponse } = useWebSocket()
+export default function PongComponent({ authResponse }: { authResponse: AuthResponseType | null }) {
+  const { socket, payloadReceived } = useWebSocket()
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] = useState<TypePlayerReadyForGameSchema | null>(null)
   const [gameSelectedInput, setGameSelectedInput] = useState<number>(1)
   const [gameState, setGameState] = useState<TypeGameStateSchema | null>(null)
@@ -362,7 +363,7 @@ export default function PongComponent() {
     ctx.strokeStyle = "#666"
     ctx.lineWidth = 2
     ctx.beginPath()
-    gameState.edges.forEach((edge, i) => {
+    gameState.edges.forEach((edge: { x: number; y: number }, i: number) => {
       const nextEdge = gameState.edges[(i + 1) % gameState.edges.length]
       const { x: x1, y: y1 } = mapToCanvas(edge.x, edge.y)
       const { x: x2, y: y2 } = mapToCanvas(nextEdge.x, nextEdge.y)
@@ -372,7 +373,7 @@ export default function PongComponent() {
     ctx.stroke()
 
     // Draw paddles
-    gameState.paddles.forEach((p) => {
+    gameState.paddles.forEach((p: { x: number; y: number; w: number; l: number; r: number }) => {
       const { x: canvasX, y: canvasY } = mapToCanvas(p.x, p.y)
       const width = (p.w * CANVAS_WIDTH) / BACKEND_WIDTH
       const length = (p.l * CANVAS_HEIGHT) / BACKEND_HEIGHT
@@ -386,7 +387,7 @@ export default function PongComponent() {
     })
 
     // Draw balls
-    gameState.balls.forEach((b) => {
+    gameState.balls.forEach((b: { x: number; y: number }) => {
       const { x: canvasX, y: canvasY } = mapToCanvas(b.x, b.y)
       ctx.fillStyle = "#ff4081"
       ctx.beginPath()

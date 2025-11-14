@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
+import FriendsManager from "./friendsManager";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
@@ -37,6 +38,7 @@ export default function AppRoot() {
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
   const [isGuestLoading, setIsGuestLoading] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [showFriendsManager, setShowFriendsManager] = useState<boolean>(false);
 
   // Persist tokens helper
   function persistAuthTokens(data: any) {
@@ -280,7 +282,16 @@ export default function AppRoot() {
                       )}
                     </button>
 
-                    <FriendshipNotifications isLoading={false} />
+                    <div className="flex items-center gap-2">
+                      <FriendshipNotifications isLoading={false} />
+                      <button
+                        onClick={() => setShowFriendsManager(true)}
+                        className="px-3 py-1 rounded bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-dark-600"
+                        title="Manage Friends"
+                      >
+                        Friends
+                      </button>
+                    </div>
 
                     <button
                       onClick={handleLogout}
@@ -305,12 +316,16 @@ export default function AppRoot() {
                     </div>
                   ) : (
                     <div className="p-6 flex-1 flex overflow-hidden">
-                      <PongComponent />
+                      <PongComponent authResponse={authResponse} />
                     </div>
                   )}
                 </div>
               </div>
             </main>
+          {/* Friends Manager Modal (needs WebSocket context) */}
+          {showFriendsManager && (
+            <FriendsManager isOpen={showFriendsManager} onClose={() => setShowFriendsManager(false)} />
+          )}
           </div>
         </SocketComponent>
         </FriendshipProvider>

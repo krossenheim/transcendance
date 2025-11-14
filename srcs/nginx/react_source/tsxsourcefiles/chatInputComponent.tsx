@@ -17,7 +17,7 @@ interface ChatBoxProps {
     timestamp?: string
   }>
   onSendMessage: (content: string) => void
-  currentRoom: string | null
+  currentRoom: number | null
   currentRoomName: string | null
   onInvitePong: () => void
   onBlockUser: (username: string) => void
@@ -151,8 +151,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 /* -------------------- Room List Component -------------------- */
 interface RoomListProps {
   rooms: TypeRoomSchema[]
-  currentRoom: string | null
-  onSelectRoom: (roomId: string) => void
+  currentRoom: number | null
+  onSelectRoom: (roomId: number) => void
   onCreateRoom: (roomName: string) => void
   onRefreshRooms: () => void
   onStartDM: (username: string | number) => void
@@ -290,7 +290,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
   const { socket, payloadReceived, isConnected } = useWebSocket()
   const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
-  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
+  const [currentRoomId, setCurrentRoomId] = useState<number | null>(null)
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null)
   const [currentRoomType, setCurrentRoomType] = useState<number | null>(null)
   // Store messages per room to prevent losing them when switching
@@ -312,7 +312,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
   const [pendingDMTargetId, setPendingDMTargetId] = useState<number | null>(null)
 
   // Get messages for current room
-  const messages = currentRoomId ? messagesByRoom[currentRoomId] || [] : []
+  const messages = currentRoomId != null ? messagesByRoom[String(currentRoomId)] || [] : []
 
   const computeRoomDisplayName = useCallback((room: TypeRoomSchema | undefined | null) => {
     if (!room) return null
@@ -642,7 +642,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
           
           // Finally switch to the DM room
           setTimeout(() => {
-            setCurrentRoomId(String(dmPayload.roomId))
+            setCurrentRoomId(dmPayload.roomId as number)
           }, 200)
         } else {
           console.error("❌ Failed to send direct message:", payloadReceived)
@@ -816,7 +816,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
 )
 
   const handleSelectRoom = useCallback(
-    (roomId: string) => {
+    (roomId: number) => {
       const room = rooms.find((r) => r.roomId === roomId)
       console.log("Selecting room:", roomId, room)
       setCurrentRoomId(roomId)

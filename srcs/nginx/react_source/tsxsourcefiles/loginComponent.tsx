@@ -1,11 +1,3 @@
-import type {
-  TypeStoredMessageSchema,
-  TypeListRoomsSchema,
-  TypeRoomMessagesSchema,
-  TypeRoomSchema,
-} from "../../../nodejs_base_image/utils/api/service/chat/db_models";
-import type { idValue } from "../../../nodejs_base_image/utils/api/service/common/zodRules";
-import type { room_id_rule } from "../../../nodejs_base_image/utils/api/service/chat/chat_interfaces";
 import React, { Key, useCallback, useEffect, useId, useState } from "react";
 import { useWebSocket } from "./socketComponent";
 

@@ -164,8 +164,8 @@ export const ChatBox = forwardRef<ChatBoxHandle, ChatBoxProps>(
             placeholder="Type a message..."
             className="flex-1"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleSend()}
           />
           <Button onClick={handleSend} className="px-6 bg-red-600 hover:bg-red-700">
             🚀 SEND
