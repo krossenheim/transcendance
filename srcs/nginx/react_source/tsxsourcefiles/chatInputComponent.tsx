@@ -23,6 +23,7 @@ interface ChatBoxProps {
   onBlockUser: (username: string) => void
   blockedUsers: string[]
   onOpenProfile: (username: string) => void
+  roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>
 }
 
 const ChatBox: React.FC<ChatBoxProps> = ({
@@ -34,6 +35,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   onBlockUser,
   blockedUsers,
   onOpenProfile,
+  roomUsers,
 }) => {
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -74,8 +76,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 space-y-3">
+      {/* Main content area with messages and users list */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 space-y-3">
         {messages.length > 0 ? (
           messages
             .filter((msg) => !blockedUsers.includes(msg.user))
@@ -112,7 +116,36 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             </p>
           </div>
         )}
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Users List Sidebar */}
+        {currentRoom && (
+          <div className="w-48 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Users ({roomUsers.length})</h3>
+            </div>
+            <div className="p-2 space-y-1">
+              {roomUsers.map((user) => (
+                <div
+                  key={user.id}
+                  onClick={() => onOpenProfile(user.username)}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                >
+                  <div className={`w-2 h-2 rounded-full ${
+                    user.onlineStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
+                  }`} />
+                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                    {user.username}
+                  </span>
+                </div>
+              ))}
+              {roomUsers.length === 0 && (
+                <div className="text-xs text-gray-400 text-center py-4">No users</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input */}
@@ -310,6 +343,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
   const [userMap, setUserMap] = useState<Record<number, string>>({}) // userId -> username map
   const [pendingFriendshipRequests, setPendingFriendshipRequests] = useState<Array<{ userId: number; username: string; alias?: string | null }>>([])
   const [pendingDMTargetId, setPendingDMTargetId] = useState<number | null>(null)
+  const [currentRoomUsers, setCurrentRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
 
   // Get messages for current room
   const messages = currentRoomId != null ? messagesByRoom[String(currentRoomId)] || [] : []
@@ -573,6 +607,11 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
               }
             })
             setUserMap((prev) => ({ ...prev, ...newMap }))
+            
+            // Store users for the current room if this is the active room
+            if (Number(roomIdStr) === currentRoomId) {
+              setCurrentRoomUsers(roomData.users || [])
+            }
           }
 
           // Always try to join the room to ensure we're a member
@@ -860,6 +899,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
       setCurrentRoomId(roomId)
       setCurrentRoomName(computeRoomDisplayName(room))
       setCurrentRoomType(room?.roomType ?? null)
+      setCurrentRoomUsers([]) // Clear users list while loading
       sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
     [rooms, sendToSocket, computeRoomDisplayName],
@@ -1022,6 +1062,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
               onBlockUser={handleBlockUser}
               blockedUsers={blockedUsers}
               onOpenProfile={handleOpenProfile}
+              roomUsers={currentRoomUsers}
             />
           </div>
         </div>
