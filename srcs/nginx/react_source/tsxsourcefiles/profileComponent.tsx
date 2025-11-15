@@ -479,64 +479,24 @@ useEffect(() => {
 
               {/* Actions */}
               {!isOwnProfile && (
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="flex-1 flex gap-2">
-                    <button 
-                      onClick={handleAddFriend}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Add Friend
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (onStartDM && userId) {
-                          onStartDM(userId)
-                          onClose()
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors"
-                    >
-                      Send Message
-                    </button>
-                  </div>
-                  <div className="flex-1 flex gap-2">
-                    <button
-                      onClick={() => {
-                        if (socket.current && isConnected) {
-                          socket.current.send(JSON.stringify({
-                            funcId: user_url.ws.users.blockUser.funcId,
-                            payload: userId,
-                            target_container: "users",
-                          }))
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                    >
-                      Block
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (socket.current && isConnected) {
-                          socket.current.send(JSON.stringify({
-                            funcId: user_url.ws.users.unblockUser.funcId,
-                            payload: userId,
-                            target_container: "users",
-                          }))
-                          // Also refresh our connections shortly after
-                          setTimeout(() => {
-                            socket.current?.send(JSON.stringify({
-                              funcId: user_url.ws.users.fetchUserConnections.funcId,
-                              payload: null,
-                              target_container: "users",
-                            }))
-                          }, 300)
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 bg-gray-100 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors"
-                    >
-                      Unblock
-                    </button>
-                  </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleAddFriend}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Add Friend
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (onStartDM && userId) {
+                        onStartDM(userId)
+                        onClose()
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors"
+                  >
+                    Send Message
+                  </button>
                 </div>
               )}
             </div>

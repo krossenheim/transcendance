@@ -54,7 +54,8 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
       payloadReceived.funcId === user_url.ws.users.blockUser.funcId ||
       payloadReceived.funcId === user_url.ws.users.unblockUser.funcId ||
       payloadReceived.funcId === user_url.ws.users.confirmFriendship.funcId ||
-      payloadReceived.funcId === user_url.ws.users.denyFriendship.funcId
+      payloadReceived.funcId === user_url.ws.users.denyFriendship.funcId ||
+      payloadReceived.funcId === user_url.ws.users.removeFriendship.funcId
     ) {
       // Refresh list after action completes
       setTimeout(() => sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null), 200)
@@ -87,7 +88,13 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
         {item.status === 2 && (
           <>
             <button
-              onClick={() => sendToSocket(user_url.ws.users.blockUser.funcId, item.id)}
+              onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
+              className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Unfriend
+            </button>
+            <button
+              onClick={() => sendToSocket(user_url.ws.users.blockUser.funcId, item.friendId)}
               className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600"
             >
               Block
@@ -96,7 +103,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
         )}
         {item.status === 3 && (
           <button
-            onClick={() => sendToSocket(user_url.ws.users.unblockUser.funcId, item.id)}
+            onClick={() => sendToSocket(user_url.ws.users.unblockUser.funcId, item.friendId)}
             className="px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-50 dark:hover:bg-dark-600"
           >
             Unblock
