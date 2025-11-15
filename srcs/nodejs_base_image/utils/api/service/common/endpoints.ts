@@ -375,6 +375,26 @@ export const user_url = defineRoutes({
         },
       },
 
+      searchUserByUsername: {
+        funcId: "search_user_by_username",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ username: z.string() }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            UserFound: {
+              code: 0,
+              payload: PublicUserData,
+            },
+            UserNotFound: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       
 getProfile: {
         funcId: "/api/users/get_profile",
@@ -852,6 +872,19 @@ export const int_url = defineRoutes({
           response: {
             200: FullUser, // Found user
             404: ErrorResponse, // User not found
+          },
+        },
+      },
+
+      searchUserByUsername: {
+        endpoint: "/internal_api/db/users/search/:username",
+        method: "GET",
+        schema: {
+          params: z.object({ username: z.string() }),
+          response: {
+            200: PublicUserData, // Found user
+            404: ErrorResponse, // User not found
+            500: ErrorResponse, // Internal server error
           },
         },
       },

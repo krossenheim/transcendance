@@ -166,6 +166,14 @@ export class UserService {
 		);
 	}
 
+	fetchPublicUserDataByUsername(username: string): Result<PublicUserDataType, string> {
+		return this.db.get(
+			`SELECT id, createdAt, username, alias, bio, hasAvatar FROM users WHERE username = ?`,
+			PublicUserData,
+			[username]
+		);
+	}
+
 	async fetchUserAvatar(userId: number): Promise<Result<string, string>> {
 		try {
 			const svg = await fs.readFile(`/etc/database_data/pfps/${userId}.svg`, 'utf-8');

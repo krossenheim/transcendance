@@ -35,6 +35,9 @@ socketToHub.register(wsRequestFriendshipHandlers);
 import { wsUserProfileHandlers } from "./ws_handlers/userProfile.js";
 wsUserProfileHandlers(socketToHub, onlineUsers);
 
+import { wsSearchUserByUsernameHandlers } from "./ws_handlers/searchUserByUsername.js";
+wsSearchUserByUsernameHandlers(socketToHub, onlineUsers);
+
 async function handleUserConnectionUpdateNotification(userId: number) {
   const userConnections = await containers.db.get(
     int_url.http.db.fetchUserConnections,

@@ -679,6 +679,19 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
         }
         break
 
+      case user_url.ws.users.searchUserByUsername.funcId:
+        console.log("[searchUserByUsername] Response received:", payloadReceived)
+        if (payloadReceived.code === 0 && payloadReceived.payload) {
+          const profile = payloadReceived.payload
+          if (profile.id && profile.username) {
+            console.log(`[searchUserByUsername] Found user: ${profile.id} -> ${profile.username}`)
+            setUserMap((prev) => ({ ...prev, [profile.id]: profile.username }))
+          }
+        } else {
+          console.warn("[searchUserByUsername] User not found:", payloadReceived)
+        }
+        break
+
       default:
         console.log("Unhandled funcId:", payloadReceived.funcId)
     }
@@ -757,6 +770,10 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
           
           if (isNumericInput) {
             userIdToInvite = Number(usernameOrId)
+            sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
+              roomId: currentRoomId, 
+              user_to_add: userIdToInvite 
+            })
           } else {
             // First, look up username in userMap
             console.log("Looking for username:", usernameOrId, "in userMap:", userMap)
@@ -766,29 +783,50 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
             
             if (foundUser) {
               userIdToInvite = Number(foundUser[0])
+              sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
+                roomId: currentRoomId, 
+                user_to_add: userIdToInvite 
+              })
             } else {
-              // Not in cache - show helpful error
-              const knownUsers = Object.entries(userMap)
-                .map(([id, name]) => `  ${name} (ID: ${id})`)
-                .join("\n")
-              alert(`User "${usernameOrId}" not found in known users.\n\n` +
-                    `Known users:\n${knownUsers || "  (none yet)"}\n\n` +
-                    `To invite a user not in this list:\n` +
-                    `1. Ask them for their user ID, then use: /invite <userId>\n` +
-                    `2. Or join a room with them first to cache their username`)
-              return
+              // Not in cache - search for the user by username
+              console.log(`Searching for user: ${usernameOrId}`)
+              
+              // Create a pending invite that will be sent once we get the search response
+              const handleSearchResponse = (e: MessageEvent) => {
+                try {
+                  const data = JSON.parse(e.data)
+                  if (data.funcId === user_url.ws.users.searchUserByUsername.funcId) {
+                    socket.current?.removeEventListener('message', handleSearchResponse)
+                    
+                    if (data.code === 0 && data.payload?.id) {
+                      const foundUserId = data.payload.id
+                      console.log(`Found user ${usernameOrId} with ID ${foundUserId}`)
+                      sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
+                        roomId: currentRoomId, 
+                        user_to_add: foundUserId 
+                      })
+                    } else {
+                      alert(`User "${usernameOrId}" not found. Please check the username and try again.`)
+                    }
+                  }
+                } catch (err) {
+                  console.error("Error handling search response:", err)
+                }
+              }
+              
+              socket.current?.addEventListener('message', handleSearchResponse)
+              
+              // Send search request
+              sendToSocket(user_url.ws.users.searchUserByUsername.funcId, { 
+                username: usernameOrId 
+              })
+              
+              // Timeout after 5 seconds
+              setTimeout(() => {
+                socket.current?.removeEventListener('message', handleSearchResponse)
+              }, 5000)
             }
           }
-          
-          if (userIdToInvite === null) {
-            alert("Could not determine user ID")
-            return
-          }
-          
-          sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
-            roomId: currentRoomId, 
-            user_to_add: userIdToInvite 
-          })
           break
 
         case "help":

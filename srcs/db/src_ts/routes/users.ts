@@ -67,6 +67,16 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(200).send(userResult.unwrap());
 	});
 
+	registerRoute(fastify, int_url.http.db.searchUserByUsername, async (request, reply) => {
+		const { username } = request.params;
+		const userResult = userService.fetchPublicUserDataByUsername(username);
+
+		if (userResult.isErr())
+			return reply.status(404).send({ message: userResult.unwrapErr() });
+		else
+			return reply.status(200).send(userResult.unwrap());
+	});
+
 	registerRoute(fastify, int_url.http.db.createNormalUser, async (request, reply) => {
 		const { username, email, password } = request.body;
 		console.log("Creating user:", username, email);
