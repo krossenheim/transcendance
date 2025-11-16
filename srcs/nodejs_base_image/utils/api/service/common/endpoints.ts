@@ -388,7 +388,7 @@ export const user_url = defineRoutes({
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: userIdValue,
+          args: z.union([userIdValue, z.string()]),
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             Success: {

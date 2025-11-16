@@ -66,6 +66,18 @@ class DatabaseTarget extends ContainerTarget {
     return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
   }
 
+  async fetchUserByUsername(username: string): Promise<Result<FullUserType, ErrorResponseType>> {
+    const responseResult = await this.get(int_url.http.db.searchUserByUsername, { username });
+    if (responseResult.isErr())
+      return Result.Err({ message: 'Database service unreachable' });
+
+    const response = responseResult.unwrap();
+    if (response.status === 200)
+      return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
+
+    return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
+  }
+
   async fetchMultipleUsers(userIds: number[]): Promise<Result<FullUserType[], ErrorResponseType>> {
     const responseResult = await this.post(int_url.http.db.fetchMultipleUsers, userIds);
     if (responseResult.isErr())

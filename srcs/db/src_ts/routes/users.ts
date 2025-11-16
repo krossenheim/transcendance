@@ -39,7 +39,7 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	registerRoute(fastify, int_url.http.db.loginUser, async (request, reply) => {
 		const { username, password } = request.body;
-		const userResult = userService.fetchUserFromUsername(username);
+		const userResult = userService.fetchAuthUserDataFromUsername(username);
 		if (userResult.isErr())
 			return reply.status(401).send({ message: userResult.unwrapErr() });
 
@@ -69,7 +69,7 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	registerRoute(fastify, int_url.http.db.searchUserByUsername, async (request, reply) => {
 		const { username } = request.params;
-		const userResult = userService.fetchPublicUserDataByUsername(username);
+		const userResult = userService.fetchUserFromUsername(username);
 
 		if (userResult.isErr())
 			return reply.status(404).send({ message: userResult.unwrapErr() });

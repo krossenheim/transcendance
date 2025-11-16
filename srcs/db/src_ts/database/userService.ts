@@ -158,18 +158,21 @@ export class UserService {
 		return Result.Err('Failed to create unique guest username');
 	}
 
-	fetchUserFromUsername(username: string): Result<UserAuthDataType, string> {
+	fetchUserFromUsername(username: string): Result<FullUserType, string> {
+		return this.db.get(
+			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users WHERE username = ?`,
+			User,
+			[username]
+		).map((user) => ({
+			...user,
+			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+		}));
+	}
+
+	fetchAuthUserDataFromUsername(username: string): Result<UserAuthDataType, string> {
 		return this.db.get(
 			`SELECT id, passwordHash, isGuest FROM users WHERE username = ?`,
 			UserAuthData,
-			[username]
-		);
-	}
-
-	fetchPublicUserDataByUsername(username: string): Result<PublicUserDataType, string> {
-		return this.db.get(
-			`SELECT id, createdAt, username, alias, bio, hasAvatar FROM users WHERE username = ?`,
-			PublicUserData,
 			[username]
 		);
 	}
