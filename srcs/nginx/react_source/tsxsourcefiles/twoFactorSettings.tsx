@@ -5,9 +5,10 @@ interface TwoFactorSettingsProps {
   userId: number;
   username: string;
   initialEnabled?: boolean;
+  isGuest?: boolean;
 }
 
-export function TwoFactorSettings({ userId, username, initialEnabled }: TwoFactorSettingsProps) {
+export function TwoFactorSettings({ userId, username, initialEnabled, isGuest }: TwoFactorSettingsProps) {
   const [is2FAEnabled, setIs2FAEnabled] = useState<boolean | null>(initialEnabled ?? null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
@@ -143,7 +144,11 @@ export function TwoFactorSettings({ userId, username, initialEnabled }: TwoFacto
       </div>
 
       <div className="mt-3">
-        {is2FAEnabled ? (
+        {isGuest ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+            Two-factor authentication is not available for guest accounts.
+          </p>
+        ) : is2FAEnabled ? (
           <button
             onClick={() => setShowDisable(true)}
             className="text-sm px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"

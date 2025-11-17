@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { registerRoute } from '../utils/api/service/common/fastify.js';
 import { int_url } from '../utils/api/service/common/endpoints.js';
-import { twoFactorService } from '../main.js';
+import { twoFactorService, userService } from '../main.js';
 import { z } from 'zod';
 
 async function twoFactorRoutes(fastify: FastifyInstance) {
@@ -21,6 +21,13 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
   // Generate 2FA secret and QR code (setup step 1)
   registerRoute(fastify, int_url.http.db.generate2FASecret, async (request, reply) => {
     const { userId, username } = request.body;
+    
+    // Check if user is a guest
+    const userResult = userService.fetchUserById(userId);
+    if (userResult.isOk() && userResult.unwrap().isGuest) {
+      return reply.status(403).send({ message: 'Guest users cannot enable 2FA' });
+    }
+    
     const result = await twoFactorService.generateSecret(userId, username);
 
     if (result.isErr()) {
@@ -38,6 +45,13 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
   // Enable 2FA (setup step 2 - after user scans QR and enters first code)
   registerRoute(fastify, int_url.http.db.enable2FA, async (request, reply) => {
     const { userId, code } = request.body;
+    
+    // Check if user is a guest
+    const userResult = userService.fetchUserById(userId);
+    if (userResult.isOk() && userResult.unwrap().isGuest) {
+      return reply.status(403).send({ message: 'Guest users cannot enable 2FA' });
+    }
+    
     const result = twoFactorService.enable(userId, code);
 
     if (result.isErr()) {

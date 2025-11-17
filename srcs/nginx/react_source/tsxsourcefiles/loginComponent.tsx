@@ -1,5 +1,6 @@
 import React, { Key, useCallback, useEffect, useId, useState } from "react";
 import { useWebSocket } from "./socketComponent";
+import { TwoFactorVerify } from "./twoFactorComponent";
 
 const handleKeyPress = (e: any, action: any) => {
   if (e.key === "Enter") {
@@ -19,6 +20,8 @@ export default function LoginComponent({
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [tempToken, setTempToken] = useState<string | null>(null);
 
   const validateUsername = (value: string) => {
     if (!value) return "Username is required";
@@ -58,6 +61,13 @@ const handleLogin = async () => {
     const data = await response.json();
     console.log("[v0] Login response:", data);
 
+    // Check if 2FA is required
+    if (data?.requires2FA && data?.tempToken) {
+      setRequires2FA(true);
+      setTempToken(data.tempToken);
+      return;
+    }
+
     // ✅ Save the JWT and refresh tokens in localStorage
     if (data?.tokens?.jwt) {
       localStorage.setItem("jwt", data.tokens.jwt);
@@ -79,6 +89,22 @@ const handleLogin = async () => {
   }
 };
 
+  const handle2FACancel = () => {
+    setRequires2FA(false);
+    setTempToken(null);
+    setPassword("");
+  };
+
+  // Show 2FA verification if required
+  if (requires2FA && tempToken) {
+    return (
+      <TwoFactorVerify
+        tempToken={tempToken}
+        onVerifySuccess={onLoginSuccess}
+        onCancel={handle2FACancel}
+      />
+    );
+  }
 
   return (
     <div className="flex items-start justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 px-4 py-4">

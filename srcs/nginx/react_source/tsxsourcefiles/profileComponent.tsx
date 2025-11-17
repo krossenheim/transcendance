@@ -20,6 +20,7 @@ interface UserProfile {
   }
   isFriend?: boolean
   isBlocked?: boolean
+  isGuest?: boolean
 }
 
 interface ProfileComponentProps {
@@ -138,6 +139,7 @@ if (timeoutRef.current) {
           status: "online", // Default status, backend doesn't provide this
           joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
           stats: backendData.stats, // Pass through if exists
+          isGuest: backendData.isGuest,
         }
         
         console.log("[v0] Transformed profile:", transformedProfile)
@@ -457,13 +459,14 @@ useEffect(() => {
                 </div>
               )}
 
-              {/* Two-Factor Authentication Settings */}
-              {isOwnProfile && !editing && currentUserId && (
+              {/* Two-Factor Authentication Settings - only for non-guest users */}
+              {isOwnProfile && !editing && currentUserId && !profile.isGuest && (
                 <div className="mt-6 pt-6 border-t border-gray-200 dark:border-dark-700">
                   <h4 className="text-sm font-semibold mb-3 text-gray-900 dark:text-white">Security Settings</h4>
                   <TwoFactorSettings 
                     userId={currentUserId} 
-                    username={profile.username} 
+                    username={profile.username}
+                    isGuest={profile.isGuest}
                   />
                 </div>
               )}

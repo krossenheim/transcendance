@@ -1209,6 +1209,7 @@ export const int_url = defineRoutes({
               secret: z.string(),
               uri: z.string(),
             }), // Generated QR code and secret
+            403: ErrorResponse, // Guest users cannot enable 2FA
             500: ErrorResponse, // Internal server error
           },
         },
@@ -1225,6 +1226,7 @@ export const int_url = defineRoutes({
           response: {
             200: z.object({ message: z.string() }), // 2FA enabled successfully
             400: ErrorResponse, // Invalid code
+            403: ErrorResponse, // Guest users cannot enable 2FA
           },
         },
       },

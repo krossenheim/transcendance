@@ -92,6 +92,7 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 					bio: userData.bio,
 					hasAvatar: userData.hasAvatar,
 					onlineStatus: onlineUsers.has(userData.id) ? 1 : 0,
+					isGuest: userData.isGuest,
 				},
 			})
 		}
