@@ -21,6 +21,7 @@ import {
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
 import user, { Friend, FullUser, GetUser, PublicUserData } from "../db/user.js";
+import { TwoFactorRequiredResponse } from "../auth/twoFactorRequired.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
@@ -116,7 +117,7 @@ export const pub_url = defineRoutes({
         schema: {
           body: LoginUser,
           response: {
-            200: AuthResponse, // Login successful
+            200: z.union([AuthResponse, TwoFactorRequiredResponse]), // Login successful or 2FA required
             401: ErrorResponse, // Username/Password don't match / don't exist
             500: ErrorResponse, // Internal server error
           },
@@ -142,6 +143,84 @@ export const pub_url = defineRoutes({
         schema: {
           response: {
             201: AuthResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      // 2FA endpoints
+      setup2FA: {
+        endpoint: "/public_api/auth/2fa/setup",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            username: z.string(),
+          }),
+          response: {
+            200: z.object({
+              qrCode: z.string(),
+              secret: z.string(),
+              uri: z.string(),
+            }),
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      enable2FA: {
+        endpoint: "/public_api/auth/2fa/enable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            code: z.string(),
+          }),
+          response: {
+            200: z.object({ message: z.string() }),
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      disable2FA: {
+        endpoint: "/public_api/auth/2fa/disable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+          }),
+          response: {
+            200: z.object({ message: z.string() }),
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      verify2FALogin: {
+        endpoint: "/public_api/auth/2fa/verify-login",
+        method: "POST",
+        schema: {
+          body: z.object({
+            tempToken: z.string(),
+            code: z.string(),
+          }),
+          response: {
+            200: AuthResponse,
+            401: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      check2FAStatus: {
+        endpoint: "/public_api/auth/2fa/status/:userId",
+        method: "GET",
+        schema: {
+          params: z.object({ userId: userIdValue }),
+          response: {
+            200: z.object({ enabled: z.boolean() }),
             500: ErrorResponse,
           },
         },
@@ -1099,6 +1178,83 @@ export const int_url = defineRoutes({
           response: {
             200: z.null(), // User added successfully
             500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      // 2FA endpoints
+      check2FAStatus: {
+        endpoint: "/internal_api/db/2fa/status/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.object({ enabled: z.boolean() }), // 2FA status
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      generate2FASecret: {
+        endpoint: "/internal_api/db/2fa/generate",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            username: z.string(),
+          }),
+          response: {
+            200: z.object({
+              qrCode: z.string(),
+              secret: z.string(),
+              uri: z.string(),
+            }), // Generated QR code and secret
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      enable2FA: {
+        endpoint: "/internal_api/db/2fa/enable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            code: z.string(),
+          }),
+          response: {
+            200: z.object({ message: z.string() }), // 2FA enabled successfully
+            400: ErrorResponse, // Invalid code
+          },
+        },
+      },
+
+      disable2FA: {
+        endpoint: "/internal_api/db/2fa/disable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+          }),
+          response: {
+            200: z.object({ message: z.string() }), // 2FA disabled successfully
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      verify2FACode: {
+        endpoint: "/internal_api/db/2fa/verify",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            code: z.string(),
+          }),
+          response: {
+            200: z.object({ valid: z.boolean() }), // Code is valid
+            400: ErrorResponse, // Invalid code or 2FA not enabled
+            401: ErrorResponse, // Invalid code
           },
         },
       },

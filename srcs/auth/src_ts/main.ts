@@ -17,9 +17,23 @@ import Fastify from 'fastify';
 import { z } from 'zod'
 import { registerRoute } from './utils/api/service/common/fastify.js';
 import { int_url, pub_url, user_url } from './utils/api/service/common/endpoints.js';
+import { TwoFactorRequiredResponse, type TwoFactorRequiredResponseType } from './utils/api/service/auth/twoFactorRequired.js';
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+
+// Temporary storage for pending 2FA logins (in production, use Redis)
+const pending2FALogins = new Map<string, { userId: number; timestamp: number }>();
+
+// Clean up expired temp tokens every 5 minutes
+setInterval(() => {
+	const now = Date.now();
+	for (const [token, data] of pending2FALogins.entries()) {
+		if (now - data.timestamp > 5 * 60 * 1000) { // 5 minutes
+			pending2FALogins.delete(token);
+		}
+	}
+}, 5 * 60 * 1000);
 
 const zodFastify = (
 	options: FastifyServerOptions = { logger: true }
@@ -97,6 +111,25 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 	}
 
 	const user: FullUserType = parse.data;
+
+	// Check if user has 2FA enabled
+	if (user.has2FA) {
+		// Generate temporary token for 2FA verification
+		const tempToken = crypto.randomBytes(32).toString('hex');
+		pending2FALogins.set(tempToken, {
+			userId: user.id,
+			timestamp: Date.now(),
+		});
+
+		// TypeScript narrowing - cast reply to any to send 2FA response
+		return (reply as any).status(200).send({
+			requires2FA: true,
+			userId: user.id,
+			tempToken: tempToken,
+		});
+	}
+
+	// No 2FA required, proceed with normal login
 	const tokenResult = await generateToken(user.id);
 
 	if (tokenResult.isOk())
@@ -207,6 +240,114 @@ registerRoute(fastify, user_url.http.auth.logoutUser, async (request, reply) => 
 	} else {
 		return reply.status(500).send({ message: 'Failed to log out' });
 	}
+});
+
+// 2FA Setup: Generate QR code
+registerRoute(fastify, pub_url.http.auth.setup2FA, async (request, reply) => {
+	const { userId, username } = request.body;
+
+	const responseResult = await containers.db.post(int_url.http.db.generate2FASecret, {
+		userId,
+		username,
+	});
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		return reply.status(200).send(response.data);
+	} else {
+		return reply.status(500).send({ message: 'Failed to generate 2FA secret' });
+	}
+});
+
+// 2FA Enable: Verify code and enable 2FA
+registerRoute(fastify, pub_url.http.auth.enable2FA, async (request, reply) => {
+	const { userId, code } = request.body;
+
+	const responseResult = await containers.db.post(int_url.http.db.enable2FA, {
+		userId,
+		code,
+	});
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		return reply.status(200).send(response.data);
+	} else if (response.status === 400) {
+		return reply.status(400).send(response.data);
+	} else {
+		return reply.status(500).send({ message: 'Failed to enable 2FA' });
+	}
+});
+
+// 2FA Disable
+registerRoute(fastify, pub_url.http.auth.disable2FA, async (request, reply) => {
+	const { userId } = request.body;
+
+	const responseResult = await containers.db.post(int_url.http.db.disable2FA, {
+		userId,
+	});
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		return reply.status(200).send(response.data);
+	} else {
+		return reply.status(500).send({ message: 'Failed to disable 2FA' });
+	}
+});
+
+// 2FA Login: Verify code after username/password
+registerRoute(fastify, pub_url.http.auth.verify2FALogin, async (request, reply) => {
+	const { tempToken, code } = request.body;
+
+	// Check if temp token exists
+	const pendingLogin = pending2FALogins.get(tempToken);
+	if (!pendingLogin) {
+		return reply.status(401).send({ message: 'Invalid or expired temp token' });
+	}
+
+	// Verify the 2FA code
+	const responseResult = await containers.db.post(int_url.http.db.verify2FACode, {
+		userId: pendingLogin.userId,
+		code,
+	});
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status !== 200) {
+		return reply.status(401).send({ message: 'Invalid 2FA code' });
+	}
+
+	// Valid code - delete temp token and generate real tokens
+	pending2FALogins.delete(tempToken);
+
+	// Fetch user data
+	const userFetchResult = await containers.db.fetchUserData(pendingLogin.userId);
+	
+	if (userFetchResult.isErr()) {
+		return reply.status(500).send({ message: 'Failed to fetch user data' });
+	}
+
+	const user = userFetchResult.unwrap();
+	const tokenResult = await generateToken(user.id);
+
+	if (tokenResult.isOk())
+		return reply.status(200).send({ user, tokens: tokenResult.unwrap() });
+	else
+		return reply.status(500).send(tokenResult.unwrapErr());
 });
 
 const port = parseInt(process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || '3000', 10);

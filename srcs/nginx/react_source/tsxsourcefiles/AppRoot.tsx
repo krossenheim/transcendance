@@ -33,6 +33,14 @@ export default function AppRoot() {
 
   function logInOrRegistered(varTypeAuthResponse: AuthResponseType) {
     setAuthResponse(varTypeAuthResponse);
+    // Store user data in localStorage for components that need it
+    if (varTypeAuthResponse?.user) {
+      try {
+        localStorage.setItem('userData', JSON.stringify(varTypeAuthResponse.user));
+      } catch (e) {
+        console.warn("Could not persist user data:", e);
+      }
+    }
   }
 
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
@@ -82,6 +90,13 @@ export default function AppRoot() {
             const data = await res.json();
             if (!cancelled) {
               persistAuthTokens(data);
+              if (data?.user) {
+                try {
+                  localStorage.setItem('userData', JSON.stringify(data.user));
+                } catch (e) {
+                  console.warn("Could not persist user data:", e);
+                }
+              }
               setAuthResponse(data);
             }
             setIsAutoLoggingIn(false);
@@ -104,6 +119,13 @@ export default function AppRoot() {
           const data2 = await res2.json();
           if (!cancelled) {
             persistAuthTokens(data2);
+            if (data2?.user) {
+              try {
+                localStorage.setItem('userData', JSON.stringify(data2.user));
+              } catch (e) {
+                console.warn("Could not persist user data:", e);
+              }
+            }
             setAuthResponse(data2);
           }
           setIsAutoLoggingIn(false);
@@ -187,6 +209,7 @@ export default function AppRoot() {
       try {
         localStorage.removeItem('jwt');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userData');
         // Clear any cached auth artifacts to prevent phantom refresh attempts
         sessionStorage.removeItem('jwt');
       } catch (e) {

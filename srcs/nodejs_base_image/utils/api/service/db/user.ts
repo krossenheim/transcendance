@@ -23,6 +23,7 @@ export const User = z.object({
 	bio: z.string().nullable(),
 	isGuest: z.coerce.boolean(),
 	hasAvatar: z.coerce.boolean(),
+	has2FA: z.coerce.boolean().optional(),
 });
 
 export const PublicUserData = User.omit({

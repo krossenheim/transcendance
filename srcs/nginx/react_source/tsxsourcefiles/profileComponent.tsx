@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react"
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
+import { TwoFactorSettings } from "./twoFactorSettings"
 
 interface UserProfile {
   userId: number
@@ -453,6 +454,17 @@ useEffect(() => {
                       Edit Profile
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* Two-Factor Authentication Settings */}
+              {isOwnProfile && !editing && currentUserId && (
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-dark-700">
+                  <h4 className="text-sm font-semibold mb-3 text-gray-900 dark:text-white">Security Settings</h4>
+                  <TwoFactorSettings 
+                    userId={currentUserId} 
+                    username={profile.username} 
+                  />
                 </div>
               )}
 

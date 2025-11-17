@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_tokens_userId ON user_tokens(userId);
 
+CREATE TABLE IF NOT EXISTS user_2fa_secrets (
+	userId INTEGER PRIMARY KEY,
+	encryptedSecret TEXT NOT NULL,
+	isEnabled INTEGER DEFAULT 0,
+	createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+	FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_2fa_userId ON user_2fa_secrets(userId);
+
 CREATE TABLE IF NOT EXISTS chat_rooms (
   roomId INTEGER PRIMARY KEY AUTOINCREMENT,
   roomType INTEGER NOT NULL, -- 1: private, 2: direct message

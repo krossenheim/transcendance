@@ -15,7 +15,9 @@
     "crypto": "latest",
     "@dicebear/core": "latest",
     "@dicebear/collection": "latest",
-    "better-sqlite3": "latest"
+    "better-sqlite3": "latest",
+    "qrcode": "latest",
+    "@types/qrcode": "latest"
   }
 }
 

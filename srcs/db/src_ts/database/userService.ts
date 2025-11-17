@@ -80,7 +80,10 @@ export class UserService {
 
 	fetchAllUsers(): Result<FullUserType[], string> {
 		return this.db.all(
-			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users`,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.hasAvatar,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId`,
 			User
 		).map(users =>
 			users.map(user => ({
@@ -100,7 +103,11 @@ export class UserService {
 
 	fetchUserById(id: number): Result<FullUserType, string> {
 		return this.db.get(
-			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users WHERE id = ?`,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.hasAvatar,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.id = ?`,
 			User,
 			[id]
 		).map((user) => ({
@@ -160,7 +167,11 @@ export class UserService {
 
 	fetchUserFromUsername(username: string): Result<FullUserType, string> {
 		return this.db.get(
-			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users WHERE username = ?`,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.hasAvatar,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.username = ?`,
 			User,
 			[username]
 		).map((user) => ({

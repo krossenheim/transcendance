@@ -21,6 +21,9 @@ await makedebugusers(userService);
 
 const chatService = new ChatService(db);
 
+import { TwoFactorService } from "./database/twoFactorService.js";
+const twoFactorService = new TwoFactorService(db);
+
 const fastify: FastifyInstance = createFastify();
 
 // Register routes
@@ -32,6 +35,9 @@ fastify.register(tokenRoutes);
 
 import chatRoutes from "./routes/chat.js";
 fastify.register(chatRoutes);
+
+import twoFactorRoutes from "./routes/twoFactor.js";
+fastify.register(twoFactorRoutes);
 
 // Run the server
 const port = parseInt(
@@ -48,4 +54,4 @@ fastify.listen({ port, host }, (err, address) => {
   fastify.log.info(`Server listening at ${address}`);
 });
 
-export { db, userService, tokenService, chatService };
+export { db, userService, tokenService, chatService, twoFactorService };
