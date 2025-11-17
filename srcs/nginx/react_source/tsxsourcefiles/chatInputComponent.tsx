@@ -58,9 +58,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const isCommand = input.startsWith("/")
 
   return (
-    <div className="flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700 h-[600px]">
+    <div className="flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-2xl border-2 border-gray-200 dark:border-gray-700 h-[600px] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500 rounded-t-2xl">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500">
         <div>
           <h2 className="text-lg font-semibold text-white">
             {currentRoom ? `${currentRoomName || "Room"}` : "Select a room"}
@@ -233,8 +233,8 @@ const RoomList: React.FC<RoomListProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700 h-[600px] flex flex-col">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-2xl">
+    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl border-2 border-gray-200 dark:border-gray-700 h-[600px] flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500 to-pink-500">
         <h2 className="text-lg font-semibold text-white">Chat Rooms</h2>
       </div>
 

@@ -42,6 +42,8 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM }:
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [is2FAFlowActive, setIs2FAFlowActive] = useState(false)
+  const [showSetupImmediately, setShowSetupImmediately] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sendToSocket = useCallback(
@@ -282,7 +284,7 @@ useEffect(() => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
       <div
-        className="bg-white dark:bg-dark-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
+        className="bg-white dark:bg-dark-800 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
@@ -328,7 +330,21 @@ useEffect(() => {
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 overflow-y-auto">
+              {/* Show only 2FA settings when flow is active */}
+              {is2FAFlowActive && isOwnProfile && currentUserId && !profile.isGuest ? (
+                <TwoFactorSettings 
+                  userId={currentUserId} 
+                  username={profile.username}
+                  isGuest={profile.isGuest}
+                  onActiveStateChange={(active) => {
+                    setIs2FAFlowActive(active);
+                    if (!active) setShowSetupImmediately(false);
+                  }}
+                  startWithSetup={showSetupImmediately}
+                />
+              ) : (
+                <>
               {/* Avatar and Username */}
               <div className="flex items-center space-x-4">
                 <div className="relative h-20 w-20 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700">
@@ -467,6 +483,10 @@ useEffect(() => {
                     userId={currentUserId} 
                     username={profile.username}
                     isGuest={profile.isGuest}
+                    onActiveStateChange={(active) => {
+                      setIs2FAFlowActive(active);
+                      if (active) setShowSetupImmediately(true);
+                    }}
                   />
                 </div>
               )}
@@ -513,6 +533,8 @@ useEffect(() => {
                     Send Message
                   </button>
                 </div>
+              )}
+                </>
               )}
             </div>
           </>

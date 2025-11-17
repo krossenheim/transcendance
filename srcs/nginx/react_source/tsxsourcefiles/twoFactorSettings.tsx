@@ -6,17 +6,25 @@ interface TwoFactorSettingsProps {
   username: string;
   initialEnabled?: boolean;
   isGuest?: boolean;
+  onActiveStateChange?: (isActive: boolean) => void;
+  startWithSetup?: boolean;
 }
 
-export function TwoFactorSettings({ userId, username, initialEnabled, isGuest }: TwoFactorSettingsProps) {
+export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, onActiveStateChange, startWithSetup }: TwoFactorSettingsProps) {
   const [is2FAEnabled, setIs2FAEnabled] = useState<boolean | null>(initialEnabled ?? null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showSetup, setShowSetup] = useState(false);
+  const [showSetup, setShowSetup] = useState(startWithSetup ?? false);
   const [showDisable, setShowDisable] = useState(false);
 
   useEffect(() => {
     checkTwoFactorStatus();
   }, [userId]);
+
+  useEffect(() => {
+    if (startWithSetup) {
+      setShowSetup(true);
+    }
+  }, [startWithSetup]);
 
   const checkTwoFactorStatus = async () => {
     try {
@@ -66,12 +74,14 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest }:
     setShowSetup(false);
     setIs2FAEnabled(true);
     updateLocalStorageUserData(true);
+    onActiveStateChange?.(false);
   };
 
   const handleDisableComplete = () => {
     setShowDisable(false);
     setIs2FAEnabled(false);
     updateLocalStorageUserData(false);
+    onActiveStateChange?.(false);
   };
 
   if (isLoading) {
@@ -91,7 +101,10 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest }:
         userId={userId}
         username={username}
         onSetupComplete={handleSetupComplete}
-        onCancel={() => setShowSetup(false)}
+        onCancel={() => {
+          setShowSetup(false);
+          onActiveStateChange?.(false);
+        }}
       />
     );
   }
@@ -101,7 +114,10 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest }:
       <TwoFactorDisable
         userId={userId}
         onDisableComplete={handleDisableComplete}
-        onCancel={() => setShowDisable(false)}
+        onCancel={() => {
+          setShowDisable(false);
+          onActiveStateChange?.(false);
+        }}
       />
     );
   }
@@ -150,14 +166,20 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest }:
           </p>
         ) : is2FAEnabled ? (
           <button
-            onClick={() => setShowDisable(true)}
+            onClick={() => {
+              setShowDisable(true);
+              onActiveStateChange?.(true);
+            }}
             className="text-sm px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
           >
             Disable 2FA
           </button>
         ) : (
           <button
-            onClick={() => setShowSetup(true)}
+            onClick={() => {
+              setShowSetup(true);
+              onActiveStateChange?.(true);
+            }}
             className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
           >
             Enable 2FA

@@ -316,6 +316,10 @@ export default function AppRoot() {
                       </button>
                     </div>
 
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                      {authResponse.user.username}
+                    </span>
+
                     <button
                       onClick={handleLogout}
                       disabled={isLoggingOut}
