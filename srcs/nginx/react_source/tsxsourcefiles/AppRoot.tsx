@@ -8,6 +8,7 @@ import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/a
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
+import UserMenu from "./userMenu";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
@@ -316,18 +317,12 @@ export default function AppRoot() {
                       </button>
                     </div>
 
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-                      {authResponse.user.username}
-                    </span>
-
-                    <button
-                      onClick={handleLogout}
-                      disabled={isLoggingOut}
-                      className={`ml-2 px-3 py-1 rounded ${isLoggingOut ? 'bg-red-200 text-red-600 cursor-not-allowed' : 'bg-red-100 dark:bg-red-700 text-red-800 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-600'}`}
-                      title="Log out"
-                    >
-                      {isLoggingOut ? 'Logging out...' : 'Log out'}
-                    </button>
+                    <UserMenu
+                      username={authResponse.user.username}
+                      userId={authResponse.user.id}
+                      onLogout={handleLogout}
+                      isLoggingOut={isLoggingOut}
+                    />
                   </div>
                 </div>
               </div>
