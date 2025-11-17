@@ -423,19 +423,27 @@ class ChatRooms {
         },
       });
     }
-    if (room.allowedUsers.find((id) => id === user_id)) {
-      if (room.users.find((id) => id === user_id)) {
-        return Result.Ok({
-          recipients: [user_id],
-          code: user_url.ws.chat.joinRoom.schema.output.NoSuchRoom.code,
-          payload: {
-            message: `You are already in room (ID: ${roomIdReq}).`,
-            user: user_id,
-            roomId: room.roomId,
-          },
-        });
-      }
-
+    
+    // Check if user is already in the room
+    if (room.users.find((id) => id === user_id)) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.joinRoom.schema.output.NoSuchRoom.code,
+        payload: {
+          message: `You are already in room (ID: ${roomIdReq}).`,
+          user: user_id,
+          roomId: room.roomId,
+        },
+      });
+    }
+    
+    // Allow joining if:
+    // 1. User is in allowedUsers (invited/member), OR
+    // 2. Room is named "Public Chat" (open to all)
+    const isPublicChat = room.room_name === "Public Chat";
+    const isAllowed = room.allowedUsers.find((id) => id === user_id) || isPublicChat;
+    
+    if (isAllowed) {
       const userConnectionResult = await containers.db.post(int_url.http.db.addUserToRoom, {
         roomId: room.roomId,
         user_to_add: user_id,
@@ -452,6 +460,10 @@ class ChatRooms {
       }
 
       room.users.push(user_id);
+      // Also add to allowedUsers if joining public chat for the first time
+      if (isPublicChat && !room.allowedUsers.find((id) => id === user_id)) {
+        room.allowedUsers.push(user_id);
+      }
       console.log(`User ${user_id} joined room ${room.roomId}.`);
       return Result.Ok({
         recipients: room.users,

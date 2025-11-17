@@ -4,6 +4,7 @@ import type { TypeStoredMessageSchema, TypeRoomMessagesSchema, TypeRoomSchema } 
 import type React from "react"
 import { useCallback, useEffect, useState, useRef } from "react"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
+import { ChatRoomUserAccessType } from "../../../nodejs_base_image/utils/api/service/chat/db_models"
 import { useWebSocket } from "./socketComponent"
 import ProfileComponent from "./profileComponent"
 import FriendshipNotifications from "./friendshipNotifications"
@@ -555,6 +556,16 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
                 [roomIdStr]: prev[roomIdStr] || [],
               }))
             }
+
+            // When someone joins the current room, refresh room data to update user list
+            // But only if it's not us (to avoid double-refresh since handleSelectRoom already calls it)
+            if (Number(payload.roomId) === currentRoomId && typeof payload.user === 'number' && payload.user !== selfUserId) {
+              console.log(`[joinRoom] User ${payload.user} joined our current room ${payload.roomId}, refreshing user list`)
+              // Another user joined our room - refresh to get updated list
+              sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId: Number(payload.roomId) })
+            } else if (Number(payload.roomId) === currentRoomId && payload.user === selfUserId) {
+              console.log(`[joinRoom] We joined room ${payload.roomId} (already refreshed by handleSelectRoom)`)
+            }
           }
         } catch (error) {
           console.error("Error processing join room:", error)
@@ -567,28 +578,16 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
         break
 
       case user_url.ws.chat.addUserToRoom.funcId:
-        console.log("User added to room:", payloadReceived.payload)
-        const roomData = payloadReceived.payload as TypeRoomMessagesSchema
-        if (roomData.messages && roomData.roomId) {
-          const roomIdStr = String(roomData.roomId)
-          const roomMessages = roomData.messages
-            .filter((msg: TypeStoredMessageSchema) => {
-              if (!msg.userId || typeof msg.userId !== 'number') {
-                console.warn("Skipping message with invalid userId:", msg)
-                return false
-              }
-              return true
-            })
-            .map((msg: TypeStoredMessageSchema) => ({
-              user: userMap[msg.userId] || `User ${msg.userId}`,
-              content: msg.messageString,
-              timestamp: new Date(msg.messageDate * 1000).toISOString(),
-            }))
-          console.log("Loaded", roomMessages.length, "messages for room", roomIdStr)
-          setMessagesByRoom((prev) => ({
-            ...prev,
-            [roomIdStr]: roomMessages,
-          }))
+        // This event represents an invite (user state INVITED). Do not show in members yet.
+        // Optionally ensure we know the invitee's username for later display.
+        try {
+          const payload = payloadReceived.payload as any // { user: number, roomId: number }
+          console.log("Invite sent to user for room:", payload)
+          if (payload && typeof payload.user === 'number') {
+            if (!userMap[payload.user]) fetchUsername(payload.user)
+          }
+        } catch (e) {
+          console.error('Error handling addUserToRoom event:', e)
         }
         break
 
@@ -608,16 +607,35 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
             })
             setUserMap((prev) => ({ ...prev, ...newMap }))
             
-            // Store users for the current room if this is the active room
+            // Store only JOINED users for the current room if this is the active room
             if (Number(roomIdStr) === currentRoomId) {
-              setCurrentRoomUsers(roomData.users || [])
+              if (Array.isArray(roomData.userConnections)) {
+                console.log(`[getRoomData] Filtering users for room ${roomIdStr}`)
+                console.log(`[getRoomData] ChatRoomUserAccessType.JOINED = ${ChatRoomUserAccessType.JOINED}`)
+                console.log(`[getRoomData] userConnections:`, JSON.stringify(roomData.userConnections))
+                console.log(`[getRoomData] all users:`, JSON.stringify(roomData.users))
+                
+                const joinedIds = new Set(
+                  roomData.userConnections
+                    .filter((uc: any) => {
+                      const isJoined = uc && uc.userState === ChatRoomUserAccessType.JOINED
+                      console.log(`[getRoomData] User ${uc?.userId} state=${uc?.userState} isJoined=${isJoined}`)
+                      return isJoined
+                    })
+                    .map((uc: any) => uc.userId)
+                )
+                console.log(`[getRoomData] joinedIds:`, Array.from(joinedIds))
+                
+                const joinedUsers = (roomData.users || []).filter((u: any) => joinedIds.has(u.id))
+                console.log(`[getRoomData] Final joinedUsers:`, JSON.stringify(joinedUsers))
+                setCurrentRoomUsers(joinedUsers)
+              } else {
+                // Fallback: if no userConnections provided, do not over-include
+                console.log(`[getRoomData] No userConnections array, using all users`)
+                setCurrentRoomUsers(roomData.users || [])
+              }
             }
           }
-
-          // Always try to join the room to ensure we're a member
-          // The backend will handle if we're already joined
-          console.log("Auto-joining room", roomIdStr)
-          sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId: Number(roomIdStr) })
 
           // Map messages (if any) using userMap/newMap
           if (Array.isArray(roomData.messages)) {
@@ -696,13 +714,19 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
           if (userId && typeof userId === 'number') {
             console.log(`User ${userId} connected, fetching username...`)
             fetchUsername(userId)
+            // Mark online in current room list if present
+            setCurrentRoomUsers((prev) => prev.map((u) => u.id === userId ? { ...u, onlineStatus: 1 } : u))
           }
         }
         break
 
       case "user_disconnected":
         console.log("User disconnected event:", payloadReceived.payload)
-        // Could remove from userMap or mark as offline if needed
+        if (payloadReceived.payload && typeof payloadReceived.payload.userId === 'number') {
+          const userId = payloadReceived.payload.userId
+          // Mark offline in current room list if present
+          setCurrentRoomUsers((prev) => prev.map((u) => u.id === userId ? { ...u, onlineStatus: 0 } : u))
+        }
         break
 
       case user_url.ws.users.requestUserProfileData.funcId:
@@ -900,7 +924,12 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
       setCurrentRoomName(computeRoomDisplayName(room))
       setCurrentRoomType(room?.roomType ?? null)
       setCurrentRoomUsers([]) // Clear users list while loading
-      sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
+      // First join the room (so we're a member)
+      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
+      // Then get room data after a short delay to ensure join is processed
+      setTimeout(() => {
+        sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
+      }, 100)
     },
     [rooms, sendToSocket, computeRoomDisplayName],
   )
