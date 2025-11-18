@@ -306,22 +306,14 @@ export default function AppRoot() {
                       )}
                     </button>
 
-                    <div className="flex items-center gap-2">
-                      <FriendshipNotifications isLoading={false} />
-                      <button
-                        onClick={() => setShowFriendsManager(true)}
-                        className="px-3 py-1 rounded bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-dark-600"
-                        title="Manage Friends"
-                      >
-                        Friends
-                      </button>
-                    </div>
+                    <FriendshipNotifications isLoading={false} />
 
                     <UserMenu
                       username={authResponse.user.username}
                       userId={authResponse.user.id}
                       onLogout={handleLogout}
                       isLoggingOut={isLoggingOut}
+                      onFriendsClick={() => setShowFriendsManager(true)}
                     />
                   </div>
                 </div>
