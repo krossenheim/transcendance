@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
 	bio TEXT DEFAULT NULL,
 	passwordHash TEXT DEFAULT NULL,
 	isGuest INTEGER,
-	hasAvatar INTEGER DEFAULT 0
+	avatarUrl TEXT DEFAULT NULL
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_user_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_user_email ON users(email);

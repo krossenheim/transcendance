@@ -742,19 +742,6 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
         }
         break
 
-      case user_url.ws.users.searchUserByUsername.funcId:
-        console.log("[searchUserByUsername] Response received:", payloadReceived)
-        if (payloadReceived.code === 0 && payloadReceived.payload) {
-          const profile = payloadReceived.payload
-          if (profile.id && profile.username) {
-            console.log(`[searchUserByUsername] Found user: ${profile.id} -> ${profile.username}`)
-            setUserMap((prev) => ({ ...prev, [profile.id]: profile.username }))
-          }
-        } else {
-          console.warn("[searchUserByUsername] User not found:", payloadReceived)
-        }
-        break
-
       default:
         console.log("Unhandled funcId:", payloadReceived.funcId)
     }
