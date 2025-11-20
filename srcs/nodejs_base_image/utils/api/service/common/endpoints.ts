@@ -932,7 +932,7 @@ export const int_url = defineRoutes({
         schema: {
           params: z.object({ username: z.string() }),
           response: {
-            200: PublicUserData, // Found user
+            200: FullUser, // Found user
             404: ErrorResponse, // User not found
             500: ErrorResponse, // Internal server error
           },
