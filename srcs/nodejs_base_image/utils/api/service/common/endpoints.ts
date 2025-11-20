@@ -20,7 +20,7 @@ import {
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
-import user, { Friend, FullUser, GetUser, PublicUserData } from "../db/user.js";
+import user, { Friend, FullUser, GetUser, PublicUserData, UpdateUserData } from "../db/user.js";
 import { TwoFactorRequiredResponse } from "../auth/twoFactorRequired.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
@@ -243,9 +243,9 @@ export const user_url = defineRoutes({
         wrapper: GenericAuthClientRequest,
         method: "POST",
         schema: {
-          body: userIdValue,
+          body: z.object({ file: z.string() }),
           response: {
-            200: z.string(), // SVG image string
+            200: z.any(), // Image buffer
             500: ErrorResponse,
           },
         },
@@ -482,79 +482,22 @@ export const user_url = defineRoutes({
         },
       },
 
-      searchUserByUsername: {
-        funcId: "search_user_by_username",
-        container: "users",
-        schema: {
-          args_wrapper: ForwardToContainerSchema,
-          args: z.object({ username: z.string() }),
-          output_wrapper: PayloadHubToUsersSchema,
-          output: {
-            UserFound: {
-              code: 0,
-              payload: PublicUserData,
-            },
-            UserNotFound: {
-              code: 1,
-              payload: ErrorResponse,
-            },
-          },
-        },
-      },
-
-      
-getProfile: {
-        funcId: "/api/users/get_profile",
-        container: "users",
-        schema: {
-          args_wrapper: ForwardToContainerSchema,
-          args: z.object({ userId: idValue }),
-          output_wrapper: PayloadHubToUsersSchema,
-          output: {
-            ProfileFound: {
-              code: 0,
-              payload: z.object({
-                userId: idValue,
-                username: z.string(),
-                email: z.string().optional(),
-                avatar: z.string().optional(),
-                bio: z.string().optional(),
-                status: z.enum(["online", "offline", "in-game"]).optional(),
-                joinDate: z.string().optional(),
-                stats: z.object({
-                  gamesPlayed: z.number(),
-                  wins: z.number(),
-                  losses: z.number(),
-                }).optional(),
-                isFriend: z.boolean().optional(),
-                isBlocked: z.boolean().optional(),
-              }),
-            },
-            UserNotFound: {
-              code: 1,
-              payload: ErrorResponse,
-            },
-          },
-        },
-      },
-
       updateProfile: {
-        funcId: "/api/users/update_profile",
+        funcId: "update_profile",
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: z.object({ bio: z.string().optional() }),
+          args: UpdateUserData,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             ProfileUpdated: { 
               code: 0, 
-              payload: z.object({
-                userId: idValue,
-                username: z.string(),
-                bio: z.string().optional(),
-              })
+              payload: FullUser,
             },
-            Unauthorized: { code: 1, payload: ErrorResponse },
+            FailedToUpdate: {
+              code: 1,
+              payload: ErrorResponse
+            },
           },
         },
       },
@@ -1020,12 +963,12 @@ export const int_url = defineRoutes({
       },
 
       getUserPfp: {
-        endpoint: "/internal_api/db/users/pfp/:userId",
-        method: "GET",
+        endpoint: "/internal_api/db/users/pfp",
+        method: "POST",
         schema: {
-          params: GetUser,
+          body: z.object({ file: z.string() }),
           response: {
-            200: z.string(), // Found avatar
+            200: z.any(), // Found avatar
             404: ErrorResponse, // Avatar not found
           },
         },
@@ -1088,6 +1031,19 @@ export const int_url = defineRoutes({
           params: GetUser,
           response: {
             200: z.array(UserConnectionStatusSchema), // Retrieved contacts
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      updateUserData: {
+        endpoint: "/internal_api/db/users/update_profile",
+        method: "POST",
+        schema: {
+          body: UpdateUserData.extend({ userId: userIdValue }),
+          response: {
+            200: FullUser, // Updated user profile
+            400: ErrorResponse, // Invalid data
             500: ErrorResponse, // Internal server error
           },
         },

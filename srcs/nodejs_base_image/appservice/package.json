@@ -14,6 +14,7 @@
     "bcrypt": "latest",
     "crypto": "latest",
     "@dicebear/core": "latest",
+    "@resvg/resvg-js": "^2.6.2",
     "@dicebear/collection": "latest",
     "better-sqlite3": "latest",
     "qrcode": "latest",

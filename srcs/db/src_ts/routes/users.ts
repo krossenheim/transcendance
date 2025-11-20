@@ -13,6 +13,7 @@ import bcrypt from 'bcrypt';
 import { int, z } from 'zod';
 import { int_url, pub_url } from '../utils/api/service/common/endpoints.js';
 import { request } from 'http';
+import { register } from 'module';
 
 const SALT_ROUNDS = 10;
 
@@ -99,13 +100,13 @@ async function userRoutes(fastify: FastifyInstance) {
 	});
 
 	registerRoute(fastify, int_url.http.db.getUserPfp, async (request, reply) => {
-		const { userId } = request.params;
-		const avatarResult = await userService.fetchUserAvatar(userId);
+		const { file } = request.body;
+		const avatarResult = await userService.fetchUserAvatar(file);
 
 		if (avatarResult.isErr())
 			return reply.status(404).send({ message: avatarResult.unwrapErr() });
 		else {
-			reply.header('Content-Type', 'image/svg+xml');
+			reply.type('data:image/png;base64');
 			return reply.status(200).send(avatarResult.unwrap());
 		}
 	});
@@ -133,6 +134,16 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(400).send({ message: results.find((result) => result.isErr())?.unwrapErr() || "Unknown Error" });
 		else
 			return reply.status(200).send(null);
+	});
+
+	registerRoute(fastify, int_url.http.db.updateUserData, async (request, reply) => {
+		const { userId, bio, alias, email, pfp } = request.body;
+		const updateResult = await userService.updateUserData(userId, bio, alias, email, pfp);
+
+		if (updateResult.isErr())
+			return reply.status(400).send({ message: updateResult.unwrapErr() });
+		else
+			return reply.status(200).send(updateResult.unwrap());
 	});
 }
 

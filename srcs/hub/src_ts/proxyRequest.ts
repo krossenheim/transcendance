@@ -20,7 +20,8 @@ export async function proxyRequest(req: any, reply: any, method: string, url: st
       params: req.query,
       validateStatus: () => true,
     });
-    return reply.code(response.status).send(response.data);
+    console.log("Response from proxied request:", response.status, response.data);
+    return reply.code(response.status).headers(response.headers).send(response.data);
   } catch (error : any) {
     console.error("Error proxying request:", error);
     return reply.code(500).send({ error: "Internal Server Error: " + error.message });

@@ -38,8 +38,8 @@ socketToHub.register(wsRequestFriendshipHandlers);
 import { wsUserProfileHandlers } from "./ws_handlers/userProfile.js";
 wsUserProfileHandlers(socketToHub, onlineUsers);
 
-import { wsSearchUserByUsernameHandlers } from "./ws_handlers/searchUserByUsername.js";
-wsSearchUserByUsernameHandlers(socketToHub, onlineUsers);
+import { updateProfile } from "./ws_handlers/updateProfile.js";
+updateProfile(socketToHub);
 
 async function handleUserConnectionUpdateNotification(userId: number) {
   const userConnections = await containers.db.get(
@@ -122,9 +122,9 @@ registerRoute(
   user_url.http.users.fetchUserAvatar,
   async (request, reply) => {
     console.log(request.body);
-    const fetchResult = await containers.db.get(
+    const fetchResult = await containers.db.post(
       int_url.http.db.getUserPfp,
-      { userId: String(request.body.payload) }
+      request.body.payload
     );
     console.log("Fetch result:", fetchResult);
     if (fetchResult.isErr()) {
@@ -138,7 +138,9 @@ registerRoute(
       return;
     }
 
-    reply.header('Content-Type', 'image/svg+xml');
+    console.log("Sending avatar with content type image/png");
+    console.log(result.data);
+    reply.type('data:image/png;base64');
     reply.code(200).send(result.data);
   }
 );

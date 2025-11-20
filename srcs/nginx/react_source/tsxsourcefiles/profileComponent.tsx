@@ -136,7 +136,7 @@ if (timeoutRef.current) {
           userId: backendData.id,
           username: backendData.username,
           email: backendData.email,
-          avatar: backendData.hasAvatar ? `/api/users/${backendData.id}/avatar` : undefined,
+          avatar: backendData.avatarUrl || undefined,
           bio: backendData.bio,
           status: "online", // Default status, backend doesn't provide this
           joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
@@ -184,7 +184,7 @@ useEffect(() => {
           Authorization: `Bearer ${token}`, // ✅ correct header
           "Content-Type": "application/json",
         },
-        body: userId.toString(),
+        body: JSON.stringify({ file: profile.avatar }),
       })
 
       if (!response.ok) {
@@ -192,7 +192,13 @@ useEffect(() => {
         return
       }
 
-      const blob = await response.blob()
+      const raw = await response.text()
+      const base64 = raw.startsWith("data:") ? raw.split(",")[1] : raw
+      const binary = atob(base64)
+      const len = binary.length
+      const bytes = new Uint8Array(len)
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+      const blob = new Blob([bytes], { type: "image/png" })
       const objectUrl = URL.createObjectURL(blob)
       setAvatarUrl(objectUrl)
     } catch (err) {
@@ -223,11 +229,30 @@ useEffect(() => {
   const handleSaveProfile = async () => {
     try {
       // First update profile info
+      const fileToBase64 = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onerror = () => reject(new Error("Failed to read file"))
+          reader.onload = () => {
+            const result = reader.result as string
+            const base64 = result.split(",")[1]
+            resolve(base64)
+          }
+          reader.readAsDataURL(file)
+        })
+
+      const pfp = avatarFile
+        ? {
+            filename: avatarFile.name,
+            data: await fileToBase64(avatarFile), // base64 encoded string
+          }
+        : undefined
+
       sendToSocket(user_url.ws.users.updateProfile.funcId, {
-        userId: userId,
-        username: editedUsername,
+        alias: editedUsername,
         email: editedEmail,
-        bio: editedBio
+        bio: editedBio,
+        pfp,
       })
 
       // If there's a new avatar file, upload it
