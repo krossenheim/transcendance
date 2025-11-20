@@ -6,21 +6,46 @@ import type { FastifyInstance } from "fastify";
 
 export async function chatRoutes(fastify: FastifyInstance) {
     registerRoute(fastify, int_url.http.db.createChatRoom, async (request, reply) => {
-        const creationResult = chatService.createNewRoom(request.body.roomName);
-        if (creationResult.isErr())
-            return reply.status(500).send({ message: creationResult.unwrapErr() });
-        else return reply.status(201).send(creationResult.unwrap());
+        const createRoomResult = chatService.createNewRoom(request.body.roomName, request.body.roomType, request.body.owner);
+        if (createRoomResult.isErr())
+            return reply.status(500).send({ message: createRoomResult.unwrapErr() });
+        else return reply.status(201).send(createRoomResult.unwrap());
     });
 
-    registerRoute(fastify, int_url.http.db.getRoomMessages, async (request, reply) => {
-        // const messages :
-        // const tokenResult = tokenService.fetchUserIdFromToken(hashedToken);
-        // if (tokenResult.isErr())
-        // 	return reply.status(401).send({ message: tokenResult.unwrapErr() });
-        // const userResult = userService.fetchUserById(tokenResult.unwrap());
-        // if (userResult.isErr())
-        // 	return reply.status(500).send({ message: userResult.unwrapErr() });
-        // return reply.status(200).send(userResult.unwrap());
+    registerRoute(fastify, int_url.http.db.sendMessage, async (request, reply) => {
+        const sendMessageResult = chatService.sendMessageToRoom(
+            request.body.roomId,
+            request.body.userId,
+            request.body.messageString
+        );
+        if (sendMessageResult.isErr())
+            return reply.status(500).send({ message: sendMessageResult.unwrapErr() });
+        else return reply.status(200).send(sendMessageResult.unwrap());
+    });
+
+    registerRoute(fastify, int_url.http.db.getRoomInfo, async (request, reply) => {
+        const roomInfoResult = chatService.fetchRoomById(request.params.roomId);
+        if (roomInfoResult.isErr())
+            return reply.status(500).send({ message: roomInfoResult.unwrapErr() });
+        else return reply.status(200).send(roomInfoResult.unwrap());
+    });
+
+    registerRoute(fastify, int_url.http.db.getUserRooms, async (request, reply) => {
+        const userRoomsResult = chatService.getUserRooms(request.params.userId);
+        if (userRoomsResult.isErr())
+            return reply.status(500).send({ message: userRoomsResult.unwrapErr() });
+        else return reply.status(200).send(userRoomsResult.unwrap());
+    });
+
+    registerRoute(fastify, int_url.http.db.addUserToRoom, async (request, reply) => {
+        const addUserResult = chatService.setUserRoomAccessType(
+            request.body.user_to_add,
+            request.body.roomId,
+            request.body.type
+        );
+        if (addUserResult.isErr())
+            return reply.status(500).send({ message: addUserResult.unwrapErr() });
+        else return reply.status(200).send(null);
     });
 }
 

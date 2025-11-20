@@ -1,5 +1,5 @@
-import type { FullUserType, UserType, FriendType, UserAuthDataType } from '../utils/api/service/db/user.js';
-import { User, FullUser, Friend, UserAuthData } from '../utils/api/service/db/user.js';
+import type { FullUserType, UserType, FriendType, UserAuthDataType, PublicUserDataType } from '../utils/api/service/db/user.js';
+import { User, FullUser, Friend, UserAuthData, PublicUserData } from '../utils/api/service/db/user.js';
 import { UserFriendshipStatusEnum } from '../utils/api/service/db/friendship.js';
 import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
@@ -37,7 +37,7 @@ export class UserService {
 
 	fetchUserPendingFriendRequests(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, u.bio, uf.status, uf.createdAt
+			`SELECT u.id as friendId, u.username, u.alias, u.hasAvatar, u.bio, uf.userId as id, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.friendId = ? AND uf.status = ?`,
@@ -53,7 +53,7 @@ export class UserService {
 
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
 		const result = this.db.all(
-			`SELECT u.id, u.username, u.alias, u.hasAvatar, uf.friendId, u.bio, uf.status, uf.createdAt
+			`SELECT u.id as friendId, u.username, u.alias, u.hasAvatar, u.bio, uf.userId as id, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
 			WHERE uf.userId = ?`,
@@ -80,7 +80,10 @@ export class UserService {
 
 	fetchAllUsers(): Result<FullUserType[], string> {
 		return this.db.all(
-			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users`,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.hasAvatar,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId`,
 			User
 		).map(users =>
 			users.map(user => ({
@@ -100,13 +103,30 @@ export class UserService {
 
 	fetchUserById(id: number): Result<FullUserType, string> {
 		return this.db.get(
-			`SELECT id, createdAt, username, alias, email, bio, isGuest, hasAvatar FROM users WHERE id = ?`,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.hasAvatar,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.id = ?`,
 			User,
 			[id]
 		).map((user) => ({
 			...user,
 			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
 		}));
+	}
+
+	fetchUsersByIds(ids: number[]): Result<PublicUserDataType[], string> {
+		if (ids.length === 0) {
+			return Result.Ok([]);
+		}
+
+		const placeholders = ids.map(() => '?').join(', ');
+		return this.db.all(
+			`SELECT id, createdAt, username, alias, bio, hasAvatar FROM users WHERE id IN (${placeholders})`,
+			PublicUserData,
+			ids
+		);
 	}
 
 	async createNewUser(username: string, email: string, passwordHash: string | null, isGuest: boolean): Promise<Result<FullUserType, string>> {
@@ -145,7 +165,22 @@ export class UserService {
 		return Result.Err('Failed to create unique guest username');
 	}
 
-	fetchUserFromUsername(username: string): Result<UserAuthDataType, string> {
+	fetchUserFromUsername(username: string): Result<FullUserType, string> {
+		return this.db.get(
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.hasAvatar,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.username = ?`,
+			User,
+			[username]
+		).map((user) => ({
+			...user,
+			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+		}));
+	}
+
+	fetchAuthUserDataFromUsername(username: string): Result<UserAuthDataType, string> {
 		return this.db.get(
 			`SELECT id, passwordHash, isGuest FROM users WHERE username = ?`,
 			UserAuthData,

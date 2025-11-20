@@ -21,12 +21,12 @@ export class Result<T, E> {
 
   unwrap(): T {
     if (this.inner.ok) return this.inner.value;
-    throw new Error("Tried to unwrap Err");
+    throw new Error(`Tried to unwrap Err with value ${this.inner.error}`);
   }
 
   unwrapErr(): E {
     if (!this.inner.ok) return this.inner.error;
-    throw new Error("Tried to unwrap Ok");
+    throw new Error(`Tried to unwrap Ok with value ${this.inner.value}`);
   }
 
   unwrapOr(defaultValue: T): T {

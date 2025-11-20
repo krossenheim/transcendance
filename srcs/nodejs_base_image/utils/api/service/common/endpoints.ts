@@ -21,6 +21,7 @@ import {
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
 import user, { Friend, FullUser, GetUser, PublicUserData } from "../db/user.js";
+import { TwoFactorRequiredResponse } from "../auth/twoFactorRequired.js";
 import { LoginUser } from "../auth/loginUser.js";
 import { SingleToken } from "../auth/tokenData.js";
 import { ErrorResponse } from "./error.js";
@@ -116,7 +117,7 @@ export const pub_url = defineRoutes({
         schema: {
           body: LoginUser,
           response: {
-            200: AuthResponse, // Login successful
+            200: z.union([AuthResponse, TwoFactorRequiredResponse]), // Login successful or 2FA required
             401: ErrorResponse, // Username/Password don't match / don't exist
             500: ErrorResponse, // Internal server error
           },
@@ -146,6 +147,84 @@ export const pub_url = defineRoutes({
           },
         },
       },
+
+      // 2FA endpoints
+      setup2FA: {
+        endpoint: "/public_api/auth/2fa/setup",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            username: z.string(),
+          }),
+          response: {
+            200: z.object({
+              qrCode: z.string(),
+              secret: z.string(),
+              uri: z.string(),
+            }),
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      enable2FA: {
+        endpoint: "/public_api/auth/2fa/enable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            code: z.string(),
+          }),
+          response: {
+            200: z.object({ message: z.string() }),
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      disable2FA: {
+        endpoint: "/public_api/auth/2fa/disable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+          }),
+          response: {
+            200: z.object({ message: z.string() }),
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      verify2FALogin: {
+        endpoint: "/public_api/auth/2fa/verify-login",
+        method: "POST",
+        schema: {
+          body: z.object({
+            tempToken: z.string(),
+            code: z.string(),
+          }),
+          response: {
+            200: AuthResponse,
+            401: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      check2FAStatus: {
+        endpoint: "/public_api/auth/2fa/status/:userId",
+        method: "GET",
+        schema: {
+          params: z.object({ userId: userIdValue }),
+          response: {
+            200: z.object({ enabled: z.boolean() }),
+            500: ErrorResponse,
+          },
+        },
+      },
     },
   },
 
@@ -166,12 +245,27 @@ export const user_url = defineRoutes({
         schema: {
           body: userIdValue,
           response: {
-            200: z.array(FullUser),
+            200: z.string(), // SVG image string
             500: ErrorResponse,
           },
         },
       },
     },
+
+    auth: {
+      logoutUser: {
+        endpoint: "/api/auth/logout",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: z.null(),
+          response: {
+            200: z.null(),
+            500: ErrorResponse,
+          },
+        },
+      },
+    }
   },
 
   ws: {
@@ -244,8 +338,88 @@ export const user_url = defineRoutes({
         },
       },
 
+      denyFriendship: {
+        funcId: "deny_friendship",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NoPendingRequest: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+            FailedToUpdate: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      removeFriendship: {
+        funcId: "remove_friendship",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NotFriends: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+            FailedToUpdate: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       blockUser: {
         funcId: "block_user",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ConnectionUpdated: {
+              code: 0,
+              payload: z.null(),
+            },
+            UserDoesNotExist: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            InvalidStatusRequest: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      unblockUser: {
+        funcId: "unblock_user",
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
@@ -293,7 +467,7 @@ export const user_url = defineRoutes({
         container: "users",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: userIdValue,
+          args: z.union([userIdValue, z.string()]),
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             Success: {
@@ -307,9 +481,86 @@ export const user_url = defineRoutes({
           },
         },
       },
-    },
 
-    pong: {
+      searchUserByUsername: {
+        funcId: "search_user_by_username",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ username: z.string() }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            UserFound: {
+              code: 0,
+              payload: PublicUserData,
+            },
+            UserNotFound: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      
+getProfile: {
+        funcId: "/api/users/get_profile",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ userId: idValue }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ProfileFound: {
+              code: 0,
+              payload: z.object({
+                userId: idValue,
+                username: z.string(),
+                email: z.string().optional(),
+                avatar: z.string().optional(),
+                bio: z.string().optional(),
+                status: z.enum(["online", "offline", "in-game"]).optional(),
+                joinDate: z.string().optional(),
+                stats: z.object({
+                  gamesPlayed: z.number(),
+                  wins: z.number(),
+                  losses: z.number(),
+                }).optional(),
+                isFriend: z.boolean().optional(),
+                isBlocked: z.boolean().optional(),
+              }),
+            },
+            UserNotFound: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      updateProfile: {
+        funcId: "/api/users/update_profile",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ bio: z.string().optional() }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            ProfileUpdated: { 
+              code: 0, 
+              payload: z.object({
+                userId: idValue,
+                username: z.string(),
+                bio: z.string().optional(),
+              })
+            },
+            Unauthorized: { code: 1, payload: ErrorResponse },
+          },
+        },
+      },
+    },  // <-- CLOSE users HERE
+
+    pong: {  // <-- pong should be at the same level as users
       getGameState: {
         funcId: "get_game_state",
         container: "pong",
@@ -446,6 +697,44 @@ export const user_url = defineRoutes({
               code: 4,
               payload: ErrorResponse,
             },
+            FailedToStoreMessage: {
+              code: 5,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      sendDirectMessage: {
+        funcId: "/api/chat/send_direct_message",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({
+            targetUserId: idValue,
+            messageString: z.string().min(1).max(500),
+          }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            MessageSent: {
+              code: 0,
+              payload: StoredMessageSchema,
+            },
+            UserNotFound: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            MessageTooShort: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+            InvalidInput: {
+              code: 3,
+              payload: ErrorResponse,
+            },
+            FailedToStoreMessage: {
+              code: 4,
+              payload: ErrorResponse,
+            },
           },
         },
       },
@@ -475,6 +764,10 @@ export const user_url = defineRoutes({
             },
             NoSuchRoom: {
               code: 4,
+              payload: ErrorResponse,
+            },
+            FailedToAddUser: {
+              code: 5,
               payload: ErrorResponse,
             },
           },
@@ -518,29 +811,6 @@ export const user_url = defineRoutes({
           },
         },
       },
-      getMessages: {
-        funcId: "/api/chat/get_messages",
-        container: "chat",
-        schema: {
-          args_wrapper: ForwardToContainerSchema,
-          args: z
-            .object({
-              roomId: room_id_rule,
-            })
-            .strict(),
-          output_wrapper: PayloadHubToUsersSchema,
-          output: {
-            FullRoomInfoGiven: {
-              code: 0,
-              payload: FullRoomInfoSchema,
-            },
-            NoListGiven: {
-              code: 1,
-              payload: ErrorResponse,
-            },
-          },
-        },
-      },
       joinRoom: {
         funcId: "/api/chat/join_room",
         container: "chat",
@@ -557,12 +827,50 @@ export const user_url = defineRoutes({
               code: 1,
               payload: ErrorResponse,
             },
+            FailedToJoinRoom: {
+              code: 2,
+              payload: ErrorResponse,
+            }
           },
         },
         code: {
           Joined: 0,
           NoSuchRoom: 1,
           AlreadyInRoom: 2,
+        },
+      },
+      getRoomData: {
+        funcId: "/api/chat/get_room_data",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestRoomByIdSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            RoomDataProvided: {
+              code: 0,
+              payload: FullRoomInfoSchema,
+            },
+            NoSuchRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      userConnected: {
+        funcId: "user_connected",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            UserConnected: {
+              code: 0,
+              payload: GetUser,
+            },
+          },
         },
       },
     },
@@ -675,6 +983,19 @@ export const int_url = defineRoutes({
         },
       },
 
+      searchUserByUsername: {
+        endpoint: "/internal_api/db/users/search/:username",
+        method: "GET",
+        schema: {
+          params: z.object({ username: z.string() }),
+          response: {
+            200: PublicUserData, // Found user
+            404: ErrorResponse, // User not found
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
       createNormalUser: {
         endpoint: "/internal_api/db/users/create/normal",
         method: "POST",
@@ -718,6 +1039,18 @@ export const int_url = defineRoutes({
           response: {
             200: FullUser, // Successful login; return user data
             401: ErrorResponse, // Invalid username or password
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      logoutUser: {
+        endpoint: "/internal_api/db/tokens/logout",
+        method: "POST",
+        schema: {
+          body: z.object({ userId: userIdValue }),
+          response: {
+            200: z.null(), // Logged out successfully
             500: ErrorResponse, // Internal server error
           },
         },
@@ -791,7 +1124,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/chat/rooms/create",
         method: "POST",
         schema: {
-          body: AddRoomPayloadSchema,
+          body: AddRoomPayloadSchema.extend({ owner: userIdValue }),
           response: {
             201: RoomSchema, // Created room
             500: ErrorResponse, // Internal server error
@@ -799,15 +1132,131 @@ export const int_url = defineRoutes({
         },
       },
 
-      getRoomMessages: {
-        endpoint: "/internal_api/chat/rooms/get_messages",
+      getRoomInfo: {
+        endpoint: "/internal_api/chat/rooms/info/:roomId",
+        method: "GET",
+        schema: {
+          params: RequestRoomByIdSchema,
+          response: {
+            200: FullRoomInfoSchema, // Retrieved room info
+            404: ErrorResponse, // Room not found
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      sendMessage: {
+        endpoint: "/internal_api/chat/rooms/send_message",
         method: "POST",
         schema: {
-          body: VerifyTokenPayload,
+          body: SendMessagePayloadSchema.extend({ userId: idValue }),
           response: {
-            200: StoredMessageSchema, // Messages retrieved successfully
-            401: ErrorResponse, // Token invalid
+            200: StoredMessageSchema, // Message sent successfully
+            400: ErrorResponse, // Invalid message data
             500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      getUserRooms: {
+        endpoint: "/internal_api/chat/rooms/user_rooms/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: ListRoomsSchema, // Retrieved list of rooms
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      addUserToRoom: {
+        endpoint: "/internal_api/chat/rooms/add_user",
+        method: "POST",
+        schema: {
+          body: AddToRoomPayloadSchema.extend({ type: z.number() }),
+          response: {
+            200: z.null(), // User added successfully
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      // 2FA endpoints
+      check2FAStatus: {
+        endpoint: "/internal_api/db/2fa/status/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.object({ enabled: z.boolean() }), // 2FA status
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      generate2FASecret: {
+        endpoint: "/internal_api/db/2fa/generate",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            username: z.string(),
+          }),
+          response: {
+            200: z.object({
+              qrCode: z.string(),
+              secret: z.string(),
+              uri: z.string(),
+            }), // Generated QR code and secret
+            403: ErrorResponse, // Guest users cannot enable 2FA
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      enable2FA: {
+        endpoint: "/internal_api/db/2fa/enable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            code: z.string(),
+          }),
+          response: {
+            200: z.object({ message: z.string() }), // 2FA enabled successfully
+            400: ErrorResponse, // Invalid code
+            403: ErrorResponse, // Guest users cannot enable 2FA
+          },
+        },
+      },
+
+      disable2FA: {
+        endpoint: "/internal_api/db/2fa/disable",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+          }),
+          response: {
+            200: z.object({ message: z.string() }), // 2FA disabled successfully
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      verify2FACode: {
+        endpoint: "/internal_api/db/2fa/verify",
+        method: "POST",
+        schema: {
+          body: z.object({
+            userId: userIdValue,
+            code: z.string(),
+          }),
+          response: {
+            200: z.object({ valid: z.boolean() }), // Code is valid
+            400: ErrorResponse, // Invalid code or 2FA not enabled
+            401: ErrorResponse, // Invalid code
           },
         },
       },

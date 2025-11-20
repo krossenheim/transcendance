@@ -39,7 +39,7 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	registerRoute(fastify, int_url.http.db.loginUser, async (request, reply) => {
 		const { username, password } = request.body;
-		const userResult = userService.fetchUserFromUsername(username);
+		const userResult = userService.fetchAuthUserDataFromUsername(username);
 		if (userResult.isErr())
 			return reply.status(401).send({ message: userResult.unwrapErr() });
 
@@ -60,6 +60,16 @@ async function userRoutes(fastify: FastifyInstance) {
 	registerRoute(fastify, int_url.http.db.getUser, async (request, reply) => {
 		const { userId } = request.params;
 		const userResult = userService.fetchUserById(userId);
+
+		if (userResult.isErr())
+			return reply.status(404).send({ message: userResult.unwrapErr() });
+		else
+			return reply.status(200).send(userResult.unwrap());
+	});
+
+	registerRoute(fastify, int_url.http.db.searchUserByUsername, async (request, reply) => {
+		const { username } = request.params;
+		const userResult = userService.fetchUserFromUsername(username);
 
 		if (userResult.isErr())
 			return reply.status(404).send({ message: userResult.unwrapErr() });
@@ -94,9 +104,10 @@ async function userRoutes(fastify: FastifyInstance) {
 
 		if (avatarResult.isErr())
 			return reply.status(404).send({ message: avatarResult.unwrapErr() });
-		else
+		else {
 			reply.header('Content-Type', 'image/svg+xml');
 			return reply.status(200).send(avatarResult.unwrap());
+		}
 	});
 
 	registerRoute(fastify, int_url.http.db.fetchUserConnections, async (request, reply) => {

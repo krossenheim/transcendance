@@ -1,29 +1,68 @@
 import { createFastify, registerRoute } from "./utils/api/service/common/fastify.js";
+import { UserFriendshipStatusEnum } from "./utils/api/service/db/friendship.js";
 import { user_url, int_url } from "./utils/api/service/common/endpoints.js";
 import { Result } from "./utils/api/service/common/result.js";
 import { OurSocket } from "./utils/socket_to_hub.js";
 
 import containers from "./utils/internal_api.js";
 
+import type { FriendType } from "./utils/api/service/db/user.js";
 import type { FastifyInstance } from "fastify";
 
 const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");
 
+let onlineUsers: Set<number> = new Set();
+
 import { wsBlockUserHandlers } from "./ws_handlers/blockUser.js";
 socketToHub.register(wsBlockUserHandlers);
+
+import { wsUnblockUserHandlers } from "./ws_handlers/unblockUser.js";
+socketToHub.register(wsUnblockUserHandlers);
 
 import { wsConfirmFriendshipHandlers } from "./ws_handlers/confirmFriendship.js";
 socketToHub.register(wsConfirmFriendshipHandlers);
 
+import { wsDenyFriendshipHandlers } from "./ws_handlers/denyFriendship.js";
+socketToHub.register(wsDenyFriendshipHandlers);
+
+import { wsRemoveFriendshipHandlers } from "./ws_handlers/removeFriendship.js";
+socketToHub.register(wsRemoveFriendshipHandlers);
+
 import { wsFetchUserConnectionsHandlers } from "./ws_handlers/fetchUserConnections.js";
-socketToHub.register(wsFetchUserConnectionsHandlers);
+wsFetchUserConnectionsHandlers(socketToHub, onlineUsers);
 
 import { wsRequestFriendshipHandlers } from "./ws_handlers/requestFriendship.js";
 socketToHub.register(wsRequestFriendshipHandlers);
 
 import { wsUserProfileHandlers } from "./ws_handlers/userProfile.js";
-socketToHub.register(wsUserProfileHandlers);
+wsUserProfileHandlers(socketToHub, onlineUsers);
+
+import { wsSearchUserByUsernameHandlers } from "./ws_handlers/searchUserByUsername.js";
+wsSearchUserByUsernameHandlers(socketToHub, onlineUsers);
+
+async function handleUserConnectionUpdateNotification(userId: number) {
+  const userConnections = await containers.db.get(
+    int_url.http.db.fetchUserConnections,
+    { userId: userId }
+  );
+
+  if (userConnections.isErr() || userConnections.unwrap().status !== 200) {
+    console.warn(`Failed to fetch connections for user ${userId}`);
+    return;
+  }
+
+  const result = userConnections.unwrap().data as Array<FriendType>;
+  for (const friend of result) {
+    if (friend.status === UserFriendshipStatusEnum.Accepted && onlineUsers.has(friend.friendId)) {
+      await socketToHub.invokeHandler(
+        user_url.ws.users.fetchUserConnections,
+        friend.friendId,
+        null
+      );
+    }
+  }
+}
 
 socketToHub.registerReceiver(
   int_url.ws.hub.userConnected,
@@ -31,9 +70,12 @@ socketToHub.registerReceiver(
     console.log("Received userConnected event with data:", data);
 
     if (data.code === 0) {
-      console.log(
-        `User ${data.payload.userId} has opened a websocket between itself and hub.`
-      );
+      const connectedUserId = data.payload.userId;
+      const wasAlreadyOnline = onlineUsers.has(connectedUserId);
+      onlineUsers.add(connectedUserId);
+
+      if (!wasAlreadyOnline)
+        await handleUserConnectionUpdateNotification(connectedUserId);
 
       socketToHub.invokeHandler(
         user_url.ws.users.fetchUserConnections,
@@ -52,6 +94,29 @@ socketToHub.registerReceiver(
   }
 );
 
+socketToHub.registerReceiver(
+  int_url.ws.hub.userDisconnected,
+  async (data, schema) => {
+    console.log("Received userDisconnected event with data:", data);
+
+    if (data.code === 0) {
+      const disconnectedUserId = data.payload.userId;
+      const wasOnline = onlineUsers.delete(disconnectedUserId);
+
+      if (wasOnline)
+        await handleUserConnectionUpdateNotification(disconnectedUserId);
+    }
+
+    if (data.code === schema.output.Failure.code) {
+      console.warn(
+        `User disconnection from users container failed: ${data.payload.message}`
+      );
+    }
+
+    return Result.Ok(null);
+  }
+);
+
 registerRoute(
   fastify,
   user_url.http.users.fetchUserAvatar,
@@ -59,9 +124,9 @@ registerRoute(
     console.log(request.body);
     const fetchResult = await containers.db.get(
       int_url.http.db.getUserPfp,
-      undefined,
       { userId: String(request.body.payload) }
     );
+    console.log("Fetch result:", fetchResult);
     if (fetchResult.isErr()) {
       reply.code(500).send({ message: "Internal server error" });
       return;
@@ -73,6 +138,7 @@ registerRoute(
       return;
     }
 
+    reply.header('Content-Type', 'image/svg+xml');
     reply.code(200).send(result.data);
   }
 );

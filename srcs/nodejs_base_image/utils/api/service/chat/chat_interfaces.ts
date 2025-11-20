@@ -5,6 +5,11 @@ const whitelistedPattern = /^[a-zA-Z0-9 ]+$/;
 const ROOMNAME_MIN_LEN = 3;
 export const ROOMNAME_MAX_LEN = 50;
 
+export enum ChatRoomType {
+  PRIVATE = 1,
+  DIRECT_MESSAGE = 2
+};
+
 export const room_id_rule = z.coerce.number().gt(0);
 export const room_name_rule = z.coerce
   .string()
@@ -39,6 +44,7 @@ export const AddRoomPayloadSchema = z
   .object({
     // Payload sent by client "Wants a new room made"
     roomName: room_name_rule,
+    roomType: z.enum(ChatRoomType)
   })
   .strict();
 

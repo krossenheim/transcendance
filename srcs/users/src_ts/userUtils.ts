@@ -22,7 +22,7 @@ function retrieveUserConnectionStatus(
   from: FullUserType,
   to: FullUserType
 ): UserFriendshipStatusEnum {
-  const friendship = from.friends.find((f) => f.id === to.id);
+  const friendship = from.friends.find((f) => f.friendId === to.id);
   if (friendship === undefined) return UserFriendshipStatusEnum.None;
   return friendship.status;
 }
