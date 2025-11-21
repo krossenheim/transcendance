@@ -56,6 +56,14 @@ export const SendMessagePayloadSchema = z
   })
   .strict();
 
+export const SendDMMessagePayloadSchema = z
+  .object({
+    // Payload sent by client "send DM message to user"
+    targetUserId: idValue,
+    messageString: message_rule,
+  })
+  .strict();
+
 export const AddToRoomPayloadSchema = z
   .object({
     // Payload sent by client "add person to room"

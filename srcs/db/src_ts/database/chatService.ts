@@ -14,6 +14,7 @@ import type {
 } from "../utils/api/service/chat/db_models.js";
 import type { TypeRoomSchema } from "../utils/api/service/chat/db_models.js";
 import { userService } from "../main.js";
+import { z } from "zod";
 import type { PublicUserDataType } from "../utils/api/service/db/user.js";
 
 const storedMessagesTableName = "messages";
@@ -111,6 +112,41 @@ export class ChatService {
     } catch (e) {
       return Result.Err((e as Error).message);
     }
+  }
+
+  fetchDMRoom(userA: number, userB: number): Result<{ room: TypeFullRoomInfoSchema, created: boolean }, string> {
+    let userOneId = userA < userB ? userA : userB;
+    let userTwoId = userA < userB ? userB : userA;
+
+    const existingRoomResult = this.db.get(
+      `SELECT roomId FROM dm_chat_rooms_mapping WHERE (userOneId = ? AND userTwoId = ?)`,
+      z.number().int(),
+      [userOneId, userTwoId]
+    );
+
+    if (existingRoomResult.isOk()) {
+      const roomId = existingRoomResult.unwrap();
+      return this.fetchRoomById(roomId).map(room => ({ room, created: false }));
+    }
+
+    const roomCreationResult = this.createNewRoom(`DM ${userOneId} ${userTwoId}`, ChatRoomType.DIRECT_MESSAGE, userOneId);
+    if (roomCreationResult.isErr())
+      return Result.Err(roomCreationResult.unwrapErr());
+
+    const room = roomCreationResult.unwrap();
+    if (this.addUserToRoom(userTwoId, room.roomId).isErr()) {
+      return Result.Err("Could not add second user to newly created DM room.");
+    }
+  
+    const mappingCreationResult = this.db.run(
+      `INSERT INTO dm_chat_rooms_mapping (userOneId, userTwoId, roomId) VALUES (?, ?, ?)`,
+      [userOneId, userTwoId, room.roomId]
+    );
+
+    if (mappingCreationResult.isErr())
+      return Result.Err("Could not create DM room mapping.");
+
+    return this.fetchRoomById(room.roomId).map(room => ({ room, created: true }));
   }
 
   sendMessageToRoom(roomId: number, userId: number, messageString: string): Result<TypeStoredMessageSchema, string> {

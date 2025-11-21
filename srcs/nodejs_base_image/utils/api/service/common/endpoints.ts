@@ -5,6 +5,7 @@ import {
   RequestRoomByIdSchema,
   room_id_rule,
   room_name_rule,
+  SendDMMessagePayloadSchema,
   SendMessagePayloadSchema,
 } from "../chat/chat_interfaces.js";
 import {
@@ -643,8 +644,7 @@ export const user_url = defineRoutes({
     chat: {
       sendMessage: {
         funcId: "/api/chat/send_message_to_room",
-        container: "chat", // yes, the object parent of the (sendMessage) holding this is named chat.
-        //                    but i'd rather type it twice
+        container: "chat",
         schema: {
           args_wrapper: ForwardToContainerSchema,
           args: SendMessagePayloadSchema,
@@ -682,15 +682,12 @@ export const user_url = defineRoutes({
         container: "chat",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: z.object({
-            targetUserId: idValue,
-            messageString: z.string().min(1).max(500),
-          }),
+          args: SendDMMessagePayloadSchema,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             MessageSent: {
               code: 0,
-              payload: StoredMessageSchema,
+              payload: z.null(),
             },
             UserNotFound: {
               code: 1,
@@ -1126,6 +1123,25 @@ export const int_url = defineRoutes({
           response: {
             200: FullRoomInfoSchema, // Retrieved room info
             404: ErrorResponse, // Room not found
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      fetchDMRoomInfo: {
+        endpoint: "/internal_api/chat/rooms/dm_info/:userId1/:userId2",
+        method: "GET",
+        schema: {
+          params: z.object({
+            userId1: userIdValue,
+            userId2: userIdValue,
+          }),
+          response: {
+            200: z.object({
+              room: FullRoomInfoSchema,
+              created: z.boolean(),
+            }),
+            404: ErrorResponse, // DM room not found
             500: ErrorResponse, // Internal server error
           },
         },

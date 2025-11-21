@@ -1,4 +1,4 @@
-import type { ChatRoomType } from "./utils/api/service/chat/chat_interfaces.js";
+import { ChatRoomType } from "./utils/api/service/chat/chat_interfaces.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
 import type { OurSocket, WSHandlerReturnValue } from "./utils/socket_to_hub.js";
 import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
@@ -44,7 +44,6 @@ class Room {
   constructor(room_data: TypeRoomSchema, user_connections? : Array<[number, number]>) {
     this.roomId = room_data.roomId;
     this.room_name = room_data.roomName;
-    // Persist room type so handlers can enforce DM invariants (2 = DM)
     this.room_type = room_data.roomType;
     this.users = user_connections ? user_connections.filter(uc => uc[1] === ChatRoomUserAccessType.JOINED).map(uc => uc[0]) : new Array();
     this.max_messages = 20;
@@ -52,7 +51,6 @@ class Room {
     this.allowedUsers = user_connections ? user_connections.map(uc => uc[0]) : new Array();
   }
 
-  //////
   removeUser(user: any) {
     this.users = this.users.filter((u) => u !== user);
   }
@@ -198,15 +196,22 @@ class Room {
   getRoomType(): ChatRoomType {
     return this.room_type;
   }
+
+  isDM(user1: number, user2: number): boolean {
+    if (this.room_type !== ChatRoomType.DIRECT_MESSAGE) {
+      return false;
+    }
+    return this.allowedUsers.includes(user1) && this.allowedUsers.includes(user2);
+  }
 }
 
 let DEBUGROOMID = 1;
 class ChatRooms {
-  public rooms: Array<Room>;
+  public rooms: Map<number, Room>;
   public static instance: ChatRooms;
 
   constructor() {
-    this.rooms = new Array();
+    this.rooms = new Map();
 
     if (ChatRooms.instance) {
       return ChatRooms.instance;
@@ -217,19 +222,41 @@ class ChatRooms {
   }
 
   getRoom(roomId: number): Room | null {
-    const room = this.rooms.find((room) => room.roomId === roomId);
-    if (room === undefined) return null;
-    return room;
+    return this.rooms.get(roomId) || null;
   }
 
   getAllUsers(): Set<number> {
     const allUsers = new Set<number>();
-    for (const room of this.rooms) {
+    for (const room of this.rooms.values()) {
       for (const userId of room.users) {
         allUsers.add(userId);
       }
     }
     return allUsers;
+  }
+
+  async fetchRoom(roomId: number): Promise<Result<Room, string>> {
+    const room = this.getRoom(roomId);
+    if (room)
+      return Result.Ok(room);
+
+    const roomInfoResult = await containers.db.get(int_url.http.db.getRoomInfo, { roomId });
+
+    if (roomInfoResult.isErr() || roomInfoResult.unwrap().status !== 200) {
+      if (roomInfoResult.isErr()) {
+        console.error("Error fetching room info:", roomInfoResult.unwrapErr());
+      } else {
+        console.error("Error fetching room info, status:", roomInfoResult.unwrap().status);
+        console.error("Response data:", roomInfoResult.unwrap().data);
+      }
+      return Result.Err("Failed to fetch room info");
+    }
+
+    const roomInfo = roomInfoResult.unwrap().data as TypeFullRoomInfoSchema;
+    const userConnections: Array<[number, number]> = roomInfo.userConnections.map(uc => [uc.userId, uc.userState]);
+    const newRoom = new Room(roomInfo.room, userConnections);
+    this.rooms.set(newRoom.roomId, newRoom);
+    return Result.Ok(newRoom);
   }
 
   async fetchRoomById(roomId: number, userId: number): Promise<Result<
@@ -264,14 +291,15 @@ class ChatRooms {
 
   async addRoom(
     roomNameReq: string,
-    user_id: number
+    user_id: number,
+    room_type: ChatRoomType
   ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>,
     ErrorResponseType
   >> {
     const newRoomResult = await containers.db.post(int_url.http.db.createChatRoom, {
       roomName: roomNameReq,
-      roomType: 1,
+      roomType: room_type,
       owner: user_id,
     });
 
@@ -287,7 +315,7 @@ class ChatRooms {
 
     const room_data = newRoomResult.unwrap().data as TypeRoomSchema;
     const newroom = new Room(room_data, [[user_id, ChatRoomUserAccessType.JOINED]]);
-    this.rooms.push(newroom);
+    this.rooms.set(newroom.roomId, newroom);
     return Result.Ok({
       recipients: [user_id],
       code: user_url.ws.chat.addRoom.schema.output.AddedRoom.code,
@@ -295,90 +323,21 @@ class ChatRooms {
     });
   }
 
-  async getOrCreateDMRoom(user1_id: number, user2_id: number): Promise<{ room: Room | null, wasCreated: boolean }> {
-    // DM room naming convention: "DM {lower_id} {higher_id}" (spaces allowed, underscores not)
-    const [lowerId, higherId] = user1_id < user2_id ? [user1_id, user2_id] : [user2_id, user1_id];
-    const dmRoomName = `DM ${lowerId} ${higherId}`;
+  async getOrCreateDMRoom(user1_id: number, user2_id: number): Promise<Result<{ room: Room, created: boolean }, string>> {
+    const currentRoom = Array.from(this.rooms.values()).find(room => room.isDM(user1_id, user2_id));
+    if (currentRoom)
+      return Result.Ok({ room: currentRoom, created: false });
 
-    console.log(`[DM] Looking for DM room between ${user1_id} and ${user2_id}: ${dmRoomName}`);
-
-    // Check if DM room already exists in memory
-    let existingRoom = this.rooms.find(room => room.room_name === dmRoomName);
-    if (existingRoom) {
-      console.log(`[DM] Found existing DM room in memory: ${existingRoom.roomId}`);
-      return { room: existingRoom, wasCreated: false };
-    }
-
-    // Check if DM room exists in database but not in memory
-    console.log(`[DM] Checking database for existing DM room...`);
-    const userRoomsResult = await containers.db.get(int_url.http.db.getUserRooms, { userId: user1_id });
+    const userRoomsResult = await containers.db.get(int_url.http.db.fetchDMRoomInfo, { userId1: user1_id, userId2: user2_id });
+    console.log("Fetched DM room info result:", userRoomsResult);
     if (userRoomsResult.isOk() && userRoomsResult.unwrap().status === 200) {
-      const userRooms = userRoomsResult.unwrap().data as TypeRoomSchema[];
-      const existingDMInDB = userRooms.find(room => room.roomName === dmRoomName);
-      
-      if (existingDMInDB) {
-        console.log(`[DM] Found existing DM room in database: ${existingDMInDB.roomId}, loading into memory`);
-        
-        // Fetch full room info to get user connections
-        const roomInfoResult = await containers.db.get(int_url.http.db.getRoomInfo, { roomId: existingDMInDB.roomId });
-        if (roomInfoResult.isOk() && roomInfoResult.unwrap().status === 200) {
-          const roomInfo = roomInfoResult.unwrap().data as TypeFullRoomInfoSchema;
-          
-          // Create Room object with proper user connections
-          const userConnections: Array<[number, number]> = roomInfo.userConnections.map(uc => [uc.userId, uc.userState]);
-          existingRoom = new Room(existingDMInDB, userConnections);
-          this.rooms.push(existingRoom);
-          
-          console.log(`[DM] Loaded existing DM room ${existingRoom.roomId} with ${existingRoom.users.length} joined users`);
-          return { room: existingRoom, wasCreated: false };
-        }
-      }
+      console.log("DM room found in DB, loading...");
+      const roomData = userRoomsResult.unwrap().data.room as TypeFullRoomInfoSchema;
+      this.rooms.set(roomData.room.roomId, new Room(roomData.room, roomData.userConnections.map(uc => [uc.userId, uc.userState])));
+      return Result.Ok({ room: this.rooms.get(roomData.room.roomId)!, created: userRoomsResult.unwrap().data.created });
     }
 
-    console.log(`[DM] Creating new DM room ${dmRoomName}`);
-
-    // Create new DM room
-    const newRoomResult = await containers.db.post(int_url.http.db.createChatRoom, {
-      roomName: dmRoomName,
-      roomType: 2, // Type 2 for DM rooms
-      owner: user1_id,
-    });
-
-    if (newRoomResult.isErr()) {
-      console.error("[DM] Failed to create DM room - error:", newRoomResult.unwrapErr());
-      return { room: null, wasCreated: false };
-    }
-
-    if (newRoomResult.unwrap().status !== 201) {
-      console.error("[DM] Failed to create DM room - status:", newRoomResult.unwrap().status);
-      return { room: null, wasCreated: false };
-    }
-
-    const room_data = newRoomResult.unwrap().data as TypeRoomSchema;
-    console.log(`[DM] Created room ${room_data.roomId}, adding both users to DB`);
-
-    // Add user2 to the room in the database
-    const addUser2Result = await containers.db.post(int_url.http.db.addUserToRoom, {
-      roomId: room_data.roomId,
-      user_to_add: user2_id,
-      type: ChatRoomUserAccessType.JOINED,
-    });
-
-    if (addUser2Result.isErr() || addUser2Result.unwrap().status !== 200) {
-      console.error("[DM] Failed to add user2 to room:", addUser2Result.isErr() ? addUser2Result.unwrapErr() : addUser2Result.unwrap());
-    } else {
-      console.log(`[DM] Successfully added user ${user2_id} to room ${room_data.roomId}`);
-    }
-
-    // Add both users as joined members in the Room object
-    const newRoom = new Room(room_data, [
-      [user1_id, ChatRoomUserAccessType.JOINED],
-      [user2_id, ChatRoomUserAccessType.JOINED]
-    ]);
-    this.rooms.push(newRoom);
-
-    console.log(`[DM] Successfully created DM room ${newRoom.roomId}`);
-    return { room: newRoom, wasCreated: true };
+    return Result.Err("Failed to fetch or create DM room");
   }
 
   async listRooms(

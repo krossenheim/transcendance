@@ -47,6 +47,14 @@ export async function chatRoutes(fastify: FastifyInstance) {
             return reply.status(500).send({ message: addUserResult.unwrapErr() });
         else return reply.status(200).send(null);
     });
+
+    registerRoute(fastify, int_url.http.db.fetchDMRoomInfo, async (request, reply) => {
+        const fetchDMRoomResult = chatService.fetchDMRoom(request.params.userId1, request.params.userId2);
+        console.log(fetchDMRoomResult);
+        if (fetchDMRoomResult.isErr())
+            return reply.status(500).send({ message: fetchDMRoomResult.unwrapErr() });
+        else return reply.status(200).send(fetchDMRoomResult.unwrap());
+    });
 }
 
 export default chatRoutes;

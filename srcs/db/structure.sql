@@ -56,6 +56,17 @@ CREATE TABLE IF NOT EXISTS chat_rooms (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_id ON chat_rooms(roomId);
 
+CREATE TABLE IF NOT EXISTS dm_chat_rooms_mapping (
+  roomId INTEGER PRIMARY KEY,
+  userOneId INTEGER NOT NULL,
+  userTwoId INTEGER NOT NULL,
+  FOREIGN KEY(roomId) REFERENCES chat_rooms(roomId) ON UPDATE CASCADE ON DELETE CASCADE,
+  FOREIGN KEY(userOneId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  FOREIGN KEY(userTwoId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_dm_chat_rooms_userOneId ON dm_chat_rooms_mapping(userOneId);
+CREATE INDEX IF NOT EXISTS idx_dm_chat_rooms_userTwoId ON dm_chat_rooms_mapping(userTwoId);
+
 CREATE TABLE IF NOT EXISTS users_room_relationships (
   roomId INTEGER NOT NULL,
   userId INTEGER NOT NULL,

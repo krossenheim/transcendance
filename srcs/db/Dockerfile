@@ -1,5 +1,9 @@
 FROM nodejs_base_image:1.0
 
+RUN apt-get update && \
+    apt-get install -y sqlite3 libsqlite3-dev && \
+    apt-get clean
+
 RUN mkdir -p /appservice/
 
 WORKDIR /appservice/
