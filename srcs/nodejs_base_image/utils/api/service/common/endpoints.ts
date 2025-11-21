@@ -43,6 +43,12 @@ import {
   StartNewPongGameSchema,
 } from "../pong/pong_interfaces.js";
 
+export const defaultResponses: Record<number, z.ZodType | null> = {
+  400: ErrorResponse,
+  401: ErrorResponse,
+  500: ErrorResponse,
+} as const;
+
 export type HTTPRouteDef = {
   endpoint: string;
   wrapper?: z.ZodObject<{ payload: z.ZodTypeAny }>;
@@ -284,6 +290,30 @@ export const user_url = defineRoutes({
             },
             Failure: {
               code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      userOnlineStatusUpdate: {
+        funcId: "user_online_status_update",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.null(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            GetOnlineUsers: {
+              code: 0,
+              payload: z.array(userIdValue),
+            },
+            GetOfflineUsers: {
+              code: 1,
+              payload: z.array(userIdValue),
+            },
+            Failure: {
+              code: 2,
               payload: ErrorResponse,
             },
           },
@@ -1217,5 +1247,19 @@ export const int_url = defineRoutes({
         },
       },
     },
+
+    chat: {
+      getUserConnections: {
+        endpoint: "/internal_api/chat/users/connections/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.array(userIdValue), // Retrieved contacts
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      }
+    }
   },
 });

@@ -1,4 +1,5 @@
 import { createFastify, registerRoute } from "./utils/api/service/common/fastify.js";
+import { fetchAllowedOnlineStatusViewers } from "./ws_handlers/userOnlineStatus.js";
 import { UserFriendshipStatusEnum } from "./utils/api/service/db/friendship.js";
 import { user_url, int_url } from "./utils/api/service/common/endpoints.js";
 import { Result } from "./utils/api/service/common/result.js";
@@ -41,27 +42,23 @@ wsUserProfileHandlers(socketToHub, onlineUsers);
 import { updateProfile } from "./ws_handlers/updateProfile.js";
 updateProfile(socketToHub);
 
-async function handleUserConnectionUpdateNotification(userId: number) {
-  const userConnections = await containers.db.get(
-    int_url.http.db.fetchUserConnections,
-    { userId: userId }
-  );
+import { wsUserOnlineStatusHandler } from "./ws_handlers/userOnlineStatus.js";
+wsUserOnlineStatusHandler(socketToHub, onlineUsers);
 
-  if (userConnections.isErr() || userConnections.unwrap().status !== 200) {
-    console.warn(`Failed to fetch connections for user ${userId}`);
-    return;
-  }
+async function handleUserConnectionUpdateNotification(userId: number, isOnline: boolean) {
+  let users_to_notify = await fetchAllowedOnlineStatusViewers(userId);
+  let status_code = isOnline ?
+    user_url.ws.users.userOnlineStatusUpdate.schema.output.GetOnlineUsers.code :
+    user_url.ws.users.userOnlineStatusUpdate.schema.output.GetOfflineUsers.code;
 
-  const result = userConnections.unwrap().data as Array<FriendType>;
-  for (const friend of result) {
-    if (friend.status === UserFriendshipStatusEnum.Accepted && onlineUsers.has(friend.friendId)) {
-      await socketToHub.invokeHandler(
-        user_url.ws.users.fetchUserConnections,
-        friend.friendId,
-        null
-      );
+  socketToHub.sendMessage(
+    user_url.ws.users.userOnlineStatusUpdate,
+    {
+      recipients: users_to_notify,
+      code: status_code,
+      payload: [userId],
     }
-  }
+  )
 }
 
 socketToHub.registerReceiver(
@@ -75,10 +72,10 @@ socketToHub.registerReceiver(
       onlineUsers.add(connectedUserId);
 
       if (!wasAlreadyOnline)
-        await handleUserConnectionUpdateNotification(connectedUserId);
+        await handleUserConnectionUpdateNotification(connectedUserId, true);
 
       socketToHub.invokeHandler(
-        user_url.ws.users.fetchUserConnections,
+        user_url.ws.users.userOnlineStatusUpdate,
         data.payload.userId,
         null
       );
@@ -104,7 +101,7 @@ socketToHub.registerReceiver(
       const wasOnline = onlineUsers.delete(disconnectedUserId);
 
       if (wasOnline)
-        await handleUserConnectionUpdateNotification(disconnectedUserId);
+        await handleUserConnectionUpdateNotification(disconnectedUserId, false);
     }
 
     if (data.code === schema.output.Failure.code) {

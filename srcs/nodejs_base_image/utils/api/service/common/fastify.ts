@@ -26,7 +26,7 @@ export function createFastify(options = {
 	return server;
 }
 
-type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
+export type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
   status<Code extends keyof T["schema"]["response"] & number>(
     code: Code
   ): Omit<FastifyReply, "send"> & {
@@ -34,12 +34,22 @@ type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
   };
 };
 
-type RouteBody<T extends HTTPRouteDef> =
+export type RouteBody<T extends HTTPRouteDef> =
 	T["wrapper"] extends z.ZodTypeAny
 		? Omit<z.infer<T["wrapper"]>, "payload"> & { payload: z.infer<T["schema"]["body"]> }
 		: T["schema"] extends { body: z.ZodTypeAny }
 			? z.infer<T["schema"]["body"]>
 			: never;
+
+export type RouteQuery<T extends HTTPRouteDef> =
+	T["schema"] extends { query: z.ZodTypeAny }
+		? z.infer<T["schema"]["query"]>
+		: never;
+
+export type RouteParams<T extends HTTPRouteDef> =
+	T["schema"] extends { params: z.ZodTypeAny }
+		? z.infer<T["schema"]["params"]>
+		: never;
 
 export function registerRoute<T extends HTTPRouteDef>(
 	fastify: FastifyInstance,
@@ -48,12 +58,8 @@ export function registerRoute<T extends HTTPRouteDef>(
 		req: FastifyRequest<
 			{
 				Body: RouteBody<T>;
-				Querystring: T["schema"] extends { query: z.ZodTypeAny }
-				? z.infer<T["schema"]["query"]>
-				: never;
-				Params: T["schema"] extends { params: z.ZodTypeAny }
-				? z.infer<T["schema"]["params"]>
-				: never;
+				Querystring: RouteQuery<T>;
+				Params: RouteParams<T>;
 			}
 		>,
 		reply: ReplyOf<T>

@@ -5,30 +5,20 @@ import ChatRooms from "./roomClass.js";
 import websocketPlugin from "@fastify/websocket";
 import { Result } from "./utils/api/service/common/result.js";
 import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
+import { createFastify } from "./utils/api/service/common/fastify.js";
 import {
   type TypeEmptySchema,
   type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
 import { FullRoomInfoSchema, type TypeFullRoomInfoSchema } from "./utils/api/service/chat/db_models.js";
 
-const fastify = Fastify({
-  logger: {
-    level: "info", // or 'debug' for more verbosity
-    transport: {
-      target: "pino-pretty", // pretty-print logs in development
-      options: {
-        colorize: true,
-        translateTime: "HH:MM:ss Z",
-        ignore: "pid,hostname",
-      },
-    },
-  },
-});
-
-fastify.register(websocketPlugin);
-
+const fastify = createFastify();
 const socket = new OurSocket("chat");
 const singletonChatRooms = new ChatRooms();
+
+import { chatEndpoints } from "./endpoints.js";
+chatEndpoints(fastify, singletonChatRooms);
+
 socket.registerHandler(user_url.ws.chat.sendMessage, async (wrapper) => {
   const room = singletonChatRooms.getRoom(wrapper.payload.roomId);
   const user_id = wrapper.user_id;
@@ -285,4 +275,18 @@ socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
     }
   }
   return Result.Ok(null);
+});
+
+const port = parseInt(
+  process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
+  10
+);
+const host = process.env.AUTH_BIND_TO || "0.0.0.0";
+
+fastify.listen({ port, host }, (err, address) => {
+  if (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+  fastify.log.info(`Server listening at ${address}`);
 });
