@@ -18,6 +18,8 @@ NODEJS_BASE_IMAGE_DIR =$(PROJECT_ROOT)srcs/nodejs_base_image
 
 # React build directory for npm arguments
 REACT_DIR := $(SOURCES_DIR)/nginx/react_source
+# Node.js memory tuning (override with: make NODE_MAX_OLD_SPACE=6144 build)
+NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
 all: check-deps ensure_npx down build
@@ -54,7 +56,7 @@ build_base_nodejs:
 
 build_react:
 	npm install --prefix $(REACT_DIR)
-	npm run build --prefix $(REACT_DIR)
+	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
 check-deps:
 	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
@@ -102,9 +104,12 @@ ensure_tsc: install_nodejs npm_install_tsc
 
 CONTAINERS := auth chat db hub pong users
 
+# Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
+TSC_JOBS ?= 2
+
 compile_ts_to_cjs: ensure_tsc
 	@echo "Compiling all TS projects..."
-	@$(MAKE) -j $(CONTAINERS)
+	@$(MAKE) -j $(TSC_JOBS) $(CONTAINERS)
 
 $(CONTAINERS):
 	@echo "Compiling $@..."

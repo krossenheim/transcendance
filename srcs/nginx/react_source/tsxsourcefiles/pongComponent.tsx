@@ -11,21 +11,7 @@ import type {
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 import type { AuthResponseType } from "@/types/auth-response"
-
-
-const BACKEND_WIDTH = 1000
-const BACKEND_HEIGHT = 1000
-const CANVAS_WIDTH = 500
-const CANVAS_HEIGHT = 500
-
-// =========================
-// Map backend coordinates to canvas
-// =========================
-function mapToCanvas(x: number, y: number) {
-  const scaleX = CANVAS_WIDTH / BACKEND_WIDTH
-  const scaleY = CANVAS_HEIGHT / BACKEND_HEIGHT
-  return { x: x * scaleX, y: y * scaleY }
-}
+import BabylonPongRenderer from "./BabylonPongRenderer"
 
 // =========================
 // Component
@@ -37,7 +23,6 @@ export default function PongComponent({ authResponse }: { authResponse: AuthResp
   const [gameState, setGameState] = useState<TypeGameStateSchema | null>(null)
   const [playerOnePaddleID, setPlayerOnePaddleID] = useState<number>(-1)
   const [playerTwoPaddleID, setPlayerTwoPaddleID] = useState<number>(-2)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
   const [lastCreatedBoardId, setLastCreatedBoardId] = useState<number | null>(null)
@@ -337,66 +322,8 @@ export default function PongComponent({ authResponse }: { authResponse: AuthResp
   }, [gameState, handleUserInput, playerTwoPaddleID])
 
   // =========================
-  // Canvas Rendering
+  // 3D Rendering is handled by BabylonPongRenderer component
   // =========================
-  useEffect(() => {
-    console.log("[Pong] Canvas rendering effect triggered. gameState:", gameState);
-    const ctx = canvasRef.current?.getContext("2d")
-    if (!ctx) {
-      console.log("[Pong] Canvas context not available");
-      return;
-    }
-    if (!gameState) {
-      console.log("[Pong] gameState is null, waiting for data");
-      return;
-    }
-    if (!gameState.edges) {
-      console.log("[Pong] gameState.edges is not available");
-      return;
-    }
-
-    console.log("[Pong] Rendering canvas. Edges:", gameState.edges.length, "Paddles:", gameState.paddles.length, "Balls:", gameState.balls.length);
-
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-
-    // Draw edges
-    ctx.strokeStyle = "#666"
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    gameState.edges.forEach((edge: { x: number; y: number }, i: number) => {
-      const nextEdge = gameState.edges[(i + 1) % gameState.edges.length]
-      const { x: x1, y: y1 } = mapToCanvas(edge.x, edge.y)
-      const { x: x2, y: y2 } = mapToCanvas(nextEdge.x, nextEdge.y)
-      ctx.moveTo(x1, y1)
-      ctx.lineTo(x2, y2)
-    })
-    ctx.stroke()
-
-    // Draw paddles
-    gameState.paddles.forEach((p: { x: number; y: number; w: number; l: number; r: number }) => {
-      const { x: canvasX, y: canvasY } = mapToCanvas(p.x, p.y)
-      const width = (p.w * CANVAS_WIDTH) / BACKEND_WIDTH
-      const length = (p.l * CANVAS_HEIGHT) / BACKEND_HEIGHT
-
-      ctx.save()
-      ctx.translate(canvasX, canvasY)
-      ctx.rotate(p.r)
-      ctx.fillStyle = "#00ffcc"
-      ctx.fillRect(-width / 2, -length / 2, width, length)
-      ctx.restore()
-    })
-
-    // Draw balls
-    gameState.balls.forEach((b: { x: number; y: number }) => {
-      const { x: canvasX, y: canvasY } = mapToCanvas(b.x, b.y)
-      ctx.fillStyle = "#ff4081"
-      ctx.beginPath()
-      ctx.arc(canvasX, canvasY, 8, 0, Math.PI * 2)
-      ctx.fill()
-    })
-
-    console.log("[Pong] Canvas rendered successfully");
-  }, [gameState])
 
   // =========================
   // Simple UI for Start Game
@@ -433,13 +360,9 @@ export default function PongComponent({ authResponse }: { authResponse: AuthResp
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 dark:bg-dark-600 p-4 space-y-4">
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        className="rounded-2xl shadow-lg border border-gray-800 bg-black"
-        style={{ display: 'block' }}
-      />
+      <div className="w-full flex-1 min-h-[500px] rounded-2xl shadow-lg border border-gray-800 bg-black overflow-hidden">
+        <BabylonPongRenderer gameState={gameState} />
+      </div>
 
       {!gameState && (
         <div className="text-sm text-gray-600 dark:text-gray-300">Waiting for game state...</div>
