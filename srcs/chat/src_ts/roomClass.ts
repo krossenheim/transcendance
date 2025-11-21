@@ -1,5 +1,6 @@
+import type { ChatRoomType } from "./utils/api/service/chat/chat_interfaces.js";
 import type { ErrorResponseType } from "./utils/api/service/common/error.js";
-import type { WSHandlerReturnValue } from "./utils/socket_to_hub.js";
+import type { OurSocket, WSHandlerReturnValue } from "./utils/socket_to_hub.js";
 import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import {
   ChatRoomUserAccessType,
@@ -34,7 +35,7 @@ class FixedSizeList<T> {
 class Room {
   public room_name: string;
   public readonly roomId: number;
-  public readonly room_type: number;
+  public readonly room_type: ChatRoomType;
   public users: Array<number>;
   public messages: FixedSizeList<TypeStoredMessageSchema>;
   public allowedUsers: Array<any>;
@@ -44,7 +45,7 @@ class Room {
     this.roomId = room_data.roomId;
     this.room_name = room_data.roomName;
     // Persist room type so handlers can enforce DM invariants (2 = DM)
-    this.room_type = (room_data as any).roomType ?? 1;
+    this.room_type = room_data.roomType;
     this.users = user_connections ? user_connections.filter(uc => uc[1] === ChatRoomUserAccessType.JOINED).map(uc => uc[0]) : new Array();
     this.max_messages = 20;
     this.messages = new FixedSizeList(this.max_messages);
@@ -194,7 +195,7 @@ class Room {
     return otherRoom && this.roomId == otherRoom.roomId;
   }
 
-  getRoomType(): number {
+  getRoomType(): ChatRoomType {
     return this.room_type;
   }
 }
@@ -408,7 +409,8 @@ class ChatRooms {
   // {"funcId":"/api/chat/join_room","payload":{"roomId":1},"target_container":"chat"}
   async userJoinRoom(
     roomIdReq: number,
-    user_id: number
+    user_id: number,
+    internal_socket: OurSocket,
   ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>,
     ErrorResponseType
@@ -436,14 +438,9 @@ class ChatRooms {
         },
       });
     }
-    
-    // Allow joining if:
-    // 1. User is in allowedUsers (invited/member), OR
-    // 2. Room is named "Public Chat" (open to all)
-    const isPublicChat = room.room_name === "Public Chat";
-    const isAllowed = room.allowedUsers.find((id) => id === user_id) || isPublicChat;
-    
-    if (isAllowed) {
+
+    const isAllowed = room.allowedUsers.find((id) => id === user_id);
+    if (isAllowed !== undefined) {
       const userConnectionResult = await containers.db.post(int_url.http.db.addUserToRoom, {
         roomId: room.roomId,
         user_to_add: user_id,
@@ -460,11 +457,12 @@ class ChatRooms {
       }
 
       room.users.push(user_id);
-      // Also add to allowedUsers if joining public chat for the first time
-      if (isPublicChat && !room.allowedUsers.find((id) => id === user_id)) {
-        room.allowedUsers.push(user_id);
-      }
       console.log(`User ${user_id} joined room ${room.roomId}.`);
+      internal_socket.invokeHandler(
+        user_url.ws.users.userOnlineStatusUpdate,
+        room.users,
+        null
+      );
       return Result.Ok({
         recipients: room.users,
         funcId: user_url.ws.chat.joinRoom.funcId,

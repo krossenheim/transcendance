@@ -68,6 +68,19 @@ export class OurSocket {
     userId: number | number[],
     payload: z.infer<T["schema"]["args"]>
   ): Promise<Result<void, ErrorResponseType>> {
+    if (handlerEndpoint.container !== this.container) {
+      console.log(`Invoking handler on different container "${handlerEndpoint.container}" from "${this.container}"`);
+      const userIdValue = userId instanceof Array ? userId : [userId];
+      this.socket.send(JSON.stringify({
+        isInvokeMethod: true,
+        target_container: handlerEndpoint.container,
+        funcId: handlerEndpoint.funcId,
+        userIds: userIdValue,
+        payload,
+      }));
+      return Result.Ok(undefined);
+    }
+
     if (userId instanceof Array) {
       const results = await Promise.all(
         userId.map((id) => this.invokeHandler(handlerEndpoint, id, payload))

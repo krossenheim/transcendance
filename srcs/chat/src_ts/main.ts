@@ -7,6 +7,7 @@ import { Result } from "./utils/api/service/common/result.js";
 import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import { createFastify } from "./utils/api/service/common/fastify.js";
 import {
+  ChatRoomType,
   type TypeEmptySchema,
   type TypeUserSendMessagePayload,
 } from "./utils/api/service/chat/chat_interfaces.js";
@@ -16,7 +17,7 @@ const fastify = createFastify();
 const socket = new OurSocket("chat");
 const singletonChatRooms = new ChatRooms();
 
-import { chatEndpoints } from "./endpoints.js";
+import { chatEndpoints } from "./fastifyEndpoints.js";
 chatEndpoints(fastify, singletonChatRooms);
 
 socket.registerHandler(user_url.ws.chat.sendMessage, async (wrapper) => {
@@ -141,18 +142,18 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
       },
     });
   }
-  // Prevent inviting users into DM rooms (roomType 2)
-  if (room.getRoomType && room.getRoomType() === 2) {
+
+  if (room.getRoomType && room.getRoomType() === ChatRoomType.DIRECT_MESSAGE) {
     return Result.Ok({
       recipients: [user_id],
       code: user_url.ws.chat.addUserToRoom.schema.output.FailedToAddUser.code,
       payload: { message: "Cannot invite users into a direct message room." },
     });
   }
+
   const user_to_add = wrapper.payload.user_to_add;
   const result = await room.addToRoom(user_id, user_to_add);
-  
-  // If user was successfully added, send them an updated room list
+
   if (result.isOk()) {
     const response = result.unwrap();
     if (response.code === user_url.ws.chat.addUserToRoom.schema.output.UserAdded.code) {
@@ -216,10 +217,11 @@ socket.registerHandler(user_url.ws.chat.listRooms, async (wrapper) => {
   }
   return roomList;
 });
+
 socket.registerHandler(user_url.ws.chat.joinRoom, async (wrapper) => {
   const room_id_requested = wrapper.payload.roomId;
   const user_id = wrapper.user_id;
-  return await singletonChatRooms.userJoinRoom(room_id_requested, user_id);
+  return await singletonChatRooms.userJoinRoom(room_id_requested, user_id, socket);
 });
 
 socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {

@@ -257,6 +257,18 @@ fastify.get(
         return;
       }
 
+      if (parsed.isInvokeMethod === true) {
+        console.log(`Forwarding invokeMethod. Raw: ${message}`);
+        for (const userId of parsed.userIds) {
+          forwardToContainer(parsed.target_container, {
+            user_id: userId,
+            funcId: parsed.funcId,
+            payload: parsed.payload,
+          });
+        }
+        return;
+      }
+
       const translationResult = translateContainerMessage(parsed, socket);
       if (translationResult.isErr()) {
         console.log("Invalid message format: " + translationResult.unwrapErr());
