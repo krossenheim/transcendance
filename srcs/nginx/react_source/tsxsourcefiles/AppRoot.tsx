@@ -46,10 +46,51 @@ export default function AppRoot() {
     }
   }
 
+  // Fetch user avatar when authResponse changes
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      // Get the latest user data from localStorage
+      const userData = localStorage.getItem('userData');
+      const user = userData ? JSON.parse(userData) : authResponse?.user;
+      
+      if (user?.id && user?.avatar) {
+        try {
+          const response = await fetch(`/api/users/pfp`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ file: user.avatar })
+          });
+          if (response.ok) {
+            const base64 = await response.text();
+            setUserAvatarUrl(`data:image/png;base64,${base64}`);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch user avatar:', err);
+        }
+      }
+    };
+
+    fetchAvatar();
+
+    // Listen for storage events to refresh avatar when profile is updated
+    const handleStorageChange = () => {
+      fetchAvatar();
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [authResponse?.user?.id, authResponse?.user?.avatar]);
+
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
   const [isGuestLoading, setIsGuestLoading] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [showFriendsManager, setShowFriendsManager] = useState<boolean>(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | undefined>(undefined);
 
   function persistAuthTokens(data: any) {
     try {
@@ -229,6 +270,7 @@ export default function AppRoot() {
                         <UserMenu
                           username={authResponse.user.username}
                           userId={authResponse.user.id}
+                          avatarUrl={userAvatarUrl}
                           onLogout={handleLogout}
                           isLoggingOut={isLoggingOut}
                           onFriendsClick={() => setShowFriendsManager(true)}
@@ -255,7 +297,7 @@ export default function AppRoot() {
                         ) : (
                           // PONG PAGE — no scroll
                           <div className="p-6 h-full flex">
-                            <PongComponent authResponse={authResponse} />
+                            <PongComponent authResponse={authResponse} darkMode={darkMode} />
                           </div>
                         )}
 

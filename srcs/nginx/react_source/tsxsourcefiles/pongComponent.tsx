@@ -16,7 +16,7 @@ import BabylonPongRenderer from "./BabylonPongRenderer"
 // =========================
 // Component
 // =========================
-export default function PongComponent({ authResponse }: { authResponse: AuthResponseType | null }) {
+export default function PongComponent({ authResponse, darkMode = true }: { authResponse: AuthResponseType | null; darkMode?: boolean }) {
   const { socket, payloadReceived } = useWebSocket()
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] = useState<TypePlayerReadyForGameSchema | null>(null)
   const [gameSelectedInput, setGameSelectedInput] = useState<number>(1)
@@ -361,7 +361,7 @@ export default function PongComponent({ authResponse }: { authResponse: AuthResp
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 dark:bg-dark-600 p-4 space-y-4">
       <div className="w-full flex-1 min-h-[500px] rounded-2xl shadow-lg border border-gray-800 bg-black overflow-hidden">
-        <BabylonPongRenderer gameState={gameState} />
+        <BabylonPongRenderer gameState={gameState} darkMode={darkMode} />
       </div>
 
       {!gameState && (

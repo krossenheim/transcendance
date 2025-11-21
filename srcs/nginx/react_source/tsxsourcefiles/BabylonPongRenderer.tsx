@@ -26,9 +26,10 @@ const SCALE_FACTOR = 0.02 // Scale down the world
 
 interface BabylonPongRendererProps {
   gameState: TypeGameStateSchema | null
+  darkMode?: boolean
 }
 
-export default function BabylonPongRenderer({ gameState }: BabylonPongRendererProps) {
+export default function BabylonPongRenderer({ gameState, darkMode = true }: BabylonPongRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<Scene | null>(null)
   const engineRef = useRef<Engine | null>(null)
@@ -52,7 +53,9 @@ export default function BabylonPongRenderer({ gameState }: BabylonPongRendererPr
     engineRef.current = engine
 
     const scene = new Scene(engine)
-    scene.clearColor = new Color3(0.05, 0.05, 0.1).toColor4()
+    // Dark mode: deep blue-ish background, Light mode: light gray-white
+    const bgColor = darkMode ? new Color3(0.05, 0.05, 0.1) : new Color3(0.9, 0.92, 0.95)
+    scene.clearColor = bgColor.toColor4()
     sceneRef.current = scene
 
     // Camera
@@ -89,6 +92,50 @@ export default function BabylonPongRenderer({ gameState }: BabylonPongRendererPr
     }
   }, [])
 
+  // Update scene colors when dark mode changes
+  useEffect(() => {
+    if (!sceneRef.current) return
+    const scene = sceneRef.current
+    
+    // Update background color
+    const bgColor = darkMode ? new Color3(0.05, 0.05, 0.1) : new Color3(0.9, 0.92, 0.95)
+    scene.clearColor = bgColor.toColor4()
+    
+    // Update floor color if it exists
+    if (floorRef.current?.material) {
+      const floorMat = floorRef.current.material as StandardMaterial
+      floorMat.diffuseColor = darkMode ? new Color3(0.1, 0.1, 0.15) : new Color3(0.85, 0.9, 0.85)
+      floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
+    }
+    
+    // Update wall colors
+    edgesRef.current.forEach((wall) => {
+      if (wall.material) {
+        const wallMat = wall.material as StandardMaterial
+        wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
+        wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+      }
+    })
+    
+    // Update paddle colors
+    paddlesRef.current.forEach((paddle) => {
+      if (paddle.material) {
+        const mat = paddle.material as StandardMaterial
+        mat.diffuseColor = darkMode ? new Color3(0, 1, 0) : new Color3(0, 0.6, 0)
+        mat.emissiveColor = darkMode ? new Color3(0, 0.4, 0) : new Color3(0, 0.2, 0)
+      }
+    })
+    
+    // Update ball colors
+    ballsRef.current.forEach((ball) => {
+      if (ball.material) {
+        const mat = ball.material as StandardMaterial
+        mat.diffuseColor = darkMode ? new Color3(1, 0, 0) : new Color3(0.8, 0.2, 0)
+        mat.emissiveColor = darkMode ? new Color3(0.5, 0, 0) : new Color3(0.3, 0.1, 0)
+      }
+    })
+  }, [darkMode])
+
   // Update game state
   useEffect(() => {
     if (!gameState || !sceneRef.current) return
@@ -124,8 +171,9 @@ export default function BabylonPongRenderer({ gameState }: BabylonPongRendererPr
         floor.position.y = -0.1
 
         const floorMat = new StandardMaterial("floorMat", scene)
-        floorMat.diffuseColor = new Color3(0.1, 0.1, 0.15)
-        floorMat.specularColor = new Color3(0.1, 0.1, 0.1)
+        // Dark mode: dark blue-gray, Light mode: light green/white
+        floorMat.diffuseColor = darkMode ? new Color3(0.1, 0.1, 0.15) : new Color3(0.85, 0.9, 0.85)
+        floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
         floor.material = floorMat
         floor.receiveShadows = true
         floorRef.current = floor
@@ -164,8 +212,9 @@ export default function BabylonPongRenderer({ gameState }: BabylonPongRendererPr
           wall.rotation.y = -angle // Babylon rotation might need negation depending on coord system
 
           const wallMat = new StandardMaterial("wallMat", scene)
-          wallMat.diffuseColor = new Color3(0.2, 0.2, 0.3)
-          wallMat.emissiveColor = new Color3(0.1, 0.1, 0.2)
+          // Dark mode: blue-purple, Light mode: light blue-gray
+          wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
+          wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
           wallMat.alpha = 0.5 // Semi-transparent walls
           wall.material = wallMat
 
@@ -194,8 +243,9 @@ export default function BabylonPongRenderer({ gameState }: BabylonPongRendererPr
         )
 
         const mat = new StandardMaterial("paddleMat", scene)
-        mat.diffuseColor = new Color3(0, 1, 0)
-        mat.emissiveColor = new Color3(0, 0.4, 0)
+        // Dark mode: bright green, Light mode: darker green
+        mat.diffuseColor = darkMode ? new Color3(0, 1, 0) : new Color3(0, 0.6, 0)
+        mat.emissiveColor = darkMode ? new Color3(0, 0.4, 0) : new Color3(0, 0.2, 0)
         mesh.material = mat
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
@@ -230,8 +280,9 @@ export default function BabylonPongRenderer({ gameState }: BabylonPongRendererPr
       if (!mesh) {
         mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: 0.4 }, scene)
         const mat = new StandardMaterial("ballMat", scene)
-        mat.diffuseColor = new Color3(1, 0, 0)
-        mat.emissiveColor = new Color3(0.5, 0, 0)
+        // Dark mode: bright red, Light mode: darker red/orange
+        mat.diffuseColor = darkMode ? new Color3(1, 0, 0) : new Color3(0.8, 0.2, 0)
+        mat.emissiveColor = darkMode ? new Color3(0.5, 0, 0) : new Color3(0.3, 0.1, 0)
         mesh.material = mat
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)

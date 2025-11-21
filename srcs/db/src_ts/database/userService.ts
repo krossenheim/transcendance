@@ -5,6 +5,7 @@ import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
 import { Result } from '../utils/api/service/common/result.js';
 import { Database } from './database.js';
+// @ts-ignore - @resvg/resvg-js is installed in the base image
 import { Resvg } from '@resvg/resvg-js';
 import fs from 'fs/promises';
 import axios from 'axios';

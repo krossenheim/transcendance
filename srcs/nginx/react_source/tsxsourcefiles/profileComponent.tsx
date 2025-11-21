@@ -215,14 +215,17 @@ useEffect(() => {
 }, [profile?.userId])
 
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         setError("Avatar file must be less than 5MB")
         return
       }
       setAvatarFile(file)
+      // Create a preview URL for the selected file
+      const previewUrl = URL.createObjectURL(file)
+      setAvatarUrl(previewUrl)
     }
   }
 
@@ -255,39 +258,46 @@ useEffect(() => {
         pfp,
       })
 
-      // If there's a new avatar file, upload it
+      // Wait for backend to process, then update local state
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      // If avatar was uploaded, fetch and display it immediately
       if (avatarFile) {
-        const formData = new FormData()
-        formData.append('avatar', avatarFile)
-        const response = await fetch(`/api/users/${userId}/avatar`, {
+        const avatarResponse = await fetch(`/api/users/pfp`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+            'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+            'Content-Type': 'application/json'
           },
-          body: formData
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to upload avatar')
-        }
-
-        // Refresh avatar
-        const avatarResponse = await fetch(`/api/users/${userId}/avatar`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jwt')}`
-          }
+          body: JSON.stringify({ file: avatarFile.name })
         })
         
         if (avatarResponse.ok) {
-          const blob = await avatarResponse.blob()
-          setAvatarUrl(URL.createObjectURL(blob))
+          const base64 = await avatarResponse.text()
+          const newAvatarUrl = `data:image/png;base64,${base64}`
+          setAvatarUrl(newAvatarUrl)
+          
+          // Update the profile state with new avatar
+          if (profile) {
+            setProfile({ ...profile, avatar: avatarFile.name })
+          }
+          
+          // Update localStorage userData to refresh user menu
+          const userData = localStorage.getItem('userData')
+          if (userData) {
+            const user = JSON.parse(userData)
+            user.avatar = avatarFile.name
+            localStorage.setItem('userData', JSON.stringify(user))
+            // Trigger a storage event to notify AppRoot
+            window.dispatchEvent(new Event('storage'))
+          }
         }
       }
 
       setEditing(false)
       setAvatarFile(null)
       
-      // Refresh profile data
+      // Refresh profile data from server
       sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
     } catch (error) {
       console.error('Error saving profile:', error)
@@ -391,7 +401,7 @@ useEffect(() => {
                         accept="image/*"
                         className="hidden"
                         ref={fileInputRef}
-                        onChange={handleFileSelect}
+                        onChange={handleAvatarChange}
                       />
                       <button
                         onClick={() => fileInputRef.current?.click()}
