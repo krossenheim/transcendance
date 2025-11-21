@@ -6,12 +6,18 @@ export default defineConfig({
   root: "./",
   build: {
     outDir: "dist",
-    minify: false,
-    sourcemap: true,
+    minify: "esbuild",
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          babylon: ["@babylonjs/core", "earcut"],
+        },
+      },
+    },
   },
   define: {
-    // force React to use development mode
-    "process.env.NODE_ENV": JSON.stringify("development"),
+    "process.env.NODE_ENV": JSON.stringify("production"),
   },
   server: {
     fs: {

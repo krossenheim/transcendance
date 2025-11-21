@@ -18,9 +18,11 @@ NODEJS_BASE_IMAGE_DIR =$(PROJECT_ROOT)srcs/nodejs_base_image
 
 # React build directory for npm arguments
 REACT_DIR := $(SOURCES_DIR)/nginx/react_source
+# Node.js memory tuning (override with: make NODE_MAX_OLD_SPACE=6144 build)
+NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
-all: ensure_npx down build
+all: check-deps ensure_npx down build
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
 ensure_npx:
@@ -54,7 +56,21 @@ build_base_nodejs:
 
 build_react:
 	npm install --prefix $(REACT_DIR)
-	npm run build --prefix $(REACT_DIR)
+	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
+
+check-deps:
+	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
+	@if ! command -v node >/dev/null 2>&1; then \
+		echo "Missing nodejs. Install with: sudo apt install nodejs" >&2; exit 1; \
+	fi
+	@if ! command -v npm >/dev/null 2>&1; then \
+		echo "Missing npm. Install with: sudo apt install npm" >&2; exit 1; \
+	fi
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Missing docker. Follow installation: sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" >&2; exit 1; \
+	fi
+	@docker compose version >/dev/null 2>&1 || { echo "Missing docker compose plugin. Install with: sudo apt install docker-compose-plugin" >&2; exit 1; }
+	@echo "All required system dependencies present."
 
 print_config: create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
@@ -88,9 +104,12 @@ ensure_tsc: install_nodejs npm_install_tsc
 
 CONTAINERS := auth chat db hub pong users
 
+# Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
+TSC_JOBS ?= 2
+
 compile_ts_to_cjs: ensure_tsc
 	@echo "Compiling all TS projects..."
-	@$(MAKE) -j $(CONTAINERS)
+	@$(MAKE) -j $(TSC_JOBS) $(CONTAINERS)
 
 $(CONTAINERS):
 	@echo "Compiling $@..."
@@ -117,4 +136,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list $(CONTAINERS)
+.PHONY: up down build all re clean list check-deps $(CONTAINERS)
