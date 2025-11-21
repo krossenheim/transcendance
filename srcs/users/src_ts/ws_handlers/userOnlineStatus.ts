@@ -1,0 +1,57 @@
+import { UserFriendshipStatusEnum } from "../utils/api/service/db/friendship.js";
+import { user_url } from "../utils/api/service/common/endpoints.js";
+import { int_url } from "../utils/api/service/common/endpoints.js";
+import { Result } from "../utils/api/service/common/result.js";
+import { OurSocket } from "../utils/socket_to_hub.js";
+
+import containers from "../utils/internal_api.js";
+
+import type { FullUserType, FriendType } from "../utils/api/service/db/user.js";
+import type { ErrorResponseType } from "utils/api/service/common/error.js";
+
+export async function fetchAllowedOnlineStatusViewers(userId: number): Promise<Array<number>> {
+  const allowedViewers: Set<number> = new Set([userId]);
+
+  const userConnections = await containers.db.get(
+    int_url.http.db.fetchUserConnections,
+    { userId: userId }
+  );
+
+  if (userConnections.isOk() && userConnections.unwrap().status === 200) {
+    const result_array = userConnections.unwrap().data as Array<FriendType>;
+    for (const friend of result_array) {
+      if (friend.status === UserFriendshipStatusEnum.Accepted) {
+        allowedViewers.add(friend.friendId);
+      }
+    }
+  }
+
+  let chatConnections = await containers.chat.get(
+    int_url.http.chat.getUserConnections,
+    { userId: userId }
+  );
+
+  if (chatConnections.isOk() && chatConnections.unwrap().status === 200) {
+    const result_array = chatConnections.unwrap().data as Array<number>;
+    for (const uid of result_array) {
+      allowedViewers.add(uid);
+    }
+  }
+
+  return Array.from(allowedViewers);
+}
+
+// {"funcId":"user_online_status_update","payload":null,"target_container":"users"}
+export function wsUserOnlineStatusHandler(socket: OurSocket, onlineUsers: Set<number>) {
+	socket.registerHandler(
+		user_url.ws.users.userOnlineStatusUpdate,
+		async (body, schema) => {
+            const allowedViewers = await fetchAllowedOnlineStatusViewers(body.user_id);
+			return Result.Ok({
+                recipients: [body.user_id],
+                code: schema.output.GetOnlineUsers.code,
+                payload: Array.from(allowedViewers).filter((uid) => onlineUsers.has(uid)),
+            });
+		}
+	);
+}

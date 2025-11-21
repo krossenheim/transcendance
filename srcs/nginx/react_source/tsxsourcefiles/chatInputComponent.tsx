@@ -845,7 +845,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
               const handleSearchResponse = (e: MessageEvent) => {
                 try {
                   const data = JSON.parse(e.data)
-                  if (data.funcId === user_url.ws.users.searchUserByUsername.funcId) {
+                  if (data.funcId === user_url.ws.users.requestUserProfileData.funcId) {
                     socket.current?.removeEventListener('message', handleSearchResponse)
                     
                     if (data.code === 0 && data.payload?.id) {
@@ -867,9 +867,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
               socket.current?.addEventListener('message', handleSearchResponse)
               
               // Send search request
-              sendToSocket(user_url.ws.users.searchUserByUsername.funcId, { 
-                username: usernameOrId 
-              })
+              sendToSocket(user_url.ws.users.requestUserProfileData.funcId, usernameOrId)
               
               // Timeout after 5 seconds
               setTimeout(() => {

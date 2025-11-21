@@ -256,9 +256,10 @@ registerRoute(fastify, pub_url.http.auth.setup2FA, async (request, reply) => {
 	}
 
 	const response = responseResult.unwrap();
-	if (response.status === 200) {
+	switch (response.status) {
+	case 200:
 		return reply.status(200).send(response.data);
-	} else {
+	default:
 		return reply.status(500).send({ message: 'Failed to generate 2FA secret' });
 	}
 });

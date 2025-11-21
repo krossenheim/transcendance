@@ -4,6 +4,7 @@ import { int_url, type HTTPRouteDef } from './api/service/common/endpoints.js';
 import { zodParse } from './api/service/common/zodUtils.js';
 import axios, { Axios, type AxiosResponse } from 'axios';
 import { Result } from './api/service/common/result.js';
+import type { ReplyOf, RouteBody, RouteQuery, RouteParams } from './api/service/common/fastify.js';
 import { z } from 'zod';
 
 class ContainerTarget {
@@ -24,7 +25,12 @@ class ContainerTarget {
     )}${Object.keys(safeQuery).length > 0 ? `?${new URLSearchParams(safeQuery).toString()}` : ''}`;
   }
 
-  async post(targetAPI: HTTPRouteDef & { method: 'POST' }, body: any, params?: Record<string, string | number | boolean>, query?: Record<string, string>): Promise<Result<AxiosResponse<any>, string>> {
+  async post<T extends HTTPRouteDef & { method: 'POST' }>(
+    targetAPI: T,
+    body: RouteBody<T>,
+    params?: RouteParams<T>,
+    query?: RouteQuery<T>
+  ): Promise<Result<AxiosResponse<any>, string>> {
     try {
       return Result.Ok(await axios.post(this.buildUrl(targetAPI.endpoint, params, query), body, { validateStatus: () => true }));
     } catch (error: any) {
@@ -38,7 +44,11 @@ class ContainerTarget {
     }
   }
 
-  async get(targetAPI: HTTPRouteDef & { method: 'GET' }, params?: Record<string, string | number | boolean>, query?: Record<string, string>): Promise<Result<AxiosResponse<any>, string>> {
+  async get<T extends HTTPRouteDef & { method: 'GET' }>(
+    targetAPI: T,
+    params?: RouteParams<T>,
+    query?: RouteQuery<T>
+  ): Promise<Result<AxiosResponse<any>, string>> {
     try {
       return Result.Ok(await axios.get(this.buildUrl(targetAPI.endpoint, params, query), { validateStatus: () => true }));
     } catch (error: any) {
@@ -94,6 +104,7 @@ class DatabaseTarget extends ContainerTarget {
 class Containers {
   auth: ContainerTarget;
   db: DatabaseTarget;
+  chat: ContainerTarget;
 
   constructor() {
     this.auth = new ContainerTarget(
@@ -102,6 +113,10 @@ class Containers {
     );
     this.db = new DatabaseTarget(
       "db",
+      process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000"
+    );
+    this.chat = new ContainerTarget(
+      "chat",
       process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000"
     );
   }
