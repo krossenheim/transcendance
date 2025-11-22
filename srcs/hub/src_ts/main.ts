@@ -1,472 +1,93 @@
-// server.ts
-import Fastify from "fastify";
-import websocketPlugin from "@fastify/websocket";
-// Type-only imports
-import type { FastifyInstance, FastifyRequest } from "fastify";
-import { proxyRequest } from "./proxyRequest.js";
-import type WebSocket from "ws";
-import {
-  UserAuthenticationRequestSchema,
-  PayloadToUsersSchema,
-  ForwardToContainerSchema,
-  UserToHubSchema,
-  PayloadHubToUsersSchema,
-  type TypePayloadHubToUsersSchema,
-  type T_ForwardToContainer,
-} from "./utils/api/service/hub/hub_interfaces.js";
-import {
-  containersIpToName,
-  containersNameToIp,
-} from "./utils/container_names.js";
-import { rawDataToString } from "./utils/raw_data_to_string.js";
-
-import { Result } from "./utils/api/service/common/result.js";
-import {
-  ErrorResponse,
-  type ErrorResponseType,
-} from "./utils/api/service/common/error.js";
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
-import containers from "./utils/internal_api.js";
+import { containersIpToName } from "./utils/container_names.js";
+import { rawDataToString } from "./utils/raw_data_to_string.js";
+import { isRequestAuthenticated } from "./auth.js";
+import { proxyRequest } from "./proxyRequest.js";
+import { HubCTX } from "./ctx.js";
 import { z } from "zod";
-import {
-  int_url,
-  pub_url,
-  user_url,
-} from "./utils/api/service/common/endpoints.js";
-import type { GetUserType } from "./utils/api/service/db/user.js";
+
+import websocketPlugin from "@fastify/websocket";
+import Fastify from "fastify";
+
+import type WebSocket from "ws";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 
 const fastify: FastifyInstance = Fastify();
-
-// Register the WebSocket plugin
 await fastify.register(websocketPlugin);
 
-const openSocketToUserID: Map<WebSocket, number> = new Map();
-const openUserIdToSocket: Map<number, WebSocket> = new Map();
-const openSocketPreVerifyMessageStack: Map<WebSocket, Array<any>> = new Map();
+const ctx = new HubCTX();
 
-const interContainerWebsocketsToName: Map<WebSocket, string> = new Map();
-const interContainerNameToWebsockets: Map<string, WebSocket> = new Map();
-
-async function validateJWTToken(
-  token: string
-): Promise<Result<number, ErrorResponseType>> {
-  const responseResult = await containers.auth.post(
-    pub_url.http.auth.validateToken,
-    {
-      token: token,
-    }
-  );
-
-  if (responseResult.isErr())
-    return Result.Err({ message: responseResult.unwrapErr() });
-
-  const response = responseResult.unwrap();
-  if (response.status === 200) {
-    const userId = z.number().safeParse(response.data);
-    if (!userId.success)
-      return Result.Err({ message: "Auth service returned invalid data" });
-    return Result.Ok(userId.data);
-  }
-
-  const errorData = ErrorResponse.safeParse(response.data);
-  if (!errorData.success) {
-    console.error(
-      "Unexpected response from auth service:",
-      response.status,
-      response.data
-    );
-    return Result.Err({ message: "Error validating token" });
-  } else return Result.Err(errorData.data);
-}
-
-async function isRequestAuthenticated(
-  req: FastifyRequest
-): Promise<Result<number, ErrorResponseType>> {
-  const auth = req.headers.authorization;
-  const jwtToken = auth && auth.startsWith("Bearer ") ? auth.slice(7) : null;
-
-  if (!jwtToken)
-    return Result.Err({ message: "Missing or invalid Authorization header" });
-
-  return await validateJWTToken(jwtToken);
-}
-
-function disconnectUserSocket(socket: WebSocket, shouldNotifyContainers: boolean) {
-  if (socket.readyState <= 1) {
+function listInternalContainerConnection(socket: WebSocket, request: FastifyRequest): string | null {
+  const containerIp4 = request.ip.startsWith("::ffff:")
+    ? request.ip.slice(7)
+    : request.socket.remoteAddress;
+  
+  const containerName = containersIpToName.get(containerIp4 || "");
+  if (!containerName) {
+    console.error("Unknown container connected with IP: " + containerIp4);
     socket.close();
-  }
-  const user_id = openSocketToUserID.get(socket);
-  if (user_id !== undefined && shouldNotifyContainers) {
-    for (const [
-      socket,
-      container_name,
-    ] of interContainerWebsocketsToName.entries()) {
-      const payload: GetUserType = { userId: user_id };
-      const wrapper: TypePayloadHubToUsersSchema = {
-        source_container: "hub",
-        funcId: int_url.ws.hub.userDisconnected.funcId,
-        code: 0,
-        payload: payload,
-      };
-      if (socket.readyState > 1)
-        console.error("Socket to container not open, cantsend.");
-      else {
-        socket.send(JSON.stringify(wrapper));
-        console.log(
-          `Informed container ${container_name} of user dis-connection: ${user_id}`
-        );
-      }
-    }
+    return null;
   }
 
-  openSocketToUserID.delete(socket);
-}
-
-function forwardToContainer(
-  target_container: string,
-  forwarded: z.infer<typeof ForwardToContainerSchema>
-): Result<null, string> {
-  const wsToContainer = interContainerNameToWebsockets.get(target_container);
-  if (!wsToContainer)
-    return Result.Err(target_container + " has never opened a socket.");
-
-  if (wsToContainer.readyState !== wsToContainer.OPEN)
-    return Result.Err(target_container + " socket is not open.");
-
-  console.debug(
-    "sending to " + target_container + ": " + JSON.stringify(forwarded)
-  );
-  wsToContainer.send(JSON.stringify(forwarded));
-  return Result.Ok(null);
-}
-
-const returnType = {
-  UNKNOWN: -1,
-  ADDED: 0,
-  RECONNECTED: 1,
-} as const;
-
-// Type of all values: -1 | 0 | 1
-type ReturnType = (typeof returnType)[keyof typeof returnType];
-
-function listIncomingContainerWebsocket(
-  socket: WebSocket,
-  req: FastifyRequest
-): ReturnType {
-  const incoming_ipv4_address = req.ip.startsWith("::ffff:")
-    ? req.ip.slice(7)
-    : req.socket.remoteAddress;
-  const containerName = containersIpToName.get(incoming_ipv4_address);
-  if (containerName === undefined) {
-    socket.send("Goodbye, unauthorized");
-    console.log(
-      "Undefined container name, socket address was: " +
-      req.ip +
-      " parsed into : '" +
-      incoming_ipv4_address +
-      "'"
-    );
-    socket.close(1008, "Unauthorized container");
-    return returnType.UNKNOWN;
-  }
-
-  // handle reconnections here.
-  if (interContainerNameToWebsockets.has(containerName)) {
-    console.warn("Container re-opening socket");
-    interContainerNameToWebsockets.set(containerName, socket);
-    interContainerWebsocketsToName.set(socket, containerName);
-    return returnType.RECONNECTED;
-  } else {
-    interContainerNameToWebsockets.set(containerName, socket);
-    interContainerWebsocketsToName.set(socket, containerName);
-    console.log("Socket from " + containerName + " established.");
-    return returnType.ADDED;
-  }
-}
-
-function forwardPayloadToUsers(
-  recipients: Array<number>,
-  payload: TypePayloadHubToUsersSchema
-) {
-  if (payload.funcId !== user_url.ws.pong.getGameState.funcId)
-    // avoid log spam
-    console.log(
-      "Sending payload to recipients:",
-      recipients,
-      " from container:",
-      payload.source_container
-    );
-  for (const user_id of recipients) {
-    const socketToUser = openUserIdToSocket.get(user_id);
-    if (!socketToUser) {
-      // Container would like to talk to someone offline
-      continue;
-    }
-    socketToUser.send(JSON.stringify(payload));
-  }
-}
-
-function translateContainerMessage(
-  data: any,
-  source: WebSocket
-): Result<[TypePayloadHubToUsersSchema, Array<number>], string> {
-  const source_container = interContainerWebsocketsToName.get(source);
-  if (!source_container) return Result.Err("Unknown source container");
-
-  const validateIncoming = PayloadToUsersSchema.safeParse(data);
-  if (!validateIncoming.success)
-    return Result.Err(
-      "Invalid payload to users schema: " + validateIncoming.error
-    );
-
-  return Result.Ok([
-    PayloadHubToUsersSchema.parse({
-      source_container: source_container,
-      funcId: validateIncoming.data.funcId,
-      code: validateIncoming.data.code,
-      payload: validateIncoming.data.payload,
-    }),
-    validateIncoming.data.recipients,
-  ]);
+  console.log("Container connected: " + containerName);
+  ctx.saveInternalContainerSocket(containerName, socket);
+  return containerName;
 }
 
 fastify.get(
   "/inter_api",
   { websocket: true },
   (socket: WebSocket, req: FastifyRequest) => {
+    const connectionName = listInternalContainerConnection(socket, req);
+    if (connectionName === null) return;
+
     socket.on("close", () => {
-      const container = interContainerWebsocketsToName.get(socket);
-      if (!container) {
-        return;
+      const internalSocket = ctx.getInternalContainerSocketByWebSocket(socket);
+      if (internalSocket) {
+        console.log("Container disconnected: " + internalSocket.getContainerName());
       }
-      console.log(
-        `Service disconnected:${interContainerWebsocketsToName.get(socket)}`
-      );
     });
-    if (listIncomingContainerWebsocket(socket, req) === returnType.UNKNOWN) {
-      console.log("Unrecognized container.");
-      socket.close(1008, "Unauthorized container");
-      return;
-    }
-    socket.on("message", (message: WebSocket.RawData) => {
-      let parsed;
-      try {
-        parsed = JSON.parse(rawDataToString(message) || "");
-      } catch (e) {
-        console.log(`Unrecognized message: ${message}`);
+
+    socket.on("message", async (message: WebSocket.RawData) => {
+      console.log("Received message from internal container:", message);
+      const decodedMessage = rawDataToString(message);
+      if (!decodedMessage) {
+        console.error("Failed to decode message from internal container: " + message);
         return;
       }
 
-      if (parsed.isInvokeMethod === true) {
-        console.log(`Forwarding invokeMethod. Raw: ${message}`);
-        for (const userId of parsed.userIds) {
-          forwardToContainer(parsed.target_container, {
-            user_id: userId,
-            funcId: parsed.funcId,
-            payload: parsed.payload,
-          });
-        }
+      let internalSocket = ctx.getInternalContainerSocketByWebSocket(socket);
+      if (!internalSocket) {
+        console.error("Internal socket not found for WebSocket");
         return;
       }
 
-      const translationResult = translateContainerMessage(parsed, socket);
-      if (translationResult.isErr()) {
-        console.log("Invalid message format: " + translationResult.unwrapErr());
-        return;
-      }
-
-      const [payload, recipients] = translationResult.unwrap();
-      forwardPayloadToUsers(recipients, payload);
+      let result = await internalSocket.handleMessage(ctx, decodedMessage);
+      if (result.isErr())
+        console.error("Error handling internal container message: " + result.unwrapErr());
     });
   }
 );
-
-async function isAuthed(parsed: any): Promise<Result<number, string>> {
-  const userauth_attempt = UserAuthenticationRequestSchema.safeParse(parsed);
-  if (!userauth_attempt.success)
-    return Result.Err("Invalid authentication request.");
-
-  const token = userauth_attempt.data.authorization;
-  const authResult = await validateJWTToken(token);
-  if (authResult.isErr()) return Result.Err(authResult.unwrapErr().message);
-
-  const authed_user_id = authResult.unwrap();
-  for (const [
-    socket,
-    container_name,
-  ] of interContainerWebsocketsToName.entries()) {
-    const payload = {
-      source_container: "hub",
-      funcId: int_url.ws.hub.userConnected.funcId,
-      code: 0,
-      payload: { userId: authed_user_id },
-    };
-    socket.send(JSON.stringify(payload));
-    console.log(
-      `Informed container ${container_name} of new user connection: ${authed_user_id}`
-    );
-  }
-  return Result.Ok(authed_user_id);
-}
-
-function updateWebSocketConnection(socket: WebSocket, user_id: number) {
-  if (openUserIdToSocket.has(user_id)) {
-    const old_socket = openUserIdToSocket.get(user_id);
-    if (old_socket && old_socket !== socket) {
-      old_socket.send("You have been disconnected due to a new connection.");
-      disconnectUserSocket(old_socket, false);
-    }
-  }
-  openSocketToUserID.set(socket, user_id);
-  openUserIdToSocket.set(user_id, socket);
-}
-
-let DEBUGUSERID = 1;
-
-async function handleWebsocketAuth(
-  socket: WebSocket,
-  parsed: any
-): Promise<Result<number, null>> {
-  const authMessageResult = await isAuthed(parsed);
-  if (authMessageResult.isErr()) {
-    console.log(
-      "Websocket authentication failed: " + authMessageResult.unwrapErr()
-    );
-    socket.send("Unauthorized: " + authMessageResult.unwrapErr());
-    disconnectUserSocket(socket, true);
-    return Result.Err(null);
-  }
-
-  const user_id = authMessageResult.unwrap();
-  // const user_id = (DEBUGUSERID++ % 8) + 1;
-  updateWebSocketConnection(socket, user_id);
-  socket.send(JSON.stringify({ user_id: `Tru auth!:${user_id}` }));
-  console.log("Authenticated user id " + user_id + " socket map.");
-  // for (const socket of internal_sockets) {
-  //   socket.send(JSON.stringify({ user_id: user_id }));
-  // }
-
-  const preAuthMessages = openSocketPreVerifyMessageStack.get(socket);
-  if (preAuthMessages) {
-    for (const msg of preAuthMessages) {
-      await handleClientJSONMessage(socket, msg);
-    }
-    openSocketPreVerifyMessageStack.delete(socket);
-  }
-
-  return Result.Ok(user_id);
-}
-
-function translateUserPackage(
-  data: any,
-  user_id: number
-): Result<[T_ForwardToContainer, string], string> {
-  const validateIncoming = UserToHubSchema.safeParse(data);
-  if (!validateIncoming.success)
-    return Result.Err("Invalid user to hub schema: " + validateIncoming.error);
-
-  return Result.Ok([
-    ForwardToContainerSchema.parse({
-      user_id: user_id,
-      funcId: validateIncoming.data.funcId,
-      payload: validateIncoming.data.payload,
-    }),
-    validateIncoming.data.target_container,
-  ]);
-}
-
-function forwardToContainers(
-  forwarded: T_ForwardToContainer
-): Result<null, string> {
-  if (forwarded.user_id !== -1) {
-    return Result.Err(
-      "user_id must be -1 when forwarding to multiple containers"
-    );
-  }
-  for (const target_container of containersNameToIp.keys()) {
-    if (target_container === "hub") continue;
-    const wsToContainer = interContainerNameToWebsockets.get(target_container);
-    if (!wsToContainer)
-      return Result.Err(target_container + " has never opened a socket.");
-
-    if (wsToContainer.readyState !== wsToContainer.OPEN)
-      return Result.Err(target_container + " socket is not open.");
-    wsToContainer.send(JSON.stringify(forwarded));
-  }
-  return Result.Ok(null);
-}
-
-async function handleClientJSONMessage(
-  socket: WebSocket,
-  parsed: any,
-): Promise<void> {
-  let user_id = openSocketToUserID.get(socket);
-  if (user_id === undefined) {
-    if (openSocketPreVerifyMessageStack.has(socket)) {
-      openSocketPreVerifyMessageStack.get(socket)?.push(parsed);
-      return ;
-    }
-
-    openSocketPreVerifyMessageStack.set(socket, []);
-    const authResult = await handleWebsocketAuth(socket, parsed);
-    if (authResult.isErr()) {
-      console.error("Authentication failed: " + authResult.unwrapErr());
-    } else {
-      // const payloadInformAll : T_ForwardToContainer= {
-      //   user_id: -1,
-      //   funcId: int_url.ws.hub.getUserConnections.funcId,
-      //   payload: { user_id: authResult.unwrap() },
-      // };
-      // const forwardResult = forwardToContainers(payloadInformAll);
-      // if (forwardResult.isErr()) {
-      //   console.error(
-      //     "Failed to inform containers of new user connection: " +
-      //     forwardResult.unwrapErr()
-      //   );
-      // }
-    }
-    console.log("User authenticated with user_id: " + authResult.unwrap());
-    return;
-  }
-
-  const translationResult = translateUserPackage(parsed, user_id);
-  if (translationResult.isErr()) {
-    socket.send("Invalid message format: " + translationResult.unwrapErr());
-    return;
-  }
-
-  console.log("Parsed:", parsed);
-  const [validated, target_container] = translationResult.unwrap();
-  console.log("vaidated:", validated);
-  const forwardResult = forwardToContainer(target_container, validated);
-  if (forwardResult.isErr())
-    socket.send(
-      "Failed to forward to container: " + forwardResult.unwrapErr()
-    );
-}
 
 fastify.get(
   "/ws",
   { websocket: true },
   (socket: WebSocket, req: FastifyRequest) => {
     socket.on("message", async (message: WebSocket.RawData) => {
-      let parsed: any;
-      try {
-        const string = rawDataToString(message);
-        if (!string) return;
-        parsed = JSON.parse(string);
-        console.log("Unparsed", string);
-      } catch (e) {
-        console.log(`Unrecognized message: ${message}`);
-        socket.send("Cannot deserialize message into JSON");
-        return;
-      }
+      let decodedMessage = rawDataToString(message);
+      if (!decodedMessage) return;
 
-      await handleClientJSONMessage(socket, parsed);
+      let userSocket = ctx.getUserSocketBySocket(socket);
+      let result = await userSocket.handleMessage(ctx, decodedMessage);
+      if (result.isErr()) {
+        const errMsg = result.unwrapErr();
+        console.error("Error handling user socket message: " + errMsg);
+        userSocket.sendHubError(errMsg, decodedMessage);
+      }
     });
 
     socket.on("close", () => {
-      disconnectUserSocket(socket, true);
+      ctx.disconnectUserSocket(socket);
     });
   }
 );

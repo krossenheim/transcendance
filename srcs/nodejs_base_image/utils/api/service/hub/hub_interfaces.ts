@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { userIdValue } from "../common/zodRules.js";
 
 export const UserAuthenticationRequestSchema = z
   .object({
@@ -35,7 +36,6 @@ export const PayloadHubToUsersSchema = z
   })
   .strict();
   
-
 export const ForwardToContainerSchema = z
   .object({
     user_id: z.number(),
@@ -44,8 +44,17 @@ export const ForwardToContainerSchema = z
   })
   .strict();
 
+export const InvokeWSFunctionSchema = z.object({
+  isInvokeMethod: z.literal(true),
+  target_container: z.string(),
+  funcId: z.string(),
+  userIds: z.array(userIdValue).nonempty(),
+  payload: z.any(),
+})
+
 export type TypePayloadHubToUsersSchema = z.infer<
   typeof PayloadHubToUsersSchema
 >;
 export type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 export type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
+export type T_InvokeWSFunction = z.infer<typeof InvokeWSFunctionSchema>;
