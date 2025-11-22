@@ -56,14 +56,7 @@ export class OurSocket {
 
   constructor(container: string) {
     this.container = container;
-    try {
-      this.socket = new WebSocket(
-        `ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`
-      );
-    } catch (err) {
-      throw new Error(`Failed to connect to hub: ${err}`);
-    }
-
+    this.socket = new WebSocket(`ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`);
     this._setupSocketListeners();
   }
 
