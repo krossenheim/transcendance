@@ -64,38 +64,44 @@ class ContainerTarget {
 }
 
 class DatabaseTarget extends ContainerTarget {
-  async fetchUserData(userId: number): Promise<Result<FullUserType, ErrorResponseType>> {
+  async fetchUserData(userId: number, allowSystem: boolean = false): Promise<Result<FullUserType, ErrorResponseType>> {
     const responseResult = await this.get(int_url.http.db.getUser, { userId });
     if (responseResult.isErr())
       return Result.Err({ message: 'Database service unreachable' });
 
     const response = responseResult.unwrap();
-    if (response.status === 200)
-      return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
+    if (response.status === 200) {
+      if (allowSystem || response.data.accountType !== 0)
+        return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
+      return Result.Err({ message: 'User is forbidden' });
+    }
 
     return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
   }
 
-  async fetchUserByUsername(username: string): Promise<Result<FullUserType, ErrorResponseType>> {
+  async fetchUserByUsername(username: string, allowSystem: boolean = false): Promise<Result<FullUserType, ErrorResponseType>> {
     const responseResult = await this.get(int_url.http.db.searchUserByUsername, { username });
     if (responseResult.isErr())
       return Result.Err({ message: 'Database service unreachable' });
 
     const response = responseResult.unwrap();
-    if (response.status === 200)
-      return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
+    if (response.status === 200) {
+      if (allowSystem || response.data.accountType !== 0)
+        return zodParse(FullUser, response.data).mapErr((err) => ({ message: err }));
+      return Result.Err({ message: 'User is forbidden' });
+    }
 
     return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
   }
 
-  async fetchMultipleUsers(userIds: number[]): Promise<Result<FullUserType[], ErrorResponseType>> {
+  async fetchMultipleUsers(userIds: number[], allowSystem: boolean = false): Promise<Result<FullUserType[], ErrorResponseType>> {
     const responseResult = await this.post(int_url.http.db.fetchMultipleUsers, userIds);
     if (responseResult.isErr())
       return Result.Err({ message: 'Database service unreachable' });
 
     const response = responseResult.unwrap();
     if (response.status === 200)
-      return zodParse(z.array(FullUser), response.data).mapErr((err) => ({ message: err }));
+      return zodParse(z.array(FullUser), response.data).map((users) => users.filter(user => allowSystem || user.accountType !== 0)).mapErr((err) => ({ message: err }));
 
     return Result.Err(zodParse(ErrorResponse, response.data).unwrapOr({ message: 'Unknown error from database service' }));
   }

@@ -1275,6 +1275,19 @@ export const int_url = defineRoutes({
             500: ErrorResponse, // Internal server error
           },
         },
+      },
+
+      sendSystemMessage: {
+        endpoint: "/internal_api/chat/rooms/send_system_message",
+        method: "POST",
+        schema: {
+          body: SendMessagePayloadSchema,
+          response: {
+            200: z.null(), // System message sent successfully
+            404: ErrorResponse, // Room not found
+            500: ErrorResponse, // Internal server error
+          },
+        },
       }
     }
   },

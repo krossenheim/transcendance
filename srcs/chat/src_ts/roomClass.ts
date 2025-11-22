@@ -67,27 +67,29 @@ class Room {
     WSHandlerReturnValue<typeof user_url.ws.chat.sendMessage.schema.output>,
     ErrorResponseType
   >> {
-    if (
-      roomIdReq !== this.roomId ||
-      this.allowedUsers.indexOf(user_id) === -1
-    ) {
-      return Result.Ok({
-        recipients: [user_id],
-        code: user_url.ws.chat.sendMessage.schema.output.NotInRoom.code,
-        payload: {
-          message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
-        },
-      });
-    }
-    if (this.users.indexOf(user_id) === -1) {
-      return Result.Ok({
-        recipients: [user_id],
-        code: user_url.ws.chat.sendMessage.schema.output.InvitationNotAccepted
-          .code,
-        payload: {
-          message: `You are allowed to use room with ID ${roomIdReq}, but first join it using function ${user_url.ws.chat.joinRoom.funcId}`,
-        },
-      });
+    if (user_id !== 1) {
+      if (
+        roomIdReq !== this.roomId ||
+        this.allowedUsers.indexOf(user_id) === -1
+      ) {
+        return Result.Ok({
+          recipients: [user_id],
+          code: user_url.ws.chat.sendMessage.schema.output.NotInRoom.code,
+          payload: {
+            message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
+          },
+        });
+      }
+      if (this.users.indexOf(user_id) === -1) {
+        return Result.Ok({
+          recipients: [user_id],
+          code: user_url.ws.chat.sendMessage.schema.output.InvitationNotAccepted
+            .code,
+          payload: {
+            message: `You are allowed to use room with ID ${roomIdReq}, but first join it using function ${user_url.ws.chat.joinRoom.funcId}`,
+          },
+        });
+      }
     }
     if (!messageString) {
       return Result.Ok({
@@ -316,6 +318,14 @@ class ChatRooms {
     const room_data = newRoomResult.unwrap().data as TypeRoomSchema;
     const newroom = new Room(room_data, [[user_id, ChatRoomUserAccessType.JOINED]]);
     this.rooms.set(newroom.roomId, newroom);
+
+    containers.chat.post(int_url.http.chat.sendSystemMessage, {
+      roomId: newroom.roomId,
+      messageString: `Room "${room_data.roomName}" created by user ${user_id}`,
+    }).catch((err) => {
+      console.error('Failed to send system message for new room:', err);
+    });
+
     return Result.Ok({
       recipients: [user_id],
       code: user_url.ws.chat.addRoom.schema.output.AddedRoom.code,

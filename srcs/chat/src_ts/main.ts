@@ -6,6 +6,7 @@ import websocketPlugin from "@fastify/websocket";
 import { Result } from "./utils/api/service/common/result.js";
 import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import { createFastify } from "./utils/api/service/common/fastify.js";
+import containers from "./utils/internal_api.js";
 import {
   ChatRoomType,
   type TypeEmptySchema,
@@ -18,7 +19,7 @@ const socket = new OurSocket("chat");
 const singletonChatRooms = new ChatRooms();
 
 import { chatEndpoints } from "./fastifyEndpoints.js";
-chatEndpoints(fastify, singletonChatRooms);
+chatEndpoints(fastify, singletonChatRooms, socket);
 
 socket.registerHandler(user_url.ws.chat.sendMessage, async (wrapper) => {
   const room = singletonChatRooms.getRoom(wrapper.payload.roomId);
@@ -40,15 +41,41 @@ socket.registerHandler(user_url.ws.chat.sendMessage, async (wrapper) => {
 });
 
 socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (wrapper) => {
-  const sender_id = wrapper.user_id;
-  const target_user_id = wrapper.payload.targetUserId;
+  const users = await containers.db.fetchMultipleUsers([wrapper.user_id, wrapper.payload.targetUserId]);
+  if (users.isErr()) {
+    console.error("Failed to fetch users for DM:", users.unwrapErr());
+    return Result.Ok({
+      recipients: [wrapper.user_id],
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.UserNotFound.code,
+      payload: {
+        message: `User not found or failed to create DM room`,
+      },
+    });
+  }
+
+  const requester = users.unwrap().find(u => u.id === wrapper.user_id);
+  const target = users.unwrap().find(u => u.id === wrapper.payload.targetUserId);
+
+  if (!requester || !target || requester.accountType === 0 || target.accountType === 0) {
+    console.error("One of the users is invalid or forbidden for DM.");
+    return Result.Ok({
+      recipients: [wrapper.user_id],
+      funcId: wrapper.funcId,
+      code: user_url.ws.chat.sendDirectMessage.schema.output.UserNotFound.code,
+      payload: {
+        message: `User not found or failed to create DM room`,
+      },
+    });
+  }
+
   const message_string = wrapper.payload.messageString;
 
-  const dmResult = await singletonChatRooms.getOrCreateDMRoom(sender_id, target_user_id);
+  const dmResult = await singletonChatRooms.getOrCreateDMRoom(requester.id, target.id);
   if (dmResult.isErr()) {
     console.error("Failed to create/get DM room");
     return Result.Ok({
-      recipients: [sender_id],
+      recipients: [requester.id],
       funcId: wrapper.funcId,
       code: user_url.ws.chat.sendDirectMessage.schema.output.UserNotFound.code,
       payload: {
@@ -59,15 +86,15 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (wrapper) => {
 
   const roomResult = dmResult.unwrap();
   if (roomResult.created)
-    await socket.invokeHandler(user_url.ws.chat.listRooms, [sender_id, target_user_id], {});
+    await socket.invokeHandler(user_url.ws.chat.listRooms, [requester.id, target.id], {});
 
-  await socket.invokeHandler(user_url.ws.chat.sendMessage, sender_id, {
+  await socket.invokeHandler(user_url.ws.chat.sendMessage, requester.id, {
     roomId: roomResult.room.getId(),
     messageString: message_string,
   });
 
   return Result.Ok({
-    recipients: [sender_id],
+    recipients: [requester.id],
     code: 0,
     payload: null,
   })

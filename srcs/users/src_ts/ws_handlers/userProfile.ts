@@ -14,9 +14,9 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 		async (body, schema) => {
 			let targetUser: Result<FullUserType, ErrorResponseType> = Result.Err({message: "Invalid user identifier"});
 			if (typeof body.payload !== 'number') {
-				targetUser = await containers.db.fetchUserByUsername(body.payload);
+				targetUser = await containers.db.fetchUserByUsername(body.payload, true);
 			} else {
-				targetUser = await containers.db.fetchUserData(body.payload);
+				targetUser = await containers.db.fetchUserData(body.payload, true);
 			}
 			
 			if (targetUser.isErr()) {

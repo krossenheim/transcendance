@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idValue } from "../common/zodRules.js";
 
-const whitelistedPattern = /^[a-zA-Z0-9 ]+$/;
+const whitelistedPattern = /^[\p{L}\p{N} .,!@#\$%&*()_\-+=\[\]{};:'"<>\/?`~]+$/u;
 const ROOMNAME_MIN_LEN = 3;
 export const ROOMNAME_MAX_LEN = 50;
 
