@@ -1,4 +1,4 @@
-import { FullUser, type FullUserType, GetUser, type GetUserType } from '../utils/api/service/db/user.js';
+import { FullUser, type FullUserType, GetUser, type GetUserType, UserAccountType, type UserAuthDataType } from '../utils/api/service/db/user.js';
 import { AuthClientRequest, type AuthClientRequestType } from '../utils/api/service/common/clientRequest.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { ErrorResponseType } from '../utils/api/service/common/error.js';
@@ -25,6 +25,10 @@ async function verifyPassword(plainPassword: string, hashedPassword: string): Pr
 	return await bcrypt.compare(plainPassword, hashedPassword);
 }
 
+function isUserAllowedToLogin(user: UserAuthDataType): boolean {
+	return user.accountType === UserAccountType.User;
+}
+
 async function userRoutes(fastify: FastifyInstance) {
 	registerRoute(fastify, int_url.http.db.fetchMultipleUsers, async (request, reply) => {
 		const requestedUsers: number[] = request.body;
@@ -45,8 +49,8 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(401).send({ message: userResult.unwrapErr() });
 
 		const user = userResult.unwrap();
-		if (user.isGuest)
-			return reply.status(401).send({ message: 'You cannot login as a guest user' });
+		if (!isUserAllowedToLogin(user))
+			return reply.status(401).send({ message: 'You are not allowed to login' });
 
 		if (!await verifyPassword(password, user.passwordHash || ''))
 			return reply.status(401).send({ message: 'Invalid password' });
@@ -82,7 +86,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const { username, email, password } = request.body;
 		console.log("Creating user:", username, email);
 		
-		const userResult = await userService.createNewUser(username, email, await hashPassword(password), false);
+		const userResult = await userService.createNewUser(username, email, await hashPassword(password), UserAccountType.User);
 
 		if (userResult.isErr())
 			return reply.status(400).send({ message: userResult.unwrapErr() });

@@ -2,6 +2,12 @@ import { UserFriendshipStatus } from "./friendship.js";
 import { userIdValue } from "../common/zodRules.js";
 import { z } from 'zod';
 
+export enum UserAccountType {
+	System = 0,
+	Guest = 1,
+	User = 2,
+};
+
 export const Friend = z.object({
 	id: userIdValue,
 	friendId: userIdValue,
@@ -21,14 +27,14 @@ export const User = z.object({
 	alias: z.string().nullable(),
 	email: z.string(),
 	bio: z.string().nullable(),
-	isGuest: z.coerce.boolean(),
+	accountType: z.enum(UserAccountType),
 	avatarUrl: z.string().nullable(),
 	has2FA: z.coerce.boolean().optional(),
 });
 
 export const PublicUserData = User.omit({
 	email: true,
-	isGuest: true
+	accountType: true
 });
 
 export const FullUser = User.extend({
@@ -38,7 +44,7 @@ export const FullUser = User.extend({
 export const UserAuthData = z.object({
 	id: userIdValue,
 	passwordHash: z.string().nullable(),
-	isGuest: z.coerce.boolean()
+	accountType: z.enum(UserAccountType)
 });
 
 export const GetUser = z.object({
@@ -64,10 +70,12 @@ export type PublicUserDataType = z.infer<typeof PublicUserData>;
 export type UpdateUserDataType = z.infer<typeof UpdateUserData>;
 
 export default {
+	UserAccountType,
 	User,
 	FullUser,
 	UserAuthData,
 	Friend,
 	GetUser,
 	UpdateUserData,
+	PublicUserData,
 };
