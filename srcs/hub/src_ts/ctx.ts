@@ -122,20 +122,12 @@ export class InternalSocket {
   }
 
   private _handlePotentialInternalMessage(ctx: HubCTX, message: string): boolean {
-    console.log("Checking for internal message handling (invoke).");
-    console.log("Message to check:", message);
     const validateIncoming = JSONtoZod(message, InvokeWSFunctionSchema);
-    if (validateIncoming.isErr()) {
-      console.error("Invalid invoke WS function schema: " + validateIncoming.unwrapErr());
-      return false;
-    }
+    if (validateIncoming.isErr()) return false;
 
     const internalMessage = validateIncoming.unwrap();
     const internalContainer = ctx.getInternalContainerSocketByName(internalMessage.target_container);
-    if (!internalContainer) {
-      console.log(`No internal container found with name: ${internalMessage.target_container}`);
-      return false;
-    }
+    if (!internalContainer) return false;
 
     for (const userId of internalMessage.userIds) {
       internalContainer.sendMessage({
@@ -175,13 +167,10 @@ export class InternalSocket {
   }
 
   public async sendMessage<T extends T_ForwardToContainer>(message: T): Promise<void> {
-    console.log("Sending message to container " + this.containerName + ": ", message);
     const messageString = JSON.stringify(message);
     if (this.isSocketOpen()) {
-      console.log("Socket is open, sending message to container " + this.containerName);
       this.ws!.send(messageString);
     } else {
-      console.log("Socket not open, stacking message for container " + this.containerName);
       this.messageStack.push(messageString);
     }
   }
@@ -189,7 +178,6 @@ export class InternalSocket {
   public async handleMessage(ctx: HubCTX, message: string): Promise<Result<null, string>> {
     const parsedData = JSONtoZod(message, PayloadToUsersSchema);
     if (parsedData.isErr()) {
-      console.log("Checking for internal message handling.");
       if (this._handlePotentialInternalMessage(ctx, message))
         return Result.Ok(null);
 
@@ -232,7 +220,6 @@ export class UserSocket {
 
     const handlers = stacked.map(async (message) => {
       try {
-        console.log("Handling stacked message:", message);
         const result = await this.handleMessage(ctx, message);
         if (result.isErr()) {
           const errMsg = result.unwrapErr();
@@ -256,7 +243,6 @@ export class UserSocket {
     this.isAuthenticating = true;
 
     const authResult = await isWSAuthenticated(message);
-    console.log("Authentication result:", authResult);
     if (authResult.isErr()) {
       ctx.disconnectUserSocket(this.ws);
       return Result.Err("Authentication failed: " + authResult.unwrapErr());
@@ -264,7 +250,6 @@ export class UserSocket {
 
     this.id = authResult.unwrap();
     this.isAuthenticating = false;
-    console.log("User authenticated with ID: " + this.id);
     ctx.saveUserSocket(this);
 
     await this._handleStackedMessages(ctx);
