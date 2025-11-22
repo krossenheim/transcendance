@@ -87,8 +87,6 @@ socketToHub.registerReceiver(
       );
     }
 
-    socketToHub.getSocket().close();
-
     return Result.Ok(null);
   }
 );
