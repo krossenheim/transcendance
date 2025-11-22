@@ -58,7 +58,7 @@ fastify.get(
 
       let internalSocket = ctx.getInternalContainerSocketByWebSocket(socket);
       if (!internalSocket) {
-        console.error("Internal socket not found for WebSocket");
+        console.error("Internal socket not found for container: " + connectionName);
         return;
       }
 

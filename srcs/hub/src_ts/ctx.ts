@@ -12,19 +12,19 @@ export class HubCTX {
   private userSockets: Map<number, UserSocket>;
   private socketUsers: Map<WebSocket, UserSocket>;
 
-  private internalContainerSockets: Map<string, InternalSocket>;
-  private internalContainerSocketNames: Map<WebSocket, InternalSocket>;
+  private internalContainerSocketByName: Map<string, InternalSocket>;
+  private internalContainerSocketBySocket: Map<WebSocket, InternalSocket>;
 
   constructor() {
     this.userSockets = new Map();
     this.socketUsers = new Map();
 
-    this.internalContainerSockets = new Map();
-    this.internalContainerSocketNames = new Map();
+    this.internalContainerSocketByName = new Map();
+    this.internalContainerSocketBySocket = new Map();
   }
 
   private _notifyContainersOfConnectionStateChange(user_id: number, connected: boolean) {
-    for (const [socket, socket_obj] of this.internalContainerSocketNames.entries()) {
+    for (const [socket, socket_obj] of this.internalContainerSocketBySocket.entries()) {
       const payload: GetUserType = { userId: user_id };
       const wrapper: TypePayloadHubToUsersSchema = {
         source_container: "hub",
@@ -79,26 +79,27 @@ export class HubCTX {
   }
 
   public saveInternalContainerSocket(container_name: string, socket: WebSocket) {
-    let internalSocket = this.internalContainerSockets.get(container_name);
+    let internalSocket = this.internalContainerSocketByName.get(container_name);
     if (internalSocket === undefined) {
       internalSocket = new InternalSocket(container_name);
-      this.internalContainerSockets.set(container_name, internalSocket);
-      this.internalContainerSocketNames.set(socket, internalSocket);
+      this.internalContainerSocketByName.set(container_name, internalSocket);
     }
+
+    this.internalContainerSocketBySocket.set(socket, internalSocket);
     internalSocket.setSocket(socket);
   }
 
   public getInternalContainerSocketByName(container_name: string): InternalSocket {
-    let internalSocket = this.internalContainerSockets.get(container_name);
+    let internalSocket = this.internalContainerSocketByName.get(container_name);
     if (internalSocket === undefined) {
       internalSocket = new InternalSocket(container_name);
-      this.internalContainerSockets.set(container_name, internalSocket);
+      this.internalContainerSocketByName.set(container_name, internalSocket);
     }
     return internalSocket;
   }
 
   public getInternalContainerSocketByWebSocket(socket: WebSocket): InternalSocket | undefined {
-    return this.internalContainerSocketNames.get(socket);
+    return this.internalContainerSocketBySocket.get(socket);
   }
 }
 
