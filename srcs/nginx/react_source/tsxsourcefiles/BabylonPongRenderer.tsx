@@ -41,6 +41,12 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
   const edgesRef = useRef<Mesh[]>([])
   const floorRef = useRef<Mesh | null>(null)
   const shadowGeneratorRef = useRef<ShadowGenerator | null>(null)
+  
+  // Sound effects
+  const paddleSoundsRef = useRef<Map<number, { play: () => void; dispose: () => void }>>(new Map())
+  
+  // Track previous ball velocities to detect bounces and which paddle was hit
+  const previousBallVelocitiesRef = useRef<Map<number, { dx: number; dy: number }>>(new Map())
 
   // Initialize Babylon scene
   useEffect(() => {
@@ -57,6 +63,60 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
     const bgColor = darkMode ? new Color3(0.05, 0.05, 0.1) : new Color3(0.9, 0.92, 0.95)
     scene.clearColor = bgColor.toColor4()
     sceneRef.current = scene
+
+    // Create synthetic bounce sounds using Web Audio API - use oscillator for reliable playback
+    const createBounceSound = (frequency: number, duration: number, name: string) => {
+      // Instead of pre-generating, we'll play using Web Audio API directly
+      // This is more reliable than trying to create WAV files
+      return {
+        play: () => {
+          try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+            
+            // Create oscillator
+            const oscillator = audioContext.createOscillator()
+            const gainNode = audioContext.createGain()
+            
+            oscillator.type = 'sine'
+            oscillator.frequency.value = frequency
+            
+            // Exponential decay envelope
+            const now = audioContext.currentTime
+            gainNode.gain.setValueAtTime(0.3, now)
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration)
+            
+            oscillator.connect(gainNode)
+            gainNode.connect(audioContext.destination)
+            
+            oscillator.start(now)
+            oscillator.stop(now + duration)
+            
+            // Clean up after sound finishes
+            oscillator.onended = () => {
+              oscillator.disconnect()
+              gainNode.disconnect()
+              audioContext.close()
+            }
+            
+            console.log(`[Pong Sound] ${name} played with Web Audio API`)
+          } catch (error) {
+            console.warn(`[Pong Sound] Failed to play ${name}:`, error)
+          }
+        },
+        dispose: () => {
+          // Nothing to dispose
+        }
+      }
+    }
+
+    // Initialize sounds for each paddle (8 different frequencies)
+    // Using a pentatonic scale for pleasant tones: C, D, E, G, A, C, D, E
+    const frequencies = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51]
+    for (let i = 0; i < 8; i++) {
+      paddleSoundsRef.current.set(i, createBounceSound(frequencies[i], 0.08, `paddle${i}`))
+    }
+    
+    console.log("[Pong Sound] 8 paddle sounds initialized (Web Audio API)")
 
     // Camera
     const camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 25, Vector3.Zero(), scene)
@@ -87,10 +147,12 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
 
     return () => {
       window.removeEventListener("resize", handleResize)
+      paddleSoundsRef.current.forEach(sound => sound.dispose())
+      paddleSoundsRef.current.clear()
       scene.dispose()
       engine.dispose()
     }
-  }, [])
+  }, [darkMode])
 
   // Update scene colors when dark mode changes
   useEffect(() => {
@@ -295,9 +357,47 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         ballLightsRef.current.set(b.id, light)
 
         ballsRef.current.set(b.id, mesh)
+        
+        console.log("[Pong Sound] New ball created:", b.id, "with direction:", b.dx, b.dy)
       }
 
       mesh.position = toWorld(b.x, b.y, 0.2)
+      
+      // Detect bounces by checking if velocity direction changed
+      const prevVel = previousBallVelocitiesRef.current.get(b.id)
+      if (prevVel) {
+        // Check if direction has changed (any component flipped sign or changed significantly)
+        const dxChanged = Math.abs(b.dx - prevVel.dx) > 0.01
+        const dyChanged = Math.abs(b.dy - prevVel.dy) > 0.01
+        
+        if (dxChanged || dyChanged) {
+          // Direction changed - find closest paddle and play its sound
+          let closestPaddleIndex = 0
+          let minDist = Infinity
+          
+          gameState.paddles.forEach((paddle, index) => {
+            const dist = Math.sqrt(
+              Math.pow(b.x - paddle.x, 2) + Math.pow(b.y - paddle.y, 2)
+            )
+            if (dist < minDist) {
+              minDist = dist
+              closestPaddleIndex = index
+            }
+          })
+          
+          const sound = paddleSoundsRef.current.get(closestPaddleIndex)
+          if (sound) {
+            try {
+              sound.play()
+            } catch (error) {
+              console.warn("[Pong Sound] Failed to play:", error)
+            }
+          }
+        }
+      }
+      
+      // Store current velocity for next frame
+      previousBallVelocitiesRef.current.set(b.id, { dx: b.dx, dy: b.dy })
     })
 
     // Cleanup missing balls
@@ -310,9 +410,10 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         }
         mesh.dispose()
         ballsRef.current.delete(id)
+        previousBallVelocitiesRef.current.delete(id)
       }
     }
-  }, [gameState])
+  }, [gameState, darkMode])
 
   return (
     <canvas 
