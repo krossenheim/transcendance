@@ -23,16 +23,15 @@ const TABS = ["Friends", "Requests", "Blocked"] as const
 type Tab = typeof TABS[number]
 
 export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps) {
-  const { socket, payloadReceived, isConnected } = useWebSocket()
+  const { sendMessage, payloadReceived } = useWebSocket()
   const [activeTab, setActiveTab] = useState<Tab>('Friends')
   const [connections, setConnections] = useState<ConnectionItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const sendToSocket = useCallback((funcId: string, payload: any) => {
-    if (!socket.current || !isConnected) return
     const toSend = { funcId, payload, target_container: 'users' }
-    socket.current.send(JSON.stringify(toSend))
-  }, [socket, isConnected])
+    sendMessage(toSend)
+  }, [sendMessage])
 
   // Fetch connections when opened
   useEffect(() => {
@@ -41,7 +40,8 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
     sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
     const timeout = setTimeout(() => setLoading(false), 2000)
     return () => clearTimeout(timeout)
-  }, [isOpen, sendToSocket])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   useEffect(() => {
     if (!payloadReceived) return
@@ -60,7 +60,8 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
       // Refresh list after action completes
       setTimeout(() => sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null), 200)
     }
-  }, [payloadReceived, sendToSocket])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payloadReceived])
 
   const friends = useMemo(() => connections.filter(c => c.status === 2), [connections])
   const blocked = useMemo(() => connections.filter(c => c.status === 3), [connections])
