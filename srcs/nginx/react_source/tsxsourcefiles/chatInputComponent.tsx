@@ -684,9 +684,9 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
 
       case user_url.ws.chat.sendDirectMessage.funcId:
         console.log("sendDirectMessage response:", payloadReceived)
-        if (payloadReceived.code === 0) {
+        if (payloadReceived.code === 0 && payloadReceived.payload) {
           console.log("✅ Direct message sent successfully")
-          const dmPayload = payloadReceived.payload as TypeStoredMessageSchema
+          const dmPayload = payloadReceived.payload as { roomId: number }
           const roomIdStr = String(dmPayload.roomId)
           
           // First, refresh the room list to get the new DM room

@@ -5,7 +5,7 @@ import { OurSocket } from "../utils/socket_to_hub.js";
 import containers from "../utils/internal_api.js";
 
 import type { FullUserType } from "../utils/api/service/db/user.js";
-import type { ErrorResponseType } from "utils/api/service/common/error.js";
+import type { ErrorResponseType } from "../utils/api/service/common/error.js";
 
 // {"funcId":"update_profile","payload":{"bio":"Lazy af"},"target_container":"users"}
 export function updateProfile(socket: OurSocket) {

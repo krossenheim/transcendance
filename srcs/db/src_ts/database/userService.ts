@@ -1,5 +1,5 @@
 import type { FullUserType, UserType, FriendType, UserAuthDataType, PublicUserDataType } from '../utils/api/service/db/user.js';
-import { User, FullUser, Friend, UserAuthData, PublicUserData } from '../utils/api/service/db/user.js';
+import { User, FullUser, Friend, UserAuthData, PublicUserData, UserAccountType } from '../utils/api/service/db/user.js';
 import { UserFriendshipStatusEnum } from '../utils/api/service/db/friendship.js';
 import type { GameResultType } from '../utils/api/service/db/gameResult.js';
 import { GameResult } from '../utils/api/service/db/gameResult.js';
@@ -94,7 +94,7 @@ export class UserService {
 
 	fetchAllUsers(): Result<FullUserType[], string> {
 		return this.db.all(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.avatarUrl,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
 			       COALESCE(tfa.isEnabled, 0) as has2FA
 			 FROM users u
 			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId`,
@@ -117,7 +117,7 @@ export class UserService {
 
 	fetchUserById(id: number): Result<FullUserType, string> {
 		return this.db.get(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.avatarUrl,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
 			       COALESCE(tfa.isEnabled, 0) as has2FA
 			 FROM users u
 			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
@@ -143,11 +143,11 @@ export class UserService {
 		);
 	}
 
-	async createNewUser(username: string, email: string, passwordHash: string | null, isGuest: boolean): Promise<Result<FullUserType, string>> {
-		console.log('Creating user in database:', username, email);
+	async createNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Promise<Result<FullUserType, string>> {
+		console.log('Creating user in database:', username, email, accountType);
 		const newUser = this.db.run(
-			`INSERT INTO users (username, email, passwordHash, isGuest) VALUES (?, ?, ?, ?)`,
-			[username, email, passwordHash, isGuest ? 1 : 0]
+			`INSERT INTO users (username, email, passwordHash, accountType) VALUES (?, ?, ?, ?)`,
+			[username, email, passwordHash, accountType.valueOf()]
 		);
 		if (newUser.isErr()) {
 			console.error('Error inserting user:', newUser.unwrapErr());
@@ -172,7 +172,7 @@ export class UserService {
 
 		while (max_tries-- > 0) {
 			const username = createGuestUsername();
-			const creationResult = await this.createNewUser(username, `${username}@example.com`, null, true);
+			const creationResult = await this.createNewUser(username, `${username}@example.com`, null, UserAccountType.Guest);
 			if (creationResult.isOk()) return creationResult;
 		}
 
@@ -181,7 +181,7 @@ export class UserService {
 
 	fetchUserFromUsername(username: string): Result<FullUserType, string> {
 		return this.db.get(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.isGuest, u.avatarUrl,
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
 			       COALESCE(tfa.isEnabled, 0) as has2FA
 			 FROM users u
 			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
@@ -196,7 +196,7 @@ export class UserService {
 
 	fetchAuthUserDataFromUsername(username: string): Result<UserAuthDataType, string> {
 		return this.db.get(
-			`SELECT id, passwordHash, isGuest FROM users WHERE username = ?`,
+			`SELECT id, passwordHash, accountType FROM users WHERE username = ?`,
 			UserAuthData,
 			[username]
 		);

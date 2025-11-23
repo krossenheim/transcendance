@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { registerRoute } from '../utils/api/service/common/fastify.js';
 import { int_url } from '../utils/api/service/common/endpoints.js';
+import { UserAccountType } from '../utils/api/service/db/user.js';
 import { twoFactorService, userService } from '../main.js';
 import { z } from 'zod';
 
@@ -24,7 +25,7 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     
     // Check if user is a guest
     const userResult = userService.fetchUserById(userId);
-    if (userResult.isOk() && userResult.unwrap().isGuest) {
+    if (userResult.isOk() && userResult.unwrap().accountType === UserAccountType.Guest) {
       return reply.status(403).send({ message: 'Guest users cannot enable 2FA' });
     }
     
@@ -48,7 +49,7 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     
     // Check if user is a guest
     const userResult = userService.fetchUserById(userId);
-    if (userResult.isOk() && userResult.unwrap().isGuest) {
+    if (userResult.isOk() && userResult.unwrap().accountType === UserAccountType.Guest) {
       return reply.status(403).send({ message: 'Guest users cannot enable 2FA' });
     }
     

@@ -5,7 +5,7 @@ import { OurSocket } from "../utils/socket_to_hub.js";
 import containers from "../utils/internal_api.js";
 
 import type { FullUserType } from "../utils/api/service/db/user.js";
-import type { ErrorResponseType } from "utils/api/service/common/error.js";
+import type { ErrorResponseType } from "../utils/api/service/common/error.js";
 
 // {"funcId":"user_profile","payload":2,"target_container":"users"}
 export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number>) {
@@ -14,9 +14,9 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 		async (body, schema) => {
 			let targetUser: Result<FullUserType, ErrorResponseType> = Result.Err({message: "Invalid user identifier"});
 			if (typeof body.payload !== 'number') {
-				targetUser = await containers.db.fetchUserByUsername(body.payload);
+				targetUser = await containers.db.fetchUserByUsername(body.payload, true);
 			} else {
-				targetUser = await containers.db.fetchUserData(body.payload);
+				targetUser = await containers.db.fetchUserData(body.payload, true);
 			}
 			
 			if (targetUser.isErr()) {
@@ -40,7 +40,7 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 					bio: userData.bio,
 					avatarUrl: userData.avatarUrl,
 					onlineStatus: onlineUsers.has(userData.id) ? 1 : 0,
-					isGuest: userData.isGuest,
+					accountType: userData.accountType,
 				},
 			})
 		}

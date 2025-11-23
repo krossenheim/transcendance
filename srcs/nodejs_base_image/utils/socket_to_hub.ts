@@ -53,14 +53,12 @@ export class OurSocket {
   private container: string;
   private handlerCallables: Record<string, any> = {};
   private receiverCallables: Record<string, any> = {};
+  private messageStack: Array<string> = [];
+  private lastReconnectTime: number = 0;
 
   constructor(container: string) {
     this.container = container;
-    this.socket = new WebSocket(
-      `ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`
-    );
-
-    this._setupSocketListeners();
+    this.socket = this._connectToHub();
   }
 
   async invokeHandler<T extends WebSocketRouteDef>(
@@ -68,6 +66,19 @@ export class OurSocket {
     userId: number | number[],
     payload: z.infer<T["schema"]["args"]>
   ): Promise<Result<void, ErrorResponseType>> {
+    if (handlerEndpoint.container !== this.container) {
+      console.log(`Invoking handler on different container "${handlerEndpoint.container}" from "${this.container}"`);
+      const userIdValue = userId instanceof Array ? userId : [userId];
+      this._sendMessageToHub({
+        isInvokeMethod: true,
+        target_container: handlerEndpoint.container,
+        funcId: handlerEndpoint.funcId,
+        userIds: userIdValue,
+        payload,
+      });
+      return Result.Ok(undefined);
+    }
+
     if (userId instanceof Array) {
       const results = await Promise.all(
         userId.map((id) => this.invokeHandler(handlerEndpoint, id, payload))
@@ -91,7 +102,7 @@ export class OurSocket {
       payload,
     }).then((result) => {
       if (result.isErr()) return Result.Err(result.unwrapErr());
-      this.socket.send(JSON.stringify(result.unwrap()));
+      this._sendMessageToHub(result.unwrap());
       return Result.Ok(undefined);
     });
   }
@@ -208,7 +219,7 @@ export class OurSocket {
     if (parseResult.isErr()) return Result.Err(parseResult.unwrapErr());
 
     try {
-      this.socket.send(JSON.stringify(rawData));
+      this._sendMessageToHub(rawData);
     } catch (err) {
       return Result.Err({ message: "Failed to send message over WebSocket" });
     }
@@ -383,24 +394,35 @@ export class OurSocket {
       if (userIdResult.isErr()) return Result.Err({ message: "Handler error" });
 
       const userId = userIdResult.unwrap().user_id;
-      this.socket.send(
-        JSON.stringify({
-          recipients: [userId],
-          funcId: funcId,
-          code: -1,
-          payload: executionResult.unwrapErr(),
-        })
-      );
+      this._sendMessageToHub({
+        recipients: [userId],
+        funcId: funcId,
+        code: -1,
+        payload: executionResult.unwrapErr(),
+      });
       return Result.Err({ message: "Handler error" });
     }
 
-    const serialized = JSON.stringify(executionResult.unwrap());
-    this.socket.send(serialized);
+    this._sendMessageToHub(executionResult.unwrap());
     return Result.Ok(undefined);
   }
 
-  private _setupSocketListeners() {
-    this.socket.on("message", async (data: WebSocket.RawData) => {
+  private _sendMessageToHub(data: any) {
+    const messageString = JSON.stringify(data);
+    if (this.socket.readyState === WebSocket.OPEN) {
+      console.log("Sending WS message to hub:", messageString);
+      this.socket.send(messageString);
+    } else {
+      console.log("Socket not open, stacking message:", messageString);
+      this.messageStack.push(messageString);
+    }
+  }
+
+  private _connectToHub(): WebSocket {
+    console.log("Connecting to hub...");
+    let socket = new WebSocket(`ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`);
+
+    socket.on("message", async (data: WebSocket.RawData) => {
       const result = await this._handleOnMessage(data);
       if (result.isErr()) {
         console.error(
@@ -411,9 +433,32 @@ export class OurSocket {
       }
     });
 
-    this.socket.on("error", (err: Error) => {
+    socket.on("error", (err: Error) => {
       console.error("WebSocket error:", err.message);
     });
+
+    socket.on("close", async (code: number, reason: Buffer) => {
+      console.error("Connection to hub closed: ", code, reason.toString());
+      const now = Date.now();
+      const timeSinceLastReconnect = now - this.lastReconnectTime;
+      const reconnectDelay = Math.max(0, 5000 - timeSinceLastReconnect);
+
+      setTimeout(() => {
+        console.log("Reconnecting to hub...");
+        this.lastReconnectTime = Date.now();
+        this.socket = this._connectToHub();
+      }, reconnectDelay);
+    });
+
+    socket.on("open", () => {
+      for (const message of this.messageStack) {
+        console.log("Sending stacked message to hub:", message);
+        this.socket.send(message);
+      }
+      this.messageStack = [];
+    });
+
+    return socket;
   }
 
   register(func: (socket: OurSocket) => void) {

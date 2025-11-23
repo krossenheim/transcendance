@@ -141,7 +141,7 @@ if (timeoutRef.current) {
           status: "online", // Default status, backend doesn't provide this
           joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
           stats: backendData.stats, // Pass through if exists
-          isGuest: backendData.isGuest,
+          isGuest: backendData.accountType === 1,
         }
         
         console.log("[v0] Transformed profile:", transformedProfile)

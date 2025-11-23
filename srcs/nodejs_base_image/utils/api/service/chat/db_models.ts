@@ -60,3 +60,10 @@ export const RoomEventSchema = z
 
 export const ListRoomsSchema = z.array(RoomSchema);
 export type TypeListRoomsSchema = z.infer<typeof ListRoomsSchema>;
+
+export const DMCreatedResponseSchema = z
+  .object({
+    roomId: room_id_rule,
+  })
+  .strict();
+export type TypeDMCreatedResponseSchema = z.infer<typeof DMCreatedResponseSchema>;

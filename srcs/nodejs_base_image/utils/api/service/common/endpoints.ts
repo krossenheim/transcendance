@@ -5,6 +5,7 @@ import {
   RequestRoomByIdSchema,
   room_id_rule,
   room_name_rule,
+  SendDMMessagePayloadSchema,
   SendMessagePayloadSchema,
 } from "../chat/chat_interfaces.js";
 import {
@@ -17,6 +18,7 @@ import {
   RoomEventSchema,
   ListRoomsSchema,
   FullRoomInfoSchema,
+  DMCreatedResponseSchema,
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
@@ -643,8 +645,7 @@ export const user_url = defineRoutes({
     chat: {
       sendMessage: {
         funcId: "/api/chat/send_message_to_room",
-        container: "chat", // yes, the object parent of the (sendMessage) holding this is named chat.
-        //                    but i'd rather type it twice
+        container: "chat",
         schema: {
           args_wrapper: ForwardToContainerSchema,
           args: SendMessagePayloadSchema,
@@ -682,15 +683,12 @@ export const user_url = defineRoutes({
         container: "chat",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: z.object({
-            targetUserId: idValue,
-            messageString: z.string().min(1).max(500),
-          }),
+          args: SendDMMessagePayloadSchema,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             MessageSent: {
               code: 0,
-              payload: StoredMessageSchema,
+              payload: DMCreatedResponseSchema,
             },
             UserNotFound: {
               code: 1,
@@ -1131,6 +1129,25 @@ export const int_url = defineRoutes({
         },
       },
 
+      fetchDMRoomInfo: {
+        endpoint: "/internal_api/chat/rooms/dm_info/:userId1/:userId2",
+        method: "GET",
+        schema: {
+          params: z.object({
+            userId1: userIdValue,
+            userId2: userIdValue,
+          }),
+          response: {
+            200: z.object({
+              room: FullRoomInfoSchema,
+              created: z.boolean(),
+            }),
+            404: ErrorResponse, // DM room not found
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
       sendMessage: {
         endpoint: "/internal_api/chat/rooms/send_message",
         method: "POST",
@@ -1256,6 +1273,19 @@ export const int_url = defineRoutes({
           params: GetUser,
           response: {
             200: z.array(userIdValue), // Retrieved contacts
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      sendSystemMessage: {
+        endpoint: "/internal_api/chat/rooms/send_system_message",
+        method: "POST",
+        schema: {
+          body: SendMessagePayloadSchema,
+          response: {
+            200: z.null(), // System message sent successfully
+            404: ErrorResponse, // Room not found
             500: ErrorResponse, // Internal server error
           },
         },
