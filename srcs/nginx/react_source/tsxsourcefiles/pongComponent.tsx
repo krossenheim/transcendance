@@ -95,19 +95,14 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
         console.log("[Pong] setPlayerIDsHelper: authResponse is null");
         return;
       }
-      console.log("[Pong] setPlayerIDsHelper called with game_data:", game_data);
-      console.log("[Pong] authResponse.user.id:", authResponse.user.id);
       let odd = true;
       for (const paddle of game_data.paddles) {
-        console.log("[Pong] Checking paddle:", paddle.paddle_id, "owner_id:", paddle.owner_id);
         if (paddle.owner_id === authResponse.user.id) {
           if (odd) {
             setPlayerOnePaddleID(paddle.paddle_id);
-            console.log("[Pong] Set playerOnePaddleID:", paddle.paddle_id);
             odd = false;
           } else {
             setPlayerTwoPaddleID(paddle.paddle_id);
-            console.log("[Pong] Set playerTwoPaddleID:", paddle.paddle_id);
           }
         }
       }
@@ -117,16 +112,16 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
 
   useEffect(() => {
     if (!payloadReceived) {
-      console.log("[Pong] No payloadReceived yet");
       return;
     }
 
-    console.log("[Pong] Processing payload:", payloadReceived);
+    // Only log non-game-state messages to reduce spam
+    if (payloadReceived.funcId !== 'get_game_state' && payloadReceived.source_container === 'pong') {
+      console.log("[Pong] Processing:", payloadReceived.funcId);
+    }
 
     for (const webSocketRoute of Object.values(user_url.ws.pong)) {
       if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
-
-      console.log("[Pong] Found matching route for funcId:", payloadReceived.funcId);
 
       const responseSchema = Object.values(webSocketRoute.schema.output).find(
         (r) => r.code === payloadReceived.code
@@ -137,15 +132,11 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
         return;
       }
 
-      console.log("[Pong] Found responseSchema, parsing payload...");
-
       const parsed = responseSchema.payload.safeParse(payloadReceived.payload);
       if (!parsed.success) {
-        console.warn("Invalid payload", parsed.error);
+        console.warn("[Pong] Invalid payload", parsed.error);
         return;
       }
-
-      console.log("[Pong] Payload parsed successfully:", parsed.data);
 
       // Update the appropriate state slice based on funcId
       switch (payloadReceived.funcId) {
@@ -161,7 +152,7 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
             }
             break;
           }
-          console.log("[Pong] Setting gameState:", parsed.data);
+          // Update game state silently (happens frequently)
           setGameState(parsed.data);
           gameStateReceivedRef.current = true;
           setPlayerIDsHelper(parsed.data);

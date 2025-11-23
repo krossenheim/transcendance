@@ -182,7 +182,10 @@ socket.current.send(JSON.stringify({
       socket.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          console.log("[v0] WebSocket message received:", data)
+          // Only log non-game-state messages to reduce spam
+          if (data.funcId !== 'get_game_state') {
+            console.log("[v0] WebSocket message:", data.funcId)
+          }
           
           // Check if this is an auth error that requires token refresh
           if (data.code === 401 || data.message?.includes("unauthorized") || data.message?.includes("token expired")) {
