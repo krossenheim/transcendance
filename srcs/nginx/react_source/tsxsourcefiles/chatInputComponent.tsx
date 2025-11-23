@@ -39,6 +39,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   roomUsers,
 }) => {
   const [input, setInput] = useState("")
+  // Slash command suggestions state
+  const commands: Array<{ name: string; description: string; aliases?: string[] }> = [
+    { name: "me", description: "Send an action/emote message" },
+    { name: "whisper", description: "(alias /w) Not implemented private whisper", aliases: ["w"] },
+    { name: "invite", description: "Invite a user to current room" },
+    { name: "help", description: "Show available commands" },
+  ]
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [filteredCommands, setFilteredCommands] = useState(commands)
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -53,9 +63,68 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     if (!input.trim() || !currentRoom) return
     onSendMessage(input)
     setInput("")
+    setShowSuggestions(false)
   }
 
   const isCommand = input.startsWith("/")
+
+  // Update suggestions when input changes
+  useEffect(() => {
+    if (!isCommand) {
+      setShowSuggestions(false)
+      return
+    }
+    const commandPart = input.slice(1).split(/\s+/)[0].toLowerCase()
+    if (commandPart.length === 0) {
+      setFilteredCommands(commands)
+      setShowSuggestions(true)
+      setSelectedIndex(0)
+      return
+    }
+    const matches = commands.filter(c => c.name.startsWith(commandPart) || (c.aliases || []).some(a => a.startsWith(commandPart)))
+    setFilteredCommands(matches.length > 0 ? matches : [])
+    setShowSuggestions(true)
+    setSelectedIndex(0)
+  }, [input])
+
+  const applySuggestion = (cmd: { name: string }) => {
+    const parts = input.split(/\s+/)
+    // Replace the command part (first token starting with /)
+    parts[0] = `/${cmd.name}`
+    const newInput = parts.join(" ")
+    setInput(parts.length === 1 ? newInput + " " : newInput)
+    setShowSuggestions(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showSuggestions && filteredCommands.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        setSelectedIndex(i => (i + 1) % filteredCommands.length)
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        setSelectedIndex(i => (i - 1 + filteredCommands.length) % filteredCommands.length)
+      } else if (e.key === "Tab") {
+        e.preventDefault()
+        applySuggestion(filteredCommands[selectedIndex])
+      } else if (e.key === "Enter") {
+        // If just slash or choosing a command with no args yet, apply suggestion; else send
+        const commandToken = input.slice(1).split(/\s+/)[0]
+        if (commandToken && filteredCommands.some(c => c.name === commandToken || (c.aliases||[]).includes(commandToken))) {
+          // Already a full command, proceed to send
+        } else if (commandToken.length > 0) {
+          // Autocomplete before sending
+          applySuggestion(filteredCommands[selectedIndex])
+          return
+        }
+      } else if (e.key === "Escape") {
+        setShowSuggestions(false)
+      }
+    }
+    if (e.key === "Enter") {
+      handleSend()
+    }
+  }
 
   return (
     <div className="flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-2xl border-2 border-gray-200 dark:border-gray-700 h-[600px] overflow-hidden">
@@ -152,19 +221,48 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       {/* Input */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
         <div className="flex space-x-2">
-          <input
-            type="text"
-            placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
-            className={`flex-1 border rounded-full px-4 py-2 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 ${
-              isCommand
-                ? "border-purple-500 text-purple-600 dark:text-purple-400 focus:ring-purple-400"
-                : "border-gray-300 dark:border-gray-600 focus:ring-blue-400"
-            } disabled:bg-gray-100 dark:disabled:bg-gray-900 dark:bg-gray-700`}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            disabled={!currentRoom}
-          />
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
+              className={`w-full border rounded-full px-4 py-2 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 ${
+                isCommand
+                  ? "border-purple-500 text-purple-600 dark:text-purple-400 focus:ring-purple-400"
+                  : "border-gray-300 dark:border-gray-600 focus:ring-blue-400"
+              } disabled:bg-gray-100 dark:disabled:bg-gray-900 dark:bg-gray-700`}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={!currentRoom}
+            />
+            {showSuggestions && isCommand && filteredCommands.length > 0 && (
+              <div className="absolute left-0 right-0 bottom-full mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto" role="listbox">
+                {filteredCommands.map((cmd, idx) => (
+                  <button
+                    key={cmd.name}
+                    type="button"
+                    onClick={() => applySuggestion(cmd)}
+                    className={`w-full text-left px-4 py-2 text-sm flex flex-col ${
+                      idx === selectedIndex ? "bg-purple-500 text-white" : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                    }`}
+                    role="option"
+                    aria-selected={idx === selectedIndex}
+                  >
+                    <span className="font-medium">/{cmd.name}{cmd.aliases ? ` (${cmd.aliases.map(a=>`/${a}`).join(', ')})` : ''}</span>
+                    <span className={idx === selectedIndex ? "text-purple-100" : "text-gray-500 dark:text-gray-400"}>{cmd.description}</span>
+                  </button>
+                ))}
+                {filteredCommands.length === 0 && (
+                  <div className="px-4 py-2 text-sm text-gray-500">No matching commands</div>
+                )}
+                <div className="px-4 py-1 text-[11px] bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+                  <span className="mr-2">↕ to navigate</span>
+                  <span className="mr-2">Tab to autocomplete</span>
+                  <span>Enter to send</span>
+                </div>
+              </div>
+            )}
+          </div>
           <button
             onClick={handleSend}
             disabled={!currentRoom}

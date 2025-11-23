@@ -231,7 +231,7 @@ export default function AppRoot() {
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
-      style={{ backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.jpg)' : 'url(/static/react_dist/bg_light.jpg)' }}
+      style={{ backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)' }}
     >
       <div className="fixed inset-0 bg-black/5 dark:bg-black/20 pointer-events-none"></div>
 
