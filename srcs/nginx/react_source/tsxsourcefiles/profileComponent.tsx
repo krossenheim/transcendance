@@ -28,9 +28,10 @@ interface ProfileComponentProps {
   isOpen: boolean
   onClose: () => void
   onStartDM?: (userId: number) => void
+  showToast?: (message: string, type: 'success' | 'error') => void
 }
 
-export default function ProfileComponent({ userId, isOpen, onClose, onStartDM }: ProfileComponentProps) {
+export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, showToast }: ProfileComponentProps) {
   const { socket, payloadReceived, isConnected } = useWebSocket()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -164,7 +165,22 @@ if (timeoutRef.current) {
         setEditing(false)
       }
     }
-  }, [payloadReceived])
+
+    if (payloadReceived.funcId === user_url.ws.users.requestFriendship.funcId) {
+      if (payloadReceived.code === 0) {
+        console.log("[ProfileComponent] Friend request sent successfully")
+        if (showToast) {
+          showToast('Friend request sent successfully!', 'success')
+        }
+      } else {
+        console.error("[ProfileComponent] Failed to send friend request:", payloadReceived)
+        if (showToast) {
+          const errorMsg = payloadReceived.payload?.message || payloadReceived.payload?.error || 'Failed to send friend request'
+          showToast(errorMsg, 'error')
+        }
+      }
+    }
+  }, [payloadReceived, showToast])
 
   // 🔒 Fetch avatar securely with JWT
 useEffect(() => {
@@ -301,7 +317,9 @@ useEffect(() => {
       sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
     } catch (error) {
       console.error('Error saving profile:', error)
-      alert('Failed to save profile')
+      if (showToast) {
+        showToast('Failed to save profile', 'error')
+      }
     }
   }
 
@@ -309,7 +327,6 @@ useEffect(() => {
     if (!userId) return
     console.log("[ProfileComponent] Sending friend request to userId:", userId)
     sendToSocket(user_url.ws.users.requestFriendship.funcId, userId)
-    // TODO: Show success/error message based on response
   }
 
   const isOwnProfile = currentUserId === userId

@@ -84,7 +84,7 @@ export default function AppRoot() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [authResponse?.user?.id, authResponse?.user?.avatar]);
+  }, [authResponse?.user?.id, authResponse?.user?.avatarUrl]);
 
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
   const [isGuestLoading, setIsGuestLoading] = useState<boolean>(false);
@@ -163,6 +163,18 @@ export default function AppRoot() {
     return () => { cancelled = true; };
   }, []);
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setTimeout(() => {
+      setToastMessage(null);
+      setToastType(null);
+    }, 5000);
+  };
+
   async function handleGuestLogin() {
     setIsGuestLoading(true);
     try {
@@ -172,14 +184,11 @@ export default function AppRoot() {
       persistAuthTokens(data);
       setAuthResponse(data);
     } catch (err: any) {
-      alert("Guest login failed: " + (err?.message || "unknown"));
+      showToast("Guest login failed: " + (err?.message || "unknown"), 'error');
     } finally {
       setIsGuestLoading(false);
     }
   }
-
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<'success' | 'error' | null>(null);
 
   async function handleLogout() {
     if (isLoggingOut) return;
@@ -210,10 +219,10 @@ export default function AppRoot() {
 
       setAuthResponse(null);
 
-      setToastType(backendOk ? 'success' : 'error');
-      setToastMessage(backendOk ? 'Logged out successfully' : 'Logged out locally (server revoke may have failed)');
-
-      setTimeout(() => { setToastMessage(null); setToastType(null); }, 3000);
+      showToast(
+        backendOk ? 'Logged out successfully' : 'Logged out locally (server revoke may have failed)',
+        backendOk ? 'success' : 'error'
+      );
     } finally {
       setIsLoggingOut(false);
     }
@@ -235,7 +244,7 @@ export default function AppRoot() {
 
         {authResponse ? (
           <FriendshipProvider>
-            <SocketComponent AuthResponseObject={authResponse}>
+            <SocketComponent AuthResponseObject={authResponse} showToast={showToast}>
               <div className="flex flex-col h-screen">
                 <header className="bg-white dark:bg-dark-800 shadow dark:shadow-dark-700">
                   <div className="max-w-5xl mx-auto px-4 py-4">
@@ -291,7 +300,7 @@ export default function AppRoot() {
                           // CHAT PAGE — only inner content scrolls
                           <div className="p-6 h-full flex flex-col">
                             <div className="flex-1 overflow-hidden">
-                              <ChatInputComponent selfUserId={authResponse.user.id} />
+                              <ChatInputComponent selfUserId={authResponse.user.id} showToast={showToast} />
                             </div>
                           </div>
                         ) : (
