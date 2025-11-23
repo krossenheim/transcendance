@@ -18,6 +18,7 @@ import {
   RoomEventSchema,
   ListRoomsSchema,
   FullRoomInfoSchema,
+  DMCreatedResponseSchema,
 } from "../chat/db_models.js";
 import { AuthResponse } from "../auth/loginResponse.js";
 import { CreateUser } from "../auth/createUser.js";
@@ -687,7 +688,7 @@ export const user_url = defineRoutes({
           output: {
             MessageSent: {
               code: 0,
-              payload: z.null(),
+              payload: DMCreatedResponseSchema,
             },
             UserNotFound: {
               code: 1,

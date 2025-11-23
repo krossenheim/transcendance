@@ -96,7 +96,9 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (wrapper) => {
   return Result.Ok({
     recipients: [requester.id],
     code: 0,
-    payload: null,
+    payload: {
+      roomId: roomResult.room.getId(),
+    },
   })
 });
 
