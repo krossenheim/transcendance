@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, createContext, type ReactNode, useContext,
 interface SocketComponentProps {
   children: ReactNode
   AuthResponseObject: any
+  showToast?: (message: string, type: 'success' | 'error') => void
 }
 
 interface WebSocketContextValue {
@@ -32,7 +33,7 @@ export function closeGlobalSocket() {
   }
 }
 
-export default function SocketComponent({ children, AuthResponseObject }: SocketComponentProps) {
+export default function SocketComponent({ children, AuthResponseObject, showToast }: SocketComponentProps) {
   const socket = useRef<WebSocket | null>(globalSocket)
   const [payloadReceived, setPayloadReceived] = useState<any | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -160,7 +161,19 @@ socket.current.send(JSON.stringify({
           
           setPayloadReceived(data)
         } catch {
-          console.log("[v0] Couldn't parse:", event.data)
+          // Handle non-JSON error messages
+          const errorMessage = String(event.data)
+          console.log("[v0] Couldn't parse:", errorMessage)
+          
+          // Show user-friendly error notification for service connection issues
+          if (errorMessage.includes("Failed to forward to container") || errorMessage.includes("has never opened a socket")) {
+            if (showToast) {
+              showToast("Service temporarily unavailable. Please wait a moment and try again.", 'error')
+            }
+          } else if (showToast && errorMessage.length > 0 && errorMessage.length < 500) {
+            // Show other short error messages
+            showToast(errorMessage, 'error')
+          }
         }
       }
 

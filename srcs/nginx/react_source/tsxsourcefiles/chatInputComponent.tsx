@@ -320,7 +320,13 @@ const RoomList: React.FC<RoomListProps> = ({
 }
 
 /* -------------------- Main Chat Component -------------------- */
-export default function ChatInputComponent({ selfUserId }: { selfUserId: number }) {
+export default function ChatInputComponent({ 
+  selfUserId,
+  showToast 
+}: { 
+  selfUserId: number
+  showToast?: (message: string, type: 'success' | 'error') => void
+}) {
   const { socket, payloadReceived, isConnected } = useWebSocket()
   const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
@@ -573,8 +579,20 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
         break
 
       case user_url.ws.chat.addRoom.funcId:
-        console.log("Room added, refreshing list")
-        sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+        // Check if room creation was successful
+        if (payloadReceived.code === 0) {
+          console.log("Room added, refreshing list")
+          sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+        } else {
+          // Error creating room
+          const errorMsg = payloadReceived.payload?.message || 
+                          payloadReceived.payload?.error || 
+                          "Failed to create room. Please check room name (min 3 characters, alphanumeric only)."
+          console.error("Failed to create room:", errorMsg)
+          if (showToast) {
+            showToast(errorMsg, 'error')
+          }
+        }
         break
 
       case user_url.ws.chat.addUserToRoom.funcId:
@@ -703,7 +721,10 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
           }, 200)
         } else {
           console.error("❌ Failed to send direct message:", payloadReceived)
-          alert(`Failed to send DM: ${payloadReceived.code}`)
+          if (showToast) {
+            const errorMsg = payloadReceived.payload?.message || payloadReceived.payload?.error || `Failed to send DM (code: ${payloadReceived.code})`
+            showToast(errorMsg, 'error')
+          }
         }
         break
 
@@ -801,16 +822,22 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
 
         case "whisper":
         case "w":
-          alert("Private whisper feature is not implemented yet.")
+          if (showToast) {
+            showToast("Private whisper feature is not implemented yet.", 'error')
+          }
           break
 
         case "invite":
           if (args.length !== 1) {
-            alert("Usage: /invite <username or userId>")
+            if (showToast) {
+              showToast("Usage: /invite <username or userId>", 'error')
+            }
             return
           }
           if (currentRoomType === 2) {
-            alert("Cannot invite users into a direct message room.")
+            if (showToast) {
+              showToast("Cannot invite users into a direct message room.", 'error')
+            }
             return
           }
           // Resolve username to userId
@@ -856,7 +883,9 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
                         user_to_add: foundUserId 
                       })
                     } else {
-                      alert(`User "${usernameOrId}" not found. Please check the username and try again.`)
+                      if (showToast) {
+                        showToast(`User "${usernameOrId}" not found. Please check the username and try again.`, 'error')
+                      }
                     }
                   }
                 } catch (err) {
@@ -878,15 +907,15 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
           break
 
         case "help":
-          alert(`Available commands:
-  /me <action> - emote style message
-  /whisper <user> <message> - private message
-  /invite <user> - invite to room
-  /help - show this help`)
+          if (showToast) {
+            showToast("Commands: /me, /whisper, /invite, /help", 'success')
+          }
           break
 
         default:
-          alert(`Unknown command: /${command}`)
+          if (showToast) {
+            showToast(`Unknown command: /${command}`, 'error')
+          }
       }
 
       return // Don't send the raw message
@@ -939,8 +968,10 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
     if (!currentRoomId) return
     console.log("Inviting to pong in room:", currentRoomId)
     // This funcId might not exist yet - adjust based on your endpoints
-    alert("Pong invitation feature not yet implemented")
-  }, [currentRoomId])
+    if (showToast) {
+      showToast("Pong invitation feature not yet implemented", 'error')
+    }
+  }, [currentRoomId, showToast])
 
   const handleAcceptFriendship = useCallback(
     (userId: number) => {
@@ -1007,8 +1038,10 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
       return
     }
 
-    alert(`Cannot open profile for ${username} - unknown user`) 
-  }, [userMap])
+    if (showToast) {
+      showToast(`Cannot open profile for ${username} - unknown user`, 'error')
+    }
+  }, [userMap, showToast])
 
   const handleStartDM = useCallback(
     (usernameOrId: string | number) => {
@@ -1026,7 +1059,9 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
         // Username provided - look up in userMap
         const found = Object.entries(userMap).find(([, uname]) => uname === usernameOrId)
         if (!found) {
-          alert(`Cannot start DM - user "${usernameOrId}" not found in current session.\nTry entering their user ID number instead.`)
+          if (showToast) {
+            showToast(`Cannot start DM - user "${usernameOrId}" not found in current session. Try entering their user ID number instead.`, 'error')
+          }
           return
         }
         targetUserId = Number(found[0])
@@ -1091,6 +1126,7 @@ export default function ChatInputComponent({ selfUserId }: { selfUserId: number 
             setProfileUserId(null)
           }}
           onStartDM={handleStartDM}
+          showToast={showToast}
         />
       )}
     </div>
