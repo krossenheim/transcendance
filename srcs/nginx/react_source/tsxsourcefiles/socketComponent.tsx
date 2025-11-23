@@ -13,6 +13,7 @@ interface WebSocketContextValue {
   payloadReceived: any | null
   isConnected: boolean
   refreshToken: () => Promise<void>
+  sendMessage: (message: string | object) => boolean
 }
 
 // Global singleton socket
@@ -38,12 +39,28 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
   const [payloadReceived, setPayloadReceived] = useState<any | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [currentJwt, setCurrentJwt] = useState(AuthResponseObject.tokens.jwt)
+  const [reconnectTrigger, setReconnectTrigger] = useState(0) // Used to trigger reconnection
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttemptsRef = useRef(0)
+  const messageQueueRef = useRef<string[]>([]) // Queue messages while disconnected
   
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
   const wsUrl = protocol + "//" + window.location.host + "/ws"
+
+  // Safe send function that queues messages when disconnected
+  const sendMessage = useCallback((message: string | object): boolean => {
+    const messageStr = typeof message === 'string' ? message : JSON.stringify(message)
+    
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      socket.current.send(messageStr)
+      return true
+    } else {
+      console.log('[v0] Socket not connected, queueing message')
+      messageQueueRef.current.push(messageStr)
+      return false
+    }
+  }, [])
 
   // Function to refresh the JWT token
   const refreshToken = useCallback(async () => {
@@ -130,7 +147,7 @@ socket.current.send(JSON.stringify({
   }, [refreshToken])
 
   useEffect(() => {
-    if (!socket.current) {
+    if (!socket.current || socket.current.readyState === WebSocket.CLOSED || socket.current.readyState === WebSocket.CLOSING) {
       console.log("[v0] Creating new WebSocket connection to:", wsUrl)
       socket.current = new WebSocket(wsUrl)
       globalSocket = socket.current
@@ -145,6 +162,20 @@ socket.current.send(JSON.stringify({
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current)
           reconnectTimeoutRef.current = null
+        }
+        
+        // Send any queued messages
+        if (messageQueueRef.current.length > 0) {
+          console.log(`[v0] Sending ${messageQueueRef.current.length} queued messages`)
+          messageQueueRef.current.forEach(msg => {
+            socket.current?.send(msg)
+          })
+          messageQueueRef.current = []
+        }
+        
+        // Show success notification if this was a reconnection
+        if (reconnectAttemptsRef.current > 0 && showToast) {
+          showToast("Reconnected successfully", 'success')
         }
       }
 
@@ -177,13 +208,19 @@ socket.current.send(JSON.stringify({
         }
       }
 
-      socket.current.onclose = () => {
-        console.log("[v0] WebSocket disconnected")
+      socket.current.onclose = (event) => {
+        console.log("[v0] WebSocket disconnected, code:", event.code, "reason:", event.reason)
         globalSocket = null
         setIsConnected(false)
         
+        // Don't reconnect if it was a normal closure (code 1000) initiated by client
+        if (event.code === 1000 && event.wasClean) {
+          console.log("[v0] Clean disconnect, not reconnecting")
+          return
+        }
+        
         // Implement reconnection with exponential backoff
-        const maxAttempts = 5
+        const maxAttempts = 10
         const baseDelay = 1000 // Start with 1 second
         
         if (reconnectAttemptsRef.current < maxAttempts) {
@@ -192,16 +229,22 @@ socket.current.send(JSON.stringify({
           
           console.log(`[v0] Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxAttempts})`)
           
+          if (showToast && reconnectAttemptsRef.current === 1) {
+            showToast("Connection lost. Reconnecting...", 'error')
+          }
+          
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log("[v0] Reconnecting...")
             socket.current = null
             globalSocket = null
-            // This will trigger the useEffect to create a new connection
-            setIsConnected(false)
+            // Trigger the useEffect to create a new connection
+            setReconnectTrigger(prev => prev + 1)
           }, delay)
         } else {
           console.error("[v0] Max reconnection attempts reached. Please refresh the page.")
-          // Optionally show a user notification here
+          if (showToast) {
+            showToast("Unable to reconnect. Please refresh the page.", 'error')
+          }
         }
       }
 
@@ -220,10 +263,10 @@ socket.current.send(JSON.stringify({
         clearTimeout(reconnectTimeoutRef.current)
       }
     }
-  }, [wsUrl, currentJwt, refreshToken])
+  }, [wsUrl, currentJwt, refreshToken, reconnectTrigger, showToast])
 
   return (
-    <WebSocketContext.Provider value={{ socket, payloadReceived, isConnected, refreshToken } as WebSocketContextValue}>
+    <WebSocketContext.Provider value={{ socket, payloadReceived, isConnected, refreshToken, sendMessage } as WebSocketContextValue}>
       {children}
       <div style={{ marginTop: "10px" }}>
         <input

@@ -32,7 +32,7 @@ interface ProfileComponentProps {
 }
 
 export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, showToast }: ProfileComponentProps) {
-  const { socket, payloadReceived, isConnected } = useWebSocket()
+  const { socket, payloadReceived, isConnected, sendMessage } = useWebSocket()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -49,25 +49,23 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sendToSocket = useCallback(
     (funcId: string, payload: any) => {
-      if (socket.current && isConnected) {
-        const toSend = {
-          funcId,
-          payload,
-          target_container: "users",
-        }
-        console.log("[v0] Sending profile request:", toSend)
-        console.log("[v0] Payload detail:", JSON.stringify(payload, null, 2))
-        console.log("[v0] Payload type:", typeof payload)
-        socket.current.send(JSON.stringify(toSend))
-      } else {
-        console.warn("[v0] Socket not connected, cannot send profile request")
-        console.warn("[v0] isConnected:", isConnected)
-        console.warn("[v0] Socket state:", socket.current?.readyState)
+      const toSend = {
+        funcId,
+        payload,
+        target_container: "users",
+      }
+      console.log("[v0] Sending profile request:", toSend)
+      console.log("[v0] Payload detail:", JSON.stringify(payload, null, 2))
+      console.log("[v0] Payload type:", typeof payload)
+      
+      const sent = sendMessage(toSend)
+      if (!sent) {
+        console.warn("[v0] Socket not connected, message queued")
         setLoading(false)
-        setError("WebSocket is not connected. Please check your connection.")
+        setError("WebSocket is not connected. Reconnecting...")
       }
     },
-    [socket, isConnected],
+    [sendMessage],
   )
 
 // Get current user ID from JWT token
@@ -110,7 +108,8 @@ useEffect(() => {
       timeoutRef.current = null
     }
   }
-}, [isOpen, userId, sendToSocket])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isOpen, userId])
 
 
   useEffect(() => {
@@ -312,9 +311,6 @@ useEffect(() => {
 
       setEditing(false)
       setAvatarFile(null)
-      
-      // Refresh profile data from server
-      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
     } catch (error) {
       console.error('Error saving profile:', error)
       if (showToast) {

@@ -327,10 +327,11 @@ export default function ChatInputComponent({
   selfUserId: number
   showToast?: (message: string, type: 'success' | 'error') => void
 }) {
-  const { socket, payloadReceived, isConnected } = useWebSocket()
+  const { socket, payloadReceived, isConnected, sendMessage } = useWebSocket()
   const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
   const [currentRoomId, setCurrentRoomId] = useState<number | null>(null)
+  const sendToSocketRef = useRef<(funcId: string, payload: any, targetContainer?: string) => void>(() => {})
   const [currentRoomName, setCurrentRoomName] = useState<string | null>(null)
   const [currentRoomType, setCurrentRoomType] = useState<number | null>(null)
   // Store messages per room to prevent losing them when switching
@@ -351,6 +352,7 @@ export default function ChatInputComponent({
   const [pendingFriendshipRequests, setPendingFriendshipRequests] = useState<Array<{ userId: number; username: string; alias?: string | null }>>([])
   const [pendingDMTargetId, setPendingDMTargetId] = useState<number | null>(null)
   const [currentRoomUsers, setCurrentRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
+  const [pendingProfileLookup, setPendingProfileLookup] = useState<string | null>(null)
 
   // Get messages for current room
   const messages = currentRoomId != null ? messagesByRoom[String(currentRoomId)] || [] : []
@@ -377,32 +379,35 @@ export default function ChatInputComponent({
 
   const sendToSocket = useCallback(
     (funcId: string, payload: any, targetContainer?: string) => {
-      if (socket.current && isConnected) {
-        // Determine target container based on funcId if not explicitly provided
-        let container = targetContainer
-        if (!container) {
-          if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_') || funcId === 'user_profile') {
-            container = "users"
-          } else {
-            container = "chat"
-          }
+      // Determine target container based on funcId if not explicitly provided
+      let container = targetContainer
+      if (!container) {
+        if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_') || funcId === 'user_profile') {
+          container = "users"
+        } else {
+          container = "chat"
         }
-        
-        const toSend = {
-          funcId,
-          payload,
-          target_container: container,
-        }
-        console.log("[v0] Sending to socket:", toSend)
-        socket.current.send(JSON.stringify(toSend))
-      } else {
-        console.warn("[v0] Socket not connected, cannot send:", funcId)
-        console.warn("[v0] isConnected:", isConnected)
-        console.warn("[v0] Socket state:", socket.current?.readyState)
+      }
+      
+      const toSend = {
+        funcId,
+        payload,
+        target_container: container,
+      }
+      console.log("[v0] Sending to socket:", toSend)
+      
+      const sent = sendMessage(toSend)
+      if (!sent) {
+        console.warn("[v0] Socket not connected, message queued:", funcId)
       }
     },
-    [socket, isConnected],
+    [sendMessage],
   )
+
+  // Keep sendToSocketRef updated
+  useEffect(() => {
+    sendToSocketRef.current = sendToSocket
+  }, [sendToSocket])
 
   /* -------------------- Handle Incoming Messages -------------------- */
   useEffect(() => {
@@ -757,9 +762,24 @@ export default function ChatInputComponent({
           if (profile.id && profile.username) {
             console.log(`[requestUserProfileData] Adding to userMap: ${profile.id} -> ${profile.username}`)
             setUserMap((prev) => ({ ...prev, [profile.id]: profile.username }))
+            
+            // If we were waiting to open this user's profile, open it now
+            if (pendingProfileLookup === profile.username) {
+              console.log(`[requestUserProfileData] Opening profile for ${profile.username} (id: ${profile.id})`)
+              setProfileUserId(profile.id)
+              setShowProfileModal(true)
+              setPendingProfileLookup(null)
+            }
           }
         } else {
           console.warn("[requestUserProfileData] Failed to fetch profile:", payloadReceived)
+          // If we were waiting for this lookup, show error
+          if (pendingProfileLookup) {
+            if (showToast) {
+              showToast(`Cannot open profile for ${pendingProfileLookup} - user not found`, 'error')
+            }
+            setPendingProfileLookup(null)
+          }
         }
         break
 
@@ -771,23 +791,21 @@ export default function ChatInputComponent({
   // userMap is only read inside the effect, not used as a trigger
 
   // Helper function to fetch username by userId via WebSocket
-  const fetchUsername = useCallback(async (userId: number): Promise<string | null> => {
+  const fetchUsername = useCallback((userId: number) => {
     try {
       console.log(`[fetchUsername] Fetching username for user ${userId} via WebSocket...`)
-      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
-      // The response will be handled in the payloadReceived effect
-      return null // We'll update userMap when the response arrives
+      sendToSocketRef.current(user_url.ws.users.requestUserProfileData.funcId, userId)
     } catch (err) {
       console.warn(`[fetchUsername] Error fetching username for user ${userId}:`, err)
     }
-    return null
-  }, [sendToSocket])
+  }, [])
 
   useEffect(() => {
     console.log("Requesting room list and user connections on mount")
     sendToSocket(user_url.ws.chat.listRooms.funcId, {})
     sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
-  }, [sendToSocket])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
 
   const parseSlashCommand = (input: string) => {
@@ -940,29 +958,25 @@ export default function ChatInputComponent({
       setCurrentRoomUsers([]) // Clear users list while loading
       // First join the room (so we're a member)
       sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
-      // Then get room data after a short delay to ensure join is processed
-      setTimeout(() => {
-        sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
-      }, 100)
+      // Get room data - join response should trigger room data update automatically
+      sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
-    [rooms, sendToSocket, computeRoomDisplayName],
+    [rooms, computeRoomDisplayName],
   )
 
   const handleCreateRoom = useCallback(
     (roomName: string) => {
       console.log("[v0] handleCreateRoom called with roomName:", roomName)
-      console.log("[v0] Socket current:", socket.current)
-      console.log("[v0] Socket readyState:", socket.current?.readyState)
       console.log("[v0] Creating room with funcId:", user_url.ws.chat.addRoom.funcId)
       sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName, roomType: 1 })
     },
-    [sendToSocket, socket],
+    [],
   )
 
   const handleRefreshRooms = useCallback(() => {
     console.log("Refreshing rooms")
     sendToSocket(user_url.ws.chat.listRooms.funcId, {})
-  }, [sendToSocket])
+  }, [])
 
   const handleInvitePong = useCallback(() => {
     if (!currentRoomId) return
@@ -981,8 +995,9 @@ export default function ChatInputComponent({
       setTimeout(() => {
         sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
       }, 500)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [sendToSocket],
+    [],
   )
 
   const handleDenyFriendship = useCallback(
@@ -993,8 +1008,9 @@ export default function ChatInputComponent({
       setTimeout(() => {
         sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
       }, 500)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [sendToSocket],
+    [],
   )
 
   // Sync pending requests and handlers to context (unless in test mode)
@@ -1038,10 +1054,11 @@ export default function ChatInputComponent({
       return
     }
 
-    if (showToast) {
-      showToast(`Cannot open profile for ${username} - unknown user`, 'error')
-    }
-  }, [userMap, showToast])
+    // If not found in userMap, try fetching by username from backend
+    console.log(`[handleOpenProfile] Username "${username}" not in userMap, fetching by username...`)
+    setPendingProfileLookup(username)
+    sendToSocketRef.current(user_url.ws.users.requestUserProfileData.funcId, username)
+  }, [userMap])
 
   const handleStartDM = useCallback(
     (usernameOrId: string | number) => {
