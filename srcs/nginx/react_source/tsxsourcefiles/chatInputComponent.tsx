@@ -413,8 +413,10 @@ export default function ChatInputComponent({
   useEffect(() => {
     if (!payloadReceived) return
 
-    console.log("[Chat] Received payload:", payloadReceived)
-    console.log("[Chat] FuncId:", payloadReceived.funcId, "Type:", typeof payloadReceived.funcId)
+    // Only log chat/user messages, not pong updates
+    if (!payloadReceived.funcId?.includes('game_state') && !payloadReceived.source_container?.includes('pong')) {
+      console.log("[Chat] Received:", payloadReceived.funcId)
+    }
 
     switch (payloadReceived.funcId) {
             case user_url.ws.users.fetchUserConnections.funcId:
@@ -784,7 +786,10 @@ export default function ChatInputComponent({
         break
 
       default:
-        console.log("Unhandled funcId:", payloadReceived.funcId)
+        // Only log unhandled messages that aren't from pong (to reduce spam)
+        if (payloadReceived.source_container !== 'pong') {
+          console.log("Unhandled funcId:", payloadReceived.funcId)
+        }
     }
   }, [payloadReceived, sendToSocket])
   // Note: userMap removed from dependencies to prevent infinite loop
