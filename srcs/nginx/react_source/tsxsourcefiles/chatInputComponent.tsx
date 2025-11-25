@@ -20,7 +20,7 @@ interface ChatBoxProps {
   onSendMessage: (content: string) => void
   currentRoom: number | null
   currentRoomName: string | null
-  onInvitePong: () => void
+  onInvitePong: (roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => void
   onBlockUser: (username: string) => void
   blockedUsers: string[]
   onOpenProfile: (username: string) => void
@@ -138,7 +138,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </div>
         {currentRoom && (
           <button
-            onClick={onInvitePong}
+            onClick={() => onInvitePong(roomUsers)}
             className="bg-green-500 text-white text-sm px-3 py-1 rounded-md hover:bg-green-600 transition-all"
           >
             🏓 Invite to Pong
@@ -420,10 +420,12 @@ const RoomList: React.FC<RoomListProps> = ({
 /* -------------------- Main Chat Component -------------------- */
 export default function ChatInputComponent({ 
   selfUserId,
-  showToast 
+  showToast,
+  onOpenPongInvite
 }: { 
   selfUserId: number
   showToast?: (message: string, type: 'success' | 'error') => void
+  onOpenPongInvite?: (roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => void
 }) {
   const { socket, payloadReceived, isConnected, sendMessage } = useWebSocket()
   const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
@@ -1081,14 +1083,15 @@ export default function ChatInputComponent({
     sendToSocket(user_url.ws.chat.listRooms.funcId, {})
   }, [])
 
-  const handleInvitePong = useCallback(() => {
+  const handleInvitePong = useCallback((roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => {
     if (!currentRoomId) return
     console.log("Inviting to pong in room:", currentRoomId)
-    // This funcId might not exist yet - adjust based on your endpoints
-    if (showToast) {
+    if (onOpenPongInvite) {
+      onOpenPongInvite(roomUsers)
+    } else if (showToast) {
       showToast("Pong invitation feature not yet implemented", 'error')
     }
-  }, [currentRoomId, showToast])
+  }, [currentRoomId, showToast, onOpenPongInvite])
 
   const handleAcceptFriendship = useCallback(
     (userId: number) => {

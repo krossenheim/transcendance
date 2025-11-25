@@ -43,6 +43,13 @@ import {
   PlayerDeclaresReadyForGame,
   PlayerReadyForGameSchema,
   StartNewPongGameSchema,
+  CreateLobbySchema,
+  LobbyDataSchema,
+  TournamentDataSchema,
+  SetPlayerAliasSchema,
+  JoinTournamentMatchSchema,
+  AcceptPongInvitationSchema,
+  PongInvitationNotificationSchema,
 } from "../pong/pong_interfaces.js";
 
 export const defaultResponses: Record<number, z.ZodType | null> = {
@@ -636,6 +643,122 @@ export const user_url = defineRoutes({
             },
             AlreadyReady: {
               code: 3,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      createLobby: {
+        funcId: "create_pong_lobby",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: CreateLobbySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            LobbyCreated: {
+              code: 0,
+              payload: LobbyDataSchema,
+            },
+            InvalidInput: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            Failed: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      togglePlayerReady: {
+        funcId: "toggle_player_ready_in_lobby",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ lobbyId: gameIdValue }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            LobbyUpdate: {
+              code: 0,
+              payload: LobbyDataSchema,
+            },
+            NotInLobby: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      startFromLobby: {
+        funcId: "start_game_from_lobby",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ lobbyId: gameIdValue }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            GameStarted: {
+              code: 0,
+              payload: GameStateSchema,
+            },
+            NotAllReady: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NotHost: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      setTournamentAlias: {
+        funcId: "set_tournament_alias",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: SetPlayerAliasSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            AliasSet: {
+              code: 0,
+              payload: TournamentDataSchema,
+            },
+            InvalidAlias: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NotInTournament: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      joinTournamentMatch: {
+        funcId: "join_tournament_match",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: JoinTournamentMatchSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            MatchStarted: {
+              code: 0,
+              payload: GameStateSchema,
+            },
+            MatchNotReady: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NotYourMatch: {
+              code: 2,
               payload: ErrorResponse,
             },
           },

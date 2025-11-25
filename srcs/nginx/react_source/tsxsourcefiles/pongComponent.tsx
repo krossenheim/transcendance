@@ -12,11 +12,35 @@ import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 import type { AuthResponseType } from "@/types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
+import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
+import PongLobby, { type PongLobbyData, type LobbyPlayer } from "./pongLobby"
+import TournamentBracket, { type TournamentData, type TournamentMatch } from "./tournamentBracket"
+import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications"
 
 // =========================
 // Component
 // =========================
-export default function PongComponent({ authResponse, darkMode = true }: { authResponse: AuthResponseType | null; darkMode?: boolean }) {
+export default function PongComponent({ 
+  authResponse, 
+  darkMode = true,
+  showInviteModal = false,
+  inviteRoomUsers = [],
+  onCloseInviteModal,
+  pongInvitations,
+  setPongInvitations,
+  acceptedLobbyId,
+  onLobbyJoined
+}: { 
+  authResponse: AuthResponseType | null
+  darkMode?: boolean
+  pongInvitations: PongInvitation[]
+  setPongInvitations: React.Dispatch<React.SetStateAction<PongInvitation[]>>
+  showInviteModal?: boolean
+  inviteRoomUsers?: Array<{ id: number; username: string; onlineStatus?: number }>
+  onCloseInviteModal?: () => void
+  acceptedLobbyId?: number | null
+  onLobbyJoined?: () => void
+}) {
   const { socket, payloadReceived } = useWebSocket()
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] = useState<TypePlayerReadyForGameSchema | null>(null)
   const [gameSelectedInput, setGameSelectedInput] = useState<number>(1)
@@ -26,6 +50,13 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
   const [lastCreatedBoardId, setLastCreatedBoardId] = useState<number | null>(null)
+
+  // New state for lobby and tournament
+  const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
+  const [lobby, setLobby] = useState<PongLobbyData | null>(null)
+  const [tournament, setTournament] = useState<TournamentData | null>(null)
+  const [showInviteModalLocal, setShowInviteModalLocal] = useState(false)
+  // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
   // Cleanup polling on unmount (in case any leftover intervals exist)
   useEffect(() => {
@@ -73,7 +104,7 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
   }, [socket]);
 
   // =========================
-  // Handle incoming GameState
+  // Handle incoming GameState and Lobby updates
   // =========================
 
   const aPlayerHasReadied = useCallback(
@@ -84,6 +115,148 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
     },
     [latestPlayerReadyPayload],
   )
+
+  // Handle incoming pong invitations and lobby updates
+  useEffect(() => {
+    if (!payloadReceived) return
+    
+    // Debug: Log all pong-related messages
+    if (payloadReceived.funcId === 'create_pong_lobby' || payloadReceived.funcId === 'pong_lobby_invitation' || payloadReceived.funcId === 'lobby_state_update') {
+      console.log("[Pong] DEBUG: Received message:", JSON.stringify(payloadReceived))
+    }
+    
+    if (payloadReceived.source_container !== 'pong') {
+      if (payloadReceived.funcId === 'create_pong_lobby') {
+        console.log("[Pong] DEBUG: create_pong_lobby filtered out! source_container:", payloadReceived.source_container)
+      }
+      return
+    }
+
+    // Handle lobby creation (used as invitation for non-host players)
+    if (payloadReceived.funcId === 'create_pong_lobby' && payloadReceived.code === 0) {
+      console.log("[Pong] Received lobby creation/invitation:", payloadReceived.payload)
+      
+      // Check if we're the host (we created this)
+      const isHost = authResponse && payloadReceived.payload.players?.some((p: any) => 
+        (p.userId === authResponse.user.id || p.id === authResponse.user.id) && p.isHost
+      )
+      
+      console.log("[Pong] isHost check: myId=", authResponse?.user.id, "isHost=", isHost, "players=", payloadReceived.payload.players)
+      
+      // Note: Invitation notifications are now handled by PongInvitationHandler in AppRoot
+      // This handler only sets up the lobby for the host
+      if (isHost) {
+        // We're the host - go directly to lobby
+        setLobby({
+          lobbyId: payloadReceived.payload.lobbyId,
+          gameMode: payloadReceived.payload.gameMode,
+          players: payloadReceived.payload.players.map((p: any) => ({
+            id: p.userId || p.id,
+            username: p.username,
+            isReady: p.isReady,
+            isHost: p.isHost,
+          })),
+          settings: {
+            ballCount: payloadReceived.payload.ballCount,
+            maxScore: payloadReceived.payload.maxScore,
+            allowPowerups: payloadReceived.payload.allowPowerups,
+          },
+          status: payloadReceived.payload.status,
+        })
+        setCurrentView("lobby")
+      }
+    }
+
+    // Handle lobby invitation (legacy support)
+    if (payloadReceived.funcId === 'pong_lobby_invitation') {
+      console.log("[Pong] Received lobby invitation:", payloadReceived.payload)
+      const invitation: PongInvitation = {
+        inviteId: payloadReceived.payload.lobbyId || Date.now(),
+        lobbyId: payloadReceived.payload.lobbyId,
+        hostId: payloadReceived.payload.hostId,
+        hostUsername: payloadReceived.payload.hostUsername || `User ${payloadReceived.payload.hostId}`,
+        gameMode: payloadReceived.payload.gameMode,
+        playerCount: payloadReceived.payload.playerCount || 0,
+        timestamp: Date.now(),
+      }
+      setPongInvitations((prev) => [...prev, invitation])
+    }
+
+    // Handle toggle ready response and lobby state updates
+    if ((payloadReceived.funcId === 'toggle_player_ready_in_lobby' && payloadReceived.code === 0) ||
+        payloadReceived.funcId === 'lobby_state_update') {
+      console.log("[Pong] Received lobby update:", payloadReceived.funcId, payloadReceived.payload)
+      const lobbyData = payloadReceived.payload
+      
+      if (authResponse && lobbyData.players.some((p: any) => (p.userId === authResponse.user.id || p.id === authResponse.user.id))) {
+        setLobby({
+          lobbyId: lobbyData.lobbyId,
+          gameMode: lobbyData.gameMode,
+          players: lobbyData.players.map((p: any) => ({
+            id: p.userId || p.id,
+            username: p.username,
+            isReady: p.isReady,
+            isHost: p.isHost,
+          })),
+          settings: {
+            ballCount: lobbyData.ballCount,
+            maxScore: lobbyData.maxScore,
+            allowPowerups: lobbyData.allowPowerups,
+          },
+          status: lobbyData.status,
+        })
+        
+        // If we're not in lobby view, switch to it
+        if (currentView === "menu") {
+          setCurrentView("lobby")
+        }
+      }
+    }
+
+    // Handle game start from lobby - sent to all players
+    if (payloadReceived.funcId === 'start_game_from_lobby' && payloadReceived.code === 0) {
+      console.log("[Pong] Game started from lobby! Received game state:", payloadReceived.payload)
+      const gameState = payloadReceived.payload
+      
+      // Set up the game for all players
+      setPlayerIDsHelper(gameState)
+      setGameState(gameState)
+      setCurrentView("game")
+      setLobby(null) // Clear lobby state
+      console.log("[Pong] Transitioned to game view")
+    }
+  }, [payloadReceived, authResponse, currentView])
+
+  // Handle accepted invitation from AppRoot
+  useEffect(() => {
+    if (!acceptedLobbyId || !payloadReceived) return
+    
+    // When user accepts invitation, look for the lobby data in the most recent create_pong_lobby message
+    if (payloadReceived.funcId === 'create_pong_lobby' && 
+        payloadReceived.code === 0 && 
+        payloadReceived.payload.lobbyId === acceptedLobbyId) {
+      
+      console.log("[Pong] Setting up lobby from accepted invitation:", acceptedLobbyId)
+      setLobby({
+        lobbyId: payloadReceived.payload.lobbyId,
+        gameMode: payloadReceived.payload.gameMode,
+        players: payloadReceived.payload.players.map((p: any) => ({
+          id: p.userId || p.id,
+          username: p.username,
+          isReady: p.isReady,
+          isHost: p.isHost,
+        })),
+        settings: {
+          ballCount: payloadReceived.payload.ballCount,
+          maxScore: payloadReceived.payload.maxScore,
+          allowPowerups: payloadReceived.payload.allowPowerups,
+        },
+        status: payloadReceived.payload.status,
+      })
+      setCurrentView("lobby")
+      if (onLobbyJoined) onLobbyJoined()
+    }
+  }, [acceptedLobbyId, payloadReceived, onLobbyJoined])
 
   const setPlayerIDsHelper = useCallback(
     (game_data: TypeGameStateSchema) => {
@@ -349,106 +522,319 @@ export default function PongComponent({ authResponse, darkMode = true }: { authR
     [handleUserInput],
   )
 
+  // Handler for creating a game from invite modal
+  const handleCreateGame = useCallback(
+    (mode: GameMode, selectedPlayers: number[], settings: GameSettings) => {
+      console.log("[Pong] Creating game:", { mode, selectedPlayers, settings })
+      
+      // Create a lobby for this game
+      const newLobby: PongLobbyData = {
+        lobbyId: Date.now(), // Temporary ID until backend assigns one
+        gameMode: mode,
+        players: selectedPlayers.map((id) => ({
+          id,
+          username: inviteRoomUsers.find((u) => u.id === id)?.username || `User ${id}`,
+          isReady: false,
+          isHost: id === authResponse?.user?.id,
+        })),
+        settings: {
+          ballCount: settings.ballCount,
+          maxScore: settings.maxScore,
+          allowPowerups: settings.allowPowerups,
+        },
+        status: "waiting",
+      }
+
+      setLobby(newLobby)
+      
+      // Send lobby creation to backend to notify all players
+      const payload = {
+        funcId: "create_pong_lobby",
+        payload: {
+          gameMode: mode,
+          playerIds: selectedPlayers,
+          ballCount: settings.ballCount,
+          maxScore: settings.maxScore,
+          allowPowerups: settings.allowPowerups,
+        },
+        target_container: "pong",
+      }
+      
+      if (socket.current?.readyState === WebSocket.OPEN) {
+        socket.current.send(JSON.stringify(payload))
+        console.log("[Pong] Sent lobby creation to backend:", payload)
+      }
+      
+      // If it's a tournament, also set up tournament data
+      if (mode === "tournament_1v1" || mode === "tournament_multi") {
+        const newTournament: TournamentData = {
+          tournamentId: Date.now(),
+          name: `${mode === "tournament_1v1" ? "1v1" : "Multiplayer"} Tournament`,
+          mode: mode,
+          players: selectedPlayers.map((id) => ({
+            id,
+            username: inviteRoomUsers.find((u) => u.id === id)?.username || `User ${id}`,
+          })),
+          matches: [], // Will be generated when all players enter aliases
+          currentRound: 1,
+          totalRounds: Math.ceil(Math.log2(selectedPlayers.length)),
+          status: "registration",
+          winner: null,
+        }
+        setTournament(newTournament)
+        setCurrentView("tournament")
+      } else {
+        setCurrentView("lobby")
+      }
+      
+      setShowInviteModalLocal(false)
+      onCloseInviteModal?.()
+    },
+    [authResponse, inviteRoomUsers, onCloseInviteModal]
+  )
+
+  // Handler for toggling ready state in lobby
+  const handleToggleReady = useCallback(() => {
+    if (!lobby || !authResponse) return
+    
+    console.log("[Pong] Toggling ready state for lobby:", lobby.lobbyId)
+    
+    // Send toggle ready to backend
+    const payload = {
+      lobbyId: lobby.lobbyId,
+    }
+    
+    if (socket.current?.readyState === WebSocket.OPEN) {
+      socket.current.send(JSON.stringify({
+        funcId: "toggle_player_ready_in_lobby",
+        payload: payload,
+        target_container: "pong",
+      }))
+      console.log("[Pong] Sent toggle ready to backend")
+    } else {
+      console.warn("[Pong] WebSocket not open, cannot toggle ready")
+    }
+  }, [lobby, authResponse, socket])
+
+  // Handler for starting game from lobby
+  const handleStartGameFromLobby = useCallback(() => {
+    if (!lobby || !authResponse) return
+    
+    console.log("[Pong] Starting game from lobby:", lobby.lobbyId)
+    
+    // Send start game request to backend with lobby ID
+    const payload = {
+      lobbyId: lobby.lobbyId,
+    }
+    
+    if (socket.current?.readyState === WebSocket.OPEN) {
+      socket.current.send(JSON.stringify({
+        funcId: "start_game_from_lobby",
+        payload: payload,
+        target_container: "pong",
+      }))
+      console.log("[Pong] Sent start game from lobby to backend")
+      setLobby({ ...lobby, status: "starting" })
+    } else {
+      console.warn("[Pong] WebSocket not open, cannot start game")
+    }
+  }, [lobby, authResponse, socket])
+
+  // Handler for leaving lobby
+  const handleLeaveLobby = useCallback(() => {
+    setLobby(null)
+    setTournament(null)
+    setCurrentView("menu")
+  }, [])
+
+  // Tournament handlers
+  const handleEnterAlias = useCallback(
+    (alias: string) => {
+      if (!tournament || !authResponse) return
+      
+      setTournament({
+        ...tournament,
+        players: tournament.players.map((p) =>
+          p.id === authResponse.user.id ? { ...p, alias } : p
+        ),
+      })
+    },
+    [tournament, authResponse]
+  )
+
+  const handleJoinTournamentMatch = useCallback(
+    (matchId: number) => {
+      console.log("[Pong] Joining tournament match:", matchId)
+      // TODO: Send to backend to start this specific match
+    },
+    []
+  )
+
+  // Handle accepting pong invitation
+  const handleAcceptInvitation = useCallback(
+    (inviteId: number) => {
+      console.log("[Pong] Accepting invitation:", inviteId)
+      const invitation = pongInvitations.find((inv) => inv.inviteId === inviteId)
+      if (!invitation) return
+
+      // Remove invitation from list
+      setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId))
+      
+      // Switch to lobby view - the lobby data is already received from create_lobby message
+      setCurrentView("lobby")
+    },
+    [pongInvitations]
+  )
+
+  // Handle declining pong invitation
+  const handleDeclineInvitation = useCallback(
+    (inviteId: number) => {
+      console.log("[Pong] Declining invitation:", inviteId)
+      // Just remove from list - backend will handle timeout
+      setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId))
+    },
+    []
+  )
+
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 dark:bg-dark-600 p-4 space-y-4">
-      <div className="w-full flex-1 min-h-[500px] rounded-2xl shadow-lg border border-gray-800 bg-black overflow-hidden">
-        <BabylonPongRenderer gameState={gameState} darkMode={darkMode} />
-      </div>
+      {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
-      {!gameState && (
-        <div className="text-sm text-gray-600 dark:text-gray-300">Waiting for game state...</div>
+      {/* Main Menu */}
+      {currentView === "menu" && (
+        <div className="w-full max-w-2xl space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">🏓 Pong</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              Play classic Pong against other players in various game modes
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowInviteModalLocal(true)}
+                className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+              >
+                🎮 Create Game
+              </button>
+              <button
+                onClick={() => {
+                  // Quick solo play for testing
+                  if (authResponse) {
+                    const payload: TypeStartNewPongGame = {
+                      player_list: [authResponse.user.id],
+                      balls: 1,
+                    }
+                    handleUserInput(user_url.ws.pong.startGame, payload)
+                    setCurrentView("game")
+                  }
+                }}
+                className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+              >
+                🤖 Quick Play (Solo)
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Debug overlay: visible, always-on button to start a game (helps diagnose missing buttons) */}
-      <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 9999 }}>
-        <button
-          onClick={() => {
-            console.log("[Pong][DEBUG] Overlay Start Game clicked")
-            const ids = playerListInput
-              .split(",")
-              .map((x) => Number.parseInt(x.trim(), 10))
-              .filter((x) => !isNaN(x))
-            const payload: TypeStartNewPongGame = { player_list: ids, balls: ballInput }
-            handleUserInput(user_url.ws.pong.startGame, payload)
-          }}
-          style={{ backgroundColor: "#2563eb", color: "white", padding: "8px 12px", borderRadius: 8 }}
-        >
-          DEBUG: Start Game
-        </button>
-        {lastCreatedBoardId !== null && (
-          <div style={{ marginTop: 8 }}>
-            <button
-              onClick={() => {
-                console.log("[Pong][DEBUG] Overlay Declare Ready clicked, board:", lastCreatedBoardId)
-                const payload = { game_id: lastCreatedBoardId }
-                handleUserInput(user_url.ws.pong.userReportsReady, payload)
-              }}
-              style={{ backgroundColor: "#059669", color: "white", padding: "8px 12px", borderRadius: 8 }}
-            >
-              DEBUG: Declare Ready
-            </button>
-          </div>
-        )}
-        <div style={{ marginTop: 8 }}>
+      {/* Lobby View */}
+      {currentView === "lobby" && lobby && authResponse && (
+        <div className="w-full max-w-2xl">
+          <PongLobby
+            lobby={lobby}
+            currentUserId={authResponse.user.id}
+            onToggleReady={handleToggleReady}
+            onStartGame={handleStartGameFromLobby}
+            onLeaveLobby={handleLeaveLobby}
+          />
+        </div>
+      )}
+
+      {/* Tournament View */}
+      {currentView === "tournament" && tournament && authResponse && (
+        <div className="w-full max-w-6xl overflow-x-auto">
+          <TournamentBracket
+            tournament={tournament}
+            currentUserId={authResponse.user.id}
+            onEnterAlias={handleEnterAlias}
+            onJoinMatch={handleJoinTournamentMatch}
+          />
           <button
-            onClick={() => {
-              console.log("[Pong][DEBUG] Start Solo & Ready clicked")
-              if (!authResponse) {
-                console.warn("[Pong][DEBUG] No authResponse, cannot start solo game")
-                return
-              }
-              const myId = authResponse.user?.id
-              if (!myId) {
-                console.warn("[Pong][DEBUG] authResponse has no user id")
-                return
-              }
-              const payload: TypeStartNewPongGame = { player_list: [myId], balls: ballInput }
-              handleUserInput(user_url.ws.pong.startGame, payload)
-              // after we get start_game reply, polling will request game state; also auto-ready when board id known
-            }}
-            style={{ backgroundColor: "#f59e0b", color: "white", padding: "8px 12px", borderRadius: 8 }}
+            onClick={handleLeaveLobby}
+            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
           >
-            DEBUG: Start Solo & Ready
+            Leave Tournament
           </button>
         </div>
-      </div>
+      )}
 
-      <div className="flex space-x-2">
-        <input
-          type="text"
-          value={playerListInput}
-          onChange={(e) => setPlayerListInput(e.target.value)}
-          className="border rounded px-2 py-1 w-64"
-          placeholder="Enter player IDs (e.g. 4,5,6,7,8)"
-        />
-        <input
-          type="text"
-          value={ballInput}
-          onChange={(e) => setBallInput(Number(e.target.value))}
-          className="border rounded px-2 py-1 w-64"
-          placeholder="Number of balls"
-        />
-        <button onClick={handleStartGameClick} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-          Start Game
-        </button>
-      </div>
-      <div className="flex bg-green-300 space-x-2">
-        <input
-          type="text"
-          value={gameSelectedInput}
-          onChange={(e) => setGameSelectedInput(Number(e.target.value))}
-          className="border rounded px-2 py-1 w-64"
-          placeholder="Game ID"
-        />
-        <button
-          onClick={() => {
-            handleDeclareReadyClick(gameSelectedInput)
-          }}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Declare Ready
-        </button>
-      </div>
+      {/* Game View */}
+      {currentView === "game" && (
+        <>
+          <div className="w-full flex-1 min-h-[500px] rounded-2xl shadow-lg border border-gray-800 bg-black overflow-hidden">
+            <BabylonPongRenderer gameState={gameState} darkMode={darkMode} />
+          </div>
+
+          {!gameState && (
+            <div className="text-sm text-gray-600 dark:text-gray-300">Waiting for game state...</div>
+          )}
+
+          <button
+            onClick={() => {
+              setCurrentView("menu")
+              setGameState(null)
+            }}
+            className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          >
+            Leave Game
+          </button>
+        </>
+      )}
+
+      {/* Invite Modal */}
+      <PongInviteModal
+        isOpen={showInviteModal || showInviteModalLocal}
+        onClose={() => {
+          setShowInviteModalLocal(false)
+          onCloseInviteModal?.()
+        }}
+        roomUsers={inviteRoomUsers}
+        currentUserId={authResponse?.user?.id || 0}
+        onCreateGame={handleCreateGame}
+      />
+
+      {/* Debug overlay - only show in game view */}
+      {currentView === "game" && (
+        <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 9999 }}>
+          <button
+            onClick={() => {
+              console.log("[Pong][DEBUG] Overlay Start Game clicked")
+              const ids = playerListInput
+                .split(",")
+                .map((x) => Number.parseInt(x.trim(), 10))
+                .filter((x) => !isNaN(x))
+              const payload: TypeStartNewPongGame = { player_list: ids, balls: ballInput }
+              handleUserInput(user_url.ws.pong.startGame, payload)
+            }}
+            style={{ backgroundColor: "#2563eb", color: "white", padding: "8px 12px", borderRadius: 8 }}
+          >
+            DEBUG: Start Game
+          </button>
+          {lastCreatedBoardId !== null && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={() => {
+                  console.log("[Pong][DEBUG] Overlay Declare Ready clicked, board:", lastCreatedBoardId)
+                  const payload = { game_id: lastCreatedBoardId }
+                  handleUserInput(user_url.ws.pong.userReportsReady, payload)
+                }}
+                style={{ backgroundColor: "#059669", color: "white", padding: "8px 12px", borderRadius: 8 }}
+              >
+                DEBUG: Declare Ready
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

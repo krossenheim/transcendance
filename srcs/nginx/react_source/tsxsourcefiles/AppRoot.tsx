@@ -12,6 +12,8 @@ import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
 import UserMenu from "./userMenu";
+import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications";
+import PongInvitationHandler from "./pongInvitationHandler";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
@@ -22,6 +24,15 @@ export default function AppRoot() {
     }
     return false;
   });
+  const [showPongInviteModal, setShowPongInviteModal] = useState(false);
+  const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
+  const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
+  const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
+
+  // Debug: Log invitation state changes
+  useEffect(() => {
+    console.log("[AppRoot] pongInvitations updated:", pongInvitations);
+  }, [pongInvitations]);
 
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode;
@@ -245,6 +256,30 @@ export default function AppRoot() {
         {authResponse ? (
           <FriendshipProvider>
             <SocketComponent AuthResponseObject={authResponse} showToast={showToast}>
+              {/* Global Pong Invitation Handler */}
+              <PongInvitationHandler 
+                authResponse={authResponse}
+                setPongInvitations={setPongInvitations}
+              />
+              
+              {/* Global Pong Invitation Notifications */}
+              <PongInviteNotifications
+                invitations={pongInvitations}
+                onAccept={(inviteId) => {
+                  console.log("[AppRoot] Accepting invitation:", inviteId);
+                  const invitation = pongInvitations.find(inv => inv.inviteId === inviteId);
+                  if (invitation) {
+                    setAcceptedLobbyId(invitation.lobbyId);
+                  }
+                  setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
+                  setCurrentPage('pong'); // Switch to pong page
+                }}
+                onDecline={(inviteId) => {
+                  console.log("[AppRoot] Declining invitation:", inviteId);
+                  setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
+                }}
+              />
+              
               <div className="flex flex-col h-screen">
                 <header className="bg-white dark:bg-dark-800 shadow dark:shadow-dark-700">
                   <div className="max-w-5xl mx-auto px-4 py-4">
@@ -300,13 +335,34 @@ export default function AppRoot() {
                           // CHAT PAGE — only inner content scrolls
                           <div className="p-6 h-full flex flex-col">
                             <div className="flex-1 overflow-hidden">
-                              <ChatInputComponent selfUserId={authResponse.user.id} showToast={showToast} />
+                              <ChatInputComponent 
+                                selfUserId={authResponse.user.id} 
+                                showToast={showToast}
+                                onOpenPongInvite={(roomUsers) => {
+                                  setPongInviteRoomUsers(roomUsers);
+                                  setShowPongInviteModal(true);
+                                  setCurrentPage('pong'); // Switch to pong page
+                                }}
+                              />
                             </div>
                           </div>
                         ) : (
                           // PONG PAGE — no scroll
                           <div className="p-6 h-full flex">
-                            <PongComponent authResponse={authResponse} darkMode={darkMode} />
+                            <PongComponent 
+                              authResponse={authResponse} 
+                              darkMode={darkMode}
+                              showInviteModal={showPongInviteModal}
+                              inviteRoomUsers={pongInviteRoomUsers}
+                              onCloseInviteModal={() => {
+                                setShowPongInviteModal(false);
+                                setPongInviteRoomUsers([]);
+                              }}
+                              pongInvitations={pongInvitations}
+                              setPongInvitations={setPongInvitations}
+                              acceptedLobbyId={acceptedLobbyId}
+                              onLobbyJoined={() => setAcceptedLobbyId(null)}
+                            />
                           </div>
                         )}
 
