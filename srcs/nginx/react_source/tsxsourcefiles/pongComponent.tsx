@@ -29,7 +29,8 @@ export default function PongComponent({
   pongInvitations,
   setPongInvitations,
   acceptedLobbyId,
-  onLobbyJoined
+  onLobbyJoined,
+  onNavigateToChat
 }: { 
   authResponse: AuthResponseType | null
   darkMode?: boolean
@@ -40,6 +41,7 @@ export default function PongComponent({
   onCloseInviteModal?: () => void
   acceptedLobbyId?: number | null
   onLobbyJoined?: () => void
+  onNavigateToChat?: () => void
 }) {
   const { socket, payloadReceived } = useWebSocket()
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] = useState<TypePlayerReadyForGameSchema | null>(null)
@@ -681,8 +683,13 @@ export default function PongComponent({
     }
     setLobby(null)
     setTournament(null)
-    setCurrentView("menu")
-  }, [lobby, socket])
+    // Navigate back to chat page
+    if (onNavigateToChat) {
+      onNavigateToChat()
+    } else {
+      setCurrentView("menu")
+    }
+  }, [lobby, socket, onNavigateToChat])
 
   // Tournament handlers
   const handleEnterAlias = useCallback(

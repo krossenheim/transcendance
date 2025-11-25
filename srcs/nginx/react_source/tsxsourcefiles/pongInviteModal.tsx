@@ -56,8 +56,13 @@ export default function PongInviteModal({
       return
     }
 
-    if ((gameMode === "multiplayer" || gameMode === "tournament_multi") && players.length < 2) {
-      alert("Multiplayer modes require at least 2 players")
+    if (gameMode === "tournament_multi" && players.length < 4) {
+      alert("Multiplayer tournament requires at least 4 players")
+      return
+    }
+
+    if (gameMode === "multiplayer" && players.length < 2) {
+      alert("Multiplayer mode requires at least 2 players")
       return
     }
 

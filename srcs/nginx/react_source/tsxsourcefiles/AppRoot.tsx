@@ -402,6 +402,7 @@ export default function AppRoot() {
                               setPongInvitations={setPongInvitations}
                               acceptedLobbyId={acceptedLobbyId}
                               onLobbyJoined={() => setAcceptedLobbyId(null)}
+                              onNavigateToChat={() => setCurrentPage('chat')}
                             />
                           </div>
                         )}

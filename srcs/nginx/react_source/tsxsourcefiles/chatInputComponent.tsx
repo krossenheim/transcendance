@@ -46,6 +46,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     { name: "me", description: "Send an action/emote message" },
     { name: "whisper", description: "(alias /w) Not implemented private whisper", aliases: ["w"] },
     { name: "invite", description: "Invite a user to current room" },
+    { name: "debug", description: "Send raw WebSocket message (debug)" },
     { name: "help", description: "Show available commands" },
   ]
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -1041,9 +1042,36 @@ export default function ChatInputComponent({
           }
           break
 
+        case "debug":
+          // Send raw WebSocket message for debugging
+          if (args.length === 0) {
+            if (showToast) {
+              showToast("Usage: /debug <raw JSON string>", 'error')
+            }
+            return
+          }
+          try {
+            const rawMessage = args.join(" ")
+            if (socket.current?.readyState === WebSocket.OPEN) {
+              socket.current.send(rawMessage)
+              if (showToast) {
+                showToast("Debug message sent", 'success')
+              }
+            } else {
+              if (showToast) {
+                showToast("WebSocket not connected", 'error')
+              }
+            }
+          } catch (err) {
+            if (showToast) {
+              showToast(`Error sending debug message: ${err}`, 'error')
+            }
+          }
+          break
+
         case "help":
           if (showToast) {
-            showToast("Commands: /me, /whisper, /invite, /help", 'success')
+            showToast("Commands: /me, /whisper, /invite, /debug, /help", 'success')
           }
           break
 
