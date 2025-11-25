@@ -122,6 +122,42 @@ export default function AppRoot() {
         return;
       }
 
+      // Check for OAuth tokens in URL query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const jwtFromUrl = urlParams.get('jwt');
+      const refreshFromUrl = urlParams.get('refresh');
+      
+      if (jwtFromUrl && refreshFromUrl) {
+        try {
+          // Store tokens from OAuth callback
+          localStorage.setItem("jwt", jwtFromUrl);
+          localStorage.setItem("refreshToken", refreshFromUrl);
+          
+          // Validate the JWT by fetching user data
+          const validateRes = await fetch("/public_api/auth/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: refreshFromUrl })
+          });
+          
+          if (validateRes.ok) {
+            const data = await validateRes.json();
+            if (!cancelled) {
+              persistAuthTokens(data);
+              if (data?.user) localStorage.setItem('userData', JSON.stringify(data.user));
+              setAuthResponse(data);
+            }
+            
+            // Clean up URL by removing query parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setIsAutoLoggingIn(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("OAuth token validation failed:", e);
+        }
+      }
+
       const localRefresh = localStorage.getItem("refreshToken");
       try {
         if (localRefresh) {

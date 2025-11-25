@@ -51,6 +51,7 @@ import {
   AcceptPongInvitationSchema,
   PongInvitationNotificationSchema,
 } from "../pong/pong_interfaces.js";
+import { GameResult } from "../db/gameResult.js";
 
 export const defaultResponses: Record<number, z.ZodType | null> = {
   400: ErrorResponse,
@@ -492,6 +493,25 @@ export const user_url = defineRoutes({
             Success: {
               code: 0,
               payload: z.array(Friend),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+      fetchUserGameResults: {
+        funcId: "fetch_user_game_results",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: z.array(GameResult),
             },
             Failure: {
               code: 1,
@@ -1206,6 +1226,19 @@ export const int_url = defineRoutes({
           params: GetUser,
           response: {
             200: z.array(UserConnectionStatusSchema), // Retrieved contacts
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      fetchUserGameResults: {
+        endpoint: "/internal_api/db/users/game_results/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.array(GameResult), // Retrieved game results
+            404: ErrorResponse, // User not found
             500: ErrorResponse, // Internal server error
           },
         },

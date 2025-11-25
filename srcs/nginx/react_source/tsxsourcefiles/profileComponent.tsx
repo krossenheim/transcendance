@@ -22,6 +22,7 @@ interface UserProfile {
   isFriend?: boolean
   isBlocked?: boolean
   isGuest?: boolean
+  matchHistory?: Array<{ id: number; score: number; rank: number }>
 }
 
 interface ProfileComponentProps {
@@ -46,6 +47,8 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [is2FAFlowActive, setIs2FAFlowActive] = useState(false)
   const [showSetupImmediately, setShowSetupImmediately] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [gameResults, setGameResults] = useState<Array<{ id: number; userId: number; score: number; rank: number }>>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sendToSocket = useCallback(
@@ -143,6 +146,7 @@ if (timeoutRef.current) {
           joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
           stats: backendData.stats, // Pass through if exists
           isGuest: backendData.accountType === 1,
+          matchHistory: [],
         }
         
         console.log("[v0] Transformed profile:", transformedProfile)
@@ -178,6 +182,17 @@ if (timeoutRef.current) {
           const errorMsg = payloadReceived.payload?.message || payloadReceived.payload?.error || 'Failed to send friend request'
           showToast(errorMsg, 'error')
         }
+      }
+    }
+    if (payloadReceived.funcId === user_url.ws.users.fetchUserGameResults.funcId) {
+      if (payloadReceived.code === 0) {
+        const results = Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
+        setGameResults(results)
+        // Derive stats
+        const gamesPlayed = results.length
+        const wins = results.filter(r => r.rank === 1).length
+        const losses = gamesPlayed - wins
+        setProfile(prev => prev ? { ...prev, stats: { gamesPlayed, wins, losses }, matchHistory: results.map(r => ({ id: r.id, score: r.score, rank: r.rank })) } : prev)
       }
     }
   }, [payloadReceived, showToast])
@@ -321,6 +336,16 @@ useEffect(() => {
   }
 
   const handleAddFriend = () => {
+      const requestHistory = () => {
+        if (!userId) return
+        const toSend = {
+          funcId: user_url.ws.users.fetchUserGameResults.funcId,
+          payload: userId,
+          target_container: "users",
+        }
+        sendMessage(toSend)
+        setShowHistory(true)
+      }
     if (!userId) return
     console.log("[ProfileComponent] Sending friend request to userId:", userId)
     sendToSocket(user_url.ws.users.requestFriendship.funcId, userId)
@@ -558,6 +583,23 @@ useEffect(() => {
                       <div className="text-xs text-gray-500 dark:text-gray-400">Losses</div>
                     </div>
                   </div>
+                  <div className="mt-3 flex justify-center">
+                    <button onClick={requestHistory} className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">View Match History</button>
+                  </div>
+                  {showHistory && (
+                    <div className="mt-4 space-y-2">
+                      <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Recent Matches</h5>
+                      {gameResults.slice(0,5).map(r => (
+                        <div key={r.id} className="flex justify-between text-[11px] bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
+                          <span>#{r.id} • Score {r.score}</span>
+                          <span className={r.rank === 1 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{r.rank === 1 ? "Win" : "Loss"}</span>
+                        </div>
+                      ))}
+                      {gameResults.length > 5 && (
+                        <div className="text-center text-[10px] text-gray-500 dark:text-gray-400">Showing 5 of {gameResults.length}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
