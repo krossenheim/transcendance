@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWebSocket } from './socketComponent'
 import { user_url } from '../../../nodejs_base_image/utils/api/service/common/endpoints'
+import { getUserColorCSS } from './userColorUtils'
 
 interface FriendsManagerProps {
   isOpen: boolean
@@ -27,6 +28,18 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
   const [activeTab, setActiveTab] = useState<Tab>('Friends')
   const [connections, setConnections] = useState<ConnectionItem[]>([])
   const [loading, setLoading] = useState(false)
+  
+  // Get current user ID from JWT
+  const [selfUserId, setSelfUserId] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    try {
+      const jwt = localStorage.getItem('jwt')
+      if (jwt) {
+        const payload = JSON.parse(atob(jwt.split('.')[1]))
+        if (typeof payload.uid === 'number') setSelfUserId(payload.uid)
+      }
+    } catch {}
+  }, [])
 
   const sendToSocket = useCallback((funcId: string, payload: any) => {
     const toSend = { funcId, payload, target_container: 'users' }
@@ -145,15 +158,19 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
             <div className="p-6 text-center text-gray-500 dark:text-gray-400">Loading...</div>
           ) : (
             <div className="space-y-2">
-              {(activeTab === 'Friends' ? friends : activeTab === 'Blocked' ? blocked : pending).map((item) => (
-                <div key={`${item.id}-${item.status}`} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded">
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">{item.username}</div>
-                    {item.alias && <div className="text-xs text-gray-500 dark:text-gray-400">{item.alias}</div>}
+              {(activeTab === 'Friends' ? friends : activeTab === 'Blocked' ? blocked : pending).map((item) => {
+                // Determine the correct user ID for coloring: use id if friendId matches self, otherwise use friendId
+                const displayUserId = (selfUserId !== null && item.friendId === selfUserId) ? item.id : item.friendId
+                return (
+                  <div key={`${item.id}-${item.status}`} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded">
+                    <div>
+                      <div className="font-medium" style={{ color: getUserColorCSS(displayUserId, true) }}>{item.username}</div>
+                      {item.alias && <div className="text-xs" style={{ color: getUserColorCSS(displayUserId, true), opacity: 0.8 }}>{item.alias}</div>}
+                    </div>
+                    <ActionButtons item={item} />
                   </div>
-                  <ActionButtons item={item} />
-                </div>
-              ))}
+                )
+              })}
               {(activeTab === 'Friends' && friends.length === 0) && (
                 <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No friends yet</div>
               )}

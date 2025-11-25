@@ -68,6 +68,27 @@ export default function PongComponent({
     }
   }, [])
 
+  // Cleanup: Leave lobby when component unmounts (user navigates away)
+  // Use ref to track current lobby without causing re-renders
+  const lobbyRef = useRef(lobby)
+  useEffect(() => {
+    lobbyRef.current = lobby
+  }, [lobby])
+
+  useEffect(() => {
+    // Only run cleanup on actual unmount
+    return () => {
+      if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
+        console.log("[Pong] Component unmounting, leaving lobby:", lobbyRef.current.lobbyId)
+        socket.current.send(JSON.stringify({
+          funcId: "leave_pong_lobby",
+          payload: { lobbyId: lobbyRef.current.lobbyId },
+          target_container: "pong",
+        }))
+      }
+    }
+  }, [])
+
   // =========================
   // Fetch game state on mount
   // =========================
@@ -229,34 +250,34 @@ export default function PongComponent({
 
   // Handle accepted invitation from AppRoot
   useEffect(() => {
-    if (!acceptedLobbyId || !payloadReceived) return
+    if (!acceptedLobbyId) return
     
-    // When user accepts invitation, look for the lobby data in the most recent create_pong_lobby message
-    if (payloadReceived.funcId === 'create_pong_lobby' && 
-        payloadReceived.code === 0 && 
-        payloadReceived.payload.lobbyId === acceptedLobbyId) {
-      
-      console.log("[Pong] Setting up lobby from accepted invitation:", acceptedLobbyId)
+    // Check if we have stored lobby data (from invitation via window)
+    const storedLobbyData = (window as any).__acceptedLobbyData
+    if (storedLobbyData && storedLobbyData.lobbyId === acceptedLobbyId) {
+      console.log("[Pong] Setting up lobby from stored invitation data:", acceptedLobbyId)
       setLobby({
-        lobbyId: payloadReceived.payload.lobbyId,
-        gameMode: payloadReceived.payload.gameMode,
-        players: payloadReceived.payload.players.map((p: any) => ({
+        lobbyId: storedLobbyData.lobbyId,
+        gameMode: storedLobbyData.gameMode,
+        players: storedLobbyData.players.map((p: any) => ({
           id: p.userId || p.id,
           username: p.username,
           isReady: p.isReady,
           isHost: p.isHost,
         })),
         settings: {
-          ballCount: payloadReceived.payload.ballCount,
-          maxScore: payloadReceived.payload.maxScore,
-          allowPowerups: payloadReceived.payload.allowPowerups,
+          ballCount: storedLobbyData.ballCount,
+          maxScore: storedLobbyData.maxScore,
+          allowPowerups: storedLobbyData.allowPowerups,
         },
-        status: payloadReceived.payload.status,
+        status: storedLobbyData.status,
       })
       setCurrentView("lobby")
       if (onLobbyJoined) onLobbyJoined()
+      // Clear after use
+      delete (window as any).__acceptedLobbyData
     }
-  }, [acceptedLobbyId, payloadReceived, onLobbyJoined])
+  }, [acceptedLobbyId, onLobbyJoined])
 
   const setPlayerIDsHelper = useCallback(
     (game_data: TypeGameStateSchema) => {
@@ -548,11 +569,19 @@ export default function PongComponent({
       setLobby(newLobby)
       
       // Send lobby creation to backend to notify all players
+      // Create username map
+      const playerUsernames: { [key: number]: string } = {}
+      selectedPlayers.forEach(id => {
+        const user = inviteRoomUsers.find((u) => u.id === id)
+        playerUsernames[id] = user?.username || `User ${id}`
+      })
+
       const payload = {
         funcId: "create_pong_lobby",
         payload: {
           gameMode: mode,
           playerIds: selectedPlayers,
+          playerUsernames: playerUsernames,
           ballCount: settings.ballCount,
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
@@ -642,10 +671,18 @@ export default function PongComponent({
 
   // Handler for leaving lobby
   const handleLeaveLobby = useCallback(() => {
+    if (lobby && socket.current?.readyState === WebSocket.OPEN) {
+      console.log("[Pong] Leaving lobby:", lobby.lobbyId)
+      socket.current.send(JSON.stringify({
+        funcId: "leave_pong_lobby",
+        payload: { lobbyId: lobby.lobbyId },
+        target_container: "pong",
+      }))
+    }
     setLobby(null)
     setTournament(null)
     setCurrentView("menu")
-  }, [])
+  }, [lobby, socket])
 
   // Tournament handlers
   const handleEnterAlias = useCallback(
@@ -780,8 +817,18 @@ export default function PongComponent({
 
           <button
             onClick={() => {
+              // Leave lobby if we're in one
+              if (lobby && socket.current?.readyState === WebSocket.OPEN) {
+                console.log("[Pong] Leaving lobby from game:", lobby.lobbyId)
+                socket.current.send(JSON.stringify({
+                  funcId: "leave_pong_lobby",
+                  payload: { lobbyId: lobby.lobbyId },
+                  target_container: "pong",
+                }))
+              }
               setCurrentView("menu")
               setGameState(null)
+              setLobby(null)
             }}
             className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
           >

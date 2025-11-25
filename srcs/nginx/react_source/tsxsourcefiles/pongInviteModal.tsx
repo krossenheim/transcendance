@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { getUserColorCSS } from "./userColorUtils"
 
 export type GameMode = "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi"
 
@@ -209,7 +210,12 @@ export default function PongInviteModal({
                           user.onlineStatus === 1 ? "bg-green-500" : "bg-gray-400"
                         }`}
                       />
-                      <span className="text-sm text-gray-800 dark:text-gray-200">{user.username}</span>
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: getUserColorCSS(user.id, true) }}
+                      >
+                        {user.username}
+                      </span>
                     </div>
                     {selectedPlayers.includes(user.id) && (
                       <span className="text-blue-500">✓</span>

@@ -9,6 +9,7 @@ import { useWebSocket } from "./socketComponent"
 import ProfileComponent from "./profileComponent"
 import FriendshipNotifications from "./friendshipNotifications"
 import { useFriendshipContext } from "./friendshipContext"
+import { getUserColorCSS } from "./userColorUtils"
 
 /* -------------------- ChatBox Component -------------------- */
 interface ChatBoxProps {
@@ -16,6 +17,7 @@ interface ChatBoxProps {
     user: string
     content: string
     timestamp?: string
+    userId?: number
   }>
   onSendMessage: (content: string) => void
   currentRoom: number | null
@@ -153,32 +155,36 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         {messages.length > 0 ? (
           messages
             .filter((msg) => !blockedUsers.includes(msg.user))
-            .map((msg, i) => (
-              <div key={i} className="flex justify-start">
-                <div className="px-4 py-2 rounded-2xl max-w-[70%] shadow-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-center">
-                    <span
-                      onClick={() => onOpenProfile(msg.user)}
-                      className="block text-xs font-semibold text-blue-600 mb-1 hover:underline cursor-pointer"
-                    >
-                      {msg.user}
-                    </span>
-                    <button
-                      onClick={() => onBlockUser(msg.user)}
-                      className="text-xs text-red-500 hover:underline"
-                    >
-                      {blockedUsers.includes(msg.user) ? "Unblock" : "Block"}
-                    </button>
+            .map((msg, i) => {
+              const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
+              return (
+                <div key={i} className="flex justify-start">
+                  <div className="px-4 py-2 rounded-2xl max-w-[70%] shadow-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-between items-center">
+                      <span
+                        onClick={() => onOpenProfile(msg.user)}
+                        className="block text-xs font-bold mb-1 hover:underline cursor-pointer"
+                        style={{ color: userColor }}
+                      >
+                        {msg.user}
+                      </span>
+                      <button
+                        onClick={() => onBlockUser(msg.user)}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        {blockedUsers.includes(msg.user) ? "Unblock" : "Block"}
+                      </button>
+                    </div>
+                    <p className="text-sm">{msg.content}</p>
+                    {msg.timestamp && (
+                      <span className="block text-xs text-gray-400 mt-1">
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm">{msg.content}</p>
-                  {msg.timestamp && (
-                    <span className="block text-xs text-gray-400 mt-1">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
-                  )}
                 </div>
-              </div>
-            ))
+              )
+            })
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-400 text-center text-sm italic">
@@ -196,20 +202,23 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Users ({roomUsers.length})</h3>
             </div>
             <div className="p-2 space-y-1">
-              {roomUsers.map((user) => (
-                <div
-                  key={user.id}
-                  onClick={() => onOpenProfile(user.username)}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                >
-                  <div className={`w-2 h-2 rounded-full ${
-                    user.onlineStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
-                  }`} />
-                  <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                    {user.username}
-                  </span>
-                </div>
-              ))}
+              {roomUsers.map((user) => {
+                const userColor = getUserColorCSS(user.id, true)
+                return (
+                  <div
+                    key={user.id}
+                    onClick={() => onOpenProfile(user.username)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                  >
+                    <div className={`w-2 h-2 rounded-full ${
+                      user.onlineStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
+                    }`} />
+                    <span className="text-sm font-bold truncate" style={{ color: userColor }}>
+                      {user.username}
+                    </span>
+                  </div>
+                )
+              })}
               {roomUsers.length === 0 && (
                 <div className="text-xs text-gray-400 text-center py-4">No users</div>
               )}
@@ -442,6 +451,7 @@ export default function ChatInputComponent({
         user: string
         content: string
         timestamp?: string
+        userId?: number  // Added for color mapping
       }>
     >
   >({})
@@ -586,6 +596,7 @@ export default function ChatInputComponent({
             user: resolvedUser,
             content: messagePayload.messageString,
             timestamp: timestamp,
+                      userId: messagePayload.userId,  // For color mapping
           }
           console.log("✓ Transformed message:", transformedMessage)
 
@@ -770,6 +781,7 @@ export default function ChatInputComponent({
                 user: (roomData.users && roomData.users.find((u: any) => u.id === msg.userId)?.username) || userMap[msg.userId] || `User ${msg.userId}`,
                 content: msg.messageString,
                 timestamp: new Date(msg.messageDate * 1000).toISOString(),
+                              userId: msg.userId,  // For color mapping
               }))
 
             setMessagesByRoom((prev) => ({

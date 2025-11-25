@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { getUserColorCSS } from "./userColorUtils"
 
 export interface TournamentMatch {
   matchId: number
@@ -42,14 +43,11 @@ export default function TournamentBracket({
   // Group matches by round
   const matchesByRound: Record<number, TournamentMatch[]> = {}
   tournament.matches.forEach((match) => {
-    if (!matchesByRound[match.round]) {
-      matchesByRound[match.round] = []
-    }
+    if (!matchesByRound[match.round]) matchesByRound[match.round] = []
     matchesByRound[match.round].push(match)
   })
 
   const getRoundName = (round: number) => {
-    const matchesInRound = matchesByRound[round]?.length || 0
     if (round === tournament.totalRounds) return "Finals"
     if (round === tournament.totalRounds - 1) return "Semi-Finals"
     if (round === tournament.totalRounds - 2) return "Quarter-Finals"
@@ -57,8 +55,9 @@ export default function TournamentBracket({
   }
 
   const handleAliasSubmit = () => {
-    if (aliasInput.trim()) {
-      onEnterAlias(aliasInput.trim())
+    const alias = aliasInput.trim()
+    if (alias) {
+      onEnterAlias(alias)
       setAliasInput("")
     }
   }
@@ -69,9 +68,7 @@ export default function TournamentBracket({
       <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-              🏆 {tournament.name}
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">🏆 {tournament.name}</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {tournament.mode === "tournament_1v1" ? "1v1 Tournament" : "Multiplayer Tournament"}
               {" • "}Round {tournament.currentRound} of {tournament.totalRounds}
@@ -79,8 +76,11 @@ export default function TournamentBracket({
           </div>
           {tournament.status === "completed" && tournament.winner && (
             <div className="text-right">
-              <div className="text-sm text-gray-600 dark:text-gray-400">Champion</div>
-              <div className="text-xl font-bold text-yellow-500">
+              <div className="text-xs text-gray-500">Winner</div>
+              <div
+                className="text-xl font-bold"
+                style={{ color: getUserColorCSS(tournament.winner.id, true) }}
+              >
                 👑 {tournament.winner.alias || tournament.winner.username}
               </div>
             </div>
@@ -91,9 +91,7 @@ export default function TournamentBracket({
       {/* Registration Phase - Alias Entry */}
       {tournament.status === "registration" && !currentPlayer?.alias && (
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-500 rounded-lg">
-          <h3 className="font-semibold text-blue-700 dark:text-blue-300 mb-3">
-            📝 Enter Your Tournament Alias
-          </h3>
+          <h3 className="font-semibold text-blue-700 dark:text-blue-300 mb-3">📝 Enter Your Tournament Alias</h3>
           <div className="flex gap-2">
             <input
               type="text"
@@ -101,8 +99,8 @@ export default function TournamentBracket({
               onChange={(e) => setAliasInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAliasSubmit()}
               placeholder="Enter your alias..."
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
               maxLength={20}
+              className="flex-1 border border-blue-300 dark:border-blue-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-900 dark:text-gray-100"
             />
             <button
               onClick={handleAliasSubmit}
@@ -128,12 +126,13 @@ export default function TournamentBracket({
               key={player.id}
               className="p-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-center"
             >
-              <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              <div
+                className="text-sm font-medium"
+                style={{ color: getUserColorCSS(player.id, true) }}
+              >
                 {player.alias || player.username}
               </div>
-              {player.id === currentUserId && (
-                <div className="text-xs text-blue-500">(You)</div>
-              )}
+              {player.id === currentUserId && <div className="text-xs text-blue-500">(You)</div>}
             </div>
           ))}
         </div>
@@ -175,12 +174,12 @@ export default function TournamentBracket({
                               : "bg-white dark:bg-gray-800"
                           }`}
                         >
-                          <div className="text-sm text-gray-800 dark:text-gray-200">
+                          <div className="text-sm">
                             {match.player1 ? (
-                              <>
+                              <span style={{ color: getUserColorCSS(match.player1.id, true) }}>
                                 {match.player1.alias || match.player1.username}
                                 {match.winner === match.player1.id && " 👑"}
-                              </>
+                              </span>
                             ) : (
                               <span className="text-gray-400 italic">TBD</span>
                             )}
@@ -197,12 +196,12 @@ export default function TournamentBracket({
                               : "bg-white dark:bg-gray-800"
                           }`}
                         >
-                          <div className="text-sm text-gray-800 dark:text-gray-200">
+                          <div className="text-sm">
                             {match.player2 ? (
-                              <>
+                              <span style={{ color: getUserColorCSS(match.player2.id, true) }}>
                                 {match.player2.alias || match.player2.username}
                                 {match.winner === match.player2.id && " 👑"}
-                              </>
+                              </span>
                             ) : (
                               <span className="text-gray-400 italic">TBD</span>
                             )}
@@ -213,8 +212,7 @@ export default function TournamentBracket({
                         {match.status === "pending" &&
                           match.player1 &&
                           match.player2 &&
-                          (match.player1.id === currentUserId ||
-                            match.player2.id === currentUserId) && (
+                          (match.player1.id === currentUserId || match.player2.id === currentUserId) && (
                             <button
                               onClick={() => onJoinMatch(match.matchId)}
                               className="mt-2 w-full py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -223,9 +221,7 @@ export default function TournamentBracket({
                             </button>
                           )}
                         {match.status === "in_progress" && (
-                          <div className="mt-2 text-xs text-center text-blue-500 font-semibold">
-                            🎮 In Progress...
-                          </div>
+                          <div className="mt-2 text-xs text-center text-blue-500 font-semibold">🎮 In Progress...</div>
                         )}
                       </div>
                     ))}
@@ -248,3 +244,4 @@ export default function TournamentBracket({
     </div>
   )
 }
+

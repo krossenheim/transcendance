@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState, useRef } from "react"
+import { getUserColorCSS } from "./userColorUtils"
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"
@@ -434,7 +435,7 @@ useEffect(() => {
                       className="text-2xl font-bold border-b border-gray-300 dark:border-dark-600 focus:outline-none focus:border-blue-500 bg-white dark:bg-dark-800 text-gray-900 dark:text-white"
                     />
                   ) : (
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{profile.username}</h3>
+                    <h3 className="text-2xl font-bold" style={{ color: getUserColorCSS(userId, true) }}>{profile.username}</h3>
                   )}
                   {profile.status && (
                     <span

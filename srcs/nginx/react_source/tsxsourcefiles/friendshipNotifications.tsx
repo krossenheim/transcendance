@@ -1,6 +1,7 @@
 "use client"
 
 import React, { FC, useState, useCallback } from 'react'
+import { getUserColorCSS } from './userColorUtils'
 import { useFriendshipContext } from './friendshipContext'
 
 interface FriendshipNotificationsProps {
@@ -119,7 +120,10 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({ isLoading =
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
                   >
                     <div className="flex-1 min-w-0 pr-3">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      <p
+                        className="text-sm font-bold truncate"
+                        style={{ color: getUserColorCSS(req.userId, true) }}
+                      >
                         {req.username}
                       </p>
                       {req.alias && (

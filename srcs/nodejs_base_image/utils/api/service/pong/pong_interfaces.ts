@@ -96,6 +96,7 @@ export const CreateLobbySchema = z
   .object({
     gameMode: GameModeSchema,
     playerIds: z.array(userIdValue),
+    playerUsernames: z.record(z.string(), z.string()).optional(),
     ballCount: z.coerce.number().int().min(1).max(5),
     maxScore: z.coerce.number().int().min(3).max(21),
     allowPowerups: z.boolean().optional().default(false),

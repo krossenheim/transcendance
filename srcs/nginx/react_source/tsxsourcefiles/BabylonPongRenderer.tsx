@@ -19,10 +19,16 @@ import {
 } from "@babylonjs/core"
 import earcut from "earcut"
 import type { TypeGameStateSchema } from "@/types/pong-interfaces"
+import { getUserColorBabylon, getUserColorCSS } from "./userColorUtils"
 
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
+
+// Export helper to get CSS color for a paddle ID (uses same colors as user colors)
+export function getPaddleColorCSS(paddleId: number, darkMode = true): string {
+  return getUserColorCSS(paddleId, darkMode)
+}
 
 interface BabylonPongRendererProps {
   gameState: TypeGameStateSchema | null
@@ -305,9 +311,11 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         )
 
         const mat = new StandardMaterial("paddleMat", scene)
-        // Dark mode: bright green, Light mode: darker green
-        mat.diffuseColor = darkMode ? new Color3(0, 1, 0) : new Color3(0, 0.6, 0)
-        mat.emissiveColor = darkMode ? new Color3(0, 0.4, 0) : new Color3(0, 0.2, 0)
+        // Assign color based on owner_id so it matches username color everywhere
+        const baseColor = getUserColorBabylon((p as any).owner_id ?? p.paddle_id)
+        // Dark mode: full brightness, Light mode: darker version
+        mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
+        mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
         mesh.material = mat
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)

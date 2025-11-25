@@ -270,6 +270,10 @@ export default function AppRoot() {
                   const invitation = pongInvitations.find(inv => inv.inviteId === inviteId);
                   if (invitation) {
                     setAcceptedLobbyId(invitation.lobbyId);
+                    // Store the lobby data for PongComponent to use
+                    if (invitation.lobbyData) {
+                      (window as any).__acceptedLobbyData = invitation.lobbyData;
+                    }
                   }
                   setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
                   setCurrentPage('pong'); // Switch to pong page

@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { getUserColorCSS } from "./userColorUtils"
 import type { GameMode } from "./pongInviteModal"
 
 export interface PongInvitation {
@@ -11,6 +12,7 @@ export interface PongInvitation {
   gameMode: GameMode
   playerCount: number
   timestamp: number
+  lobbyData?: any // Full lobby data for immediate setup
 }
 
 interface PongInviteNotificationsProps {
@@ -54,7 +56,13 @@ export default function PongInviteNotifications({
                 Pong Invitation
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                <span className="font-medium">{invite.hostUsername}</span> invited you to play{" "}
+                <span
+                  className="font-bold"
+                  style={{ color: getUserColorCSS(invite.hostId, true) }}
+                >
+                  {invite.hostUsername}
+                </span>{" "}
+                invited you to play{" "}
                 <span className="font-medium">{getGameModeLabel(invite.gameMode)}</span>
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">

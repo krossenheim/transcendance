@@ -49,6 +49,7 @@ export default function PongInvitationHandler({
         gameMode: payloadReceived.payload.gameMode,
         playerCount: payloadReceived.payload.players?.length || 0,
         timestamp: Date.now(),
+        lobbyData: payloadReceived.payload, // Store full lobby data
       }
       console.log("[PongInvitationHandler] Adding invitation to state:", invitation)
       setPongInvitations((prev) => [...prev, invitation])

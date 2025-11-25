@@ -35,6 +35,7 @@ export class LobbyManager {
   createLobby(
     gameMode: "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi",
     playerIds: number[],
+    playerUsernames: { [key: number]: string },
     ballCount: number,
     maxScore: number,
     allowPowerups: boolean = false
@@ -58,7 +59,7 @@ export class LobbyManager {
       gameMode,
       players: playerIds.map((userId) => ({
         userId,
-        username: `Player ${userId}`,
+        username: playerUsernames[userId] || `Player ${userId}`,
         isReady: false,
         isHost: userId === hostId,
       })),

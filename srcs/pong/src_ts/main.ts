@@ -107,7 +107,7 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (wrapper) => {
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
   const user_id = wrapper.user_id;
-  const { gameMode, playerIds, ballCount, maxScore, allowPowerups } = wrapper.payload;
+  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = wrapper.payload;
   
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
   console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}`);
@@ -116,6 +116,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
   const lobbyResult = lobbyManager.createLobby(
     gameMode,
     playerIds,
+    playerUsernames || {},
     ballCount,
     maxScore,
     allowPowerups || false
@@ -183,6 +184,72 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (wrapper) => {
       status: lobby.status,
     },
   });
+});
+
+socket.registerHandler(user_url.ws.pong.leaveLobby, async (wrapper) => {
+  const user_id = wrapper.user_id;
+  const { lobbyId } = wrapper.payload;
+  
+  const lobby = lobbyManager.getLobby(lobbyId);
+  if (!lobby) {
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.pong.leaveLobby.schema.output.NotInLobby.code,
+      payload: { message: "Lobby not found" },
+    });
+  }
+  
+  const removeResult = lobbyManager.removePlayerFromLobby(lobbyId, user_id);
+  
+  if (removeResult.isErr()) {
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.pong.leaveLobby.schema.output.NotInLobby.code,
+      payload: { message: removeResult.unwrapErr().message },
+    });
+  }
+  
+  const updatedLobby = removeResult.unwrap();
+  
+  // If lobby was deleted (empty), just notify the leaving player
+  if (updatedLobby === null) {
+    console.log(`[Pong] Lobby ${lobbyId} deleted (empty)`);
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.pong.leaveLobby.schema.output.LeftLobby.code,
+      payload: { message: "Left lobby" },
+    });
+  }
+  
+  // Notify leaving player they left
+  const leftResponse = Result.Ok({
+    recipients: [user_id],
+    code: user_url.ws.pong.leaveLobby.schema.output.LeftLobby.code,
+    payload: { message: "Left lobby" },
+  });
+  
+  // Notify remaining players of updated lobby state
+  const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
+  console.log(`[Pong] Player ${user_id} left lobby ${lobbyId}, notifying remaining players: ${JSON.stringify(remainingPlayerIds)}`);
+  
+  // Send update to remaining players
+  const updateResponse = Result.Ok({
+    recipients: remainingPlayerIds,
+    code: user_url.ws.pong.leaveLobby.schema.output.LobbyUpdate.code,
+    payload: {
+      lobbyId: updatedLobby.lobbyId,
+      gameMode: updatedLobby.gameMode,
+      players: updatedLobby.players,
+      ballCount: updatedLobby.ballCount,
+      maxScore: updatedLobby.maxScore,
+      allowPowerups: updatedLobby.allowPowerups,
+      status: updatedLobby.status,
+    },
+  });
+  
+  // TODO: Send both responses - for now, just return the left response
+  // The hub needs to support multiple responses or we need to call send manually
+  return leftResponse;
 });
 
 socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
@@ -269,6 +336,10 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
   // Get game state directly
   const gameState = game.getGameState();
   
+  // Clean up lobby now that game has started
+  console.log(`[Pong] Game ${game_id} started from lobby ${lobbyId}, removing lobby`);
+  lobbyManager.removeLobby(lobbyId);
+  
   return Result.Ok({
     recipients: playerIds,
     code: user_url.ws.pong.startFromLobby.schema.output.GameStarted.code,
@@ -285,6 +356,13 @@ socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
     const userId = wrapper.payload.userId;
     if (!userId) throw new Error("Schema not validated.");
     singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
+    
+    // Remove player from any lobby they're in
+    const playerLobby = lobbyManager.getLobbyForPlayer(userId);
+    if (playerLobby) {
+      console.log(`[Pong] User ${userId} disconnected, removing from lobby ${playerLobby.lobbyId}`);
+      lobbyManager.removePlayerFromLobby(playerLobby.lobbyId, userId);
+    }
   } else
     return Result.Err(
       `Unhandled code(${

@@ -693,6 +693,30 @@ export const user_url = defineRoutes({
         },
       },
 
+      leaveLobby: {
+        funcId: "leave_pong_lobby",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ lobbyId: gameIdValue }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            LeftLobby: {
+              code: 0,
+              payload: z.object({ message: z.string() }),
+            },
+            LobbyUpdate: {
+              code: 1,
+              payload: LobbyDataSchema,
+            },
+            NotInLobby: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       startFromLobby: {
         funcId: "start_game_from_lobby",
         container: "pong",
