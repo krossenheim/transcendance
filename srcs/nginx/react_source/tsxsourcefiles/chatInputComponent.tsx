@@ -130,19 +130,20 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   }
 
   return (
-    <div className="flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-2xl border-2 border-gray-200 dark:border-gray-700 h-[600px] overflow-hidden">
+    <div className="flex flex-col glass-light-xs dark:glass-dark-xs glass-border shadow-lg h-[600px] overflow-hidden" role="region" aria-label="Chat room">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500/70 to-purple-500/70" role="banner">
         <div>
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-white" id="chat-room-title">
             {currentRoom ? `${currentRoomName || "Room"}` : "Select a room"}
           </h2>
-          {currentRoom && <p className="text-xs text-white opacity-75">ID: {currentRoom}</p>}
+          {currentRoom && <p className="text-xs text-white opacity-75" aria-label="Room ID">ID: {currentRoom}</p>}
         </div>
         {currentRoom && (
           <button
             onClick={() => onInvitePong(roomUsers)}
-            className="bg-green-500 text-white text-sm px-3 py-1 rounded-md hover:bg-green-600 transition-all"
+            className="bg-green-500 text-white text-sm px-3 py-1 hover:bg-green-600 transition-all"
+            aria-label="Invite users to play Pong"
           >
             🏓 Invite to Pong
           </button>
@@ -152,7 +153,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       {/* Main content area with messages and users list */}
       <div className="flex flex-1 overflow-hidden">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto glass-light-xs dark:glass-dark-xs glass-border p-4 space-y-3" role="log" aria-live="polite" aria-label="Chat messages">
         {messages.length > 0 ? (
           messages
             .filter((msg) => !blockedUsers.includes(msg.user))
@@ -160,7 +161,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
               return (
                 <div key={i} className="flex justify-start">
-                  <div className="px-4 py-2 rounded-2xl max-w-[70%] shadow-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                  <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-800 dark:text-gray-200" role="article" aria-label={`Message from ${msg.user}`}> 
                     <div className="flex justify-between items-center">
                       <span
                         onClick={() => onOpenProfile(msg.user)}
@@ -198,7 +199,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
         {/* Users List Sidebar */}
         {currentRoom && (
-          <div className="w-48 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
+          <div className="w-48 glass-light-xs dark:glass-dark-xs glass-border overflow-y-auto" role="complementary" aria-label="Online users list">
             <div className="p-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Users ({roomUsers.length})</h3>
             </div>
@@ -209,7 +210,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                   <div
                     key={user.id}
                     onClick={() => onOpenProfile(user.username)}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/40 cursor-pointer transition-colors"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View ${user.username}'s profile, ${user.onlineStatus === 1 ? 'online' : 'offline'}`}
                   >
                     <div className={`w-2 h-2 rounded-full ${
                       user.onlineStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
@@ -229,24 +233,26 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
+      <div className="p-4 glass-light-xs dark:glass-dark-xs glass-border">
         <div className="flex space-x-2">
           <div className="relative flex-1">
             <input
               type="text"
               placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
-              className={`w-full border rounded-full px-4 py-2 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 ${
+              className={`w-full border rounded-full px-4 py-2 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 glass-light-xs dark:glass-dark-xs ${
                 isCommand
                   ? "border-purple-500 text-purple-600 dark:text-purple-400 focus:ring-purple-400"
                   : "border-gray-300 dark:border-gray-600 focus:ring-blue-400"
-              } disabled:bg-gray-100 dark:disabled:bg-gray-900 dark:bg-gray-700`}
+              } disabled:bg-gray-100/30 dark:disabled:bg-gray-900/30 dark:bg-transparent`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              aria-label="Message input"
+              aria-describedby="chat-room-title"
               disabled={!currentRoom}
             />
             {showSuggestions && isCommand && filteredCommands.length > 0 && (
-              <div className="absolute left-0 right-0 bottom-full mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto" role="listbox">
+              <div className="absolute left-0 right-0 bottom-full mb-2 glass-light-sm dark:glass-dark-sm glass-border shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto" role="listbox" aria-label="Command suggestions">
                 {filteredCommands.map((cmd, idx) => (
                   <button
                     key={cmd.name}
@@ -265,7 +271,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                 {filteredCommands.length === 0 && (
                   <div className="px-4 py-2 text-sm text-gray-500">No matching commands</div>
                 )}
-                <div className="px-4 py-1 text-[11px] bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+                <div className="px-4 py-1 text-[11px] bg-gray-50 dark:bg-gray-900/70 text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
                   <span className="mr-2">↕ to navigate</span>
                   <span className="mr-2">Tab to autocomplete</span>
                   <span>Enter to send</span>
@@ -341,9 +347,9 @@ const RoomList: React.FC<RoomListProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl border-2 border-gray-200 dark:border-gray-700 h-[600px] flex flex-col overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500 to-pink-500">
-        <h2 className="text-lg font-semibold text-white">Chat Rooms</h2>
+    <div className="glass-light-sm dark:glass-dark-sm glass-border h-[600px] flex flex-col overflow-hidden" role="navigation" aria-label="Chat rooms list">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500/70 to-pink-500/70">
+        <h2 className="text-lg font-semibold text-white" id="room-list-title">Chat Rooms</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -352,11 +358,13 @@ const RoomList: React.FC<RoomListProps> = ({
             <button
               key={room.roomId}
               onClick={() => onSelectRoom(room.roomId)}
-              className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
+              className={`w-full text-left px-4 py-3 transition-all ${
                 currentRoom === room.roomId
                   ? "bg-blue-500 text-white shadow-md"
-                  : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200"
+                  : "bg-gray-50 dark:bg-gray-700/45 hover:bg-gray-100 dark:hover:bg-gray-600/45 text-gray-800 dark:text-gray-200"
               }`}
+              aria-label={`Join room ${getDisplayName(room)}`}
+              aria-current={currentRoom === room.roomId ? "true" : "false"}
             >
               <div className="font-medium">{getDisplayName(room)}</div>
               <div className="text-xs opacity-75">ID: {room.roomId}</div>
@@ -376,13 +384,15 @@ const RoomList: React.FC<RoomListProps> = ({
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 dark:bg-gray-700 dark:text-gray-200"
+              className="w-full border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 dark:bg-gray-700/70 dark:text-gray-200"
               autoFocus
+              aria-label="New room name"
             />
             <div className="flex space-x-2">
               <button
                 onClick={handleCreate}
-                className="flex-1 bg-purple-500 text-white px-3 py-2 rounded-lg hover:bg-purple-600 text-sm"
+                className="flex-1 bg-purple-500 text-white px-3 py-2 hover:bg-purple-600 text-sm"
+                aria-label="Create new room"
               >
                 Create
               </button>
@@ -391,7 +401,8 @@ const RoomList: React.FC<RoomListProps> = ({
                   setShowCreateForm(false)
                   setNewRoomName("")
                 }}
-                className="flex-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 text-sm"
+                className="flex-1 bg-gray-200 text-gray-700 px-3 py-2 hover:bg-gray-300 text-sm"
+                aria-label="Cancel room creation"
               >
                 Cancel
               </button>
@@ -401,13 +412,15 @@ const RoomList: React.FC<RoomListProps> = ({
           <>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="w-full bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-all"
+              className="w-full bg-purple-500 text-white px-4 py-2 hover:bg-purple-600 transition-all"
+              aria-label="Show create room form"
             >
               + Create Room
             </button>
             <button
               onClick={onRefreshRooms}
-              className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-all"
+              className="w-full bg-gray-100 text-gray-700 px-4 py-2 hover:bg-gray-200 transition-all"
+              aria-label="Refresh rooms list"
             >
               🔄 Refresh Rooms
             </button>
@@ -416,7 +429,8 @@ const RoomList: React.FC<RoomListProps> = ({
                 const usernameOrId = prompt("Enter username or user ID to start DM:")
                 if (usernameOrId) onStartDM(usernameOrId)
               }}
-              className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all"
+              className="w-full bg-blue-500 text-white px-4 py-2 hover:bg-blue-600 transition-all"
+              aria-label="Start direct message"
             >
               💬 Direct Message
             </button>
@@ -1248,7 +1262,7 @@ export default function ChatInputComponent({
 
   /* -------------------- Render -------------------- */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-6xl">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-1">

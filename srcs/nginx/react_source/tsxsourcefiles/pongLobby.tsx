@@ -60,7 +60,7 @@ export default function PongLobby({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border-2 border-blue-500">
+    <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -73,14 +73,14 @@ export default function PongLobby({
         </div>
         <button
           onClick={onLeaveLobby}
-          className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+          className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 transition-colors"
         >
           Leave
         </button>
       </div>
 
       {/* Game Settings */}
-      <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+      <div className="mb-6 p-4 bg-gray-50/40 dark:bg-gray-900/70">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
           Game Settings
         </h3>
@@ -119,10 +119,10 @@ export default function PongLobby({
             return (
               <div
                 key={player.id}
-                className={`flex items-center justify-between p-3 rounded-lg ${
+                className={`flex items-center justify-between p-3 ${
                   player.isReady
                     ? "bg-green-50 dark:bg-green-900/20 border border-green-500"
-                    : "bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+                    : "bg-gray-50/40 dark:bg-gray-900/70 border border-gray-300 dark:border-gray-700"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -133,7 +133,7 @@ export default function PongLobby({
                   <span className="font-bold" style={{ color: playerColor }}>
                     {player.username}
                     {player.isHost && (
-                      <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded">
+                      <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5">
                         HOST
                       </span>
                     )}
@@ -157,7 +157,7 @@ export default function PongLobby({
 
       {/* Status Message */}
       {lobby.status === "starting" && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-500 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-500 text-center">
           <p className="text-blue-700 dark:text-blue-300 font-semibold">
             🎮 Game starting...
           </p>
@@ -165,7 +165,7 @@ export default function PongLobby({
       )}
 
       {!allReady && lobby.status === "waiting" && (
-        <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-500 rounded-lg text-center">
+        <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-500 text-center">
           <p className="text-yellow-700 dark:text-yellow-300 text-sm">
             ⏳ Waiting for all players to be ready...
           </p>
@@ -177,7 +177,7 @@ export default function PongLobby({
         {!isHost && (
           <button
             onClick={onToggleReady}
-            className={`flex-1 py-3 rounded-lg font-semibold transition-colors ${
+            className={`flex-1 py-3 font-semibold transition-colors ${
               currentPlayer?.isReady
                 ? "bg-gray-500 text-white hover:bg-gray-600"
                 : "bg-green-500 text-white hover:bg-green-600"
@@ -190,7 +190,7 @@ export default function PongLobby({
           <>
             <button
               onClick={onToggleReady}
-              className={`flex-1 py-3 rounded-lg font-semibold transition-colors ${
+              className={`flex-1 py-3 font-semibold transition-colors ${
                 currentPlayer?.isReady
                   ? "bg-gray-500 text-white hover:bg-gray-600"
                   : "bg-green-500 text-white hover:bg-green-600"
@@ -201,10 +201,10 @@ export default function PongLobby({
             <button
               onClick={onStartGame}
               disabled={!canStart}
-              className={`flex-1 py-3 rounded-lg font-semibold transition-colors ${
+              className={`flex-1 py-3 font-semibold transition-colors ${
                 canStart
                   ? "bg-blue-500 text-white hover:bg-blue-600"
-                  : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed"
+                  : "bg-gray-300 dark:bg-gray-700/50 text-gray-500 dark:text-gray-500 cursor-not-allowed"
               }`}
             >
               Start Game

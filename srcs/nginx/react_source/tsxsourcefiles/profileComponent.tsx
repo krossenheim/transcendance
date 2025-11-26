@@ -336,19 +336,20 @@ useEffect(() => {
   }
 
   const handleAddFriend = () => {
-      const requestHistory = () => {
-        if (!userId) return
-        const toSend = {
-          funcId: user_url.ws.users.fetchUserGameResults.funcId,
-          payload: userId,
-          target_container: "users",
-        }
-        sendMessage(toSend)
-        setShowHistory(true)
-      }
     if (!userId) return
     console.log("[ProfileComponent] Sending friend request to userId:", userId)
     sendToSocket(user_url.ws.users.requestFriendship.funcId, userId)
+  }
+
+  const requestHistory = () => {
+    if (!userId) return
+    const toSend = {
+      funcId: user_url.ws.users.fetchUserGameResults.funcId,
+      payload: userId,
+      target_container: "users",
+    }
+    sendMessage(toSend)
+    setShowHistory(true)
   }
 
   const isOwnProfile = currentUserId === userId
@@ -358,7 +359,7 @@ useEffect(() => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
       <div
-        className="bg-white dark:bg-dark-800 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white/50 dark:bg-dark-800 shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
@@ -457,7 +458,7 @@ useEffect(() => {
                       type="text"
                       value={editedUsername}
                       onChange={(e) => setEditedUsername(e.target.value)}
-                      className="text-2xl font-bold border-b border-gray-300 dark:border-dark-600 focus:outline-none focus:border-blue-500 bg-white dark:bg-dark-800 text-gray-900 dark:text-white"
+                      className="text-2xl font-bold border-b border-gray-300 dark:border-dark-600 focus:outline-none focus:border-blue-500 bg-white/50 dark:bg-dark-800 text-gray-900 dark:text-white"
                     />
                   ) : (
                     <h3 className="text-2xl font-bold" style={{ color: getUserColorCSS(userId, true) }}>{profile.username}</h3>
@@ -469,7 +470,7 @@ useEffect(() => {
                           ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                           : profile.status === "in-game"
                           ? "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"
-                          : "bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-gray-200"
+                          : "bg-gray-100/40 dark:bg-dark-700 text-gray-800 dark:text-gray-200"
                       }`}
                     >
                       {profile.status}
@@ -487,7 +488,7 @@ useEffect(() => {
                       type="email"
                       value={editedEmail}
                       onChange={(e) => setEditedEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-700 text-gray-900 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50 dark:bg-dark-700 text-gray-900 dark:text-white"
                     />
                   ) : (
                     <p className="text-sm text-gray-600 dark:text-gray-400">{profile.email}</p>
@@ -504,7 +505,7 @@ useEffect(() => {
                       value={editedBio}
                       onChange={(e) => setEditedBio(e.target.value)}
                       placeholder="Tell us about yourself..."
-                      className="w-full min-h-[100px] px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                      className="w-full min-h-[100px] px-3 py-2 border border-gray-300 dark:border-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50 dark:bg-dark-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                     />
                   </div>
                 ) : (
@@ -521,7 +522,7 @@ useEffect(() => {
                     <>
                       <button
                         onClick={handleSaveProfile}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm"
                       >
                         Save Changes
                       </button>
@@ -533,7 +534,7 @@ useEffect(() => {
                           setEditedEmail(profile.email || "")
                           setAvatarFile(null)
                         }}
-                        className="px-4 py-2 bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors text-sm"
+                        className="px-4 py-2 bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors text-sm"
                       >
                         Cancel
                       </button>
@@ -541,7 +542,7 @@ useEffect(() => {
                   ) : (
                     <button
                       onClick={() => setEditing(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                      className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm"
                     >
                       Edit Profile
                     </button>
@@ -590,7 +591,7 @@ useEffect(() => {
                     <div className="mt-4 space-y-2">
                       <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Recent Matches</h5>
                       {gameResults.slice(0,5).map(r => (
-                        <div key={r.id} className="flex justify-between text-[11px] bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
+                        <div key={r.id} className="flex justify-between text-[11px] bg-gray-50/40 dark:bg-gray-900/70 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
                           <span>#{r.id} • Score {r.score}</span>
                           <span className={r.rank === 1 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{r.rank === 1 ? "Win" : "Loss"}</span>
                         </div>
@@ -619,7 +620,7 @@ useEffect(() => {
                         onClose()
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-dark-600 transition-colors"
+                    className="flex-1 px-4 py-2 bg-white/50 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50/40 dark:hover:bg-dark-600 transition-colors"
                   >
                     Send Message
                   </button>

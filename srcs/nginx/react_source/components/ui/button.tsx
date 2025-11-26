@@ -6,6 +6,6 @@ const variants: Record<string,string> = {
   ghost: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
 }
 export const Button: React.FC<ButtonProps> = ({ variant='default', className='', ...rest }) => (
-  <button className={`px-3 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`} {...rest} />
+  <button className={`px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`} {...rest} />
 );
 export default Button;

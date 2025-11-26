@@ -47,7 +47,7 @@ export default function PongInviteNotifications({
       {invitations.map((invite) => (
         <div
           key={invite.inviteId}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-blue-500 p-4 animate-slide-in"
+          className="glass-light-sm dark:glass-dark-sm shadow-xl border-2 border-blue-500 p-4 animate-slide-in"
         >
           <div className="flex items-start gap-3">
             <div className="text-3xl">🏓</div>
@@ -79,7 +79,7 @@ export default function PongInviteNotifications({
             </button>
             <button
               onClick={() => onDecline(invite.inviteId)}
-              className="flex-1 px-3 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors"
+              className="flex-1 px-3 py-2 bg-gray-300 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 text-sm rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600/80 transition-colors"
             >
               Decline
             </button>

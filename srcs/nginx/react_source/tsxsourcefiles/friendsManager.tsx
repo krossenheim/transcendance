@@ -87,13 +87,13 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
           <>
             <button
               onClick={() => sendToSocket(user_url.ws.users.confirmFriendship.funcId, item.id)}
-              className="px-3 py-1 text-xs font-medium bg-green-500 text-white rounded hover:bg-green-600"
+              className="px-3 py-1 text-xs font-medium bg-green-500 text-white hover:bg-green-600"
             >
               Accept
             </button>
             <button
               onClick={() => sendToSocket(user_url.ws.users.denyFriendship.funcId, item.id)}
-              className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600"
+              className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
             >
               Deny
             </button>
@@ -103,13 +103,13 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
           <>
             <button
               onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
-              className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600"
+              className="px-3 py-1 text-xs font-medium bg-gray-500 text-white hover:bg-gray-600"
             >
               Unfriend
             </button>
             <button
               onClick={() => sendToSocket(user_url.ws.users.blockUser.funcId, item.friendId)}
-              className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600"
+              className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
             >
               Block
             </button>
@@ -118,7 +118,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
         {item.status === 3 && (
           <button
             onClick={() => sendToSocket(user_url.ws.users.unblockUser.funcId, item.friendId)}
-            className="px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-50 dark:hover:bg-dark-600"
+            className="px-3 py-1 text-xs font-medium bg-gray-100/40 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50/40 dark:hover:bg-dark-600"
           >
             Unblock
           </button>
@@ -130,11 +130,11 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-2xl bg-white dark:bg-dark-800 rounded-lg shadow-lg border border-gray-200 dark:border-dark-700 overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-2xl glass-light-sm dark:glass-dark-sm glass-border shadow-lg overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Friends & Privacy</h2>
-          <button onClick={onClose} className="p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100/40 dark:hover:bg-dark-700">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -145,7 +145,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-md text-sm ${activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-gray-200'}`}
+                className={`px-3 py-1.5 text-sm ${activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-100/40 dark:bg-dark-700 text-gray-700 dark:text-gray-200'}`}
               >
                 {tab}
               </button>
@@ -162,7 +162,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
                 // Determine the correct user ID for coloring: use id if friendId matches self, otherwise use friendId
                 const displayUserId = (selfUserId !== null && item.friendId === selfUserId) ? item.id : item.friendId
                 return (
-                  <div key={`${item.id}-${item.status}`} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded">
+                  <div key={`${item.id}-${item.status}`} className="flex items-center justify-between p-3 bg-gray-50/40 dark:bg-dark-700">
                     <div>
                       <div className="font-medium" style={{ color: getUserColorCSS(displayUserId, true) }}>{item.username}</div>
                       {item.alias && <div className="text-xs" style={{ color: getUserColorCSS(displayUserId, true), opacity: 0.8 }}>{item.alias}</div>}

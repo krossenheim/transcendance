@@ -120,13 +120,13 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
   }
 
   return (
-    <div className="flex items-start justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 px-4 py-4">
-      <div className="w-full max-w-md shadow-lg rounded-lg bg-white dark:bg-gray-800 p-4 md:p-6 mt-4 md:mt-6">
+    <div className="flex items-start justify-center px-4 py-4">
+      <div className="w-full max-w-md shadow-lg glass-light-sm dark:glass-dark-sm glass-border p-4 md:p-6 mt-4 md:mt-6">
         <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Create Account</h1>
         <p className="text-center mb-4 text-gray-500 dark:text-gray-300">Fill in your details to register</p>
 
         {error && (
-          <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-2 rounded mb-4 text-center">⚠️ {error}</div>
+          <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-2 mb-4 text-center">⚠️ {error}</div>
         )}
 
         <div className="space-y-4">
@@ -141,7 +141,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="johndoe"
               value={registerUsername}
               onChange={(e) => setRegisterUsername(e.target.value)}
-              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+              className={`border p-2 w-full border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700/80 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
                 validationErrors.registerUsername ? "border-red-500 dark:border-red-400" : ""
               }`}
               disabled={isLoading}
@@ -162,7 +162,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="you@example.com"
               value={registerEmail}
               onChange={(e) => setRegisterEmail(e.target.value)}
-              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+              className={`border p-2 w-full border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700/80 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
                 validationErrors.registerEmail ? "border-red-500 dark:border-red-400" : ""
               }`}
               disabled={isLoading}
@@ -183,7 +183,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="••••••••"
               value={registerPassword}
               onChange={(e) => setRegisterPassword(e.target.value)}
-              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+              className={`border p-2 w-full border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
                 validationErrors.registerPassword ? "border-red-500 dark:border-red-400" : ""
               }`}
               disabled={isLoading}
@@ -211,7 +211,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               placeholder="••••••••"
               value={registerConfirmPassword}
               onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-              className={`border p-2 w-full rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+              className={`border p-2 w-full border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
                 validationErrors.registerConfirmPassword ? "border-red-500 dark:border-red-400" : ""
               }`}
               disabled={isLoading}
@@ -231,7 +231,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
           {/* Submit */}
           <button
             onClick={handleRegister}
-            className="w-full bg-blue-600 dark:bg-blue-600 text-white py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors"
+            className="w-full bg-blue-600 dark:bg-blue-600 text-white py-2 hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? "Creating account..." : "Create Account"}

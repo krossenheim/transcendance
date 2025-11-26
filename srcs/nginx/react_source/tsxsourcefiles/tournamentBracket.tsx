@@ -63,7 +63,7 @@ export default function TournamentBracket({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+    <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-6">
       {/* Header */}
       <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center">
@@ -100,7 +100,7 @@ export default function TournamentBracket({
               onKeyDown={(e) => e.key === "Enter" && handleAliasSubmit()}
               placeholder="Enter your alias..."
               maxLength={20}
-              className="flex-1 border border-blue-300 dark:border-blue-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-900 dark:text-gray-100"
+              className="flex-1 border border-blue-300 dark:border-blue-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-900/70 dark:text-gray-100"
             />
             <button
               onClick={handleAliasSubmit}
@@ -124,7 +124,7 @@ export default function TournamentBracket({
           {tournament.players.map((player) => (
             <div
               key={player.id}
-              className="p-2 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 text-center"
+              className="p-2 bg-gray-50/40 dark:bg-gray-900/70 rounded-lg border border-gray-200 dark:border-gray-700 text-center"
             >
               <div
                 className="text-sm font-medium"
@@ -154,7 +154,7 @@ export default function TournamentBracket({
                     {matches.map((match) => (
                       <div
                         key={match.matchId}
-                        className={`bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border-2 ${
+                        className={`bg-gray-50/40 dark:bg-gray-900/70 rounded-lg p-3 border-2 ${
                           match.status === "in_progress"
                             ? "border-blue-500"
                             : match.status === "completed"
@@ -171,7 +171,7 @@ export default function TournamentBracket({
                           className={`p-2 mb-1 rounded ${
                             match.winner === match.player1?.id
                               ? "bg-green-100 dark:bg-green-900/30 font-bold"
-                              : "bg-white dark:bg-gray-800"
+                              : "bg-white/50 dark:bg-gray-800/80"
                           }`}
                         >
                           <div className="text-sm">
@@ -193,7 +193,7 @@ export default function TournamentBracket({
                           className={`p-2 rounded ${
                             match.winner === match.player2?.id
                               ? "bg-green-100 dark:bg-green-900/30 font-bold"
-                              : "bg-white dark:bg-gray-800"
+                              : "bg-white/50 dark:bg-gray-800/80"
                           }`}
                         >
                           <div className="text-sm">

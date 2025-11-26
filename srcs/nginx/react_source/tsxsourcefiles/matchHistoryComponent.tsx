@@ -51,7 +51,7 @@ export default function MatchHistoryComponent({ userId, isOpen, onClose }: Match
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col"
+        className="glass-light-sm dark:glass-dark-sm glass-border shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -83,7 +83,7 @@ export default function MatchHistoryComponent({ userId, isOpen, onClose }: Match
                 return (
                   <li
                     key={r.id}
-                    className="p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-between items-center"
+                    className="p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-900/70 flex justify-between items-center"
                   >
                     <div>
                       <div className="text-sm font-medium text-gray-800 dark:text-gray-100">

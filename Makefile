@@ -125,8 +125,14 @@ clean: down
 	rm -rf "$(VOLUMES_DIR)"
 
 babylon: build_react
-	 docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
-	 docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
+	@echo "Starting containers..."
+	@VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d nginx || true
+	@sleep 3
+	@echo "Creating directories in nginx container..."
+	@docker exec nginx mkdir -p /var/www/html/react_dist
+	@echo "Copying static files..."
+	@docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
+	@docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"

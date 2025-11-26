@@ -244,9 +244,13 @@ export default function PongComponent({
       // Set up the game for all players
       setPlayerIDsHelper(gameState)
       setGameState(gameState)
-      setCurrentView("game")
       setLobby(null) // Clear lobby state
-      console.log("[Pong] Transitioned to game view")
+      
+      // Use setTimeout to ensure state is updated before switching view
+      setTimeout(() => {
+        setCurrentView("game")
+        console.log("[Pong] Starting game")
+      }, 0)
     }
   }, [payloadReceived, authResponse, currentView])
 
@@ -741,13 +745,13 @@ export default function PongComponent({
   )
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 dark:bg-dark-600 p-4 space-y-4">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50/40 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
       {/* Main Menu */}
       {currentView === "menu" && (
         <div className="w-full max-w-2xl space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+          <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-8 text-center">
             <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">🏓 Pong</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-8">
               Play classic Pong against other players in various game modes
@@ -755,7 +759,7 @@ export default function PongComponent({
             <div className="space-y-3">
               <button
                 onClick={() => setShowInviteModalLocal(true)}
-                className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                className="w-full py-3 bg-blue-500 text-white hover:bg-blue-600 transition-colors font-semibold"
               >
                 🎮 Create Game
               </button>
@@ -771,7 +775,7 @@ export default function PongComponent({
                     setCurrentView("game")
                   }
                 }}
-                className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+                className="w-full py-3 bg-green-500 text-white hover:bg-green-600 transition-colors font-semibold"
               >
                 🤖 Quick Play (Solo)
               </button>
@@ -804,7 +808,7 @@ export default function PongComponent({
           />
           <button
             onClick={handleLeaveLobby}
-            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            className="mt-4 px-6 py-2 bg-red-500 text-white hover:bg-red-600 transition-colors"
           >
             Leave Tournament
           </button>
@@ -814,7 +818,7 @@ export default function PongComponent({
       {/* Game View */}
       {currentView === "game" && (
         <>
-          <div className="w-full flex-1 min-h-[500px] rounded-2xl shadow-lg border border-gray-800 bg-black overflow-hidden">
+          <div className="w-full flex-1 min-h-[500px] shadow-lg border border-gray-800 bg-black overflow-hidden relative">
             <BabylonPongRenderer gameState={gameState} darkMode={darkMode} />
           </div>
 
@@ -837,7 +841,7 @@ export default function PongComponent({
               setGameState(null)
               setLobby(null)
             }}
-            className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            className="px-6 py-2 bg-red-500 text-white hover:bg-red-600 transition-colors"
           >
             Leave Game
           </button>

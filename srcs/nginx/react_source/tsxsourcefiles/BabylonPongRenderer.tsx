@@ -155,10 +155,19 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
       window.removeEventListener("resize", handleResize)
       paddleSoundsRef.current.forEach(sound => sound.dispose())
       paddleSoundsRef.current.clear()
+      
+      // Clear all mesh references
+      paddlesRef.current.clear()
+      ballsRef.current.clear()
+      ballLightsRef.current.clear()
+      edgesRef.current = []
+      floorRef.current = null
+      previousBallVelocitiesRef.current.clear()
+      
       scene.dispose()
       engine.dispose()
     }
-  }, [darkMode])
+  }, [])
 
   // Update scene colors when dark mode changes
   useEffect(() => {

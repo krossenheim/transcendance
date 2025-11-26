@@ -107,8 +107,8 @@ const handleLogin = async () => {
   }
 
   return (
-    <div className="flex items-start justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 px-4 py-4">
-      <div className="w-full max-w-md shadow-lg p-4 md:p-6 mt-4 md:mt-6 rounded-2xl bg-white dark:bg-gray-800">
+    <div className="flex items-start justify-center px-4 py-4">
+      <div className="w-full max-w-md shadow-lg p-4 md:p-6 mt-4 md:mt-6 glass-light-sm dark:glass-dark-sm glass-border">
           <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Login</h1>
 
         {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
@@ -128,7 +128,7 @@ const handleLogin = async () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-                className="w-full border px-3 py-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                className="w-full border px-3 py-2 border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
               disabled={isLoading}
               placeholder="Your username"
             />
@@ -148,7 +148,7 @@ const handleLogin = async () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-                className="w-full border px-3 py-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                className="w-full border px-3 py-2 border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
               disabled={isLoading}
               placeholder="Your password"
             />
@@ -157,7 +157,7 @@ const handleLogin = async () => {
           {/* Submit Button */}
           <button
             onClick={handleLogin}
-              className="w-full bg-blue-500 dark:bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+              className="w-full bg-blue-500 dark:bg-blue-600 text-white py-2 px-4 hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? "Logging in..." : "Login"}
@@ -169,14 +169,14 @@ const handleLogin = async () => {
               <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Or continue with</span>
+              <span className="px-2 glass-light-xs dark:glass-dark-xs glass-border text-gray-700 dark:text-gray-300">Or continue with</span>
             </div>
           </div>
 
           {/* GitHub OAuth Button */}
           <button
             onClick={() => window.location.href = '/public_api/auth/oauth/github/login'}
-            className="w-full bg-gray-900 dark:bg-gray-700 text-white py-2 px-4 rounded hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-gray-900 dark:bg-gray-700/80 text-white py-2 px-4 hover:bg-gray-800 dark:hover:bg-gray-600/80 transition-colors flex items-center justify-center gap-2"
             disabled={isLoading}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
