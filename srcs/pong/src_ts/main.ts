@@ -10,6 +10,13 @@ import { int_url, user_url } from "./utils/api/service/common/endpoints.js";
 import { Result } from "./utils/api/service/common/result.js";
 import type { FastifyInstance } from "fastify";
 import { createFastify } from "./utils/api/service/common/fastify.js";
+// Prometheus metrics
+import client from "prom-client";
+
+// Collect default Node.js metrics
+client.collectDefaultMetrics({ prefix: 'pong_' });
+
+// Expose metrics on /metrics
 import { registerRoute } from "./utils/api/service/common/fastify.js";
 import PongGame from "./pongGame.js";
 import { PongLobbyStatus } from "./playerPaddle.js";
@@ -429,6 +436,17 @@ const port = parseInt(
   10
 );
 const host = process.env.PONG_BIND_TO || "0.0.0.0";
+
+// register a /metrics route for Prometheus to scrape
+fastify.get('/metrics', async (request, reply) => {
+  try {
+    reply.header('Content-Type', client.register.contentType);
+    const metrics = await client.register.metrics();
+    return reply.send(metrics);
+  } catch (err) {
+    reply.status(500).send('Could not collect metrics');
+  }
+});
 
 fastify.listen({ port, host }, (err, address) => {
   if (err) {

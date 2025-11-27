@@ -1,0 +1,58 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {},
+      "targets": [
+        { "expr": "pong_nodejs_eventloop_lag_seconds", "legendFormat": "{{instance}}", "refId": "A" }
+      ],
+      "title": "Pong - Event Loop Lag (seconds)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 2,
+      "options": {},
+      "targets": [
+        { "expr": "rate(pong_process_cpu_seconds_total[5m])", "legendFormat": "{{instance}}", "refId": "A" }
+      ],
+      "title": "Pong - CPU (rate of process_cpu_seconds_total)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 3,
+      "options": {},
+      "targets": [
+        { "expr": "pong_process_resident_memory_bytes/1024/1024", "legendFormat": "resident MB - {{instance}}", "refId": "A" },
+        { "expr": "pong_process_heap_bytes/1024/1024", "legendFormat": "heap MB - {{instance}}", "refId": "B" },
+        { "expr": "pong_process_virtual_memory_bytes/1024/1024", "legendFormat": "virtual MB - {{instance}}", "refId": "C" }
+      ],
+      "title": "Pong - Memory (MB)",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["pong","app","nodejs"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Pong Metrics",
+  "uid": "pong-metrics",
+  "version": 1
+}
