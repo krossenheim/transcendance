@@ -1,0 +1,15 @@
+{
+  "index_patterns": ["transcendance-*"]
+, "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0,
+      "index.lifecycle.name": "policy_transcendance",
+      "index.lifecycle.rollover_alias": "transcendance"
+    },
+    "mappings": {
+      "dynamic": true
+    }
+  },
+  "priority": 500
+}

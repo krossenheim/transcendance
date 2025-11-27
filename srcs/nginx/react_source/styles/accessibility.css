@@ -1,0 +1,111 @@
+/* Accessibility CSS */
+
+/* High Contrast Mode - Black and White with strong borders */
+.high-contrast {
+  filter: contrast(2) !important;
+}
+
+.high-contrast * {
+  border-width: 2px !important;
+}
+
+.high-contrast button,
+.high-contrast a,
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  font-weight: 700 !important;
+  border: 3px solid #000 !important;
+}
+
+.high-contrast.dark button,
+.high-contrast.dark a,
+.high-contrast.dark input,
+.high-contrast.dark select,
+.high-contrast.dark textarea {
+  border-color: #fff !important;
+}
+
+/* Remove transparency in high contrast mode */
+.high-contrast [class*="bg-"][class*="/"] {
+  opacity: 1 !important;
+}
+
+/* Reduced Motion - Disable all animations and transitions */
+.reduce-motion,
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion * {
+  animation-name: none !important;
+  transition-property: none !important;
+}
+
+/* Screen Reader Mode - Enhanced focus and readability */
+.screen-reader-mode {
+  line-height: 1.8 !important;
+  letter-spacing: 0.03em !important;
+}
+
+.screen-reader-mode *:focus,
+.screen-reader-mode *:focus-visible {
+  outline: 4px solid #0066cc !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.3) !important;
+}
+
+.screen-reader-mode.dark *:focus,
+.screen-reader-mode.dark *:focus-visible {
+  outline-color: #60a5fa !important;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.3) !important;
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to main content link for keyboard navigation */
+.skip-to-main {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+  background: #0066cc;
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 4px;
+}
+
+.skip-to-main:focus {
+  left: 50%;
+  transform: translateX(-50%);
+  top: 10px;
+}
+
+/* Focus visible for better keyboard navigation */
+*:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Better focus indicators for dark mode */
+.dark *:focus-visible {
+  outline-color: #60a5fa;
+}
