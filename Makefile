@@ -7,6 +7,7 @@ VOLUMES_DIR := $(OUTPUT_FILES_DIR)/transcendance_volumes/
 # Docker compose & env
 PATH_TO_COMPOSE_ENV_FILE := $(SOURCES_DIR)/globals.env
 PATH_TO_COMPOSE := $(SOURCES_DIR)/compose.yml
+PATH_TO_MONITORING_COMPOSE := $(SOURCES_DIR)/monitoring/docker-compose.yml
 
 # Base image
 PATH_TO_BASE_IMAGE := $(SOURCES_DIR)/nodejs_base_image/Dockerfile
@@ -23,7 +24,8 @@ NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
 all: check-deps ensure_npx down build
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
+all: check-deps ensure_npx down build ensure_network
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
 ensure_npx:
 	@if ! [ -x "$$(command -v npx)" ]; then \
@@ -37,6 +39,26 @@ dnginx:
 
 down:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
+
+# Ensure the shared external network exists before bringing services up
+ensure_network:
+	@docker network inspect transcendance_network >/dev/null 2>&1 || \
+		docker network create --driver bridge --subnet ${TR_NETWORK_SUBNET} \
+			--label com.docker.compose.network=transcendance_network \
+			--label com.docker.compose.project=srcs transcendance_network
+
+# Monitoring helpers
+up-monitoring:
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_MONITORING_COMPOSE)" up -d --remove-orphans
+
+down-monitoring:
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_MONITORING_COMPOSE)" down --timeout 1
+
+up-all:
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
+
+down-all:
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
 RED := \033[0;31m
 YELLOW := \033[1;33m
@@ -142,4 +164,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list check-deps $(CONTAINERS)
+.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all
