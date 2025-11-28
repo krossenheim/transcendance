@@ -150,6 +150,28 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(200).send(updateResult.unwrap());
 	});
 
+	// GDPR: anonymize user data
+	registerRoute(fastify, int_url.http.db.anonymizeUser, async (request, reply) => {
+		const { userId } = request.params;
+		const anonResult = await userService.anonymizeUser(userId);
+
+		if (anonResult.isErr())
+			return reply.status(400).send({ message: anonResult.unwrapErr() });
+		else
+			return reply.status(200).send(anonResult.unwrap());
+	});
+
+	// GDPR: delete user account and associated data
+	registerRoute(fastify, int_url.http.db.deleteUser, async (request, reply) => {
+		const { userId } = request.params;
+		const delResult = await userService.deleteUser(userId);
+
+		if (delResult.isErr())
+			return reply.status(400).send({ message: delResult.unwrapErr() });
+		else
+			return reply.status(200).send(null);
+	});
+
 	registerRoute(fastify, int_url.http.db.fetchUserGameResults, async (request, reply) => {
 		const { userId } = request.params;
 		const userResult = userService.fetchUserById(userId);

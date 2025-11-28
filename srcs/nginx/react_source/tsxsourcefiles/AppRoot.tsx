@@ -8,6 +8,7 @@ import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState, useEffect } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
+import GDPRPage from "./GDPRPage";
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
@@ -15,10 +16,11 @@ import UserMenu from "./userMenu";
 import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications";
 import PongInvitationHandler from "./pongInvitationHandler";
 import AccessibilitySettings from "./accessibilitySettings";
+import CookieBanner from "./CookieBanner";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
-  const [currentPage, setCurrentPage] = useState<'chat' | 'pong'>('chat');
+  const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>('chat');
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark');
@@ -274,6 +276,20 @@ export default function AppRoot() {
     return () => { cancelled = true; };
   }, []);
 
+  // Listen for simple global navigation events (e.g. from modals)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const ev = e as CustomEvent<string>;
+        if (ev?.detail === 'gdpr') setCurrentPage('gdpr');
+      } catch (err) {
+        // ignore
+      }
+    };
+    window.addEventListener('navigate', handler as EventListener);
+    return () => window.removeEventListener('navigate', handler as EventListener);
+  }, []);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | null>(null);
 
@@ -352,7 +368,8 @@ export default function AppRoot() {
       <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)' }}></div>
 
       <div className="relative">
-        {toastMessage && (
+          <CookieBanner />
+          {toastMessage && (
           <div className={`fixed top-6 right-6 z-50 px-4 py-2 rounded shadow-md ${toastType === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
             {toastMessage}
           </div>
@@ -460,6 +477,10 @@ export default function AppRoot() {
                                 }}
                               />
                             </div>
+                          </div>
+                        ) : currentPage === 'gdpr' ? (
+                          <div className="p-6 h-full flex flex-col">
+                            <GDPRPage showToast={showToast} onNavigateBack={() => setCurrentPage('chat')} />
                           </div>
                         ) : (
                           // PONG PAGE — no scroll

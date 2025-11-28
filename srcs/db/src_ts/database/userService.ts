@@ -271,4 +271,58 @@ export class UserService {
 
 		return this.fetchUserById(userId);
 	}
+
+	async anonymizeUser(userId: number): Promise<Result<FullUserType, string>> {
+		const userRes = this.fetchUserById(userId);
+		if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
+		const user = userRes.unwrap();
+
+		// attempt to remove avatar file if present
+		if (user.avatarUrl) {
+			try {
+				await fs.unlink(`/etc/database_data/pfps/${user.avatarUrl}`);
+			} catch (e) {
+				// ignore file removal errors
+			}
+		}
+
+		// create anonymized unique username and email
+		const anonUsername = `deleted_user_${userId}_${Date.now()}`;
+		const anonEmail = `deleted+${userId}_${Date.now()}@example.invalid`;
+
+		const updateResult = this.db.run(
+			`UPDATE users SET username = ?, alias = NULL, email = ?, bio = NULL, passwordHash = NULL, avatarUrl = NULL, accountType = ? WHERE id = ?`,
+			[anonUsername, anonEmail, UserAccountType.Guest.valueOf(), userId]
+		);
+
+		if (updateResult.isErr()) {
+			console.error('Failed to anonymize user:', updateResult.unwrapErr());
+			return Result.Err('Failed to anonymize user');
+		}
+
+		return this.fetchUserById(userId);
+	}
+
+	async deleteUser(userId: number): Promise<Result<null, string>> {
+		const userRes = this.fetchUserById(userId);
+		if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
+		const user = userRes.unwrap();
+
+		// remove avatar file if present
+		if (user.avatarUrl) {
+			try {
+				await fs.unlink(`/etc/database_data/pfps/${user.avatarUrl}`);
+			} catch (e) {
+				// ignore file removal errors
+			}
+		}
+
+		const del = this.db.run(`DELETE FROM users WHERE id = ?`, [userId]);
+		if (del.isErr()) {
+			console.error('Failed to delete user:', del.unwrapErr());
+			return Result.Err('Failed to delete user');
+		}
+
+		return Result.Ok(null);
+	}
 }

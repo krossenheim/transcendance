@@ -241,6 +241,49 @@ export const pub_url = defineRoutes({
           },
         },
       },
+
+      // GDPR / Privacy endpoints (public-facing, require auth wrapper)
+      fetchPersonalData: {
+        endpoint: "/api/auth/gdpr/me",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: FullUser,
+            401: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      requestAnonymize: {
+        endpoint: "/api/auth/gdpr/anonymize",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: FullUser,
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      requestAccountDeletion: {
+        endpoint: "/api/auth/gdpr/delete",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: z.null(),
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
     },
   },
 
@@ -281,6 +324,42 @@ export const user_url = defineRoutes({
           },
         },
       },
+        fetchPersonalData: {
+          endpoint: "/api/auth/gdpr/me",
+          method: "POST",
+          schema: {
+            body: GenericAuthClientRequest,
+            response: {
+              200: FullUser,
+              401: ErrorResponse,
+              500: ErrorResponse,
+            },
+          },
+        },
+        requestAnonymize: {
+          endpoint: "/api/auth/gdpr/anonymize",
+          method: "POST",
+          schema: {
+            body: GenericAuthClientRequest,
+            response: {
+              200: FullUser,
+              400: ErrorResponse,
+              500: ErrorResponse,
+            },
+          },
+        },
+        requestAccountDeletion: {
+          endpoint: "/api/auth/gdpr/delete",
+          method: "POST",
+          schema: {
+            body: GenericAuthClientRequest,
+            response: {
+              200: z.null(),
+              400: ErrorResponse,
+              500: ErrorResponse,
+            },
+          },
+        },
     }
   },
 
@@ -1253,6 +1332,33 @@ export const int_url = defineRoutes({
             200: FullUser, // Updated user profile
             400: ErrorResponse, // Invalid data
             500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      // GDPR internal endpoints
+      anonymizeUser: {
+        endpoint: "/internal_api/db/users/anonymize/:userId",
+        method: "POST",
+        schema: {
+          params: GetUser,
+          response: {
+            200: FullUser,
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      deleteUser: {
+        endpoint: "/internal_api/db/users/delete/:userId",
+        method: "POST",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.null(),
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },

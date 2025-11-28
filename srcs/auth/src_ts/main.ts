@@ -15,7 +15,7 @@ import { Result } from './utils/api/service/common/result.js';
 import containers from './utils/internal_api.js'
 import Fastify from 'fastify';
 import { z } from 'zod'
-import { registerRoute } from './utils/api/service/common/fastify.js';
+import { registerRoute, createFastify } from './utils/api/service/common/fastify.js';
 import { int_url, pub_url, user_url } from './utils/api/service/common/endpoints.js';
 import { TwoFactorRequiredResponse, type TwoFactorRequiredResponseType } from './utils/api/service/auth/twoFactorRequired.js';
 
@@ -36,16 +36,25 @@ setInterval(() => {
 	}
 }, 5 * 60 * 1000);
 
-const zodFastify = (
-	options: FastifyServerOptions = { logger: true }
-) => {
-	const server = Fastify(options);
-	server.setValidatorCompiler(validatorCompiler);
-	server.setSerializerCompiler(serializerCompiler);
-	return server;
-}
+const fastify: FastifyInstance = createFastify({ logger: true } as any);
 
-const fastify: FastifyInstance = zodFastify();
+// Attach cookie consent to each request: true when cookie_consent === 'accepted'
+fastify.addHook('preHandler', async (request, reply) => {
+	// `request.cookies` is provided by @fastify/cookie (registered in createFastify)
+	const consentCookie = (request as any).cookies?.cookie_consent;
+	const headerConsent = (request.headers['x-cookie-consent'] as string | undefined) || null;
+	(request as any).cookieConsent = (consentCookie === 'accepted') || (headerConsent === 'accepted');
+
+	// Temporary debug logging: print Authorization and headers for GDPR and avatar requests
+	try {
+		const url = (request as any).url || request.url || '';
+		if (typeof url === 'string' && (url.startsWith('/api/auth/gdpr') || url.startsWith('/api/users/pfp'))) {
+			console.log('[auth][incoming request]', { url, method: request.method, authorization: request.headers['authorization'], headers: request.headers });
+		}
+	} catch (e) {
+		// ignore logging failures
+	}
+});
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
 const jwtExpiry = '15min'; // 15 min
@@ -426,6 +435,63 @@ registerRoute(fastify, user_url.http.auth.logoutUser, async (request, reply) => 
 	} else {
 		return reply.status(500).send({ message: 'Failed to log out' });
 	}
+});
+
+// GDPR: fetch personal data (requires auth wrapper on client side)
+registerRoute(fastify, user_url.http.auth.fetchPersonalData, async (request, reply) => {
+	const { userId } = request.body;
+	const responseResult = await containers.db.get(int_url.http.db.getUser, { userId });
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		const parse = FullUser.safeParse(response.data);
+		if (!parse.success) return reply.status(500).send({ message: 'DB returned malformed user data' });
+		return reply.status(200).send(parse.data);
+	}
+
+	return reply.status(500).send(response.data);
+});
+
+// GDPR: request anonymization of personal data
+registerRoute(fastify, user_url.http.auth.requestAnonymize, async (request, reply) => {
+	const { userId } = request.body;
+	const responseResult = await containers.db.post(int_url.http.db.anonymizeUser as any, null as any, { userId });
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		const parse = FullUser.safeParse(response.data);
+		if (!parse.success) return reply.status(500).send({ message: 'DB returned malformed user data' });
+		return reply.status(200).send(parse.data);
+	}
+
+	if (response.status === 400) return reply.status(400).send(response.data);
+	return reply.status(500).send(response.data);
+});
+
+// GDPR: request account deletion (permanent)
+registerRoute(fastify, user_url.http.auth.requestAccountDeletion, async (request, reply) => {
+	const { userId } = request.body;
+	const responseResult = await containers.db.post(int_url.http.db.deleteUser as any, null as any, { userId });
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		return reply.status(200).send(null);
+	}
+
+	if (response.status === 400) return reply.status(400).send(response.data);
+	return reply.status(500).send(response.data);
 });
 
 // 2FA Setup: Generate QR code
