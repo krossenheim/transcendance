@@ -358,7 +358,9 @@ export default function AppRoot() {
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
-      style={{ backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)' }}
+      style={{
+        backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)'
+      }}
     >
       {/* Skip to main content for keyboard users */}
       <a href="#main-content" className="skip-to-main">
@@ -407,7 +409,7 @@ export default function AppRoot() {
               />
               
               <div className="flex flex-col h-screen">
-                <header className="bg-white/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
+                <header className="bg-gray-100/95 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
                   <div className="max-w-5xl mx-auto px-4 py-4">
                     <div className="flex justify-between items-center">
                       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
@@ -460,8 +462,8 @@ export default function AppRoot() {
                   <div className="w-full max-w-5xl px-4 py-6 flex flex-col">
 
                     {/* Card wrapper (fixes border clipping) */}
-                    <div className="shadow dark:shadow-dark-700 h-full">
-                      <div className="bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 h-full flex flex-col">
+                      <div className="shadow dark:shadow-dark-700 h-full">
+                      <div className="glass-light-sm dark:glass-dark-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
 
                         {currentPage === 'chat' ? (
                           // CHAT PAGE — only inner content scrolls

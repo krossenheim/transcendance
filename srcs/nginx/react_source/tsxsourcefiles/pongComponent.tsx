@@ -745,7 +745,7 @@ export default function PongComponent({
   )
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50/40 dark:bg-dark-600 p-4 space-y-4">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
       {/* Main Menu */}
