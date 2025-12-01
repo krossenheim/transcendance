@@ -72,6 +72,21 @@ services:
     depends_on:
       hub:
         condition: service_healthy
+  lobby:
+    container_name: ${LOBBY_NAME}
+    image: ${LOBBY_NAME}
+    env_file:
+      - ./globals.env
+      - ./${LOBBY_NAME}/service_env.env
+    build:
+      context: ./${LOBBY_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${LOBBY_IPV4_ADDRESS}
   pong:
     container_name: ${PONG_NAME}
     image: ${PONG_NAME}

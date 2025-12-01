@@ -1071,7 +1071,7 @@ export default function ChatInputComponent({
     (roomName: string) => {
       console.log("[v0] handleCreateRoom called with roomName:", roomName)
       console.log("[v0] Creating room with funcId:", user_url.ws.chat.addRoom.funcId)
-      sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName, roomType: 1 })
+      sendToSocket(user_url.ws.chat.addRoom.funcId, { roomName })
     },
     [],
   )

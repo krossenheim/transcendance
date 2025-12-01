@@ -1,0 +1,45 @@
+{
+  // Visit https://aka.ms/tsconfig to read more about this file
+  "compilerOptions": {
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "composite": true,
+    // File Layout
+    "rootDir": "./src_ts",
+    "outDir": "./dist",
+    // Environment Settings
+    // See also https://aka.ms/tsconfig/module
+    "module": "NodeNext",              // or "nodenext"
+    "target": "esnext",
+    "moduleResolution": "NodeNext", // needed for ESM-style resolution
+    "types": ["node"],
+    "lib": ["es2020"],
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,        // enable incremental compilation
+    // Stricter Typechecking Options  F
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Style Options
+    // "noImplicitReturns": true,
+    // "noImplicitOverride": true,
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    // "noFallthroughCasesInSwitch": true,
+    // "noPropertyAccessFromIndexSignature": true,
+
+    // Recommended Options
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+	    "baseUrl": "src_ts",            // base folder for imports
+	    "paths": {
+      "utils/*": ["utils/*"]
+    },
+  },
+  "include": ["./**/*.ts"]
+}

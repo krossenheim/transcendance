@@ -102,7 +102,7 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
-CONTAINERS := auth chat db hub pong users
+CONTAINERS := auth chat db hub pong users lobby
 
 # Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
 TSC_JOBS ?= 2
