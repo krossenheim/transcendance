@@ -13,6 +13,10 @@ services:
     networks:
       transcendance_network:
         ipv4_address: ${NGINX_IPV4_ADDRESS}
+  nodejs_base_image:
+    image: nodejs_base_image:1.0
+    build:
+      context: ./nodejs_base_image
   hub:
     container_name: ${HUB_NAME}
     image: ${HUB_NAME}
@@ -103,6 +107,64 @@ services:
       transcendance_network:
         ipv4_address: ${USERS_IPV4_ADDRESS}
 
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - xpack.security.enabled=true
+    volumes:
+      - ./elk/elasticsearch/config:/usr/share/elasticsearch/config
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      transcendance_network:
+        ipv4_address: ${ELASTICSEARCH_IPV4_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -u elastic:${ELASTIC_PASSWORD} -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    volumes:
+      - ./elk/logstash/config:/usr/share/logstash/config
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+    ports:
+      - "5044:5044"
+    networks:
+      transcendance_network:
+        ipv4_address: ${LOGSTASH_IPV4_ADDRESS}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    env_file:
+      - ./.env
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    volumes:
+      - ./elk/kibana/config:/usr/share/kibana/config
+    ports:
+      - "5601:5601"
+    networks:
+      transcendance_network:
+        ipv4_address: ${KIBANA_IPV4_ADDRESS}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
 volumes:
   databases:
     name: databases
@@ -110,6 +172,8 @@ volumes:
       type: none
       o: bind
       device: ${VOLUMES_DIR}
+  esdata:
+    driver: local
 
 networks:
   transcendance_network:

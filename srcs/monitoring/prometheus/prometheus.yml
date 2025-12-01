@@ -1,0 +1,103 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - /etc/prometheus/rules.yml
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: 'pong'
+    static_configs:
+      - targets: ['pong:3000']
+
+  - job_name: 'elasticsearch_exporter'
+    static_configs:
+      - targets: ['elasticsearch_exporter:9114']
+
+# NOTE: The elasticsearch exporter image was failing to pull on this host
+# and the exporter container is not running. Keep this job commented out
+# or remove it until an exporter container is available to avoid noisy
+# 'down' entries in Prometheus.
+#  - job_name: 'elasticsearch_exporter'
+#    static_configs:
+#      - targets: ['elasticsearch_exporter:9114']
+
+  - job_name: 'nginx_exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+
+# NOTE: The nginx exporter container was not available on this host.
+# If you cannot pull or run the exporter, comment out or remove the
+# block below to stop Prometheus from reporting unresolved DNS/404 errors.
+#  - job_name: 'nginx_exporter'
+#    static_configs:
+#      - targets: ['nginx-exporter:9113']
+
+  # Add service scrape configs here. These are suggested jobs based on
+  # the services declared in `srcs/compose.yml`. Most app services
+  # need to expose a Prometheus metrics endpoint (e.g. /metrics) for
+  # these targets to become healthy. Keep them commented until you
+  # instrument the services or add dedicated exporters.
+
+  # Node/HTTP services (example: instrument with `prom-client` and
+  # expose /metrics on the same port, or run a sidecar exporter):
+  # - job_name: 'hub'
+  #   static_configs:
+  #     - targets: ['hub:3000']
+  # - job_name: 'chat'
+  #   static_configs:
+  #     - targets: ['chat:3000']
+  # - job_name: 'auth'
+  #   static_configs:
+  #     - targets: ['auth:3000']
+  # - job_name: 'users'
+  #   static_configs:
+  #     - targets: ['users:3000']
+  # - job_name: 'pong'
+  #   static_configs:
+  #     - targets: ['pong:3000']
+
+  # Nginx: prefers using nginx-prometheus-exporter or enabling stub_status
+  # - job_name: 'nginx'
+  #   static_configs:
+  #     - targets: ['nginx:9113']
+
+  # Elasticsearch: run an Elasticsearch exporter (e.g. justwatch/elasticsearch_exporter)
+  # - job_name: 'elasticsearch'
+  #   static_configs:
+  #     - targets: ['elasticsearch:9114']
+
+  # Logstash: use logstash exporter or expose metrics
+  # - job_name: 'logstash'
+  #   static_configs:
+  #     - targets: ['logstash:9600']
+
+  # Kibana: use kibana exporter or scrape its status endpoints (not enabled by default)
+  # - job_name: 'kibana'
+  #   static_configs:
+  #     - targets: ['kibana:5601']
+
+  # DB (sqlite in your stack): consider instrumenting the app that owns it
+  # - job_name: 'db-service'
+  #   static_configs:
+  #     - targets: ['db:3000']
+
+  # When you enable a job, restart Prometheus (or use the web reload endpoint):
+  # curl -X POST http://localhost:9090/-/reload

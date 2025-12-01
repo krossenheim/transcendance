@@ -12,6 +12,9 @@ import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
 import UserMenu from "./userMenu";
+import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications";
+import PongInvitationHandler from "./pongInvitationHandler";
+import AccessibilitySettings from "./accessibilitySettings";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
@@ -22,6 +25,22 @@ export default function AppRoot() {
     }
     return false;
   });
+  const [showPongInviteModal, setShowPongInviteModal] = useState(false);
+  const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
+  const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
+  const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
+  const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
+  const [accessibilitySettings, setAccessibilitySettings] = useState({
+    highContrast: false,
+    largeText: false,
+    reducedMotion: false,
+    screenReaderMode: false,
+  });
+
+  // Debug: Log invitation state changes
+  useEffect(() => {
+    console.log("[AppRoot] pongInvitations updated:", pongInvitations);
+  }, [pongInvitations]);
 
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode;
@@ -34,6 +53,62 @@ export default function AppRoot() {
       localStorage.setItem('darkMode', 'false');
     }
   };
+
+  // Apply accessibility settings to document
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    
+    // High contrast - applies strong contrast and borders
+    if (accessibilitySettings.highContrast) {
+      root.classList.add('high-contrast');
+      console.log('[Accessibility] High contrast mode enabled');
+    } else {
+      root.classList.remove('high-contrast');
+    }
+    
+    // Large text - increases base font size
+    if (accessibilitySettings.largeText) {
+      root.style.fontSize = '18px';
+      body.style.fontSize = '18px';
+      console.log('[Accessibility] Large text mode enabled');
+    } else {
+      root.style.fontSize = '';
+      body.style.fontSize = '';
+    }
+    
+    // Reduced motion - disables all animations and transitions
+    if (accessibilitySettings.reducedMotion) {
+      root.classList.add('reduce-motion');
+      // Also add preference to CSS
+      const style = document.createElement('style');
+      style.id = 'reduce-motion-override';
+      style.textContent = `
+        * {
+          animation-play-state: paused !important;
+          transition: none !important;
+        }
+      `;
+      if (!document.getElementById('reduce-motion-override')) {
+        document.head.appendChild(style);
+      }
+      console.log('[Accessibility] Reduced motion mode enabled');
+    } else {
+      root.classList.remove('reduce-motion');
+      const existingStyle = document.getElementById('reduce-motion-override');
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    }
+    
+    // Screen reader mode - enhanced focus indicators and spacing
+    if (accessibilitySettings.screenReaderMode) {
+      root.classList.add('screen-reader-mode');
+      console.log('[Accessibility] Screen reader mode enabled');
+    } else {
+      root.classList.remove('screen-reader-mode');
+    }
+  }, [accessibilitySettings]);
 
   function logInOrRegistered(varTypeAuthResponse: AuthResponseType) {
     setAuthResponse(varTypeAuthResponse);
@@ -109,6 +184,42 @@ export default function AppRoot() {
       if (authResponse) {
         setIsAutoLoggingIn(false);
         return;
+      }
+
+      // Check for OAuth tokens in URL query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const jwtFromUrl = urlParams.get('jwt');
+      const refreshFromUrl = urlParams.get('refresh');
+      
+      if (jwtFromUrl && refreshFromUrl) {
+        try {
+          // Store tokens from OAuth callback
+          localStorage.setItem("jwt", jwtFromUrl);
+          localStorage.setItem("refreshToken", refreshFromUrl);
+          
+          // Validate the JWT by fetching user data
+          const validateRes = await fetch("/public_api/auth/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: refreshFromUrl })
+          });
+          
+          if (validateRes.ok) {
+            const data = await validateRes.json();
+            if (!cancelled) {
+              persistAuthTokens(data);
+              if (data?.user) localStorage.setItem('userData', JSON.stringify(data.user));
+              setAuthResponse(data);
+            }
+            
+            // Clean up URL by removing query parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setIsAutoLoggingIn(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("OAuth token validation failed:", e);
+        }
       }
 
       const localRefresh = localStorage.getItem("refreshToken");
@@ -233,9 +344,14 @@ export default function AppRoot() {
       className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
       style={{ backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)' }}
     >
-      <div className="fixed inset-0 bg-black/5 dark:bg-black/20 pointer-events-none"></div>
+      {/* Skip to main content for keyboard users */}
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
 
-      <div className="relative z-10">
+      <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)' }}></div>
+
+      <div className="relative">
         {toastMessage && (
           <div className={`fixed top-6 right-6 z-50 px-4 py-2 rounded shadow-md ${toastType === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
             {toastMessage}
@@ -245,8 +361,36 @@ export default function AppRoot() {
         {authResponse ? (
           <FriendshipProvider>
             <SocketComponent AuthResponseObject={authResponse} showToast={showToast}>
+              {/* Global Pong Invitation Handler */}
+              <PongInvitationHandler 
+                authResponse={authResponse}
+                setPongInvitations={setPongInvitations}
+              />
+              
+              {/* Global Pong Invitation Notifications */}
+              <PongInviteNotifications
+                invitations={pongInvitations}
+                onAccept={(inviteId) => {
+                  console.log("[AppRoot] Accepting invitation:", inviteId);
+                  const invitation = pongInvitations.find(inv => inv.inviteId === inviteId);
+                  if (invitation) {
+                    setAcceptedLobbyId(invitation.lobbyId);
+                    // Store the lobby data for PongComponent to use
+                    if (invitation.lobbyData) {
+                      (window as any).__acceptedLobbyData = invitation.lobbyData;
+                    }
+                  }
+                  setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
+                  setCurrentPage('pong'); // Switch to pong page
+                }}
+                onDecline={(inviteId) => {
+                  console.log("[AppRoot] Declining invitation:", inviteId);
+                  setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
+                }}
+              />
+              
               <div className="flex flex-col h-screen">
-                <header className="bg-white dark:bg-dark-800 shadow dark:shadow-dark-700">
+                <header className="bg-white/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
                   <div className="max-w-5xl mx-auto px-4 py-4">
                     <div className="flex justify-between items-center">
                       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
@@ -254,24 +398,30 @@ export default function AppRoot() {
                         <nav className="flex space-x-4">
                           <button
                             onClick={() => setCurrentPage('chat')}
-                            className={`px-4 py-2 rounded-md ${currentPage === 'chat' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
+                            className={`px-4 py-2 ${currentPage === 'chat' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
                           >Chat</button>
                           <button
                             onClick={() => setCurrentPage('pong')}
-                            className={`px-4 py-2 rounded-md ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
+                            className={`px-4 py-2 ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
                           >Pong</button>
                         </nav>
 
-                        <button onClick={toggleDarkMode} className="p-2 rounded-md">
+                        <button onClick={toggleDarkMode} className="p-2" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
                           {darkMode ? (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
                           ) : (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                             </svg>
                           )}
+                        </button>
+
+                        <button onClick={() => setShowAccessibilitySettings(true)} className="p-2" aria-label="Open accessibility settings">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                          </svg>
                         </button>
 
                         <FriendshipNotifications isLoading={false} />
@@ -289,24 +439,46 @@ export default function AppRoot() {
                   </div>
                 </header>
 
-                <main className="flex-1 overflow-hidden flex justify-center">
+                <main id="main-content" className="flex-1 overflow-hidden flex justify-center relative" role="main" style={{ zIndex: 1 }}>
                   <div className="w-full max-w-5xl px-4 py-6 flex flex-col">
 
                     {/* Card wrapper (fixes border clipping) */}
-                    <div className="rounded-lg shadow dark:shadow-dark-700 h-full">
-                      <div className="bg-white dark:bg-dark-800 rounded-lg h-full flex flex-col">
+                    <div className="shadow dark:shadow-dark-700 h-full">
+                      <div className="bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 h-full flex flex-col">
 
                         {currentPage === 'chat' ? (
                           // CHAT PAGE — only inner content scrolls
                           <div className="p-6 h-full flex flex-col">
                             <div className="flex-1 overflow-hidden">
-                              <ChatInputComponent selfUserId={authResponse.user.id} showToast={showToast} />
+                              <ChatInputComponent 
+                                selfUserId={authResponse.user.id} 
+                                showToast={showToast}
+                                onOpenPongInvite={(roomUsers) => {
+                                  setPongInviteRoomUsers(roomUsers);
+                                  setShowPongInviteModal(true);
+                                  setCurrentPage('pong'); // Switch to pong page
+                                }}
+                              />
                             </div>
                           </div>
                         ) : (
                           // PONG PAGE — no scroll
                           <div className="p-6 h-full flex">
-                            <PongComponent authResponse={authResponse} darkMode={darkMode} />
+                            <PongComponent 
+                              authResponse={authResponse} 
+                              darkMode={darkMode}
+                              showInviteModal={showPongInviteModal}
+                              inviteRoomUsers={pongInviteRoomUsers}
+                              onCloseInviteModal={() => {
+                                setShowPongInviteModal(false);
+                                setPongInviteRoomUsers([]);
+                              }}
+                              pongInvitations={pongInvitations}
+                              setPongInvitations={setPongInvitations}
+                              acceptedLobbyId={acceptedLobbyId}
+                              onLobbyJoined={() => setAcceptedLobbyId(null)}
+                              onNavigateToChat={() => setCurrentPage('chat')}
+                            />
                           </div>
                         )}
 
@@ -318,6 +490,15 @@ export default function AppRoot() {
 
                 {showFriendsManager && (
                   <FriendsManager isOpen={showFriendsManager} onClose={() => setShowFriendsManager(false)} />
+                )}
+
+                {showAccessibilitySettings && (
+                  <AccessibilitySettings
+                    isOpen={showAccessibilitySettings}
+                    onClose={() => setShowAccessibilitySettings(false)}
+                    settings={accessibilitySettings}
+                    onUpdateSettings={setAccessibilitySettings}
+                  />
                 )}
 
               </div>
@@ -344,14 +525,12 @@ export default function AppRoot() {
                   </button>
                 </div>
 
-                <div className="mt-8 bg-white dark:bg-dark-800 py-8 px-4 shadow rounded-lg">
+                <div className="mt-8 py-8 px-4">
                   <div className="grid grid-cols-2 gap-8">
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Log In</h3>
                       <LoginComponent onLoginSuccess={logInOrRegistered} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Register</h3>
                       <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} />
                     </div>
                   </div>
@@ -359,7 +538,7 @@ export default function AppRoot() {
                   <div className="mt-6 flex justify-center">
                     <button
                       onClick={handleGuestLogin}
-                      className="bg-gray-100 dark:bg-dark-700 px-6 py-2 rounded-lg"
+                      className="bg-gray-100 dark:bg-gray-700/80 px-6 py-2 hover:bg-gray-200 dark:hover:bg-gray-600/80 transition-colors"
                     >Continue as Guest</button>
                   </div>
                 </div>

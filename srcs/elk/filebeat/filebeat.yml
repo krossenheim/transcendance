@@ -1,0 +1,35 @@
+strict.perms: false
+
+filebeat.inputs: []
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+      templates:
+        - condition:
+            contains:
+              docker.container.labels.com.docker.compose.service: "nginx"
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.container.id}/*-json.log
+              processors:
+                - add_fields:
+                    target: transcendance
+                    fields:
+                      service: nginx
+        - condition:
+            regexp:
+              docker.container.labels.com.docker.compose.service: ".*"
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.container.id}/*-json.log
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+processors:
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~

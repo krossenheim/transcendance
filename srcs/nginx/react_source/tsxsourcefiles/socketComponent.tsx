@@ -270,26 +270,7 @@ socket.current.send(JSON.stringify({
 
   return (
     <WebSocketContext.Provider value={{ socket, payloadReceived, isConnected, refreshToken, sendMessage } as WebSocketContextValue}>
-      {children}
-      <div style={{ marginTop: "10px" }}>
-        <input
-          type="text"
-          placeholder="debug ws send string"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && socket.current) {
-              socket.current.send((e.target as HTMLInputElement).value)
-              ;(e.target as HTMLInputElement).value = ""
-            }
-          }}
-          style={{
-            backgroundColor: "black",
-            color: "yellow",
-            border: "1px solid yellow",
-            padding: "5px 10px",
-            width: "100%",
-            boxSizing: "border-box",
-          }}
-        />
+      <div style={{ marginBottom: "10px" }}>
         <button
           onClick={refreshToken}
           style={{
@@ -297,13 +278,13 @@ socket.current.send(JSON.stringify({
             color: "white",
             border: "1px solid blue",
             padding: "5px 10px",
-            marginTop: "5px",
             cursor: "pointer",
           }}
         >
           Manual Token Refresh
         </button>
       </div>
+      {children}
     </WebSocketContext.Provider>
   )
 }

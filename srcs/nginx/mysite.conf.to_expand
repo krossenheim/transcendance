@@ -4,6 +4,16 @@ server {
     	return 301 https://${SERVER_NAME}$request_uri;
 	}
 
+
+	# Expose a minimal nginx status endpoint on port 80 as well so
+	# monitoring tools (exporters) using plain HTTP can scrape it.
+	location /status {
+		stub_status on;
+		access_log off;
+		allow 172.18.0.0/16;
+		deny all;
+	}
+
 	location /static 
 	{
 		alias /var/www/html/;
@@ -33,6 +43,15 @@ server {
 	location / {
 		return 301 https://$host:${FORWARDED_SSL_PORT_FROM_NAT_HOST}/;
     }
+
+	# Expose a minimal nginx status endpoint for monitoring
+	# Only allow access from the Docker network subnet.
+	location /status {
+		stub_status on;
+		access_log off;
+		allow 172.18.0.0/16;
+		deny all;
+	}
 
 	location = /
 	{
