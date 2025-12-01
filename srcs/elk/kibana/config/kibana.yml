@@ -1,0 +1,9 @@
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+server.host: 0.0.0.0
+server.port: 5601
+xpack.encryptedSavedObjects.encryptionKey: "21706550c15c877e6e4d4fbe5c56b90b"
+xpack.reporting.encryptionKey: "1be4185aff8b54c7f4a29f77908933ee"
+xpack.security.encryptionKey: "113c19756f367ad2481403254f2a89c2"
+elasticsearch.serviceAccountToken: "${KIBANA_SERVICE_TOKEN}"
+# elasticsearch.username: "elastic"
+# elasticsearch.password: "yourStrongPassword"

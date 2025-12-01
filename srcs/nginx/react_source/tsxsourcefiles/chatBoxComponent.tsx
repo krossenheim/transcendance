@@ -3,11 +3,13 @@
 import { useImperativeHandle, useState, useEffect, useRef, forwardRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { getUserColorCSS } from "./userColorUtils"
 
 export type TypeStoredMessageSchema = {
   user: string
   content: string
   timestamp?: string
+  userId?: number  // Add userId to track who sent the message
 }
 
 interface ChatBoxProps {
@@ -78,6 +80,7 @@ export const ChatBox = forwardRef<ChatBoxHandle, ChatBoxProps>(
               user: p.userId === userId ? username : `User ${p.userId}`,
               content: p.messageString || "",
               timestamp: p.messageDate || new Date().toISOString(),
+              userId: p.userId,  // Store userId for color mapping
             }
 
             console.log("Adding message:", newMessage)
@@ -109,6 +112,7 @@ export const ChatBox = forwardRef<ChatBoxHandle, ChatBoxProps>(
         user: username,
         content: input,
         timestamp: new Date().toISOString(),
+        userId: userId,  // Store userId for color mapping
       }
       setMessages((prev) => [...prev, localMessage])
 
@@ -137,21 +141,24 @@ export const ChatBox = forwardRef<ChatBoxHandle, ChatBoxProps>(
 
         <div className="flex-1 overflow-y-auto bg-yellow-200 rounded-xl p-3 space-y-2 border-4 border-green-500 min-h-[200px] max-h-[400px]">
           {messages.length > 0 ? (
-            messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`px-3 py-2 rounded-xl w-fit max-w-[80%] shadow-sm ${
-                  msg.user === username
-                    ? "bg-pink-500 text-white ml-auto"
-                    : "bg-cyan-400 text-black"
-                }`}
-              >
-                <span className="block text-xs opacity-70 mb-1">
-                  {msg.user} • {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ""}
-                </span>
-                <div className="text-sm break-words">{msg.content}</div>
-              </div>
-            ))
+            messages.map((msg, i) => {
+              const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
+              return (
+                <div
+                  key={i}
+                  className={`px-3 py-2 rounded-xl w-fit max-w-[80%] shadow-sm ${
+                    msg.user === username
+                      ? "bg-pink-500 text-white ml-auto"
+                      : "bg-cyan-400 text-black"
+                  }`}
+                >
+                  <span className="block text-xs mb-1 font-bold" style={{ color: userColor }}>
+                    {msg.user} • {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ""}
+                  </span>
+                  <div className="text-sm break-words">{msg.content}</div>
+                </div>
+              )
+            })
           ) : (
             <p className="text-muted-foreground text-center text-sm italic">No messages yet</p>
           )}

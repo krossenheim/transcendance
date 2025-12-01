@@ -17,6 +17,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@dicebear/collection": "latest",
     "better-sqlite3": "latest",
+    "prom-client": "latest",
     "qrcode": "latest",
     "@types/qrcode": "latest"
   }

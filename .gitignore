@@ -15,3 +15,6 @@ package-lock.json
 *.tsbuildinfo
 !/**/reactproto/**/*.js
 build_frontend
+srcs/.env
+srcs/globals.env
+srcs/elk/elasticsearch/config/service_tokens

@@ -21,6 +21,7 @@ import { TwoFactorRequiredResponse, type TwoFactorRequiredResponseType } from '.
 
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import axios from 'axios';
 
 // Temporary storage for pending 2FA logins (in production, use Redis)
 const pending2FALogins = new Map<string, { userId: number; timestamp: number }>();
@@ -48,6 +49,15 @@ const fastify: FastifyInstance = zodFastify();
 
 const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
 const jwtExpiry = '15min'; // 15 min
+
+// OAuth state management
+const pendingOAuthStates = new Map<string, number>();
+setInterval(() => {
+	const now = Date.now();
+	for (const [state, ts] of pendingOAuthStates.entries()) {
+		if (now - ts > 10 * 60 * 1000) pendingOAuthStates.delete(state);
+	}
+}, 5 * 60 * 1000);
 
 async function generateToken(userId: number): Promise<Result<TokenDataType, ErrorResponseType>> {
 	const newRefreshToken = crypto.randomBytes(64).toString('hex');
@@ -136,6 +146,182 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 		return reply.status(200).send({ user, tokens: tokenResult.unwrap() });
 	else
 		return reply.status(500).send(tokenResult.unwrapErr());
+});
+
+// GitHub OAuth: Start login (redirect to GitHub)
+fastify.get('/public_api/auth/oauth/github/login', async (request, reply) => {
+	const clientId = process.env.GITHUB_CLIENT_ID;
+	const redirectUri = process.env.GITHUB_REDIRECT_URI;
+	const scope = process.env.GITHUB_OAUTH_SCOPE || 'read:user user:email';
+
+	if (!clientId || !redirectUri) {
+		return reply.status(500).send({ message: 'GitHub OAuth is not configured' });
+	}
+
+	const state = crypto.randomBytes(20).toString('hex');
+	pendingOAuthStates.set(state, Date.now());
+
+	const authUrl = new URL('https://github.com/login/oauth/authorize');
+	authUrl.searchParams.set('client_id', clientId);
+	authUrl.searchParams.set('redirect_uri', redirectUri);
+	authUrl.searchParams.set('scope', scope);
+	authUrl.searchParams.set('state', state);
+
+	return reply.redirect(authUrl.toString());
+});
+
+// GitHub OAuth: Callback handler
+fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => {
+	try {
+		const query = request.query as Record<string, string | string[]>;
+		console.log('OAuth callback query:', JSON.stringify(query));
+		const code = Array.isArray(query.code) ? query.code[0] : query.code;
+		const state = Array.isArray(query.state) ? query.state[0] : query.state;
+		console.log('Parsed code:', code, 'state:', state);
+		console.log('Pending states:', Array.from(pendingOAuthStates.keys()));
+
+		if (!code || !state) {
+			return reply.status(400).send({ message: 'Missing OAuth code or state' });
+		}
+
+		const stateTime = pendingOAuthStates.get(state);
+		if (!stateTime || Date.now() - stateTime > 10 * 60 * 1000) {
+			return reply.status(400).send({ message: 'Invalid or expired OAuth state' });
+		}
+		pendingOAuthStates.delete(state);
+
+		const clientId = process.env.GITHUB_CLIENT_ID || '';
+		const clientSecret = process.env.GITHUB_CLIENT_SECRET || '';
+		const redirectUri = process.env.GITHUB_REDIRECT_URI || '';
+
+		if (!clientId || !clientSecret || !redirectUri) {
+			return reply.status(500).send({ message: 'GitHub OAuth is not configured' });
+		}
+
+		// Exchange code for access token
+		const tokenResp = await axios.post(
+			'https://github.com/login/oauth/access_token',
+			{
+				client_id: clientId,
+				client_secret: clientSecret,
+				code,
+				redirect_uri: redirectUri,
+				state,
+			},
+			{ headers: { Accept: 'application/json' }, validateStatus: () => true }
+		);
+
+		if (tokenResp.status !== 200 || !tokenResp.data?.access_token) {
+			return reply.status(401).send({ message: 'Failed to obtain GitHub token' });
+		}
+
+		const accessToken = tokenResp.data.access_token as string;
+
+		// Fetch user profile
+		const userResp = await axios.get('https://api.github.com/user', {
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				Accept: 'application/vnd.github+json',
+			},
+			validateStatus: () => true,
+		});
+
+		if (userResp.status !== 200 || !userResp.data?.login) {
+			return reply.status(401).send({ message: 'Failed to fetch GitHub user' });
+		}
+
+		const ghLogin = String(userResp.data.login);
+		const ghAvatar = String(userResp.data.avatar_url || '');
+
+		// Fetch primary email
+		let email: string | null = null;
+		try {
+			const emailsResp = await axios.get('https://api.github.com/user/emails', {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					Accept: 'application/vnd.github+json',
+				},
+				validateStatus: () => true,
+			});
+			if (emailsResp.status === 200 && Array.isArray(emailsResp.data)) {
+				const primary = emailsResp.data.find((e: any) => e.primary && e.verified);
+				email = (primary?.email as string) || null;
+			}
+		} catch (_) {
+			// ignore; fallback below
+		}
+		if (!email) email = `${ghLogin}@users.noreply.github.com`;
+
+		// Find or create user in DB
+		const existingResult = await containers.db.fetchUserByUsername(ghLogin, true);
+		if (existingResult.isOk()) {
+			const user = existingResult.unwrap();
+			const tokens = await generateToken(user.id);
+			if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
+			const tokenData = tokens.unwrap();
+			const redirectUrl = `https://localhost/?jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+			return reply.redirect(redirectUrl);
+		}
+
+		// Create new user with random password
+		const randomPassword = crypto.randomBytes(24).toString('hex');
+		const createResp = await containers.db.post(int_url.http.db.createNormalUser, {
+			username: ghLogin,
+			email,
+			password: randomPassword,
+		});
+
+		if (createResp.isErr()) {
+			return reply.status(500).send({ message: createResp.unwrapErr() });
+		}
+		if (createResp.unwrap().status !== 201) {
+			return reply.status(createResp.unwrap().status as 400).send(createResp.unwrap().data);
+		}
+
+		const newUser = FullUser.parse(createResp.unwrap().data);
+
+		// Optionally set avatar/email via updateUserData
+		try {
+			// Update basic profile fields
+			await containers.db.post(int_url.http.db.updateUserData, {
+				userId: newUser.id,
+				bio: newUser.bio ?? '',
+				alias: newUser.alias ?? ghLogin,
+				email: email,
+			});
+
+			// Fetch GitHub avatar and store as base64 pfp
+			if (ghAvatar) {
+				const avatarResp = await axios.get(ghAvatar, {
+					responseType: 'arraybuffer',
+					validateStatus: () => true,
+				});
+				if (avatarResp.status === 200) {
+					const contentType = String(avatarResp.headers['content-type'] || 'image/jpeg');
+					const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+					const base64 = Buffer.from(avatarResp.data).toString('base64');
+					await containers.db.post(int_url.http.db.updateUserData, {
+						userId: newUser.id,
+						pfp: {
+							filename: `github_avatar.${ext}`,
+							data: base64,
+						},
+					});
+				}
+			}
+		} catch (_) {}
+
+		const tokens = await generateToken(newUser.id);
+		if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
+		
+		// Redirect to frontend with tokens in URL hash (or use cookies)
+		const tokenData = tokens.unwrap();
+		const redirectUrl = `https://localhost/?jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+		return reply.redirect(redirectUrl);
+	} catch (err: any) {
+		console.error('OAuth error:', err?.message || err);
+		return reply.status(500).send({ message: 'OAuth processing failed' });
+	}
 });
 
 registerRoute(fastify, pub_url.http.auth.createNormalUser, async (request, reply) => {

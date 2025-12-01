@@ -20,6 +20,8 @@ socketToHub.register(wsBlockUserHandlers);
 
 import { wsUnblockUserHandlers } from "./ws_handlers/unblockUser.js";
 socketToHub.register(wsUnblockUserHandlers);
+import { wsFetchUserGameResultsHandlers } from "./ws_handlers/fetchUserGameResults.js";
+socketToHub.register(wsFetchUserGameResultsHandlers);
 
 import { wsConfirmFriendshipHandlers } from "./ws_handlers/confirmFriendship.js";
 socketToHub.register(wsConfirmFriendshipHandlers);

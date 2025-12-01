@@ -12,6 +12,7 @@ if [ -z "${HUB_IPV4_ADDRESS}" ]; then echo "ERROR: HUB_IPV4_ADDRESS is not set" 
 if [ -z "${PONG_IPV4_ADDRESS}" ]; then echo "ERROR: PONG_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${USERS_IPV4_ADDRESS}" ]; then echo "ERROR: USERS_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${LOBBY_IPV4_ADDRESS}" ]; then echo "ERROR: LOBBY_IPV4_ADDRESS is not set" >&2; exit 1; fi
+if [ -z "${LOBBY_IPV4_ADDRESS}" ]; then echo "ERROR: LOBBY_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${USERS_NAME}" ]; then echo "ERROR: USERS_NAME is not set" >&2; exit 1; fi
 if [ -z "${PONG_NAME}" ]; then echo "ERROR: PONG_NAME is not set" >&2; exit 1; fi
 if [ -z "${NGINX_NAME}" ]; then echo "ERROR: NGINX_NAME is not set" >&2; exit 1; fi

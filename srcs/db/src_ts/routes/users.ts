@@ -149,6 +149,17 @@ async function userRoutes(fastify: FastifyInstance) {
 		else
 			return reply.status(200).send(updateResult.unwrap());
 	});
+
+	registerRoute(fastify, int_url.http.db.fetchUserGameResults, async (request, reply) => {
+		const { userId } = request.params;
+		const userResult = userService.fetchUserById(userId);
+		if (userResult.isErr())
+			return reply.status(404).send({ message: userResult.unwrapErr() });
+		const gameResults = userService.fetchUserGameResults(userId);
+		if (gameResults.isErr())
+			return reply.status(500).send({ message: gameResults.unwrapErr() });
+		return reply.status(200).send(gameResults.unwrap());
+	});
 }
 
 export default userRoutes;
