@@ -1288,7 +1288,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/chat/rooms/create",
         method: "POST",
         schema: {
-          body: AddRoomPayloadSchema.extend({ owner: userIdValue }),
+          body: AddRoomPayloadSchema.extend({ owner: userIdValue, personB: userIdValue.optional() }),
           response: {
             201: RoomSchema, // Created room
             500: ErrorResponse, // Internal server error
@@ -1365,7 +1365,6 @@ export const int_url = defineRoutes({
         },
       },
 
-      // 2FA endpoints
       check2FAStatus: {
         endpoint: "/internal_api/db/2fa/status/:userId",
         method: "GET",
@@ -1443,6 +1442,7 @@ export const int_url = defineRoutes({
           },
         },
       },
+
     },
 
     chat: {

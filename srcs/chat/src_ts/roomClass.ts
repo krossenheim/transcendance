@@ -294,14 +294,12 @@ class ChatRooms {
   async addRoom(
     roomNameReq: string,
     user_id: number,
-    room_type: ChatRoomType
   ): Promise<Result<
     WSHandlerReturnValue<typeof user_url.ws.chat.addRoom.schema.output>,
     ErrorResponseType
   >> {
     const newRoomResult = await containers.db.post(int_url.http.db.createChatRoom, {
       roomName: roomNameReq,
-      roomType: room_type,
       owner: user_id,
     });
 

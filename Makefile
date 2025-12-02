@@ -38,7 +38,15 @@ dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
 
 down:
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
+	@# Automatically bring down monitoring if any monitoring container is running
+	@if docker ps -q --filter "name=prometheus" --filter "name=grafana" --filter "name=alertmanager" 2>/dev/null | grep -q .; then \
+		echo "Monitoring containers detected, bringing down everything..."; \
+		VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1; \
+	else \
+		VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1; \
+	fi
+	@# Clean up the network if it exists and is unused
+	@docker network rm transcendance_network 2>/dev/null || true
 
 # Ensure the shared external network exists before bringing services up
 ensure_network:
@@ -124,7 +132,7 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
-CONTAINERS := auth chat db hub pong users
+CONTAINERS := auth chat db hub pong users lobby
 
 # Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
 TSC_JOBS ?= 2

@@ -6,7 +6,6 @@ import { twoFactorService, userService } from '../main.js';
 import { z } from 'zod';
 
 async function twoFactorRoutes(fastify: FastifyInstance) {
-  
   // Check if user has 2FA enabled
   registerRoute(fastify, int_url.http.db.check2FAStatus, async (request, reply) => {
     const { userId } = request.params;
