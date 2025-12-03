@@ -20,11 +20,12 @@ if [ -z "${CHATROOM_NAME}" ]; then echo "ERROR: CHATROOM_NAME is not set" >&2; e
 if [ -z "${DATABASE_NAME}" ]; then echo "ERROR: DATABASE_NAME is not set" >&2; exit 1; fi
 if [ -z "${AUTH_NAME}" ]; then echo "ERROR: AUTH_NAME is not set" >&2; exit 1; fi
 if [ -z "${HUB_NAME}" ]; then echo "ERROR: HUB_NAME is not set" >&2; exit 1; fi
-if [ -z "${LOBBY_NAME}" ]; then echo "ERROR: LOBBY_NAME is not set" >&2; exit 1; fi
 if [ -z "${ELASTICSEARCH_IPV4_ADDRESS}" ]; then echo "ERROR: ELASTICSEARCH_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${USE_VAULT}" ]; then echo "ERROR: USE_VAULT is not set" >&2; exit 1; fi
 if [ -z "${VAULT_ADDR}" ]; then echo "ERROR: VAULT_ADDR is not set" >&2; exit 1; fi
 if [ -z "${VAULT_TOKEN}" ]; then echo "ERROR: VAULT_TOKEN is not set" >&2; exit 1; fi
 if [ -z "${VAULT_IPV4_ADDRESS}" ]; then echo "ERROR: VAULT_IPV4_ADDRESS is not set" >&2; exit 1; fi
+if [ -z "${LOGSTASH_IPV4_ADDRESS}" ]; then echo "ERROR: LOGSTASH_IPV4_ADDRESS is not set" >&2; exit 1; fi
+if [ -z "${KIBANA_IPV4_ADDRESS}" ]; then echo "ERROR: KIBANA_IPV4_ADDRESS is not set" >&2; exit 1; fi
 if [ -z "${MODSEC_RULE_ENGINE}" ]; then echo "ERROR: MODSEC_RULE_ENGINE is not set" >&2; exit 1; fi
 if [ -z "${ELASTIC_PASSWORD}" ]; then echo "ERROR: ELASTIC_PASSWORD is not set" >&2; exit 1; fi
