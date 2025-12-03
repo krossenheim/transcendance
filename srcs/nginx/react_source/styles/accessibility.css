@@ -1,32 +1,54 @@
 /* Accessibility CSS */
 
-/* High Contrast Mode - Black and White with strong borders */
+/* High Contrast Mode
+   - Use a milder, targeted approach in light mode so whites don't blow out
+   - Apply a stronger contrast filter in dark mode where it helps most
+*/
+
+/* High contrast should present a consistent, dark-style view regardless of theme
+   — when enabled, emulate the stronger dark-mode high-contrast appearance even
+   if the site is currently in light mode. */
 .high-contrast {
-  filter: contrast(2) !important;
+  filter: contrast(1.9) saturate(1.05) !important;
+  color-scheme: dark !important;
 }
 
 .high-contrast * {
   border-width: 2px !important;
 }
 
-.high-contrast button,
-.high-contrast a,
-.high-contrast input,
-.high-contrast select,
-.high-contrast textarea {
+/* In light mode, avoid overly thick black borders and heavy white backgrounds */
+.high-contrast:not(.dark) button,
+.high-contrast:not(.dark) a,
+.high-contrast:not(.dark) input,
+.high-contrast:not(.dark) select,
+.high-contrast:not(.dark) textarea {
+  /* Emulate dark-mode contrast for controls in high-contrast mode */
   font-weight: 700 !important;
-  border: 3px solid #000 !important;
+  border: 3px solid #fff !important;
+  background-color: #0b1220 !important;
+  color: #e6eef8 !important;
 }
 
+/* In dark mode use slightly heavier borders so they remain visible */
 .high-contrast.dark button,
 .high-contrast.dark a,
 .high-contrast.dark input,
 .high-contrast.dark select,
 .high-contrast.dark textarea {
-  border-color: #fff !important;
+  font-weight: 700 !important;
+  border: 3px solid #fff !important;
 }
 
-/* Remove transparency in high contrast mode */
+/* Additionally, when high-contrast is present on the root in light mode,
+   force a dark background and foreground so the UI matches the dark-mode
+   high-contrast experience */
+.high-contrast:not(.dark) {
+  background-color: #0b1220 !important;
+  color: #e6eef8 !important;
+}
+
+/* Remove transparency in high contrast mode for elements with Tailwind-style bg utilities */
 .high-contrast [class*="bg-"][class*="/"] {
   opacity: 1 !important;
 }

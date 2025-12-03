@@ -30,6 +30,7 @@ export interface Tournament {
   winnerId: number | null;
   ballCount: number;
   maxScore: number;
+  onchainTxHashes?: string[];
 }
 
 export class TournamentManager {
@@ -75,6 +76,7 @@ export class TournamentManager {
       winnerId: null,
       ballCount,
       maxScore,
+      onchainTxHashes: [],
     };
 
     this.tournaments.set(tournament.tournamentId, tournament);
@@ -208,11 +210,11 @@ export class TournamentManager {
     return ResultClass.Ok(match);
   }
 
-  recordMatchWinner(
+  async recordMatchWinner(
     tournamentId: number,
     matchId: number,
     winnerId: number
-  ): Result<Tournament, ErrorResponseType> {
+  ): Promise<Result<Tournament, ErrorResponseType>> {
     const tournament = this.tournaments.get(tournamentId);
     if (!tournament) {
       return ResultClass.Err({ message: "Tournament not found" });
@@ -237,6 +239,43 @@ export class TournamentManager {
     if (this.isTournamentComplete(tournament)) {
       tournament.status = "completed";
       tournament.winnerId = winnerId;
+    }
+
+    // If tournament completed, attempt to record on-chain (best-effort)
+    if (tournament.status === "completed") {
+      try {
+        // Instead of importing the blockchain service directly, call the
+        // internal HTTP endpoint so the recording is done via the same API
+        // surface used by other services. This keeps behavior consistent and
+        // makes auditing easier.
+        const internalSecret = process.env.INTERNAL_API_SECRET || "";
+        const url = `http://localhost:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000"}/api/pong/blockchain/record_score`;
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-secret": internalSecret,
+            },
+            body: JSON.stringify({ tournamentId: tournamentId, playerAddress: undefined, score: winnerId }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("On-chain record endpoint responded with non-OK:", res.status, text);
+          } else {
+            const body = await res.json() as { txHash?: string };
+            const txHash = body.txHash;
+            if (txHash) {
+              if (!tournament.onchainTxHashes) tournament.onchainTxHashes = [];
+              tournament.onchainTxHashes.push(txHash);
+            }
+          }
+        } catch (e: any) {
+          console.error("Failed to call on-chain record endpoint:", e?.message || e);
+        }
+      } catch (err) {
+        console.error("Error while attempting on-chain record:", err);
+      }
     }
 
     return ResultClass.Ok(tournament);

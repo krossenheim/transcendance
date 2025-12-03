@@ -117,6 +117,10 @@ export const LobbyDataSchema = z
     lobbyId: gameIdValue,
     gameMode: GameModeSchema,
     players: z.array(LobbyPlayerSchema),
+    // Optional canonical tournament object attached by the server when the lobby
+    // represents a tournament. Use a lazy reference so ordering of declarations
+    // doesn't cause runtime reference errors in compiled JS.
+    tournament: z.lazy(() => TournamentDataSchema).optional(),
     ballCount: z.coerce.number(),
     maxScore: z.coerce.number(),
     allowPowerups: z.boolean(),
@@ -154,6 +158,12 @@ export const TournamentDataSchema = z
     totalRounds: z.coerce.number().int().min(1),
     status: z.enum(["registration", "in_progress", "completed"]),
     winnerId: userIdValue.nullable(),
+    // Metadata about the underlying pong matches the tournament will run
+    // over so the frontend has the necessary parameters for matches.
+    ballCount: z.coerce.number().optional(),
+    maxScore: z.coerce.number().optional(),
+    // On-chain transaction hashes recorded for completed matches/scores
+    onchainTxHashes: z.array(z.string()).optional(),
   })
   .strict();
 

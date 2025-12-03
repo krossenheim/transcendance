@@ -8,6 +8,7 @@ import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState, useEffect } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
+import GDPRPage from "./GDPRPage";
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
@@ -15,10 +16,12 @@ import UserMenu from "./userMenu";
 import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications";
 import PongInvitationHandler from "./pongInvitationHandler";
 import AccessibilitySettings from "./accessibilitySettings";
+import CookieBanner from "./CookieBanner";
+import StarfieldBackground from "./StarfieldBackground";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
-  const [currentPage, setCurrentPage] = useState<'chat' | 'pong'>('chat');
+  const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>('chat');
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark');
@@ -274,6 +277,20 @@ export default function AppRoot() {
     return () => { cancelled = true; };
   }, []);
 
+  // Listen for simple global navigation events (e.g. from modals)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const ev = e as CustomEvent<string>;
+        if (ev?.detail === 'gdpr') setCurrentPage('gdpr');
+      } catch (err) {
+        // ignore
+      }
+    };
+    window.addEventListener('navigate', handler as EventListener);
+    return () => window.removeEventListener('navigate', handler as EventListener);
+  }, []);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | null>(null);
 
@@ -342,17 +359,27 @@ export default function AppRoot() {
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
-      style={{ backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)' }}
+      style={{
+        backgroundImage: darkMode ? 'none' : 'url(/static/react_dist/bg_light.png)',
+        backgroundColor: darkMode ? 'transparent' : undefined
+      }}
     >
+      {/* Starfield animation background - behind everything */}
+      {darkMode && <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />}
+
       {/* Skip to main content for keyboard users */}
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
 
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)' }}></div>
+      {/* Overlay - only in light mode since starfield provides its own background */}
+      {!darkMode && (
+        <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}></div>
+      )}
 
       <div className="relative">
-        {toastMessage && (
+          <CookieBanner />
+          {toastMessage && (
           <div className={`fixed top-6 right-6 z-50 px-4 py-2 rounded shadow-md ${toastType === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
             {toastMessage}
           </div>
@@ -390,7 +417,7 @@ export default function AppRoot() {
               />
               
               <div className="flex flex-col h-screen">
-                <header className="bg-white/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
+                <header className="bg-gray-100/95 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
                   <div className="max-w-5xl mx-auto px-4 py-4">
                     <div className="flex justify-between items-center">
                       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
@@ -443,8 +470,8 @@ export default function AppRoot() {
                   <div className="w-full max-w-5xl px-4 py-6 flex flex-col">
 
                     {/* Card wrapper (fixes border clipping) */}
-                    <div className="shadow dark:shadow-dark-700 h-full">
-                      <div className="bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 h-full flex flex-col">
+                      <div className="shadow dark:shadow-dark-700 h-full">
+                      <div className="glass-light-sm dark:glass-dark-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
 
                         {currentPage === 'chat' ? (
                           // CHAT PAGE — only inner content scrolls
@@ -460,6 +487,10 @@ export default function AppRoot() {
                                 }}
                               />
                             </div>
+                          </div>
+                        ) : currentPage === 'gdpr' ? (
+                          <div className="p-6 h-full flex flex-col">
+                            <GDPRPage showToast={showToast} onNavigateBack={() => setCurrentPage('chat')} />
                           </div>
                         ) : (
                           // PONG PAGE — no scroll

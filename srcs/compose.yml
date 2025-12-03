@@ -1,12 +1,19 @@
 services:
   nginx:
     container_name: nginx
-    image: nginx
+    image: transcendance-nginx-modsec:build
     env_file:
       - ./globals.env
       - ./nginx/site.env
     build:
       context: ./nginx
+      dockerfile: Dockerfile.modsec.build
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -V 2>&1 | grep -q modsecurity && curl -k -s -o /dev/null 'https://localhost/?q=union%20select' && sleep 0.5 && grep -q '910100' /var/log/modsecurity/modsec_audit.log || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: always
     ports:
       - "443:443"
@@ -59,6 +66,12 @@ services:
     depends_on:
       hub:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "code=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000/ || echo 000); [ \"$code\" != \"000\" ]"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
     volumes:
       - databases:/etc/database_data
   auth:
@@ -76,21 +89,43 @@ services:
     depends_on:
       hub:
         condition: service_healthy
-  lobby:
-    container_name: ${LOBBY_NAME}
-    image: ${LOBBY_NAME}
-    env_file:
-      - ./globals.env
-      - ./${LOBBY_NAME}/service_env.env
-    build:
-      context: ./${LOBBY_NAME}
-    restart: always
-    depends_on:
-      hub:
+      db:
         condition: service_healthy
+  hardhat:
+    container_name: hardhat
+    build:
+      context: ../blockchain
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8545:8545"
     networks:
       transcendance_network:
-        ipv4_address: ${LOBBY_IPV4_ADDRESS}
+        ipv4_address: ${HARDHAT_IPV4_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' http://localhost:8545 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  blockchain-explorer:
+    container_name: blockchain-explorer
+    build:
+      context: ../blockchain/explorer
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - RPC_URL=http://hardhat:8545
+    ports:
+      - "5100:5100"
+    networks:
+      transcendance_network:
+        ipv4_address: ${EXPLORER_IPV4_ADDRESS}
+    depends_on:
+      hardhat:
+        condition: service_healthy
+
   pong:
     container_name: ${PONG_NAME}
     image: ${PONG_NAME}
@@ -102,6 +137,8 @@ services:
     restart: always
     depends_on:
       hub:
+        condition: service_healthy
+      hardhat:
         condition: service_healthy
     networks:
       transcendance_network:
@@ -161,6 +198,28 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+
+  vault:
+    container_name: vault
+    image: hashicorp/vault:1.14.0
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root-token-for-dev"
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    command: server -dev -dev-listen-address=0.0.0.0:8200
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+    networks:
+      transcendance_network:
+        ipv4_address: ${VAULT_IPV4_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSf http://127.0.0.1:8200/v1/sys/health || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
 
   kibana:
     container_name: kibana

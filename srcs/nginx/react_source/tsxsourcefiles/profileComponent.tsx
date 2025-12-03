@@ -563,6 +563,18 @@ useEffect(() => {
                       if (active) setShowSetupImmediately(true);
                     }}
                   />
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        // Close modal and navigate to GDPR page
+                        try { window.dispatchEvent(new CustomEvent('navigate', { detail: 'gdpr' })); } catch {};
+                        onClose();
+                      }}
+                      className="px-3 py-2 mt-2 bg-gray-100 dark:bg-dark-700 text-sm hover:bg-gray-200 dark:hover:bg-dark-600 rounded"
+                    >
+                      Manage My Data (GDPR)
+                    </button>
+                  </div>
                 </div>
               )}
 

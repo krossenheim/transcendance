@@ -1,0 +1,145 @@
+<!--
+ ************************************************************************** 
+                                                                            
+                                                        ::::::::            
+   stars.html                                           :+:    :+:            
+                                                     +:+                    
+   By: thivan-d <thivan-d@student.codam.nl>         +#+                     
+                                                   +#+                      
+   Created: 2025/01/11 10:01:19 by thivan-d      #+#    #+#                 
+   Updated: 2025/02/12 11:23:54 by thivan-d      ########   odam.nl         
+                                                                            
+ ************************************************************************** 
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Starfield</title>
+<style>
+    body { 
+        margin: 0; 
+        overflow: hidden; 
+        background: url('../static/react_dist/bg_dark.png') no-repeat center center fixed;
+        background-size: cover;
+        background-color: #0a0a1a;
+    }
+    canvas { display:block; }
+</style>
+<link rel="icon" href="" id="favicon">
+</head>
+<body>
+<canvas id="space"></canvas>
+
+<script>
+class Star {
+    constructor(x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+}
+
+const canvas = document.getElementById("space");
+const ctx = canvas.getContext("2d");
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const starCount = 500;
+const stars = [];
+const depthStart = 2000;
+const depthMin = 5;
+
+for (let i = 0; i < starCount; i++) {
+    stars.push(new Star(
+        (Math.random() - 0.5) * W * 2,
+        (Math.random() - 0.5) * H * 2,
+        Math.random() * depthStart
+    ));
+}
+
+function update() {
+    ctx.clearRect(0, 0, W, H);
+
+    for (let s of stars) {
+        s.z -= 4;
+        if (s.z < depthMin) {
+            s.x = (Math.random() - 0.5) * W * 2;
+            s.y = (Math.random() - 0.5) * H * 2;
+            s.z = depthStart;
+        }
+
+        const f = 300 / s.z;
+        const x = s.x * f + W / 2;
+        const y = s.y * f + H / 2;
+
+        let brightness = 1 - s.z / depthStart;
+        brightness = Math.min(1, brightness);
+        const shade = Math.floor(brightness * 255);
+        ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+
+        const size = Math.max(1, 3 * f);
+        ctx.fillRect(x, y, size, size);
+    }
+
+    requestAnimationFrame(update);
+}
+update();
+
+const faviconSize = 32;
+const faviconCanvas = document.createElement("canvas");
+faviconCanvas.width = faviconCanvas.height = faviconSize;
+const faviconCtx = faviconCanvas.getContext("2d");
+const faviconLink = document.querySelector('link[rel="icon"]');
+
+const fLen = 20;
+const faviconStarCount = 30;
+const maxZ = 50;
+
+const faviconStars = Array.from({length: faviconStarCount}, () => ({
+    x: (Math.random() - 0.5) * 50,
+    y: (Math.random() - 0.5) * 50,
+    z: Math.random() * maxZ
+}));
+
+function updateFavicon() {
+    faviconCtx.fillStyle = "black";
+    faviconCtx.fillRect(0, 0, faviconSize, faviconSize);
+
+    for (let s of faviconStars) {
+        s.z -= 0.5;
+
+        if (s.z < 1) {
+            s.x = (Math.random() - 0.5) * 50;
+            s.y = (Math.random() - 0.5) * 50;
+            s.z = maxZ;
+        }
+
+        const f = fLen / s.z;
+        const x = s.x * f + faviconSize / 2;
+        const y = s.y * f + faviconSize / 2;
+
+        const brightness = Math.min(1, Math.pow(1 - s.z / maxZ, 0.5) * 1.5);
+        const shade = Math.floor(brightness * 255);
+
+        faviconCtx.fillStyle = `rgb(${shade},${shade},${shade})`;
+        const size = Math.max(1, f * 1.7);
+        faviconCtx.fillRect(x, y, size, size);
+    }
+
+    faviconLink.href = faviconCanvas.toDataURL("image/png");
+        requestAnimationFrame(updateFavicon);
+}
+
+updateFavicon();
+
+</script>
+</body>
+</html>

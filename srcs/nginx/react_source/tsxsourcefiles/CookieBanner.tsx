@@ -1,0 +1,42 @@
+import React, { useEffect, useState } from 'react';
+
+function setCookie(name: string, value: string, days = 365) {
+  const d = new Date(); d.setTime(d.getTime() + days * 24*60*60*1000);
+  document.cookie = `${name}=${encodeURIComponent(value)};path=/;SameSite=Lax;expires=${d.toUTCString()}`;
+}
+function getCookie(name: string) {
+  const m = document.cookie.split('; ').find(c => c.startsWith(name + '='));
+  return m ? decodeURIComponent(m.split('=')[1]) : null;
+}
+
+export default function CookieBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!getCookie('cookie_consent')) setVisible(true);
+  }, []);
+
+  const accept = async () => {
+    setCookie('cookie_consent', 'accepted');
+    setVisible(false);
+    // Optional: persist to server for logged-in users:
+    // await fetch('/api/user/cookie-preferences', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({consent:'accepted'}) });
+  };
+
+  const reject = async () => {
+    setCookie('cookie_consent', 'rejected');
+    setVisible(false);
+    // Optional: persist to server similarly
+  };
+
+  if (!visible) return null;
+  return (
+    <div style={{position:'fixed',bottom:12,left:12,right:12,background:'#111',color:'#fff',padding:12,borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:9999}}>
+      <div style={{maxWidth:'70%'}}>We use cookies to improve your experience. You may accept or reject non-essential cookies.</div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={accept} style={{background:'#28a745',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6}}>Accept</button>
+        <button onClick={reject} style={{background:'#6c757d',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6}}>Reject</button>
+      </div>
+    </div>
+  );
+}

@@ -23,7 +23,6 @@ REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
-all: check-deps ensure_npx down build
 all: check-deps ensure_npx down build ensure_network
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
@@ -88,6 +87,34 @@ build_react:
 	npm install --prefix $(REACT_DIR)
 	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
+# Vault development helpers
+vault-bootstrap:
+	@echo "Starting Vault (dev) and bootstrapping..."
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d vault || true
+	@printf "Waiting for Vault to be healthy..."
+	@until curl -sSf http://127.0.0.1:8200/v1/sys/health >/dev/null 2>&1; do printf .; sleep 1; done; echo
+	@docker cp srcs/vault/bootstrap_vault_dev.sh vault:/bootstrap_vault_dev.sh || true
+	@docker exec vault sh -c "chmod +x /bootstrap_vault_dev.sh && VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=root-token-for-dev /bootstrap_vault_dev.sh"
+	@TOKEN=$$(docker exec vault sh -c "VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=root-token-for-dev vault token create -policy=nginx-policy -field=token"); \
+	printf "VAULT token: $$TOKEN\n"; \
+	if grep -q '^VAULT_TOKEN=' srcs/globals.env >/dev/null 2>&1; then \
+		sed -i "s#^VAULT_TOKEN=.*#VAULT_TOKEN=$$TOKEN#" srcs/globals.env; \
+	else \
+		echo "VAULT_TOKEN=$$TOKEN" >> srcs/globals.env; \
+	fi; \
+	# Enable USE_VAULT for local testing
+	sed -i 's#^USE_VAULT=.*#USE_VAULT=true#' srcs/globals.env || true; \
+	echo "Wrote token to srcs/globals.env (dev-only)."
+
+vault-down:
+	@echo "Stopping and removing Vault (dev) container..."
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" stop vault || true
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" rm -f vault || true
+	@echo "Removing VAULT_TOKEN from $(PATH_TO_COMPOSE_ENV_FILE) and disabling USE_VAULT"
+	@sed -i '/^VAULT_TOKEN=/d' "$(PATH_TO_COMPOSE_ENV_FILE)" || true
+	@sed -i 's/^USE_VAULT=.*/USE_VAULT=false/' "$(PATH_TO_COMPOSE_ENV_FILE)" || echo "USE_VAULT=false" >> "$(PATH_TO_COMPOSE_ENV_FILE)"
+	@echo "Vault stopped and token removed (dev-only)."
+
 check-deps:
 	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
 	@if ! command -v node >/dev/null 2>&1; then \
@@ -132,7 +159,8 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
-CONTAINERS := auth chat db hub pong users lobby
+# All containers to compile TypeScript for
+CONTAINERS := auth chat db hub pong users
 
 # Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
 TSC_JOBS ?= 2
@@ -172,4 +200,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all
+.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all vault-bootstrap vault-down

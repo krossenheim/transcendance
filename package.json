@@ -19,6 +19,7 @@
     "@fastify/swagger": "^9.5.2",
     "@fastify/swagger-ui": "^5.2.3",
     "@resvg/resvg-js": "^2.6.2",
+    "@fastify/cookie": "^8.0.0",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.4.1",
@@ -27,6 +28,9 @@
     "jsonwebtoken": "^9.0.2",
     "prom-client": "latest",
     "sharp": "^0.34.5",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "ethers": "^6.9.0",
+    "dotenv": "^16.1.4"
   }
 }
+
