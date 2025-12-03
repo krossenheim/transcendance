@@ -93,6 +93,7 @@ services:
         condition: service_healthy
   hardhat:
     container_name: hardhat
+    image: hardhat:local
     build:
       context: ../blockchain
       dockerfile: Dockerfile
@@ -111,6 +112,7 @@ services:
 
   blockchain-explorer:
     container_name: blockchain-explorer
+    image: blockchain-explorer:local
     build:
       context: ../blockchain/explorer
       dockerfile: Dockerfile

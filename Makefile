@@ -77,8 +77,37 @@ debug:
 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
 	rm -f $(VOLUMES_DIR)users.db
 
-build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
+# Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
+HARDHAT_IMAGE_TAG := hardhat:local
+EXPLORER_IMAGE_TAG := blockchain-explorer:local
+BLOCKCHAIN_DIR := $(PROJECT_ROOT)blockchain
+
+build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers build_hardhat_if_needed build_explorer_if_needed
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build db auth chat hub pong users nginx
+
+build_hardhat_if_needed:
+	@if ! docker image inspect $(HARDHAT_IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "Building Hardhat image (first time)..."; \
+		docker build -f "$(BLOCKCHAIN_DIR)/Dockerfile" -t $(HARDHAT_IMAGE_TAG) "$(BLOCKCHAIN_DIR)"; \
+	else \
+		echo "Hardhat image exists, skipping rebuild (use 'make build-hardhat' to force)"; \
+	fi
+
+build_explorer_if_needed:
+	@if ! docker image inspect $(EXPLORER_IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "Building Block Explorer image (first time)..."; \
+		docker build -f "$(BLOCKCHAIN_DIR)/explorer/Dockerfile" -t $(EXPLORER_IMAGE_TAG) "$(BLOCKCHAIN_DIR)/explorer"; \
+	else \
+		echo "Block Explorer image exists, skipping rebuild"; \
+	fi
+
+build-hardhat:
+	@echo "Force rebuilding Hardhat image..."
+	docker build -f "$(BLOCKCHAIN_DIR)/Dockerfile" -t $(HARDHAT_IMAGE_TAG) "$(BLOCKCHAIN_DIR)"
+
+build-explorer:
+	@echo "Force rebuilding Block Explorer image..."
+	docker build -f "$(BLOCKCHAIN_DIR)/explorer/Dockerfile" -t $(EXPLORER_IMAGE_TAG) "$(BLOCKCHAIN_DIR)/explorer"
 
 build_base_nodejs:
 	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(NODEJS_BASE_IMAGE_DIR)"
