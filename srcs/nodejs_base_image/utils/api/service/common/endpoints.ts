@@ -568,7 +568,7 @@ export const user_url = defineRoutes({
         container: "pong",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: EmptySchema,
+          args: z.object({ gameId: gameIdValue }),
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             GameUpdate: {
@@ -1080,8 +1080,8 @@ export const int_url = defineRoutes({
   },
   http: {
     pong: {
-      startGame: {
-        endpoint: "/internal_api/pong/start_game_http",
+      createGame: {
+        endpoint: "/internal_api/pong/create_game",
         method: "POST",
         schema: {
           body: StartNewPongGameSchema,

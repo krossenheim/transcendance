@@ -31,7 +31,7 @@ export async function proxyRequest(req: any, reply: any, method: string, url: st
     }
     return reply.code(status).headers(headersToForward).send(response.data);
   } catch (error : any) {
-    console.error("Error proxying request:", error);
+    console.log("Error proxying request:", error);
     return reply.code(500).send({ error: "Internal Server Error: " + error.message });
   }
 }

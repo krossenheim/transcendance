@@ -10,7 +10,7 @@ import type { FriendType } from "./utils/api/service/db/user.js";
 import type { FastifyInstance } from "fastify";
 
 const fastify: FastifyInstance = createFastify();
-const socketToHub = new OurSocket("users");
+const socketToHub = new OurSocket("pong");
 
 let onlineUsers: Set<number> = new Set();
 
@@ -19,7 +19,7 @@ interface gameData {
 	lastUpdate: number;
 };
 
-import { PongGame } from "game/game.js";
+import { PongGame } from "./game/game.js";
 const games = new Map<number, gameData>(); 
 
 const game = new PongGame([1, 2, 3, 4, 5], {
@@ -35,16 +35,46 @@ const game = new PongGame([1, 2, 3, 4, 5], {
 });
 games.set(game.id, { game, lastUpdate: Date.now() });
 
-const TICK = 1000 / 10; // 10 fps
+const TICK = 10000; // 0.1 fps
 setInterval(() => {
 	games.forEach((gameData) => {
 		const now = Date.now();
 		const deltaTime = (now - gameData.lastUpdate) / 1000;
-		socketToHub.invokeHandler(user_url.ws.pong.getGameState, gameData.game.getPlayers(), gameData.game.fetchBoardJSON())
 		gameData.game.playSimulation(deltaTime);
+		updatePongGameForPlayers(gameData.game);
 		gameData.lastUpdate = now;
 	});
 }, TICK);
+
+function updatePongGameForPlayers(pongGame: PongGame) {
+	socketToHub.sendMessage(user_url.ws.pong.getGameState, {
+		recipients: pongGame.getPlayers(),
+		code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+		payload: pongGame.fetchBoardJSON(),
+	})
+}
+
+socketToHub.registerHandler(user_url.ws.pong.getGameState, async (wrapper, schema) => {
+	let userId = wrapper.user_id;
+	let gameId = wrapper.payload.gameId;
+
+	let gameData = games.get(gameId);
+	if (!gameData || gameData.game.getPlayers().indexOf(userId) === -1) {
+		return Result.Ok({
+			recipients: [userId],
+			code: schema.output.NotInRoom.code,
+			payload: { message: "User not in game room." },
+		});
+	}
+
+	return Result.Ok({
+		recipients: [userId],
+		code: schema.output.GameUpdate.code,
+		payload: {
+			gameState: gameData.game.fetchBoardJSON(),
+		},
+	});
+});
 
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
