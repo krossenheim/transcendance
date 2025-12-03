@@ -573,7 +573,7 @@ export const user_url = defineRoutes({
           output: {
             GameUpdate: {
               code: 0,
-              payload: GameStateSchema,
+              payload: z.any(),
             },
             NotInRoom: {
               code: 1,
