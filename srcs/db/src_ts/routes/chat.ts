@@ -1,3 +1,4 @@
+import { ChatRoomType } from "../utils/api/service/chat/chat_interfaces.js";
 import { registerRoute } from "../utils/api/service/common/fastify.js";
 import { int_url } from "../utils/api/service/common/endpoints.js";
 import { chatService } from "../main.js";
@@ -6,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 
 export async function chatRoutes(fastify: FastifyInstance) {
     registerRoute(fastify, int_url.http.db.createChatRoom, async (request, reply) => {
-        const createRoomResult = chatService.createNewRoom(request.body.roomName, request.body.roomType, request.body.owner);
+        const createRoomResult = chatService.createNewRoom(request.body.roomName, ChatRoomType.PRIVATE, request.body.owner);
         if (createRoomResult.isErr())
             return reply.status(500).send({ message: createRoomResult.unwrapErr() });
         else return reply.status(201).send(createRoomResult.unwrap());

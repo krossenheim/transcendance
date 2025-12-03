@@ -142,7 +142,7 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (wrapper) => {
 socket.registerHandler(user_url.ws.chat.addRoom, async (wrapper) => {
   const room_name_requested = wrapper.payload.roomName;
   const user_id = wrapper.user_id;
-  const room = await singletonChatRooms.addRoom(room_name_requested, user_id, ChatRoomType.PRIVATE);
+  const room = await singletonChatRooms.addRoom(room_name_requested, user_id);
   if (!room) {
     console.error("Mega warning, could not add a room.");
     return Result.Ok({
