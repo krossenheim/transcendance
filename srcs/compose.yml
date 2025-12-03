@@ -91,6 +91,41 @@ services:
         condition: service_healthy
       db:
         condition: service_healthy
+  hardhat:
+    container_name: hardhat
+    build:
+      context: ../blockchain
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8545:8545"
+    networks:
+      transcendance_network:
+        ipv4_address: ${HARDHAT_IPV4_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' http://localhost:8545 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  blockchain-explorer:
+    container_name: blockchain-explorer
+    build:
+      context: ../blockchain/explorer
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - RPC_URL=http://hardhat:8545
+    ports:
+      - "5100:5100"
+    networks:
+      transcendance_network:
+        ipv4_address: ${EXPLORER_IPV4_ADDRESS}
+    depends_on:
+      hardhat:
+        condition: service_healthy
+
   pong:
     container_name: ${PONG_NAME}
     image: ${PONG_NAME}
@@ -102,6 +137,8 @@ services:
     restart: always
     depends_on:
       hub:
+        condition: service_healthy
+      hardhat:
         condition: service_healthy
     networks:
       transcendance_network:

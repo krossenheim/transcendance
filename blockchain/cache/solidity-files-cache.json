@@ -1,0 +1,40 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/mnt/c/opnieuw_transcendence/blockchain/contracts/TournamentScores.sol": {
+      "lastModificationDate": 1764596543181,
+      "contentHash": "dd1f388f0945e91c61200aefb3136c34",
+      "sourceName": "contracts/TournamentScores.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "TournamentScores"
+      ]
+    }
+  }
+}

@@ -17,6 +17,7 @@ import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifi
 import PongInvitationHandler from "./pongInvitationHandler";
 import AccessibilitySettings from "./accessibilitySettings";
 import CookieBanner from "./CookieBanner";
+import StarfieldBackground from "./StarfieldBackground";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
@@ -359,15 +360,22 @@ export default function AppRoot() {
     <div
       className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
       style={{
-        backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)'
+        backgroundImage: darkMode ? 'none' : 'url(/static/react_dist/bg_light.png)',
+        backgroundColor: darkMode ? 'transparent' : undefined
       }}
     >
+      {/* Starfield animation background - behind everything */}
+      {darkMode && <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />}
+
       {/* Skip to main content for keyboard users */}
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
 
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)' }}></div>
+      {/* Overlay - only in light mode since starfield provides its own background */}
+      {!darkMode && (
+        <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}></div>
+      )}
 
       <div className="relative">
           <CookieBanner />

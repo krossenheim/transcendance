@@ -23,7 +23,6 @@ REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
-all: check-deps ensure_npx down build
 all: check-deps ensure_npx down build ensure_network
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
@@ -38,7 +37,15 @@ dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
 
 down:
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
+	@# Automatically bring down monitoring if any monitoring container is running
+	@if docker ps -q --filter "name=prometheus" --filter "name=grafana" --filter "name=alertmanager" 2>/dev/null | grep -q .; then \
+		echo "Monitoring containers detected, bringing down everything..."; \
+		VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1; \
+	else \
+		VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1; \
+	fi
+	@# Clean up the network if it exists and is unused
+	@docker network rm transcendance_network 2>/dev/null || true
 
 # Ensure the shared external network exists before bringing services up
 ensure_network:
@@ -80,6 +87,7 @@ build_react:
 	npm install --prefix $(REACT_DIR)
 	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
+# Vault development helpers
 vault-bootstrap:
 	@echo "Starting Vault (dev) and bootstrapping..."
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d vault || true
@@ -151,6 +159,7 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
+# All containers to compile TypeScript for
 CONTAINERS := auth chat db hub pong users
 
 # Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
@@ -191,4 +200,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all
+.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all vault-bootstrap vault-down

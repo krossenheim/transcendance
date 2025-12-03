@@ -20,6 +20,7 @@ client.collectDefaultMetrics({ prefix: 'pong_' });
 import { registerRoute } from "./utils/api/service/common/fastify.js";
 import PongGame from "./pongGame.js";
 import { PongLobbyStatus } from "./playerPaddle.js";
+import BlockchainService from "./services/blockchainService.js";
 
 const fastify: FastifyInstance = createFastify();
 
@@ -29,6 +30,7 @@ const singletonPong = new PongManager();
 const lobbyManager = new LobbyManager();
 const tournamentManager = new TournamentManager();
 const socket = new OurSocket("pong");
+const blockchainService = new BlockchainService();
 
 async function backgroundTask() {
   let loops = 0;
@@ -140,21 +142,51 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
   const lobby = lobbyResult.unwrap();
   
   console.log(`[Pong] Created lobby, returning to ALL players including invitees: ${JSON.stringify(playerIds)}`);
+  // If this lobby is a tournament, create a Tournament on the server-side
+  // and attach it to the lobby so invitees receive tournament context.
+  let tournamentPayload = undefined;
+  if (gameMode === "tournament_1v1" || gameMode === "tournament_multi") {
+    try {
+      const tournamentName = `${gameMode === "tournament_1v1" ? "1v1" : "Multiplayer"} Tournament`;
+      const tResult = tournamentManager.createTournament(
+        tournamentName,
+        gameMode,
+        playerIds,
+        ballCount,
+        maxScore
+      );
+      if (!tResult.isErr()) {
+        const tournament = tResult.unwrap();
+        // Record the tournamentId on the lobby so it can be looked up later
+        lobbyManager.setTournamentId(lobby.lobbyId, tournament.tournamentId);
+        tournamentPayload = tournament;
+        console.log(`[Pong] Created tournament ${tournament.tournamentId} for lobby ${lobby.lobbyId}`);
+      } else {
+        console.error("Failed to create tournament for lobby:", tResult.unwrapErr());
+      }
+    } catch (e) {
+      console.error("Error while creating tournament for lobby:", e);
+    }
+  }
   
   // Return lobby state to ALL players (host + invited)
   // This will be sent by the hub to all recipients
+  // Build payload, include tournament data when present
+  const responsePayload: any = {
+    lobbyId: lobby.lobbyId,
+    gameMode: lobby.gameMode,
+    players: lobby.players,
+    ballCount: lobby.ballCount,
+    maxScore: lobby.maxScore,
+    allowPowerups: lobby.allowPowerups,
+    status: lobby.status,
+  };
+  if (tournamentPayload) responsePayload.tournament = tournamentPayload;
+
   return Result.Ok({
-    recipients: playerIds,  // Send to ALL players, not just host
+    recipients: playerIds, // Send to ALL players, not just host
     code: user_url.ws.pong.createLobby.schema.output.LobbyCreated.code,
-    payload: {
-      lobbyId: lobby.lobbyId,
-      gameMode: lobby.gameMode,
-      players: lobby.players,
-      ballCount: lobby.ballCount,
-      maxScore: lobby.maxScore,
-      allowPowerups: lobby.allowPowerups,
-      status: lobby.status,
-    },
+    payload: responsePayload,
   });
 });
 
@@ -445,6 +477,48 @@ fastify.get('/metrics', async (request, reply) => {
     return reply.send(metrics);
   } catch (err) {
     reply.status(500).send('Could not collect metrics');
+  }
+});
+
+// Public API: Get tournament stats including on-chain tx hashes
+fastify.get('/api/pong/tournaments/:id/stats', async (request, reply) => {
+  const idParam = (request.params as any).id;
+  const tid = Number(idParam);
+  if (Number.isNaN(tid)) return reply.status(400).send({ message: 'invalid tournament id' });
+
+  const tournament = tournamentManager.getTournament(tid);
+  if (!tournament) return reply.status(404).send({ message: 'tournament not found' });
+
+  // Return tournament data; onchainTxHashes (if any) will be included
+  return reply.status(200).send({ tournament });
+});
+
+// Internal endpoint to record a tournament score on-chain.
+// Protect with INTERNAL_API_SECRET header for simple access control in dev.
+fastify.post('/api/pong/blockchain/record_score', async (request, reply) => {
+  const body: any = request.body as any;
+  const secret = (request.headers['x-internal-secret'] as string) || undefined;
+  if (process.env.INTERNAL_API_SECRET && secret !== process.env.INTERNAL_API_SECRET) {
+    return reply.status(403).send({ message: 'forbidden' });
+  }
+
+  if (!blockchainService.isConfigured()) {
+    return reply.status(500).send({ message: 'blockchain service not configured (set CONTRACT_ADDRESS and DEPLOYER_PRIVATE_KEY)' });
+  }
+
+  const tournamentId = Number(body.tournamentId);
+  const playerAddress = body.playerAddress as string | undefined;
+  const score = Number(body.score);
+
+  if (Number.isNaN(tournamentId) || Number.isNaN(score)) {
+    return reply.status(400).send({ message: 'invalid payload' });
+  }
+
+  try {
+    const txHash = await blockchainService.recordScore(tournamentId, playerAddress, score);
+    return reply.status(200).send({ txHash });
+  } catch (err: any) {
+    return reply.status(500).send({ message: err?.message || String(err) });
   }
 });
 

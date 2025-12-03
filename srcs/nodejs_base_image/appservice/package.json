@@ -19,6 +19,7 @@
     "@dicebear/collection": "latest",
     "better-sqlite3": "latest",
     "prom-client": "latest",
+    "ethers": "^6.9.0",
     "qrcode": "latest",
     "@types/qrcode": "latest"
   }
