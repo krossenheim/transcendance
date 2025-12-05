@@ -270,20 +270,6 @@ socket.current.send(JSON.stringify({
 
   return (
     <WebSocketContext.Provider value={{ socket, payloadReceived, isConnected, refreshToken, sendMessage } as WebSocketContextValue}>
-      <div style={{ marginBottom: "10px" }}>
-        <button
-          onClick={refreshToken}
-          style={{
-            backgroundColor: "darkblue",
-            color: "white",
-            border: "1px solid blue",
-            padding: "5px 10px",
-            cursor: "pointer",
-          }}
-        >
-          Manual Token Refresh
-        </button>
-      </div>
       {children}
     </WebSocketContext.Provider>
   )

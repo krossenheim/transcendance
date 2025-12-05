@@ -382,8 +382,9 @@ class ChatRooms {
     WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>,
     ErrorResponseType
   >> {
-    const room = this.getRoom(roomIdReq);
-    if (room === null) {
+    // Use fetchRoom to load the room from DB if not in memory
+    const roomResult = await this.fetchRoom(roomIdReq);
+    if (roomResult.isErr()) {
       return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.chat.joinRoom.schema.output.NoSuchRoom.code,
@@ -392,6 +393,7 @@ class ChatRooms {
         },
       });
     }
+    const room = roomResult.unwrap();
     
     // Check if user is already in the room
     if (room.users.find((id) => id === user_id)) {

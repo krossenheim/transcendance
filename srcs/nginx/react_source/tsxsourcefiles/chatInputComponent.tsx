@@ -23,9 +23,8 @@ interface ChatBoxProps {
   currentRoom: number | null
   currentRoomName: string | null
   onInvitePong: (roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => void
-  onLeaveRoom: () => void
-  onBlockUser: (username: string) => void
-  blockedUsers: string[]
+  onBlockUser: (userId: number) => void
+  blockedUserIds: number[]
   onOpenProfile: (username: string) => void
   roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>
 }
@@ -36,9 +35,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   currentRoom,
   currentRoomName,
   onInvitePong,
-  onLeaveRoom,
   onBlockUser,
-  blockedUsers,
+  blockedUserIds,
   onOpenProfile,
   roomUsers,
 }) => {
@@ -185,22 +183,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           {currentRoom && <p className="text-xs text-white opacity-75" aria-label="Room ID">ID: {currentRoom}</p>}
         </div>
         {currentRoom && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => onInvitePong(roomUsers)}
-              className="bg-green-500 text-white text-sm px-3 py-1 hover:bg-green-600 transition-all"
-              aria-label="Invite users to play Pong"
-            >
-              🏓 Invite to Pong
-            </button>
-            <button
-              onClick={onLeaveRoom}
-              className="bg-red-500 text-white text-sm px-3 py-1 hover:bg-red-600 transition-all"
-              aria-label="Leave this room"
-            >
-              🚪 Leave
-            </button>
-          </div>
+          <button
+            onClick={() => onInvitePong(roomUsers)}
+            className="bg-green-500 text-white text-sm px-3 py-1 hover:bg-green-600 transition-all"
+            aria-label="Invite users to play Pong"
+          >
+            🏓 Invite to Pong
+          </button>
         )}
       </div>
 
@@ -210,9 +199,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         <div className="flex-1 overflow-y-auto glass-light-xs dark:glass-dark-xs glass-border p-4 space-y-3" role="log" aria-live="polite" aria-label="Chat messages">
         {messages.length > 0 ? (
           messages
-            .filter((msg) => !blockedUsers.includes(msg.user))
+            .filter((msg) => msg.userId === undefined || !blockedUserIds.includes(msg.userId))
             .map((msg, i) => {
               const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
+              const isBlocked = msg.userId !== undefined && blockedUserIds.includes(msg.userId)
               return (
                 <div key={i} className="flex justify-start">
                   <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-900" role="article" aria-label={`Message from ${msg.user}`}> 
@@ -224,12 +214,14 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                       >
                         {msg.user}
                       </span>
-                      <button
-                        onClick={() => onBlockUser(msg.user)}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        {blockedUsers.includes(msg.user) ? "Unblock" : "Block"}
-                      </button>
+                      {msg.userId !== undefined && (
+                        <button
+                          onClick={() => onBlockUser(msg.userId!)}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          {isBlocked ? "Unblock" : "Block"}
+                        </button>
+                      )}
                     </div>
                     <p className="text-sm">{msg.content}</p>
                     {msg.timestamp && (
@@ -293,11 +285,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             <input
               type="text"
               placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
-              className={`w-full border rounded-full px-4 py-2 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 glass-light-xs dark:glass-dark-xs ${
+              className={`w-full border rounded-full px-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 glass-light-xs dark:glass-dark-xs ${
                 isCommand
-                  ? "border-purple-500 text-purple-600 dark:text-purple-400 focus:ring-purple-400"
+                  ? "border-purple-500 text-purple-700 focus:ring-purple-400"
                   : "border-gray-300 dark:border-gray-600 focus:ring-blue-400"
-              } disabled:bg-gray-100/30 dark:disabled:bg-gray-900/30 dark:bg-transparent`}
+              } disabled:bg-gray-100/30 dark:disabled:bg-gray-900/30`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -357,6 +349,7 @@ interface RoomListProps {
   onSelectRoom: (roomId: number) => void
   onCreateRoom: (roomName: string) => void
   onRefreshRooms: () => void
+  onLeaveRoom: (roomId: number) => void
   onStartDM: (username: string | number) => void
   selfUserId: number
   userMap: Record<number, string>
@@ -368,6 +361,7 @@ const RoomList: React.FC<RoomListProps> = ({
   onSelectRoom,
   onCreateRoom,
   onRefreshRooms,
+  onLeaveRoom,
   onStartDM,
   selfUserId,
   userMap,
@@ -409,20 +403,33 @@ const RoomList: React.FC<RoomListProps> = ({
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {rooms.length > 0 ? (
           rooms.map((room) => (
-            <button
+            <div
               key={room.roomId}
-              onClick={() => onSelectRoom(room.roomId)}
-              className={`w-full text-left px-4 py-3 transition-all ${
+              className={`relative w-full text-left px-4 py-3 transition-all cursor-pointer ${
                 currentRoom === room.roomId
                   ? "bg-blue-500 text-white shadow-md"
                   : "bg-gray-50 dark:bg-gray-700/45 hover:bg-gray-100 dark:hover:bg-gray-600/45 text-gray-800 dark:text-gray-200"
               }`}
+              onClick={() => onSelectRoom(room.roomId)}
+              role="button"
               aria-label={`Join room ${getDisplayName(room)}`}
               aria-current={currentRoom === room.roomId ? "true" : "false"}
             >
-              <div className="font-medium">{getDisplayName(room)}</div>
+              <div className="font-medium pr-6">{getDisplayName(room)}</div>
               <div className="text-xs opacity-75">ID: {room.roomId}</div>
-            </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onLeaveRoom(room.roomId)
+                }}
+                className={`absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-lg font-bold rounded hover:bg-red-500 hover:text-white transition-all ${
+                  currentRoom === room.roomId ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-white"
+                }`}
+                aria-label={`Leave room ${getDisplayName(room)}`}
+              >
+                ×
+              </button>
+            </div>
           ))
         ) : (
           <p className="text-gray-400 dark:text-gray-500 text-center text-sm italic py-8">No rooms available. Create one!</p>
@@ -534,7 +541,7 @@ export default function ChatInputComponent({
       }>
     >
   >({})
-  const [blockedUsers, setBlockedUsers] = useState<string[]>([])
+  const [blockedUserIds, setBlockedUserIds] = useState<number[]>([])
   const [profileUserId, setProfileUserId] = useState<number | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [userMap, setUserMap] = useState<Record<number, string>>({}) // userId -> username map
@@ -638,6 +645,22 @@ export default function ChatInputComponent({
           }))
         setPendingFriendshipRequests(pending)
         console.log("Pending friendship requests (received):", pending)
+        
+        // Extract blocked users (status === 3) - users WE have blocked
+        const blocked = connections
+          .filter((conn: any) => conn.status === 3 && conn.userId === selfUserId) // We initiated the block
+          .map((conn: any) => conn.id)
+        setBlockedUserIds(blocked)
+        console.log("Blocked users:", blocked)
+        break
+
+      case user_url.ws.users.blockUser.funcId:
+      case user_url.ws.users.unblockUser.funcId:
+        // Refresh user connections to get updated blocked list
+        console.log("Block/unblock response, refreshing connections")
+        if (payloadReceived.code === 0) {
+          sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+        }
         break
 
       case user_url.ws.chat.sendMessage.funcId:
@@ -1331,16 +1354,17 @@ export default function ChatInputComponent({
   )
 
   const handleLeaveRoom = useCallback(
-    () => {
-      if (!currentRoomId) return
-      console.log("Leaving room:", currentRoomId)
-      sendToSocket(user_url.ws.chat.leaveRoom.funcId, { roomId: currentRoomId })
-      // Clear current room state
-      setCurrentRoomId(null)
-      setCurrentRoomName(null)
-      setCurrentRoomType(null)
-      setCurrentRoomUsers([])
-      setMessages([])
+    (roomId: number) => {
+      console.log("Leaving room:", roomId)
+      sendToSocket(user_url.ws.chat.leaveRoom.funcId, { roomId })
+      // If leaving the current room, clear the state
+      if (roomId === currentRoomId) {
+        setCurrentRoomId(null)
+        setCurrentRoomName(null)
+        setCurrentRoomType(null)
+        setCurrentRoomUsers([])
+        setMessages([])
+      }
     },
     [currentRoomId],
   )
@@ -1402,10 +1426,13 @@ export default function ChatInputComponent({
       sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
       // Remove from pending invites
       setPendingRoomInvites(prev => prev.filter(inv => inv.roomId !== roomId))
-      // Refresh rooms list
+      // Select the room and open it
+      setCurrentRoomId(roomId)
+      // Refresh rooms list and get room data
       setTimeout(() => {
         sendToSocket(user_url.ws.chat.listRooms.funcId, {})
-      }, 500)
+        sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
+      }, 300)
   // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [],
@@ -1483,9 +1510,22 @@ export default function ChatInputComponent({
     setDeclineDmInviteHandler(() => handleDeclineDmInvite)
   }, [handleAcceptDmInvite, handleDeclineDmInvite, setAcceptDmInviteHandler, setDeclineDmInviteHandler])
 
-  const handleBlockUser = useCallback((username: string) => {
-    setBlockedUsers((prev) => (prev.includes(username) ? prev.filter((u) => u !== username) : [...prev, username]))
-  }, [])
+  const handleBlockUser = useCallback((userId: number) => {
+    const isCurrentlyBlocked = blockedUserIds.includes(userId)
+    if (isCurrentlyBlocked) {
+      // Unblock - call server API
+      console.log("Unblocking user:", userId)
+      sendToSocket(user_url.ws.users.unblockUser.funcId, userId)
+    } else {
+      // Block - call server API
+      console.log("Blocking user:", userId)
+      sendToSocket(user_url.ws.users.blockUser.funcId, userId)
+    }
+    // Optimistically update local state
+    setBlockedUserIds((prev) => 
+      isCurrentlyBlocked ? prev.filter((id) => id !== userId) : [...prev, userId]
+    )
+  }, [blockedUserIds, sendToSocket])
 
   const handleOpenProfile = useCallback((username: string) => {
     console.log("=== Opening profile ===")
@@ -1569,6 +1609,7 @@ export default function ChatInputComponent({
               onSelectRoom={handleSelectRoom}
               onCreateRoom={handleCreateRoom}
               onRefreshRooms={handleRefreshRooms}
+              onLeaveRoom={handleLeaveRoom}
               onStartDM={handleStartDM}
               selfUserId={selfUserId}
               userMap={userMap}
@@ -1582,9 +1623,8 @@ export default function ChatInputComponent({
               currentRoom={currentRoomId}
               currentRoomName={currentRoomName}
               onInvitePong={handleInvitePong}
-              onLeaveRoom={handleLeaveRoom}
               onBlockUser={handleBlockUser}
-              blockedUsers={blockedUsers}
+              blockedUserIds={blockedUserIds}
               onOpenProfile={handleOpenProfile}
               roomUsers={currentRoomUsers}
             />
