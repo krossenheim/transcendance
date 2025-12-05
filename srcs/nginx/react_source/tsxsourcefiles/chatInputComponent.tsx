@@ -23,6 +23,7 @@ interface ChatBoxProps {
   currentRoom: number | null
   currentRoomName: string | null
   onInvitePong: (roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => void
+  onLeaveRoom: () => void
   onBlockUser: (username: string) => void
   blockedUsers: string[]
   onOpenProfile: (username: string) => void
@@ -35,6 +36,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   currentRoom,
   currentRoomName,
   onInvitePong,
+  onLeaveRoom,
   onBlockUser,
   blockedUsers,
   onOpenProfile,
@@ -45,7 +47,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const commands: Array<{ name: string; description: string; aliases?: string[] }> = [
     { name: "me", description: "Send an action/emote message" },
     { name: "whisper", description: "(alias /w) Not implemented private whisper", aliases: ["w"] },
-    { name: "invite", description: "Invite a user to current room" },
+    { name: "invite", description: "Invite user(s) to current room: /invite user1 user2 ..." },
     { name: "debug", description: "Send raw WebSocket message (debug)" },
     { name: "help", description: "Show available commands" },
   ]
@@ -53,6 +55,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const [filteredCommands, setFilteredCommands] = useState(commands)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // Command history state
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const [savedInput, setSavedInput] = useState("")
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -64,9 +71,21 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   const handleSend = () => {
     if (!input.trim() || !currentRoom) return
+    // Save to command history if it's a slash command
+    if (input.startsWith("/")) {
+      setCommandHistory(prev => {
+        // Avoid duplicates at the end
+        if (prev.length > 0 && prev[prev.length - 1] === input) return prev
+        // Keep last 50 commands
+        const newHistory = [...prev, input].slice(-50)
+        return newHistory
+      })
+    }
     onSendMessage(input)
     setInput("")
     setShowSuggestions(false)
+    setHistoryIndex(-1)
+    setSavedInput("")
   }
 
   const isCommand = input.startsWith("/")
@@ -123,6 +142,32 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       } else if (e.key === "Escape") {
         setShowSuggestions(false)
       }
+    } else if (commandHistory.length > 0) {
+      // Command history navigation when not showing suggestions
+      if (e.key === "ArrowUp") {
+        e.preventDefault()
+        if (historyIndex === -1) {
+          // Save current input before navigating history
+          setSavedInput(input)
+          setHistoryIndex(commandHistory.length - 1)
+          setInput(commandHistory[commandHistory.length - 1])
+        } else if (historyIndex > 0) {
+          setHistoryIndex(prev => prev - 1)
+          setInput(commandHistory[historyIndex - 1])
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault()
+        if (historyIndex !== -1) {
+          if (historyIndex < commandHistory.length - 1) {
+            setHistoryIndex(prev => prev + 1)
+            setInput(commandHistory[historyIndex + 1])
+          } else {
+            // Restore saved input when going past the end
+            setHistoryIndex(-1)
+            setInput(savedInput)
+          }
+        }
+      }
     }
     if (e.key === "Enter") {
       handleSend()
@@ -140,13 +185,22 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           {currentRoom && <p className="text-xs text-white opacity-75" aria-label="Room ID">ID: {currentRoom}</p>}
         </div>
         {currentRoom && (
-          <button
-            onClick={() => onInvitePong(roomUsers)}
-            className="bg-green-500 text-white text-sm px-3 py-1 hover:bg-green-600 transition-all"
-            aria-label="Invite users to play Pong"
-          >
-            🏓 Invite to Pong
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onInvitePong(roomUsers)}
+              className="bg-green-500 text-white text-sm px-3 py-1 hover:bg-green-600 transition-all"
+              aria-label="Invite users to play Pong"
+            >
+              🏓 Invite to Pong
+            </button>
+            <button
+              onClick={onLeaveRoom}
+              className="bg-red-500 text-white text-sm px-3 py-1 hover:bg-red-600 transition-all"
+              aria-label="Leave this room"
+            >
+              🚪 Leave
+            </button>
+          </div>
         )}
       </div>
 
@@ -161,7 +215,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
               return (
                 <div key={i} className="flex justify-start">
-                  <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-800 dark:text-gray-200" role="article" aria-label={`Message from ${msg.user}`}> 
+                  <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-900" role="article" aria-label={`Message from ${msg.user}`}> 
                     <div className="flex justify-between items-center">
                       <span
                         onClick={() => onOpenProfile(msg.user)}
@@ -201,7 +255,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         {currentRoom && (
           <div className="w-48 glass-light-xs dark:glass-dark-xs glass-border overflow-y-auto" role="complementary" aria-label="Online users list">
             <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Users ({roomUsers.length})</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Users ({roomUsers.length})</h3>
             </div>
             <div className="p-2 space-y-1">
               {roomUsers.map((user) => {
@@ -452,7 +506,17 @@ export default function ChatInputComponent({
   onOpenPongInvite?: (roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => void
 }) {
   const { socket, payloadReceived, isConnected, sendMessage } = useWebSocket()
-  const { setPendingRequests, setAcceptHandler, setDenyHandler } = useFriendshipContext()
+  const { 
+    setPendingRequests, 
+    setAcceptHandler, 
+    setDenyHandler,
+    setRoomInvites,
+    setAcceptRoomInviteHandler,
+    setDeclineRoomInviteHandler,
+    setDmInvites,
+    setAcceptDmInviteHandler,
+    setDeclineDmInviteHandler
+  } = useFriendshipContext()
   const [rooms, setRooms] = useState<TypeRoomSchema[]>([])
   const [currentRoomId, setCurrentRoomId] = useState<number | null>(null)
   const sendToSocketRef = useRef<(funcId: string, payload: any, targetContainer?: string) => void>(() => {})
@@ -478,6 +542,10 @@ export default function ChatInputComponent({
   const [pendingDMTargetId, setPendingDMTargetId] = useState<number | null>(null)
   const [currentRoomUsers, setCurrentRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
   const [pendingProfileLookup, setPendingProfileLookup] = useState<string | null>(null)
+  // Track rooms where we have been invited (INVITED state)
+  const [pendingRoomInvites, setPendingRoomInvites] = useState<Array<{ roomId: number; roomName: string; inviterId: number; inviterUsername: string }>>([])
+  // Track DMs where someone messaged us (we have INVITED state in DM room)
+  const [pendingDmInvites, setPendingDmInvites] = useState<Array<{ roomId: number; oderId: number; username: string }>>([])
 
   // Get messages for current room
   const messages = currentRoomId != null ? messagesByRoom[String(currentRoomId)] || [] : []
@@ -559,15 +627,17 @@ export default function ChatInputComponent({
         setUserMap((prev) => ({ ...prev, ...connectionUserMap }))
         console.log("Updated userMap with", Object.keys(connectionUserMap).length, "users from connections")
         
+        // Filter for pending requests where someone else requested friendship with US
+        // (conn.friendId === selfUserId means we are the target, not the initiator)
         const pending = connections
-          .filter((conn: any) => conn.status === 1) // 1 = Pending in UserFriendshipStatusEnum
+          .filter((conn: any) => conn.status === 1 && conn.friendId === selfUserId) // Only show requests where we're the target
           .map((conn: any) => ({
             userId: conn.id,
             username: conn.username,
             alias: conn.alias,
           }))
         setPendingFriendshipRequests(pending)
-        console.log("Pending friendship requests:", pending)
+        console.log("Pending friendship requests (received):", pending)
         break
 
       case user_url.ws.chat.sendMessage.funcId:
@@ -728,14 +798,68 @@ export default function ChatInputComponent({
         }
         break
 
+      case user_url.ws.chat.leaveRoom.funcId:
+        try {
+          console.log("Leave room response - full payload:", JSON.stringify(payloadReceived.payload, null, 2))
+          const payload = payloadReceived.payload as { user: number; roomId: number } | { message: string }
+
+          if ('roomId' in payload && payloadReceived.code === 0) {
+            const roomIdStr = String(payload.roomId)
+            const leftRoomId = Number(payload.roomId)
+            console.log("Successfully left room:", roomIdStr)
+
+            // If another user left the room we're in, refresh the user list
+            if (leftRoomId === currentRoomId && 'user' in payload && payload.user !== selfUserId) {
+              console.log(`[leaveRoom] User ${payload.user} left our current room ${payload.roomId}, refreshing user list`)
+              sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId: leftRoomId })
+            }
+
+            // Remove the room from our list if we left
+            if ('user' in payload && payload.user === selfUserId) {
+              console.log(`[leaveRoom] We left room ${leftRoomId}, removing from list`)
+              setRooms(prev => {
+                const filtered = prev.filter(r => r.roomId !== leftRoomId)
+                console.log(`[leaveRoom] Rooms before: ${prev.length}, after: ${filtered.length}`)
+                return filtered
+              })
+              // Clear message history for this room
+              setMessagesByRoom(prev => {
+                const newState = { ...prev }
+                delete newState[roomIdStr]
+                return newState
+              })
+              // Refresh the room list from server to ensure consistency
+              sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+              if (showToast) {
+                showToast("You have left the room.", 'success')
+              }
+            }
+          } else if (payloadReceived.code !== 0) {
+            const errorMsg = 'message' in payload ? payload.message : "Failed to leave room."
+            console.error("Failed to leave room:", errorMsg)
+            if (showToast) {
+              showToast(errorMsg, 'error')
+            }
+          }
+        } catch (error) {
+          console.error("Error processing leave room:", error)
+        }
+        break
+
       case user_url.ws.chat.addUserToRoom.funcId:
         // This event represents an invite (user state INVITED). Do not show in members yet.
-        // Optionally ensure we know the invitee's username for later display.
+        // If the invited user is us, fetch room data to see the invite notification
         try {
           const payload = payloadReceived.payload as any // { user: number, roomId: number }
           console.log("Invite sent to user for room:", payload)
           if (payload && typeof payload.user === 'number') {
             if (!userMap[payload.user]) fetchUsername(payload.user)
+            
+            // If WE were invited, fetch the room data to trigger the invite notification
+            if (payload.user === selfUserId && typeof payload.roomId === 'number') {
+              console.log("[addUserToRoom] We were invited to room", payload.roomId, "- fetching room data")
+              sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId: payload.roomId })
+            }
           }
         } catch (e) {
           console.error('Error handling addUserToRoom event:', e)
@@ -757,6 +881,69 @@ export default function ChatInputComponent({
               }
             })
             setUserMap((prev) => ({ ...prev, ...newMap }))
+            
+            // Check if we (selfUserId) are INVITED to this room
+            // roomType: 0 = public, 1 = private, 2 = DM
+            if (Array.isArray(roomData.userConnections)) {
+              const myConnection = roomData.userConnections.find((uc: any) => uc.userId === selfUserId)
+              
+              if (roomData.room.roomType === 2) {
+                // DM room - check if we're INVITED (someone messaged us)
+                if (myConnection && myConnection.userState === ChatRoomUserAccessType.INVITED) {
+                  // Find the other user in the DM
+                  const otherConnection = roomData.userConnections.find((uc: any) => uc.userId !== selfUserId)
+                  const otherId = otherConnection?.userId || 0
+                  const otherUsername = newMap[otherId] || userMap[otherId] || `User ${otherId}`
+                  
+                  console.log(`[getRoomData] We have a new DM from ${otherUsername} (userId: ${otherId})`)
+                  
+                  // Add to pending DM invites if not already there
+                  setPendingDmInvites(prev => {
+                    const exists = prev.some(inv => inv.roomId === roomData.room.roomId)
+                    if (!exists) {
+                      return [...prev, {
+                        roomId: roomData.room.roomId,
+                        oderId: otherId,
+                        username: otherUsername
+                      }]
+                    }
+                    return prev
+                  })
+                } else if (myConnection && myConnection.userState === ChatRoomUserAccessType.JOINED) {
+                  // We've opened this DM, remove from pending
+                  setPendingDmInvites(prev => prev.filter(inv => inv.roomId !== roomData.room.roomId))
+                }
+              } else {
+                // Public/private room
+                if (myConnection && myConnection.userState === ChatRoomUserAccessType.INVITED) {
+                  // Find who else is in the room (likely the inviter - first JOINED user)
+                  const inviterConnection = roomData.userConnections.find((uc: any) => 
+                    uc.userId !== selfUserId && uc.userState === ChatRoomUserAccessType.JOINED
+                  )
+                  const inviterId = inviterConnection?.userId || 0
+                  const inviterUsername = newMap[inviterId] || userMap[inviterId] || `User ${inviterId}`
+                  
+                  console.log(`[getRoomData] We're INVITED to room ${roomData.room.roomName} by ${inviterUsername}`)
+                  
+                  // Add to pending room invites if not already there
+                  setPendingRoomInvites(prev => {
+                    const exists = prev.some(inv => inv.roomId === roomData.room.roomId)
+                    if (!exists) {
+                      return [...prev, {
+                        roomId: roomData.room.roomId,
+                        roomName: roomData.room.roomName,
+                        inviterId,
+                        inviterUsername
+                      }]
+                    }
+                    return prev
+                  })
+                } else if (myConnection && myConnection.userState === ChatRoomUserAccessType.JOINED) {
+                  // We've joined this room, remove from pending invites if present
+                  setPendingRoomInvites(prev => prev.filter(inv => inv.roomId !== roomData.room.roomId))
+                }
+              }
+            }
             
             // Store only JOINED users for the current room if this is the active room
             if (Number(roomIdStr) === currentRoomId) {
@@ -978,9 +1165,9 @@ export default function ChatInputComponent({
           break
 
         case "invite":
-          if (args.length !== 1) {
+          if (args.length < 1) {
             if (showToast) {
-              showToast("Usage: /invite <username or userId>", 'error')
+              showToast("Usage: /invite <username1> [username2] [username3] ...", 'error')
             }
             return
           }
@@ -990,69 +1177,89 @@ export default function ChatInputComponent({
             }
             return
           }
-          // Resolve username to userId
-          const usernameOrId = args[0]
-          const isNumericInput = /^\d+$/.test(usernameOrId)
-          let userIdToInvite: number | null = null
           
-          if (isNumericInput) {
-            userIdToInvite = Number(usernameOrId)
-            sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
-              roomId: currentRoomId, 
-              user_to_add: userIdToInvite 
-            })
-          } else {
-            // First, look up username in userMap
-            console.log("Looking for username:", usernameOrId, "in userMap:", userMap)
-            const foundUser = Object.entries(userMap).find(([, uname]) => 
-              uname.toLowerCase() === usernameOrId.toLowerCase()
-            )
+          // Helper function to invite a single user
+          const inviteUser = (usernameOrId: string) => {
+            const isNumericInput = /^\d+$/.test(usernameOrId)
             
-            if (foundUser) {
-              userIdToInvite = Number(foundUser[0])
+            if (isNumericInput) {
+              const userIdToInvite = Number(usernameOrId)
               sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
                 roomId: currentRoomId, 
                 user_to_add: userIdToInvite 
               })
+              if (showToast) {
+                showToast(`Invited user ID ${userIdToInvite}`, 'success')
+              }
             } else {
-              // Not in cache - search for the user by username
-              console.log(`Searching for user: ${usernameOrId}`)
+              // First, look up username in userMap
+              console.log("Looking for username:", usernameOrId, "in userMap:", userMap)
+              const foundUser = Object.entries(userMap).find(([, uname]) => 
+                uname.toLowerCase() === usernameOrId.toLowerCase()
+              )
               
-              // Create a pending invite that will be sent once we get the search response
-              const handleSearchResponse = (e: MessageEvent) => {
-                try {
-                  const data = JSON.parse(e.data)
-                  if (data.funcId === user_url.ws.users.requestUserProfileData.funcId) {
-                    socket.current?.removeEventListener('message', handleSearchResponse)
-                    
-                    if (data.code === 0 && data.payload?.id) {
-                      const foundUserId = data.payload.id
-                      console.log(`Found user ${usernameOrId} with ID ${foundUserId}`)
-                      sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
-                        roomId: currentRoomId, 
-                        user_to_add: foundUserId 
-                      })
-                    } else {
-                      if (showToast) {
-                        showToast(`User "${usernameOrId}" not found. Please check the username and try again.`, 'error')
+              if (foundUser) {
+                const userIdToInvite = Number(foundUser[0])
+                sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
+                  roomId: currentRoomId, 
+                  user_to_add: userIdToInvite 
+                })
+                if (showToast) {
+                  showToast(`Invited ${usernameOrId}`, 'success')
+                }
+              } else {
+                // Not in cache - search for the user by username
+                console.log(`Searching for user: ${usernameOrId}`)
+                
+                // Create a pending invite that will be sent once we get the search response
+                const handleSearchResponse = (e: MessageEvent) => {
+                  try {
+                    const data = JSON.parse(e.data)
+                    if (data.funcId === user_url.ws.users.requestUserProfileData.funcId) {
+                      socket.current?.removeEventListener('message', handleSearchResponse)
+                      
+                      if (data.code === 0 && data.payload?.id) {
+                        const foundUserId = data.payload.id
+                        console.log(`Found user ${usernameOrId} with ID ${foundUserId}`)
+                        sendToSocket(user_url.ws.chat.addUserToRoom.funcId, { 
+                          roomId: currentRoomId, 
+                          user_to_add: foundUserId 
+                        })
+                        if (showToast) {
+                          showToast(`Invited ${usernameOrId}`, 'success')
+                        }
+                      } else {
+                        if (showToast) {
+                          showToast(`User "${usernameOrId}" not found.`, 'error')
+                        }
                       }
                     }
+                  } catch (err) {
+                    console.error("Error handling search response:", err)
                   }
-                } catch (err) {
-                  console.error("Error handling search response:", err)
                 }
+                
+                socket.current?.addEventListener('message', handleSearchResponse)
+                
+                // Send search request
+                sendToSocket(user_url.ws.users.requestUserProfileData.funcId, usernameOrId)
+                
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                  socket.current?.removeEventListener('message', handleSearchResponse)
+                }, 5000)
               }
-              
-              socket.current?.addEventListener('message', handleSearchResponse)
-              
-              // Send search request
-              sendToSocket(user_url.ws.users.requestUserProfileData.funcId, usernameOrId)
-              
-              // Timeout after 5 seconds
-              setTimeout(() => {
-                socket.current?.removeEventListener('message', handleSearchResponse)
-              }, 5000)
             }
+          }
+          
+          // Invite all specified users
+          args.forEach((userArg, index) => {
+            // Stagger invites slightly to avoid race conditions
+            setTimeout(() => inviteUser(userArg), index * 100)
+          })
+          
+          if (args.length > 1 && showToast) {
+            showToast(`Inviting ${args.length} users...`, 'success')
           }
           break
 
@@ -1085,7 +1292,7 @@ export default function ChatInputComponent({
 
         case "help":
           if (showToast) {
-            showToast("Commands: /me, /whisper, /invite, /debug, /help", 'success')
+            showToast("Commands: /me, /whisper, /invite (supports multiple users), /debug, /help. Use ↑↓ to browse command history.", 'success')
           }
           break
 
@@ -1121,6 +1328,21 @@ export default function ChatInputComponent({
       sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
     [rooms, computeRoomDisplayName],
+  )
+
+  const handleLeaveRoom = useCallback(
+    () => {
+      if (!currentRoomId) return
+      console.log("Leaving room:", currentRoomId)
+      sendToSocket(user_url.ws.chat.leaveRoom.funcId, { roomId: currentRoomId })
+      // Clear current room state
+      setCurrentRoomId(null)
+      setCurrentRoomName(null)
+      setCurrentRoomType(null)
+      setCurrentRoomUsers([])
+      setMessages([])
+    },
+    [currentRoomId],
   )
 
   const handleCreateRoom = useCallback(
@@ -1173,6 +1395,61 @@ export default function ChatInputComponent({
     [],
   )
 
+  // Handler for accepting a room invite (join the room)
+  const handleAcceptRoomInvite = useCallback(
+    (roomId: number) => {
+      console.log("Accepting room invite, joining room:", roomId)
+      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
+      // Remove from pending invites
+      setPendingRoomInvites(prev => prev.filter(inv => inv.roomId !== roomId))
+      // Refresh rooms list
+      setTimeout(() => {
+        sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+      }, 500)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [],
+  )
+
+  // Handler for declining a room invite (leave/dismiss the invite)
+  const handleDeclineRoomInvite = useCallback(
+    (roomId: number) => {
+      console.log("Declining room invite for room:", roomId)
+      // Just remove from our local list - the INVITED state will remain on server
+      // but user won't see the notification anymore
+      setPendingRoomInvites(prev => prev.filter(inv => inv.roomId !== roomId))
+    },
+    [],
+  )
+
+  // Handler for accepting a DM invite (join/open the DM room)
+  const handleAcceptDmInvite = useCallback(
+    (roomId: number) => {
+      console.log("Accepting DM invite, opening room:", roomId)
+      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
+      // Remove from pending DM invites
+      setPendingDmInvites(prev => prev.filter(inv => inv.roomId !== roomId))
+      // Select the room
+      setCurrentRoomId(roomId)
+      // Refresh room data
+      setTimeout(() => {
+        sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
+      }, 100)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [],
+  )
+
+  // Handler for declining a DM invite (dismiss notification)
+  const handleDeclineDmInvite = useCallback(
+    (roomId: number) => {
+      console.log("Declining DM invite for room:", roomId)
+      // Just remove from our local list
+      setPendingDmInvites(prev => prev.filter(inv => inv.roomId !== roomId))
+    },
+    [],
+  )
+
   // Sync pending requests and handlers to context (unless in test mode)
   useEffect(() => {
     const testMode = localStorage.getItem('FRIENDSHIP_TEST_MODE') === 'true'
@@ -1185,6 +1462,26 @@ export default function ChatInputComponent({
     setAcceptHandler(() => handleAcceptFriendship)
     setDenyHandler(() => handleDenyFriendship)
   }, [handleAcceptFriendship, handleDenyFriendship, setAcceptHandler, setDenyHandler])
+
+  // Sync room invites and handlers to context
+  useEffect(() => {
+    setRoomInvites(pendingRoomInvites)
+  }, [pendingRoomInvites, setRoomInvites])
+
+  useEffect(() => {
+    setAcceptRoomInviteHandler(() => handleAcceptRoomInvite)
+    setDeclineRoomInviteHandler(() => handleDeclineRoomInvite)
+  }, [handleAcceptRoomInvite, handleDeclineRoomInvite, setAcceptRoomInviteHandler, setDeclineRoomInviteHandler])
+
+  // Sync DM invites and handlers to context
+  useEffect(() => {
+    setDmInvites(pendingDmInvites)
+  }, [pendingDmInvites, setDmInvites])
+
+  useEffect(() => {
+    setAcceptDmInviteHandler(() => handleAcceptDmInvite)
+    setDeclineDmInviteHandler(() => handleDeclineDmInvite)
+  }, [handleAcceptDmInvite, handleDeclineDmInvite, setAcceptDmInviteHandler, setDeclineDmInviteHandler])
 
   const handleBlockUser = useCallback((username: string) => {
     setBlockedUsers((prev) => (prev.includes(username) ? prev.filter((u) => u !== username) : [...prev, username]))
@@ -1285,6 +1582,7 @@ export default function ChatInputComponent({
               currentRoom={currentRoomId}
               currentRoomName={currentRoomName}
               onInvitePong={handleInvitePong}
+              onLeaveRoom={handleLeaveRoom}
               onBlockUser={handleBlockUser}
               blockedUsers={blockedUsers}
               onOpenProfile={handleOpenProfile}

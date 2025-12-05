@@ -22,12 +22,8 @@ import StarfieldBackground from "./StarfieldBackground";
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
   const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>('chat');
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
-    }
-    return false;
-  });
+  // Always use dark mode
+  const darkMode = true;
   const [showPongInviteModal, setShowPongInviteModal] = useState(false);
   const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
   const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
@@ -45,17 +41,10 @@ export default function AppRoot() {
     console.log("[AppRoot] pongInvitations updated:", pongInvitations);
   }, [pongInvitations]);
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('darkMode', 'true');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('darkMode', 'false');
-    }
-  };
+  // Ensure dark mode is always enabled
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
 
   // Apply accessibility settings to document
   useEffect(() => {
@@ -131,7 +120,10 @@ export default function AppRoot() {
       const userData = localStorage.getItem('userData');
       const user = userData ? JSON.parse(userData) : authResponse?.user;
       
-      if (user?.id && user?.avatar) {
+      // Check for avatarUrl (the correct field name from the API)
+      const avatarFileName = user?.avatarUrl || user?.avatar;
+      
+      if (user?.id && avatarFileName) {
         try {
           const response = await fetch(`/api/users/pfp`, {
             method: 'POST',
@@ -139,7 +131,7 @@ export default function AppRoot() {
               'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ file: user.avatar })
+            body: JSON.stringify({ file: avatarFileName })
           });
           if (response.ok) {
             const base64 = await response.text();
@@ -159,8 +151,15 @@ export default function AppRoot() {
     };
     window.addEventListener('storage', handleStorageChange);
     
+    // Also listen for custom event when profile is updated in the same tab
+    const handleProfileUpdate = () => {
+      fetchAvatar();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
   }, [authResponse?.user?.id, authResponse?.user?.avatarUrl]);
 
@@ -358,24 +357,11 @@ export default function AppRoot() {
 
   return (
     <div
-      className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
-      style={{
-        backgroundImage: darkMode ? 'none' : 'url(/static/react_dist/bg_light.png)',
-        backgroundColor: darkMode ? 'transparent' : undefined
-      }}
+      className="min-h-screen bg-cover bg-center bg-fixed"
+      style={{ backgroundColor: 'transparent' }}
     >
       {/* Starfield animation background - behind everything */}
-      {darkMode && <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />}
-
-      {/* Skip to main content for keyboard users */}
-      <a href="#main-content" className="skip-to-main">
-        Skip to main content
-      </a>
-
-      {/* Overlay - only in light mode since starfield provides its own background */}
-      {!darkMode && (
-        <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}></div>
-      )}
+      <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />
 
       <div className="relative">
           <CookieBanner />
@@ -432,18 +418,6 @@ export default function AppRoot() {
                             className={`px-4 py-2 ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
                           >Pong</button>
                         </nav>
-
-                        <button onClick={toggleDarkMode} className="p-2" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
-                          {darkMode ? (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                            </svg>
-                          )}
-                        </button>
 
                         <button onClick={() => setShowAccessibilitySettings(true)} className="p-2" aria-label="Open accessibility settings">
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -542,18 +516,7 @@ export default function AppRoot() {
             ) : (
               <div className="max-w-4xl w-full space-y-8">
                 <div className="text-center">
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome to Transcendence</h2>
-                  <button onClick={toggleDarkMode} className="mt-4 p-2">
-                    {darkMode ? (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                      </svg>
-                    )}
-                  </button>
+                  <h2 className="text-3xl font-bold text-white">Welcome to Transcendence</h2>
                 </div>
 
                 <div className="mt-8 py-8 px-4">

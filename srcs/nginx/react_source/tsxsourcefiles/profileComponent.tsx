@@ -313,14 +313,14 @@ useEffect(() => {
             setProfile({ ...profile, avatar: avatarFile.name })
           }
           
-          // Update localStorage userData to refresh user menu
+          // Update localStorage userData to refresh user menu (use avatarUrl to match API response)
           const userData = localStorage.getItem('userData')
           if (userData) {
             const user = JSON.parse(userData)
-            user.avatar = avatarFile.name
+            user.avatarUrl = avatarFile.name
             localStorage.setItem('userData', JSON.stringify(user))
-            // Trigger a storage event to notify AppRoot
-            window.dispatchEvent(new Event('storage'))
+            // Dispatch custom event to notify AppRoot in the same window
+            window.dispatchEvent(new Event('profileUpdated'))
           }
         }
       }

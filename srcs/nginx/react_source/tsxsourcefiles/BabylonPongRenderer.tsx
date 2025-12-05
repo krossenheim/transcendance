@@ -16,6 +16,7 @@ import {
   PointLight,
   Vector2,
   PolygonMeshBuilder,
+  DynamicTexture,
 } from "@babylonjs/core"
 import earcut from "earcut"
 import type { TypeGameStateSchema } from "@/types/pong-interfaces"
@@ -24,6 +25,46 @@ import { getUserColorBabylon, getUserColorCSS } from "./userColorUtils"
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
+const BALL_RADIUS = 0.2 // Half of diameter 0.4
+
+// Create a beach ball texture with colorful stripes
+function createBeachBallTexture(scene: Scene): DynamicTexture {
+  const textureSize = 512
+  const texture = new DynamicTexture("beachBallTexture", textureSize, scene, true)
+  const ctx = texture.getContext()
+  
+  // Classic beach ball colors - alternating bright colors with white
+  const colors = ["#FF3333", "#FFFFFF", "#3366FF", "#FFFFFF", "#FFCC00", "#FFFFFF", "#33CC33", "#FFFFFF"]
+  const numStripes = colors.length
+  const centerX = textureSize / 2
+  const centerY = textureSize / 2
+  const radius = textureSize / 2
+  
+  // Draw each stripe as a pie slice
+  for (let i = 0; i < numStripes; i++) {
+    const startAngle = (i * 2 * Math.PI) / numStripes - Math.PI / 2
+    const endAngle = ((i + 1) * 2 * Math.PI) / numStripes - Math.PI / 2
+    
+    ctx.fillStyle = colors[i]
+    ctx.beginPath()
+    ctx.moveTo(centerX, centerY)
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle)
+    ctx.closePath()
+    ctx.fill()
+  }
+  
+  // Add a small circle in the center for the beach ball "button"
+  ctx.fillStyle = "#FFFFFF"
+  ctx.beginPath()
+  ctx.arc(centerX, centerY, radius * 0.08, 0, 2 * Math.PI)
+  ctx.fill()
+  ctx.strokeStyle = "#CCCCCC"
+  ctx.lineWidth = 2
+  ctx.stroke()
+  
+  texture.update()
+  return texture
+}
 
 // Export helper to get CSS color for a paddle ID (uses same colors as user colors)
 export function getPaddleColorCSS(paddleId: number, darkMode = true): string {
@@ -53,6 +94,12 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
   
   // Track previous ball velocities to detect bounces and which paddle was hit
   const previousBallVelocitiesRef = useRef<Map<number, { dx: number; dy: number }>>(new Map())
+  
+  // Track ball rotation for realistic rolling effect
+  const ballRotationsRef = useRef<Map<number, { x: number; y: number; z: number }>>(new Map())
+  
+  // Store beach ball texture reference
+  const beachBallTextureRef = useRef<DynamicTexture | null>(null)
 
   // Initialize Babylon scene
   useEffect(() => {
@@ -357,12 +404,24 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
       let mesh = ballsRef.current.get(b.id)
 
       if (!mesh) {
-        mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: 0.4 }, scene)
+        // Create sphere with more segments for smoother texture mapping
+        mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: 0.4, segments: 32 }, scene)
         const mat = new StandardMaterial("ballMat", scene)
-        // Dark mode: bright red, Light mode: darker red/orange
-        mat.diffuseColor = darkMode ? new Color3(1, 0, 0) : new Color3(0.8, 0.2, 0)
-        mat.emissiveColor = darkMode ? new Color3(0.5, 0, 0) : new Color3(0.3, 0.1, 0)
+        
+        // Create beach ball texture if not already created
+        if (!beachBallTextureRef.current) {
+          beachBallTextureRef.current = createBeachBallTexture(scene)
+        }
+        
+        // Apply beach ball texture
+        mat.diffuseTexture = beachBallTextureRef.current
+        // Add slight emissive glow to make it visible in darker scenes
+        mat.emissiveColor = darkMode ? new Color3(0.15, 0.15, 0.15) : new Color3(0.1, 0.1, 0.1)
+        mat.specularColor = new Color3(0.3, 0.3, 0.3) // Slight shine like a real beach ball
         mesh.material = mat
+        
+        // Initialize rotation tracking for this ball
+        ballRotationsRef.current.set(b.id, { x: 0, y: 0, z: 0 })
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
 
@@ -379,6 +438,32 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
       }
 
       mesh.position = toWorld(b.x, b.y, 0.2)
+      
+      // Calculate rolling rotation based on ball velocity
+      // The ball should rotate around an axis perpendicular to its movement direction
+      const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy)
+      if (speed > 0.001) {
+        // Calculate rotation amount based on distance traveled
+        // rotation = distance / radius (in radians)
+        const rotationAmount = (speed * SCALE_FACTOR * 0.5) / BALL_RADIUS
+        
+        // Get current rotation state
+        const currentRotation = ballRotationsRef.current.get(b.id) || { x: 0, y: 0, z: 0 }
+        
+        // Movement direction angle (in world XZ plane, since Y is up)
+        // b.dx maps to world X, b.dy maps to world Z
+        const moveAngle = Math.atan2(b.dy, b.dx)
+        
+        // Rotation axis is perpendicular to movement direction
+        // For rolling on the floor (XZ plane), we rotate around an axis in the XZ plane
+        // If moving along X, rotate around Z. If moving along Z, rotate around X.
+        currentRotation.x += rotationAmount * Math.sin(moveAngle)
+        currentRotation.z -= rotationAmount * Math.cos(moveAngle)
+        
+        ballRotationsRef.current.set(b.id, currentRotation)
+        mesh.rotation.x = currentRotation.x
+        mesh.rotation.z = currentRotation.z
+      }
       
       // Detect bounces by checking if velocity direction changed
       const prevVel = previousBallVelocitiesRef.current.get(b.id)
@@ -428,6 +513,7 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         mesh.dispose()
         ballsRef.current.delete(id)
         previousBallVelocitiesRef.current.delete(id)
+        ballRotationsRef.current.delete(id)
       }
     }
   }, [gameState, darkMode])
