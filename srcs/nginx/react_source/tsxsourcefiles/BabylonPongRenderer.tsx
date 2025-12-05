@@ -17,6 +17,7 @@ import {
   Vector2,
   PolygonMeshBuilder,
   DynamicTexture,
+  Quaternion,
 } from "@babylonjs/core"
 import earcut from "earcut"
 import type { TypeGameStateSchema } from "@/types/pong-interfaces"
@@ -27,39 +28,56 @@ const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
 const BALL_RADIUS = 0.2 // Half of diameter 0.4
 
-// Create a beach ball texture with colorful stripes
+// Create a beach ball texture with classic vertical stripes that wrap around the sphere
 function createBeachBallTexture(scene: Scene): DynamicTexture {
   const textureSize = 512
   const texture = new DynamicTexture("beachBallTexture", textureSize, scene, true)
   const ctx = texture.getContext()
   
-  // Classic beach ball colors - alternating bright colors with white
-  const colors = ["#FF3333", "#FFFFFF", "#3366FF", "#FFFFFF", "#FFCC00", "#FFFFFF", "#33CC33", "#FFFFFF"]
-  const numStripes = colors.length
-  const centerX = textureSize / 2
-  const centerY = textureSize / 2
-  const radius = textureSize / 2
+  // Classic beach ball colors - 6 panels alternating with white
+  const panelColors = ["#FF2222", "#FFDD00", "#2266FF", "#22CC22", "#FF6600", "#CC22CC"]
+  const numPanels = 6
+  const stripeWidth = textureSize / numPanels
   
-  // Draw each stripe as a pie slice
-  for (let i = 0; i < numStripes; i++) {
-    const startAngle = (i * 2 * Math.PI) / numStripes - Math.PI / 2
-    const endAngle = ((i + 1) * 2 * Math.PI) / numStripes - Math.PI / 2
-    
-    ctx.fillStyle = colors[i]
-    ctx.beginPath()
-    ctx.moveTo(centerX, centerY)
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle)
-    ctx.closePath()
-    ctx.fill()
+  // Fill background white
+  ctx.fillStyle = "#FFFFFF"
+  ctx.fillRect(0, 0, textureSize, textureSize)
+  
+  // Draw vertical stripes (these will wrap around the sphere as longitude lines)
+  for (let i = 0; i < numPanels; i++) {
+    ctx.fillStyle = panelColors[i]
+    // Each colored stripe is slightly narrower than the white gap
+    const stripeStart = i * stripeWidth + stripeWidth * 0.1
+    const stripeW = stripeWidth * 0.8
+    ctx.fillRect(stripeStart, 0, stripeW, textureSize)
   }
   
-  // Add a small circle in the center for the beach ball "button"
+  // Add subtle seam lines between panels for realism
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.15)"
+  ctx.lineWidth = 2
+  for (let i = 0; i <= numPanels; i++) {
+    ctx.beginPath()
+    ctx.moveTo(i * stripeWidth, 0)
+    ctx.lineTo(i * stripeWidth, textureSize)
+    ctx.stroke()
+  }
+  
+  // Add top and bottom cap circles (white with subtle outline)
+  const capRadius = textureSize * 0.08
+  // Top cap (near V=0)
   ctx.fillStyle = "#FFFFFF"
   ctx.beginPath()
-  ctx.arc(centerX, centerY, radius * 0.08, 0, 2 * Math.PI)
+  ctx.arc(textureSize / 2, capRadius, capRadius, 0, 2 * Math.PI)
   ctx.fill()
-  ctx.strokeStyle = "#CCCCCC"
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)"
   ctx.lineWidth = 2
+  ctx.stroke()
+  
+  // Bottom cap (near V=1)
+  ctx.fillStyle = "#FFFFFF"
+  ctx.beginPath()
+  ctx.arc(textureSize / 2, textureSize - capRadius, capRadius, 0, 2 * Math.PI)
+  ctx.fill()
   ctx.stroke()
   
   texture.update()
@@ -95,8 +113,8 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
   // Track previous ball velocities to detect bounces and which paddle was hit
   const previousBallVelocitiesRef = useRef<Map<number, { dx: number; dy: number }>>(new Map())
   
-  // Track ball rotation for realistic rolling effect
-  const ballRotationsRef = useRef<Map<number, { x: number; y: number; z: number }>>(new Map())
+  // Track ball rotation for realistic rolling effect (using quaternions)
+  const ballRotationsRef = useRef<Map<number, Quaternion>>(new Map())
   
   // Store beach ball texture reference
   const beachBallTextureRef = useRef<DynamicTexture | null>(null)
@@ -420,8 +438,9 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         mat.specularColor = new Color3(0.3, 0.3, 0.3) // Slight shine like a real beach ball
         mesh.material = mat
         
-        // Initialize rotation tracking for this ball
-        ballRotationsRef.current.set(b.id, { x: 0, y: 0, z: 0 })
+        // Initialize rotation tracking for this ball using quaternion
+        mesh.rotationQuaternion = Quaternion.Identity()
+        ballRotationsRef.current.set(b.id, Quaternion.Identity())
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
 
@@ -437,32 +456,48 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         console.log("[Pong Sound] New ball created:", b.id, "with direction:", b.dx, b.dy)
       }
 
-      mesh.position = toWorld(b.x, b.y, 0.2)
+      // Calculate distance moved since last update for rotation
+      const prevVelData = previousBallVelocitiesRef.current.get(b.id)
+      const newPos = toWorld(b.x, b.y, 0.2)
+      const oldPos = mesh.position.clone()
+      mesh.position = newPos
       
-      // Calculate rolling rotation based on ball velocity
+      // Calculate rolling rotation based on actual distance traveled
       // The ball should rotate around an axis perpendicular to its movement direction
+      const distanceMoved = Vector3.Distance(oldPos, newPos)
       const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy)
-      if (speed > 0.001) {
-        // Calculate rotation amount based on distance traveled
-        // rotation = distance / radius (in radians)
-        const rotationAmount = (speed * SCALE_FACTOR * 0.5) / BALL_RADIUS
+      
+      if (distanceMoved > 0.001 && speed > 0.001 && mesh.rotationQuaternion) {
+        // Calculate rotation amount: angle = arc_length / radius (in radians)
+        // Use actual distance moved for accurate rotation
+        const rotationAmount = distanceMoved / BALL_RADIUS
         
-        // Get current rotation state
-        const currentRotation = ballRotationsRef.current.get(b.id) || { x: 0, y: 0, z: 0 }
+        // Get current rotation quaternion
+        const currentRotation = ballRotationsRef.current.get(b.id) || Quaternion.Identity()
         
-        // Movement direction angle (in world XZ plane, since Y is up)
+        // Movement direction in world space (XZ plane, Y is up)
         // b.dx maps to world X, b.dy maps to world Z
-        const moveAngle = Math.atan2(b.dy, b.dx)
+        // Normalize the direction
+        const dirX = b.dx / speed
+        const dirZ = b.dy / speed
         
-        // Rotation axis is perpendicular to movement direction
-        // For rolling on the floor (XZ plane), we rotate around an axis in the XZ plane
-        // If moving along X, rotate around Z. If moving along Z, rotate around X.
-        currentRotation.x += rotationAmount * Math.sin(moveAngle)
-        currentRotation.z -= rotationAmount * Math.cos(moveAngle)
+        // Rotation axis is perpendicular to movement direction and lies in the XZ plane
+        // For a ball rolling on the floor: axis = cross(up, moveDir) = (-dirZ, 0, dirX)
+        // This makes the ball roll forward in the direction of movement
+        const axisX = -dirZ
+        const axisZ = dirX
         
-        ballRotationsRef.current.set(b.id, currentRotation)
-        mesh.rotation.x = currentRotation.x
-        mesh.rotation.z = currentRotation.z
+        // Create incremental rotation quaternion around this axis
+        const incrementalRotation = Quaternion.RotationAxis(
+          new Vector3(axisX, 0, axisZ),
+          rotationAmount
+        )
+        
+        // Multiply current rotation by incremental rotation
+        const newRotation = incrementalRotation.multiply(currentRotation)
+        
+        ballRotationsRef.current.set(b.id, newRotation)
+        mesh.rotationQuaternion = newRotation
       }
       
       // Detect bounces by checking if velocity direction changed

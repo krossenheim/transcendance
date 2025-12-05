@@ -372,6 +372,12 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
     });
   }
   
+  // Set all paddles to Ready status since we're starting from a lobby
+  // where all players have already confirmed ready
+  for (const paddle of game.player_paddles) {
+    paddle.connectionStatus = PongLobbyStatus.Ready;
+  }
+  
   // Get game state directly
   const gameState = game.getGameState();
   
