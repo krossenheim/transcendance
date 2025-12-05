@@ -1,19 +1,11 @@
 import { FullUser, type FullUserType, GetUser, type GetUserType, UserAccountType, type UserAuthDataType } from '../utils/api/service/db/user.js';
-import { AuthClientRequest, type AuthClientRequestType } from '../utils/api/service/common/clientRequest.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { ErrorResponseType } from '../utils/api/service/common/error.js';
-import { type ZodSchema } from '../utils/api/service/common/zodUtils.js';
 import { registerRoute } from '../utils/api/service/common/fastify.js';
-import { ErrorResponse } from '../utils/api/service/common/error.js';
-import { CreateUser } from '../utils/api/service/auth/createUser.js';
-import { LoginUser } from '../utils/api/service/auth/loginUser.js';
-import { userIdValue } from '../utils/api/service/common/zodRules.js';
 import { userService } from '../main.js';
 import bcrypt from 'bcrypt';
-import { int, z } from 'zod';
+import { z } from 'zod';
 import { int_url, pub_url } from '../utils/api/service/common/endpoints.js';
-import { request } from 'http';
-import { register } from 'module';
 
 const SALT_ROUNDS = 10;
 

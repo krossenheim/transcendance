@@ -2,7 +2,7 @@ import React, { Key, useCallback, useEffect, useId, useState } from "react";
 import { useWebSocket } from "./socketComponent";
 import { TwoFactorVerify } from "./twoFactorComponent";
 
-const handleKeyPress = (e: any, action: any) => {
+const handleKeyPress = (e: React.KeyboardEvent, action: () => void): void => {
   if (e.key === "Enter") {
     e.preventDefault();
     action();
@@ -82,8 +82,9 @@ const handleLogin = async () => {
 
     // Continue app flow
     onLoginSuccess(data);
-  } catch (err: any) {
-    setError(err.message || "Login failed");
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Login failed";
+    setError(errorMessage);
   } finally {
     setIsLoading(false);
   }

@@ -5,6 +5,7 @@ import { getUserColorCSS } from "./userColorUtils"
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"
+import { getCurrentUserId } from "./jwtUtils"
 
 interface UserProfile {
   userId: number
@@ -74,16 +75,13 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
 
 // Get current user ID from JWT token
 useEffect(() => {
-  const jwt = localStorage.getItem('jwt')
-  if (jwt) {
-    try {
-      const payload = JSON.parse(atob(jwt.split('.')[1]))
-      setCurrentUserId(payload.uid)
-    } catch (error) {
-      console.error('[v0] Error decoding JWT:', error)
-    }
+  const userId = getCurrentUserId();
+  if (userId !== null) {
+    setCurrentUserId(userId);
+  } else {
+    console.warn('[v0] Could not get user ID from JWT');
   }
-}, [])
+}, []);
 
 useEffect(() => {
   if (isOpen && userId) {
@@ -186,13 +184,18 @@ if (timeoutRef.current) {
     }
     if (payloadReceived.funcId === user_url.ws.users.fetchUserGameResults.funcId) {
       if (payloadReceived.code === 0) {
-        const results = Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
+        const results: Array<{ id: number; userId: number; score: number; rank: number }> = 
+          Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
         setGameResults(results)
         // Derive stats
         const gamesPlayed = results.length
-        const wins = results.filter(r => r.rank === 1).length
+        const wins = results.filter((r) => r.rank === 1).length
         const losses = gamesPlayed - wins
-        setProfile(prev => prev ? { ...prev, stats: { gamesPlayed, wins, losses }, matchHistory: results.map(r => ({ id: r.id, score: r.score, rank: r.rank })) } : prev)
+        setProfile(prev => prev ? { 
+          ...prev, 
+          stats: { gamesPlayed, wins, losses }, 
+          matchHistory: results.map((r) => ({ id: r.id, score: r.score, rank: r.rank })) 
+        } : prev)
       }
     }
   }, [payloadReceived, showToast])

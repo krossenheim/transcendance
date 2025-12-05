@@ -30,14 +30,14 @@ export const RoomSchema = z
   .object({
     roomName: room_name_rule,
     roomId: room_id_rule,
-    roomType: z.enum(ChatRoomType),
+    roomType: z.nativeEnum(ChatRoomType),
   })
   .strict();
 export type TypeRoomSchema = z.infer<typeof RoomSchema>;
 
 export const RoomUserConnectionSchema = z.object({
   userId: userIdValue,
-  userState: z.enum(ChatRoomUserAccessType),
+  userState: z.nativeEnum(ChatRoomUserAccessType),
 }).strict();
 export type TypeRoomUserConnectionSchema = z.infer<typeof RoomUserConnectionSchema>;
 

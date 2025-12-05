@@ -188,10 +188,24 @@ export default function AppRoot() {
         return;
       }
 
-      // Check for OAuth tokens in URL query parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const jwtFromUrl = urlParams.get('jwt');
-      const refreshFromUrl = urlParams.get('refresh');
+      // Check for OAuth tokens in URL hash (more secure than query params)
+      // Format: /#jwt=...&refresh=...
+      const hash = window.location.hash;
+      let jwtFromUrl: string | null = null;
+      let refreshFromUrl: string | null = null;
+      
+      if (hash && hash.length > 1) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        jwtFromUrl = hashParams.get('jwt');
+        refreshFromUrl = hashParams.get('refresh');
+      }
+      
+      // Fallback to query parameters for backwards compatibility
+      if (!jwtFromUrl) {
+        const urlParams = new URLSearchParams(window.location.search);
+        jwtFromUrl = urlParams.get('jwt');
+        refreshFromUrl = urlParams.get('refresh');
+      }
       
       if (jwtFromUrl && refreshFromUrl) {
         try {
@@ -214,7 +228,7 @@ export default function AppRoot() {
               setAuthResponse(data);
             }
             
-            // Clean up URL by removing query parameters
+            // Clean up URL by removing hash and query parameters
             window.history.replaceState({}, document.title, window.location.pathname);
             setIsAutoLoggingIn(false);
             return;

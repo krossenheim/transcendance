@@ -252,10 +252,7 @@ volumes:
     driver: local
 
 networks:
-  transcendance_network:
+  default:
+    external: true
     name: transcendance_network
-    driver: bridge
-    ipam:
-      config:
-        - subnet: ${TR_NETWORK_SUBNET}
 
