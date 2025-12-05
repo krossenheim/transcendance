@@ -8,7 +8,7 @@ export enum UserFriendshipStatusEnum {
 	Blocked = 3
 }
 
-export const UserFriendshipStatus = z.enum(UserFriendshipStatusEnum);
+export const UserFriendshipStatus = z.nativeEnum(UserFriendshipStatusEnum);
 
 export const UserConnectionStatusSchema = z.object({
 	userId: userIdValue,
