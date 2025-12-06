@@ -26,7 +26,7 @@ export function closeGlobalSocket() {
   if (globalSocket) {
     try {
       console.log('[v0] Closing global WebSocket connection')
-      globalSocket.close()
+      globalSocket.close(1000, 'User logout')  // Clean close code
     } catch (e) {
       console.warn('[v0] Error while closing global socket:', e)
     }

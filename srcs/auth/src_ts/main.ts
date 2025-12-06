@@ -211,6 +211,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		}
 
 		// Exchange code for access token
+		console.log('Exchanging code for token with:', { clientId: clientId.substring(0, 8) + '...', redirectUri, code: code.substring(0, 8) + '...' });
 		const tokenResp = await axios.post(
 			'https://github.com/login/oauth/access_token',
 			{
@@ -223,6 +224,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			{ headers: { Accept: 'application/json' }, validateStatus: () => true }
 		);
 
+		console.log('GitHub token response:', tokenResp.status, JSON.stringify(tokenResp.data));
 		if (tokenResp.status !== 200 || !tokenResp.data?.access_token) {
 			return reply.status(401).send({ message: 'Failed to obtain GitHub token' });
 		}

@@ -346,7 +346,10 @@ export default function AppRoot() {
           const res = await fetch('/api/auth/logout', {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`
+            },
             body: JSON.stringify({ userId: authResponse.user.id })
           });
           if (res.ok) backendOk = true;

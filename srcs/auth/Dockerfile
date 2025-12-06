@@ -10,4 +10,3 @@ RUN cat /appservice/check_global_envs.sh /appservice/service_entryp.sh > /appser
     && chmod +x /appservice/entrypoint.sh
 
 ENTRYPOINT ["/appservice/entrypoint.sh"]
-CMD node /appservice/$SERVICE_MAINJS

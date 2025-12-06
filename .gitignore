@@ -18,3 +18,4 @@ build_frontend
 srcs/.env
 srcs/globals.env
 srcs/elk/elasticsearch/config/service_tokens
+srcs/vault/bootstrap_vault_dev.sh

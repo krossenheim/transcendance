@@ -317,7 +317,7 @@ export const user_url = defineRoutes({
         wrapper: GenericAuthClientRequest,
         method: "POST",
         schema: {
-          body: z.null(),
+          body: GenericAuthClientRequest,
           response: {
             200: z.null(),
             500: ErrorResponse,

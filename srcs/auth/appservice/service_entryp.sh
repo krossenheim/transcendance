@@ -42,4 +42,7 @@ else
   echo "Vault disabled or not configured, using environment variables."
 fi
 
-exec "$@" # Very important otherwise the CMD on the dockerfile won't really run. It also makes that CMD run as PID 1. Which is good. For reasons.
+# Export all variables and run node in the same shell context
+export GITHUB_CLIENT_ID="${GITHUB_CLIENT_ID:-}"
+export GITHUB_CLIENT_SECRET="${GITHUB_CLIENT_SECRET:-}"
+exec node /appservice/${SERVICE_MAINJS}
