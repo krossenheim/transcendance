@@ -80,7 +80,7 @@ debug:
 # Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
 HARDHAT_IMAGE_TAG := hardhat:local
 EXPLORER_IMAGE_TAG := blockchain-explorer:local
-BLOCKCHAIN_DIR := $(PROJECT_ROOT)blockchain
+BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
 
 build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers build_hardhat_if_needed build_explorer_if_needed
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build db auth chat hub pong users nginx
