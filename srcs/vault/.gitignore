@@ -1,0 +1,14 @@
+# Vault sensitive files - NEVER commit these!
+
+# Unseal keys and root token
+.vault-keys.json
+
+# Service tokens
+.tokens/
+
+# TLS private keys (certs are OK to commit if self-signed for dev)
+tls/*-key.pem
+tls/ca-key.pem
+
+# Vault data directory (if running locally)
+data/
