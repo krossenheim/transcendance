@@ -1,0 +1,288 @@
+services:
+  nginx:
+    container_name: nginx
+    image: nginx
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/nginx/site.env
+    build:
+      context: ./srcs/nginx
+      dockerfile: Dockerfile.modsec.build
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -V 2>&1 | grep -q modsecurity && curl -k -s -o /dev/null 'https://localhost/?q=union%20select' && sleep 0.5 && grep -q '910100' /var/log/modsecurity/modsec_audit.log || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: always
+    ports:
+      - "443:443"
+    networks:
+      transcendance_network:
+        ipv4_address: ${NGINX_IPV4_ADDRESS}
+  nodejs_base_image:
+    image: nodejs_base_image:1.0
+    build:
+      context: ./srcs/nodejs_base_image
+  hub:
+    container_name: ${HUB_NAME}
+    image: ${HUB_NAME}
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${HUB_NAME}/service_env.env
+    build:
+      context: ./srcs/${HUB_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${HUB_IPV4_ADDRESS}
+  chat:
+    container_name: ${CHATROOM_NAME}
+    image: ${CHATROOM_NAME}
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${CHATROOM_NAME}/service_env.env
+    build:
+      context: .
+      dockerfile: ./srcs/${CHATROOM_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${CHATROOM_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${CHATROOM_IPV4_ADDRESS}
+    depends_on:
+      hub:
+        condition: service_healthy
+  db:
+    container_name: ${DATABASE_NAME}
+    image: ${DATABASE_NAME}
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${DATABASE_NAME}/service_env.env
+    build:
+      context: .
+      dockerfile: ./srcs/${DATABASE_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${DATABASE_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${DATABASE_IPV4_ADDRESS}
+    depends_on:
+      hub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "code=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000/ || echo 000); [ \"$code\" != \"000\" ]"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - databases:/etc/database_data
+  auth:
+    container_name: ${AUTH_NAME}
+    image: ${AUTH_NAME}
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${AUTH_NAME}/service_env.env
+    build:
+      context: .
+      dockerfile: ./srcs/${AUTH_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${AUTH_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${AUTH_IPV4_ADDRESS}
+    depends_on:
+      hub:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+  # lobby:
+  #   container_name: ${LOBBY_NAME}
+  #   image: ${LOBBY_NAME}
+  #   env_file:
+  #     - ./srcs/globals.env
+  #     - ./srcs/${LOBBY_NAME}/service_env.env
+  #   build:
+  #     context: ./srcs/${LOBBY_NAME}
+  #   restart: always
+  #   depends_on:
+  #     hub:
+  #       condition: service_healthy
+  #     db:
+  #       condition: service_healthy
+  #   networks:
+  #     transcendance_network:
+  #       ipv4_address: ${LOBBY_IPV4_ADDRESS}
+  pong:
+    container_name: ${PONG_NAME}
+    image: ${PONG_NAME}
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${PONG_NAME}/service_env.env
+    build:
+      context: ./srcs/${PONG_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+      hardhat:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${PONG_IPV4_ADDRESS}
+  users:
+    container_name: ${USERS_NAME}
+    image: ${USERS_NAME}
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${USERS_NAME}/service_env.env
+    build:
+      context: ./srcs/${USERS_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${USERS_IPV4_ADDRESS}
+  hardhat:
+    container_name: hardhat
+    image: hardhat:local
+    build:
+      context: ../blockchain
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8545:8545"
+    networks:
+      transcendance_network:
+        ipv4_address: ${HARDHAT_IPV4_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' http://localhost:8545 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  blockchain-explorer:
+    container_name: blockchain-explorer
+    image: blockchain-explorer:local
+    build:
+      context: ../blockchain/explorer
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - RPC_URL=http://hardhat:8545
+    ports:
+      - "5100:5100"
+    networks:
+      transcendance_network:
+        ipv4_address: ${EXPLORER_IPV4_ADDRESS}
+    depends_on:
+      hardhat:
+        condition: service_healthy
+
+  # elasticsearch:
+  #   container_name: elasticsearch
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+  #   environment:
+  #     - discovery.type=single-node
+  #     - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+  #     - xpack.security.enabled=true
+  #   volumes:
+  #     - ./elk/elasticsearch/config:/usr/share/elasticsearch/config
+  #     - esdata:/usr/share/elasticsearch/data
+  #   ports:
+  #     - "9200:9200"
+  #   networks:
+  #     transcendance_network:
+  #       ipv4_address: ${ELASTICSEARCH_IPV4_ADDRESS}
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -u elastic:${ELASTIC_PASSWORD} -f http://localhost:9200/_cluster/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    volumes:
+      - ./elk/logstash/config:/usr/share/logstash/config
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+    ports:
+      - "5044:5044"
+    networks:
+      transcendance_network:
+        ipv4_address: ${LOGSTASH_IPV4_ADDRESS}
+    # depends_on:
+    #   elasticsearch:
+    #     condition: service_healthy
+
+  vault:
+    container_name: vault
+    image: hashicorp/vault:1.14.0
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root-token-for-dev"
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    command: server -dev -dev-listen-address=0.0.0.0:8200
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+    networks:
+      transcendance_network:
+        ipv4_address: ${VAULT_IPV4_ADDRESS}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSf http://127.0.0.1:8200/v1/sys/health || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+
+  # kibana:
+  #   container_name: kibana
+  #   image: docker.elastic.co/kibana/kibana:8.12.0
+  #   env_file:
+  #     - ./.env
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   volumes:
+  #     - ./elk/kibana/config:/usr/share/kibana/config
+  #   ports:
+  #     - "5601:5601"
+  #   networks:
+  #     transcendance_network:
+  #       ipv4_address: ${KIBANA_IPV4_ADDRESS}
+    # depends_on:
+    #   elasticsearch:
+    #     condition: service_healthy
+
+volumes:
+  databases:
+    name: databases
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_DIR}
+  esdata:
+    driver: local
+
+networks:
+  transcendance_network:
+    name: transcendance_network
+    external: true
+  default:
+    name: transcendance_network
+    external: true

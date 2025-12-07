@@ -639,20 +639,20 @@ export const user_url = defineRoutes({
           },
         },
       },
-    },  // <-- CLOSE users HERE
+    },
 
-    pong: {  // <-- pong should be at the same level as users
+    pong: {
       getGameState: {
         funcId: "get_game_state",
         container: "pong",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: EmptySchema,
+          args: z.object({ gameId: gameIdValue }),
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             GameUpdate: {
               code: 0,
-              payload: GameStateSchema,
+              payload: z.any(),
             },
             NotInRoom: {
               code: 1,
@@ -1187,8 +1187,8 @@ export const int_url = defineRoutes({
   },
   http: {
     pong: {
-      startGame: {
-        endpoint: "/internal_api/pong/start_game_http",
+      createGame: {
+        endpoint: "/internal_api/pong/create_game",
         method: "POST",
         schema: {
           body: StartNewPongGameSchema,

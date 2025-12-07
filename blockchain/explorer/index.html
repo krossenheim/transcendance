@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcendence Blockchain Explorer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            color: #00d4ff;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        input[type="text"]::placeholder { color: #888; }
+        button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .field {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .field:last-child { border-bottom: none; }
+        .field-label {
+            width: 140px;
+            color: #888;
+            flex-shrink: 0;
+        }
+        .field-value {
+            flex: 1;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .success { color: #00ff88; }
+        .failed { color: #ff4444; }
+        .log-card {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .log-card h3 { color: #00d4ff; font-size: 14px; margin-bottom: 10px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value { font-size: 28px; font-weight: bold; color: #00d4ff; }
+        .stat-label { color: #888; font-size: 12px; margin-top: 5px; }
+        .error { color: #ff4444; padding: 20px; text-align: center; }
+        .loading { color: #00d4ff; padding: 20px; text-align: center; }
+        #results { display: none; }
+        .contract-info {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .contract-info h3 { color: #ffd700; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Transcendence Blockchain Explorer</h1>
+        
+        <div class="contract-info">
+            <h3>📜 Tournament Score Contract</h3>
+            <div class="field">
+                <span class="field-label">Address:</span>
+                <span class="field-value" id="contractAddress">0x2D19C996C7F2015ab250280D51b2c9286Bbe475F</span>
+            </div>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="blockNumber">-</div>
+                <div class="stat-label">Current Block</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="txCount">-</div>
+                <div class="stat-label">Transactions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="networkId">-</div>
+                <div class="stat-label">Network ID</div>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="txHash" placeholder="Enter transaction hash (0x...)" />
+            <button onclick="searchTransaction()">🔍 Search</button>
+        </div>
+
+        <div id="results"></div>
+        <div id="recentTx"></div>
+    </div>
+
+    <script>
+        // Use local proxy to avoid CORS issues
+        const RPC_URL = '/rpc';
+        const CONTRACT_ADDRESS = '0x2D19C996C7F2015ab250280D51b2c9286Bbe475F';
+        
+        // Event signature for ScoreRecorded(uint256 indexed tournamentId, address indexed player, uint256 score, uint256 timestamp)
+        const SCORE_RECORDED_TOPIC = '0x87358b3cc4a72c3fb097f479d5e6289be4bdbbee605caa6576405ede8a4d891f';
+
+        async function rpcCall(method, params = []) {
+            const response = await fetch(RPC_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.result;
+        }
+
+        async function loadStats() {
+            try {
+                const blockNumber = await rpcCall('eth_blockNumber');
+                document.getElementById('blockNumber').textContent = parseInt(blockNumber, 16);
+                
+                const chainId = await rpcCall('eth_chainId');
+                document.getElementById('networkId').textContent = parseInt(chainId, 16);
+                
+                // Get transaction count for the contract
+                const txCount = await rpcCall('eth_getTransactionCount', [CONTRACT_ADDRESS, 'latest']);
+                document.getElementById('txCount').textContent = parseInt(txCount, 16);
+                
+                // Load recent logs from contract
+                await loadRecentEvents();
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        async function loadRecentEvents() {
+            try {
+                const logs = await rpcCall('eth_getLogs', [{
+                    address: CONTRACT_ADDRESS,
+                    fromBlock: '0x0',
+                    toBlock: 'latest',
+                    topics: [SCORE_RECORDED_TOPIC]
+                }]);
+                
+                if (logs.length > 0) {
+                    let html = '<div class="card"><h2>📊 Recent Tournament Records</h2>';
+                    for (const log of logs.slice(-10).reverse()) {
+                        const tournamentId = parseInt(log.topics[1], 16);
+                        const blockNum = parseInt(log.blockNumber, 16);
+                        const txHash = log.transactionHash;
+                        
+                        // Parse data field (score and timestamp)
+                        const dataHex = log.data.slice(2);
+                        const score = parseInt(dataHex.slice(0, 64), 16);
+                        const timestamp = parseInt(dataHex.slice(64, 128), 16);
+                        const date = new Date(timestamp * 1000).toLocaleString();
+                        
+                        html += `
+                            <div class="log-card">
+                                <h3>🏆 Tournament #${tournamentId}</h3>
+                                <div class="field">
+                                    <span class="field-label">Winner ID:</span>
+                                    <span class="field-value">${score}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Recorded:</span>
+                                    <span class="field-value">${date}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Block:</span>
+                                    <span class="field-value">${blockNum}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Tx Hash:</span>
+                                    <span class="field-value">
+                                        <a href="#" onclick="document.getElementById('txHash').value='${txHash}';searchTransaction();return false;" style="color:#00d4ff">
+                                            ${txHash.slice(0, 20)}...${txHash.slice(-8)}
+                                        </a>
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    html += '</div>';
+                    document.getElementById('recentTx').innerHTML = html;
+                }
+            } catch (e) {
+                console.error('Failed to load events:', e);
+            }
+        }
+
+        async function searchTransaction() {
+            const txHash = document.getElementById('txHash').value.trim();
+            const resultsDiv = document.getElementById('results');
+            
+            if (!txHash || !txHash.startsWith('0x')) {
+                resultsDiv.innerHTML = '<div class="error">Please enter a valid transaction hash starting with 0x</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="loading">Loading transaction...</div>';
+            resultsDiv.style.display = 'block';
+            
+            try {
+                const [tx, receipt] = await Promise.all([
+                    rpcCall('eth_getTransactionByHash', [txHash]),
+                    rpcCall('eth_getTransactionReceipt', [txHash])
+                ]);
+                
+                if (!tx) {
+                    resultsDiv.innerHTML = '<div class="error">Transaction not found</div>';
+                    return;
+                }
+                
+                const status = receipt?.status === '0x1' ? 
+                    '<span class="success">✓ SUCCESS</span>' : 
+                    '<span class="failed">✗ FAILED</span>';
+                
+                let html = `
+                    <div class="card">
+                        <h2>📝 Transaction Details</h2>
+                        <div class="field">
+                            <span class="field-label">Status:</span>
+                            <span class="field-value">${status}</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">Hash:</span>
+                            <span class="field-value">${txHash}</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">Block:</span>
+                            <span class="field-value">${parseInt(tx.blockNumber, 16)}</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">From:</span>
+                            <span class="field-value">${tx.from}</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">To:</span>
+                            <span class="field-value">${tx.to || 'Contract Creation'}</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">Value:</span>
+                            <span class="field-value">${parseInt(tx.value, 16)} wei</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-label">Gas Used:</span>
+                            <span class="field-value">${receipt ? parseInt(receipt.gasUsed, 16) : 'N/A'}</span>
+                        </div>
+                    </div>
+                `;
+                
+                // Show event logs
+                if (receipt?.logs?.length > 0) {
+                    html += '<div class="card"><h2>📋 Event Logs</h2>';
+                    for (const log of receipt.logs) {
+                        html += '<div class="log-card">';
+                        html += `<h3>Contract: ${log.address}</h3>`;
+                        
+                        // Check if this is a ScoreRecorded event
+                        if (log.topics[0] === SCORE_RECORDED_TOPIC) {
+                            const tournamentId = parseInt(log.topics[1], 16);
+                            const dataHex = log.data.slice(2);
+                            const score = parseInt(dataHex.slice(0, 64), 16);
+                            const timestamp = parseInt(dataHex.slice(64, 128), 16);
+                            
+                            html += `
+                                <div class="field">
+                                    <span class="field-label">Event:</span>
+                                    <span class="field-value success">ScoreRecorded</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Tournament ID:</span>
+                                    <span class="field-value">${tournamentId}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Winner ID:</span>
+                                    <span class="field-value">${score}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Timestamp:</span>
+                                    <span class="field-value">${new Date(timestamp * 1000).toLocaleString()}</span>
+                                </div>
+                            `;
+                        } else {
+                            // Generic log display
+                            html += `<div class="field"><span class="field-label">Topics:</span><span class="field-value">${log.topics.join('<br>')}</span></div>`;
+                            if (log.data !== '0x') {
+                                html += `<div class="field"><span class="field-label">Data:</span><span class="field-value">${log.data}</span></div>`;
+                            }
+                        }
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+                
+                resultsDiv.innerHTML = html;
+            } catch (e) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+        
+        // Load stats on page load
+        loadStats();
+        
+        // Auto-refresh stats every 10 seconds
+        setInterval(loadStats, 10000);
+        
+        // Handle Enter key in search box
+        document.getElementById('txHash').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchTransaction();
+        });
+    </script>
+</body>
+</html>
