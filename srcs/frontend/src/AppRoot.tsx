@@ -6,8 +6,9 @@ import LoginComponent from "./loginComponent";
 import PongComponent from "./pongComponent";
 import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
-import { useState, useEffect } from "react";
-import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 import GDPRPage from "./GDPRPage";
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
@@ -20,8 +21,25 @@ import CookieBanner from "./CookieBanner";
 import StarfieldBackground from "./StarfieldBackground";
 
 export default function AppRoot() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
-  const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>('chat');
+  const getInitialPage = () => {
+    const path = location.pathname;
+    if (path === '/chat' || path === '/pong' || path === '/gdpr') return path.substring(1) as 'chat' | 'pong' | 'gdpr';
+    return 'chat';
+  };
+
+  const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>(getInitialPage());
+
+  // Sync currentPage with location
+  useEffect(() => {
+    const path = location.pathname;
+    const page = path === '/chat' ? 'chat' : path === '/pong' ? 'pong' : path === '/gdpr' ? 'gdpr' : 'chat';
+    if (page !== currentPage) {
+      setCurrentPage(page);
+    }
+  }, [location.pathname, currentPage]);
   // Always use dark mode
   const darkMode = true;
   const [showPongInviteModal, setShowPongInviteModal] = useState(false);
@@ -295,7 +313,7 @@ export default function AppRoot() {
     const handler = (e: Event) => {
       try {
         const ev = e as CustomEvent<string>;
-        if (ev?.detail === 'gdpr') setCurrentPage('gdpr');
+        if (ev?.detail === 'gdpr') navigate('/gdpr');
       } catch (err) {
         // ignore
       }
@@ -398,7 +416,7 @@ export default function AppRoot() {
               />
 
               {/* Global Pong Invitation Notifications */}
-              <PongInviteNotifications
+                  <PongInviteNotifications
                 invitations={pongInvitations}
                 onAccept={(inviteId) => {
                   console.log("[AppRoot] Accepting invitation:", inviteId);
@@ -411,7 +429,7 @@ export default function AppRoot() {
                     }
                   }
                   setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
-                  setCurrentPage('pong'); // Switch to pong page
+                  navigate('/pong'); // Switch to pong page
                 }}
                 onDecline={(inviteId) => {
                   console.log("[AppRoot] Declining invitation:", inviteId);
@@ -427,11 +445,11 @@ export default function AppRoot() {
                       <div className="flex items-center space-x-4">
                         <nav className="flex space-x-4">
                           <button
-                            onClick={() => setCurrentPage('chat')}
+                            onClick={() => navigate('/chat')}
                             className={`px-4 py-2 ${currentPage === 'chat' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
                           >Chat</button>
                           <button
-                            onClick={() => setCurrentPage('pong')}
+                            onClick={() => navigate('/pong')}
                             className={`px-4 py-2 ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
                           >Pong</button>
                         </nav>
@@ -474,14 +492,14 @@ export default function AppRoot() {
                                 onOpenPongInvite={(roomUsers) => {
                                   setPongInviteRoomUsers(roomUsers);
                                   setShowPongInviteModal(true);
-                                  setCurrentPage('pong'); // Switch to pong page
+                                  navigate('/pong'); // Switch to pong page
                                 }}
                               />
                             </div>
                           </div>
                         ) : currentPage === 'gdpr' ? (
                           <div className="p-6 h-full flex flex-col">
-                            <GDPRPage showToast={showToast} onNavigateBack={() => setCurrentPage('chat')} />
+                            <GDPRPage showToast={showToast} onNavigateBack={() => navigate('/chat')} />
                           </div>
                         ) : (
                           // PONG PAGE — no scroll
@@ -499,7 +517,7 @@ export default function AppRoot() {
                               setPongInvitations={setPongInvitations}
                               acceptedLobbyId={acceptedLobbyId}
                               onLobbyJoined={() => setAcceptedLobbyId(null)}
-                              onNavigateToChat={() => setCurrentPage('chat')}
+                              onNavigateToChat={() => navigate('/chat')}
                             />
                           </div>
                         )}
