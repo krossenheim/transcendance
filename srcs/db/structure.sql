@@ -98,6 +98,6 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_messagesId ON chat_messages(roomId);
 
-INSERT INTO users (username, email, accountType) VALUES ('System', 'system@localhost', 0) ON CONFLICT(username) DO NOTHING;
+INSERT INTO users (username, email, bio, accountType) VALUES ('System', 'system@localhost', 'I had a life once. Now I have a computer', 0) ON CONFLICT(username) DO NOTHING;
 
 PRAGMA foreign_keys = ON;

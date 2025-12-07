@@ -82,7 +82,7 @@ HARDHAT_IMAGE_TAG := hardhat:local
 EXPLORER_IMAGE_TAG := blockchain-explorer:local
 BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
 
-build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers build_hardhat_if_needed build_explorer_if_needed
+build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build db auth chat hub pong users nginx
 
 build_hardhat_if_needed:
@@ -108,9 +108,6 @@ build-hardhat:
 build-explorer:
 	@echo "Force rebuilding Block Explorer image..."
 	docker build -f "$(BLOCKCHAIN_DIR)/explorer/Dockerfile" -t $(EXPLORER_IMAGE_TAG) "$(BLOCKCHAIN_DIR)/explorer"
-
-build_base_nodejs:
-	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(NODEJS_BASE_IMAGE_DIR)"
 
 build_react:
 	npm install --prefix $(REACT_DIR)
@@ -269,19 +266,6 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
-CONTAINERS := hub pong users
-
-# Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
-TSC_JOBS ?= 2
-
-compile_ts_to_cjs: ensure_tsc
-	@echo "Compiling all TS projects..."
-	@$(MAKE) -j $(TSC_JOBS) $(CONTAINERS)
-
-$(CONTAINERS):
-	@echo "Compiling $@..."
-	@npx tsc --project srcs/$@/tsconfig.json || (echo "TypeScript compilation failed for $@" >&2; exit 1)
-
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \
 		mkdir -p "$(VOLUMES_DIR)"; \
@@ -291,15 +275,15 @@ clean: down
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
-babylon: build_react
-	@echo "Starting containers..."
-	@VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d nginx || true
-	@sleep 3
-	@echo "Creating directories in nginx container..."
-	@docker exec nginx mkdir -p /var/www/html/react_dist
-	@echo "Copying static files..."
-	@docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
-	@docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
+# babylon: build_react
+# 	@echo "Starting containers..."
+# 	@VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d nginx || true
+# 	@sleep 3
+# 	@echo "Creating directories in nginx container..."
+# 	@docker exec nginx mkdir -p /var/www/html/react_dist
+# 	@echo "Copying static files..."
+# 	@docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
+# 	@docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"

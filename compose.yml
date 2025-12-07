@@ -6,8 +6,10 @@ services:
       - ./srcs/globals.env
       - ./srcs/nginx/site.env
     build:
-      context: ./srcs/nginx
-      dockerfile: Dockerfile.modsec.build
+      context: .
+      dockerfile: ./srcs/nginx/Dockerfile.modsec.build
+      args:
+        - SERVICE_NAME=nginx
     healthcheck:
       test: ["CMD-SHELL", "nginx -V 2>&1 | grep -q modsecurity && curl -k -s -o /dev/null 'https://localhost/?q=union%20select' && sleep 0.5 && grep -q '910100' /var/log/modsecurity/modsec_audit.log || exit 1"]
       interval: 30s
@@ -20,10 +22,6 @@ services:
     networks:
       transcendance_network:
         ipv4_address: ${NGINX_IPV4_ADDRESS}
-  nodejs_base_image:
-    image: nodejs_base_image:1.0
-    build:
-      context: ./srcs/nodejs_base_image
   hub:
     container_name: ${HUB_NAME}
     image: ${HUB_NAME}
@@ -31,7 +29,10 @@ services:
       - ./srcs/globals.env
       - ./srcs/${HUB_NAME}/service_env.env
     build:
-      context: ./srcs/${HUB_NAME}
+      context: .
+      dockerfile: ./srcs/${HUB_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${HUB_NAME}
     restart: always
     networks:
       transcendance_network:
@@ -124,7 +125,10 @@ services:
       - ./srcs/globals.env
       - ./srcs/${PONG_NAME}/service_env.env
     build:
-      context: ./srcs/${PONG_NAME}
+      context: .
+      dockerfile: ./srcs/${PONG_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${PONG_NAME}
     restart: always
     depends_on:
       hub:
@@ -143,7 +147,10 @@ services:
       - ./srcs/globals.env
       - ./srcs/${USERS_NAME}/service_env.env
     build:
-      context: ./srcs/${USERS_NAME}
+      context: .
+      dockerfile: ./srcs/${USERS_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${USERS_NAME}
     restart: always
     depends_on:
       hub:

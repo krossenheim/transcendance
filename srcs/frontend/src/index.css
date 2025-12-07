@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    color-scheme: dark;
+  }
+
+  /* ========== ACCESSIBILITY STYLES ========== */
+
+  /* High Contrast Mode - Black and White with strong borders */
+  .high-contrast {
+    filter: contrast(2) !important;
+  }
+
+  .high-contrast * {
+    border-width: 2px !important;
+  }
+
+  .high-contrast button,
+  .high-contrast a,
+  .high-contrast input,
+  .high-contrast select,
+  .high-contrast textarea {
+    font-weight: 700 !important;
+    border: 3px solid #000 !important;
+  }
+
+  .high-contrast.dark button,
+  .high-contrast.dark a,
+  .high-contrast.dark input,
+  .high-contrast.dark select,
+  .high-contrast.dark textarea {
+    border-color: #fff !important;
+  }
+
+  /* Screen Reader Mode - Enhanced focus and readability */
+  .screen-reader-mode {
+    line-height: 1.8 !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  .screen-reader-mode *:focus,
+  .screen-reader-mode *:focus-visible {
+    outline: 4px solid #0066cc !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.3) !important;
+  }
+
+  .screen-reader-mode.dark *:focus,
+  .screen-reader-mode.dark *:focus-visible {
+    outline-color: #60a5fa !important;
+    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.3) !important;
+  }
+
+  /* Focus visible for better keyboard navigation */
+  *:focus-visible {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+  }
+
+  .dark *:focus-visible {
+    outline-color: #60a5fa;
+  }
+
+  /* Improve autofill color (override Chrome's yellow) */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset;
+    box-shadow: 0 0 0px 1000px #ffffff inset;
+    -webkit-text-fill-color: #111827;
+    /* gray-900 */
+    caret-color: #111827;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill,
+  .dark textarea:-webkit-autofill:hover,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill,
+  .dark select:-webkit-autofill:hover,
+  .dark select:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px #1f2937 inset;
+    /* gray-800 */
+    box-shadow: 0 0 0px 1000px #1f2937 inset;
+    /* gray-800 */
+    -webkit-text-fill-color: #e5e7eb;
+    /* gray-200 */
+    caret-color: #e5e7eb;
+  }
+}
+
+/* Default smooth transitions */
+*,
+::before,
+::after {
+  transition: background-color 200ms, border-color 200ms, color 200ms;
+}
+
+/* ========== REDUCED MOTION MODE ========== */
+/* Completely disable all animations and transitions */
+.reduce-motion,
+.reduce-motion *,
+.reduce-motion ::before,
+.reduce-motion ::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  animation-name: none !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0s !important;
+  transition-property: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* Also respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+@keyframes countdown-scale {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes countdown-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ===== Glass Utility Classes ===== */
+.glass-dark-xs {
+  background: rgba(17, 24, 39, 0.25);
+  backdrop-filter: blur(4px);
+}
+
+.glass-dark-sm {
+  background: rgba(17, 24, 39, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.glass-dark {
+  background: rgba(17, 24, 39, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.glass-dark-lg {
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(10px);
+}
+
+.glass-light-xs {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.glass-light-sm {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.glass-light-lg {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+/* Border helper for glass panels */
+.glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dark .glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}

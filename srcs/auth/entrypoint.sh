@@ -6,7 +6,7 @@ if [ "${USE_VAULT}" = "true" ] && [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}
   echo "Fetching secrets from Vault at ${VAULT_ADDR}..."
   
   # Wait for Vault to be ready (up to 30 seconds)
-  for i in $(seq 1 30); do
+  for i in $(seq 1 1); do
     if curl -sf "${VAULT_ADDR}/v1/sys/health" > /dev/null 2>&1; then
       echo "Vault is ready."
       break

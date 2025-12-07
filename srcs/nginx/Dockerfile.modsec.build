@@ -1,9 +1,33 @@
+ARG NGINX_VERSION=1.29.0
+
+FROM node:24.8-alpine AS react_builder
+
+WORKDIR /app/shared
+
+COPY shared/package.json shared/tsconfig.json ./
+RUN npm install
+
+COPY shared ./
+RUN npm run build
+
+WORKDIR /app/srcs/frontend
+
+COPY srcs/frontend/package.json srcs/frontend/tsconfig.json ./
+RUN npm install
+
+COPY srcs/frontend/src ./src
+COPY srcs/frontend/postcss.config.js ./
+COPY srcs/frontend/tailwind.config.js ./
+COPY srcs/frontend/vite.config.mts ./
+COPY srcs/frontend/index.html ./
+RUN npm run build
+
+
 # Build ModSecurity (libmodsecurity) and the nginx dynamic module from source,
 # then produce a runtime image based on the official nginx image with the
 # module and libmodsecurity libraries copied in.
 
-ARG NGINX_VERSION=1.29.0
-FROM debian:bookworm-slim AS builder
+FROM debian:bookworm-slim AS modesec_builder
 ARG NGINX_VERSION
 ENV NGINX_VERSION=${NGINX_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
@@ -52,6 +76,9 @@ FROM nginx:${NGINX_VERSION}
 ARG NGINX_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
 
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
+
 # install small tools used by entrypoint
 RUN apt-get update && apt-get install -y --no-install-recommends gettext openssl procps jq ca-certificates curl liblua5.3-0 libyajl2 && rm -rf /var/lib/apt/lists/*
 
@@ -60,18 +87,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends gettext openssl
 # Try several known locations to be robust across build environments.
 
 # Copy module and runtime libs from builder into both /usr/local/lib and /usr/lib
-COPY --from=builder /out/modules/ngx_http_modsecurity_module.so /etc/nginx/modules/ngx_http_modsecurity_module.so
-COPY --from=builder /out/lib/ /usr/local/lib/
-COPY --from=builder /out/lib/ /usr/lib/
+COPY --from=modesec_builder /out/modules/ngx_http_modsecurity_module.so /etc/nginx/modules/ngx_http_modsecurity_module.so
+COPY --from=modesec_builder /out/lib/ /usr/local/lib/
+COPY --from=modesec_builder /out/lib/ /usr/lib/
 # Also copy into the system library path so ldconfig and the dynamic loader
 # reliably locate the library across different base images.
-COPY --from=builder /out/lib/ /lib/x86_64-linux-gnu/
+COPY --from=modesec_builder /out/lib/ /lib/x86_64-linux-gnu/
 
 # Also copy the full lib dirs from the builder into temporary locations and
 # selectively copy any libmodsecurity files into /usr/local/lib. This avoids
 # using shell operators in COPY directives which isn't supported.
-COPY --from=builder /usr/local/lib/ /usr/local/lib_builder/
-COPY --from=builder /usr/lib/ /usr/lib_builder/
+COPY --from=modesec_builder /usr/local/lib/ /usr/local/lib_builder/
+COPY --from=modesec_builder /usr/lib/ /usr/lib_builder/
 
 RUN cp -n /usr/local/lib_builder/libmodsecurity* /usr/local/lib/ 2>/dev/null || true \
  && cp -n /usr/lib_builder/libmodsecurity* /usr/local/lib/ 2>/dev/null || true \
@@ -86,28 +113,29 @@ RUN mkdir -p /var/log/modsecurity && chown -R www-data:www-data /var/log/modsecu
 
 # Copy templates and entrypoint behavior (mirror original Dockerfile)
 RUN mkdir -p /etc/nginx/un_expanded/
-COPY nginx.conf.to_expand /etc/nginx/un_expanded
+COPY srcs/${SERVICE_NAME}/nginx.conf.to_expand /etc/nginx/un_expanded
 RUN chmod 644 /etc/nginx/un_expanded/nginx.conf.to_expand
-COPY mysite.conf.to_expand /etc/nginx/un_expanded
+COPY srcs/${SERVICE_NAME}/mysite.conf.to_expand /etc/nginx/un_expanded
 RUN chmod 644 /etc/nginx/un_expanded/mysite.conf.to_expand
 
 # Copy modsecurity template files (processed by entrypoint)
-COPY modsecurity /etc/nginx/un_expanded/modsecurity
+COPY srcs/${SERVICE_NAME}/modsecurity /etc/nginx/un_expanded/modsecurity
 RUN chmod -R 644 /etc/nginx/un_expanded/modsecurity || true
 
 RUN rm -f /etc/nginx/conf.d/default.d || true
 
 EXPOSE 443
 
-COPY nginx_entryp.sh /etc/nginx_entryp.sh
+COPY srcs/${SERVICE_NAME}/nginx_entryp.sh /etc/nginx_entryp.sh
 RUN chmod 755 /etc/nginx_entryp.sh
 
 RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/ || true
-COPY /staticfiles/ /var/www/html/
+COPY srcs/frontend/staticfiles/ /var/www/html/
+COPY srcs/frontend/public/ /var/www/html/react_dist/
 
 RUN mkdir -p /var/www/html/react_dist/
-COPY /react_source/dist /var/www/html/react_dist
+COPY --from=react_builder /app/srcs/frontend/dist /var/www/html/react_dist
 
 ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,15 +1,56 @@
-FROM nodejs_base_image:1.0
+# ---- Builder Stage ----
+FROM node:24.8-alpine AS builder
 
-RUN mkdir -p /appservice/
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
 
-WORKDIR /appservice/
+RUN apk add --no-cache python3 make g++
 
-COPY appservice/ /appservice/
-COPY dist/ /appservice/
-RUN chmod 444 /appservice/*
+WORKDIR /app/shared
 
-RUN cat /appservice/check_global_envs.sh /appservice/service_entryp.sh > /appservice/entrypoint.sh \
-    && chmod +x /appservice/entrypoint.sh
+COPY shared/package.json shared/tsconfig.json ./
+RUN npm install
 
-ENTRYPOINT ["/appservice/entrypoint.sh"]
-CMD node --trace-uncaught /appservice/$SERVICE_MAINJS
+COPY shared ./
+RUN npm run build
+
+WORKDIR /app/srcs/${SERVICE_NAME}
+
+COPY srcs/${SERVICE_NAME}/package.json srcs/${SERVICE_NAME}/tsconfig.json ./
+RUN npm install
+
+COPY srcs/${SERVICE_NAME}/src ./src
+RUN npm run build
+
+
+# ---- Runner Stage ----
+FROM node:24.8-alpine AS runner
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -u 1001 -D -S -G nodejs nodejs
+
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
+ENV NODE_ENV=production
+
+RUN mkdir -p /app/shared /app/srcs/${SERVICE_NAME} && \
+    chown -R nodejs:nodejs /app
+
+WORKDIR /app/shared
+
+COPY --chown=nodejs:nodejs --from=builder /app/shared/package.json ./
+USER nodejs
+RUN npm install --only=production --install-links
+
+COPY --chown=nodejs:nodejs --from=builder /app/shared/dist ./dist
+
+WORKDIR /app/srcs/${SERVICE_NAME}
+COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/package.json ./
+RUN npm install --only=production --install-links
+
+COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/dist/srcs/${SERVICE_NAME}/src ./dist
+COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["npm", "start"]
