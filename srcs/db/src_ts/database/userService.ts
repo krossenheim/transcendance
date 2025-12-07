@@ -8,6 +8,7 @@ import { Database } from './database.js';
 // @ts-ignore - @resvg/resvg-js is installed in the base image
 import { Resvg } from '@resvg/resvg-js';
 import fs from 'fs/promises';
+import path from 'path';
 import axios from 'axios';
 
 function createGuestUsername(): string {
@@ -204,7 +205,23 @@ export class UserService {
 
 	async fetchUserAvatar(file: string): Promise<Result<string, string>> {
 		try {
-			const png = await fs.readFile(`/etc/database_data/pfps/${file}`);
+			// Sanitize filename to prevent path traversal attacks
+			// Only allow alphanumeric characters, underscores, hyphens, and dots
+			const sanitizedFile = path.basename(file);
+			if (!sanitizedFile || sanitizedFile !== file || /[^a-zA-Z0-9_\-.]/.test(sanitizedFile)) {
+				console.error('Invalid avatar filename attempted:', file);
+				return Result.Err('Invalid filename');
+			}
+			
+			// Ensure the resolved path is within the allowed directory
+			const basePath = '/etc/database_data/pfps';
+			const resolvedPath = path.resolve(basePath, sanitizedFile);
+			if (!resolvedPath.startsWith(basePath + path.sep)) {
+				console.error('Path traversal attempt detected:', file);
+				return Result.Err('Invalid filename');
+			}
+			
+			const png = await fs.readFile(resolvedPath);
 			return Result.Ok(png.toString('base64'));
 		} catch (error) {
 			console.error('Failed to read avatar:', error);

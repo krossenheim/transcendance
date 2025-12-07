@@ -56,8 +56,11 @@ fastify.addHook('preHandler', async (request, reply) => {
 	}
 });
 
-const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
+const secretKey = process.env.JWT_SECRET || "shgdfkjwriuhfsdjkghdfjvnsdk";
 const jwtExpiry = '15min'; // 15 min
+
+// Frontend URL for OAuth redirects - should be set via environment variable in production
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://localhost';
 
 // OAuth state management
 const pendingOAuthStates = new Map<string, number>();
@@ -208,6 +211,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		}
 
 		// Exchange code for access token
+		console.log('Exchanging code for token with:', { clientId: clientId.substring(0, 8) + '...', redirectUri, code: code.substring(0, 8) + '...' });
 		const tokenResp = await axios.post(
 			'https://github.com/login/oauth/access_token',
 			{
@@ -220,6 +224,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			{ headers: { Accept: 'application/json' }, validateStatus: () => true }
 		);
 
+		console.log('GitHub token response:', tokenResp.status, JSON.stringify(tokenResp.data));
 		if (tokenResp.status !== 200 || !tokenResp.data?.access_token) {
 			return reply.status(401).send({ message: 'Failed to obtain GitHub token' });
 		}
@@ -268,7 +273,8 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			const tokens = await generateToken(user.id);
 			if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 			const tokenData = tokens.unwrap();
-			const redirectUrl = `https://localhost/?jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+			// Use URL fragment (hash) instead of query params to prevent tokens from being logged in server access logs
+			const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 			return reply.redirect(redirectUrl);
 		}
 
@@ -318,17 +324,20 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 					});
 				}
 			}
-		} catch (_) {}
+		} catch (_) {
+			console.warn('Failed to set GitHub avatar:', _);
+		}
 
 		const tokens = await generateToken(newUser.id);
 		if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 		
-		// Redirect to frontend with tokens in URL hash (or use cookies)
+		// Use URL fragment (hash) instead of query params to prevent tokens from being logged
 		const tokenData = tokens.unwrap();
-		const redirectUrl = `https://localhost/?jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+		const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 		return reply.redirect(redirectUrl);
-	} catch (err: any) {
-		console.error('OAuth error:', err?.message || err);
+	} catch (err: unknown) {
+		const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+		console.error('OAuth error:', errorMessage);
 		return reply.status(500).send({ message: 'OAuth processing failed' });
 	}
 });

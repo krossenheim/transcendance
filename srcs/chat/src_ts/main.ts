@@ -198,6 +198,12 @@ socket.registerHandler(user_url.ws.chat.joinRoom, async (wrapper) => {
   return await singletonChatRooms.userJoinRoom(room_id_requested, user_id, socket);
 });
 
+socket.registerHandler(user_url.ws.chat.leaveRoom, async (wrapper) => {
+  const room_id_requested = wrapper.payload.roomId;
+  const user_id = wrapper.user_id;
+  return await singletonChatRooms.userLeaveRoom(room_id_requested, user_id, socket);
+});
+
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
   10

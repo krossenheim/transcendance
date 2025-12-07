@@ -24,19 +24,32 @@ export default function CookieBanner() {
   };
 
   const reject = async () => {
-    setCookie('cookie_consent', 'rejected');
+    // Don't set cookie - just dismiss for this session
+    // Banner will show again on next visit
     setVisible(false);
-    // Optional: persist to server similarly
   };
 
   if (!visible) return null;
   return (
-    <div style={{position:'fixed',bottom:12,left:12,right:12,background:'#111',color:'#fff',padding:12,borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:9999}}>
-      <div style={{maxWidth:'70%'}}>We use cookies to improve your experience. You may accept or reject non-essential cookies.</div>
-      <div style={{display:'flex',gap:8}}>
-        <button onClick={accept} style={{background:'#28a745',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6}}>Accept</button>
-        <button onClick={reject} style={{background:'#6c757d',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6}}>Reject</button>
+    <>
+      {/* Dimmed overlay */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 9998,
+      }} />
+      {/* Cookie banner */}
+      <div style={{position:'fixed',bottom:12,left:12,right:12,background:'#111',color:'#fff',padding:12,borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:9999}}>
+        <div style={{maxWidth:'70%'}}>We use cookies to improve your experience. You may accept or reject non-essential cookies.</div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={accept} style={{background:'#28a745',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6,cursor:'pointer'}}>Accept</button>
+          <button onClick={reject} style={{background:'#6c757d',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6,cursor:'pointer'}}>Reject</button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

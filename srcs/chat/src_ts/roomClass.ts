@@ -382,8 +382,9 @@ class ChatRooms {
     WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>,
     ErrorResponseType
   >> {
-    const room = this.getRoom(roomIdReq);
-    if (room === null) {
+    // Use fetchRoom to load the room from DB if not in memory
+    const roomResult = await this.fetchRoom(roomIdReq);
+    if (roomResult.isErr()) {
       return Result.Ok({
         recipients: [user_id],
         code: user_url.ws.chat.joinRoom.schema.output.NoSuchRoom.code,
@@ -392,6 +393,7 @@ class ChatRooms {
         },
       });
     }
+    const room = roomResult.unwrap();
     
     // Check if user is already in the room
     if (room.users.find((id) => id === user_id)) {
@@ -446,6 +448,74 @@ class ChatRooms {
       code: user_url.ws.chat.joinRoom.code.NoSuchRoom,
       payload: {
         message: `No such room (ID: ${roomIdReq}) or you are not in it.`,
+      },
+    });
+  }
+
+  async userLeaveRoom(
+    roomIdReq: number,
+    user_id: number,
+    internal_socket: OurSocket,
+  ): Promise<Result<
+    WSHandlerReturnValue<typeof user_url.ws.chat.leaveRoom.schema.output>,
+    ErrorResponseType
+  >> {
+    const room = this.getRoom(roomIdReq);
+    if (room === null) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.leaveRoom.schema.output.NoSuchRoom.code,
+        payload: {
+          message: `No such room (ID: ${roomIdReq}).`,
+        },
+      });
+    }
+
+    // Check if user is actually in the room
+    const userIndex = room.users.findIndex((id) => id === user_id);
+    if (userIndex === -1) {
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.leaveRoom.schema.output.NoSuchRoom.code,
+        payload: {
+          message: `You are not in room (ID: ${roomIdReq}).`,
+        },
+      });
+    }
+
+    const removeUserResult = await containers.db.post(int_url.http.db.removeUserFromRoom, {
+      roomId: room.roomId,
+      user_to_remove: user_id,
+    });
+    console.log(`[leaveRoom] removeUserFromRoom result:`, removeUserResult.isOk() ? removeUserResult.unwrap() : removeUserResult.unwrapErr());
+    if (removeUserResult.isErr() || removeUserResult.unwrap().status !== 200) {
+      console.error(`[leaveRoom] Failed to remove user ${user_id} from room ${roomIdReq}:`, removeUserResult.isErr() ? removeUserResult.unwrapErr() : removeUserResult.unwrap());
+      return Result.Ok({
+        recipients: [user_id],
+        code: user_url.ws.chat.leaveRoom.schema.output.FailedToLeaveRoom.code,
+        payload: {
+          message: `Could not leave room (ID: ${roomIdReq}).`,
+        },
+      });
+    }
+
+    // Remove user from in-memory arrays
+    room.users.splice(userIndex, 1);
+    const allowedIndex = room.allowedUsers.findIndex((id) => id === user_id);
+    if (allowedIndex !== -1) {
+      room.allowedUsers.splice(allowedIndex, 1);
+    }
+
+    console.log(`User ${user_id} left room ${room.roomId}.`);
+
+    // Notify remaining users that user left
+    return Result.Ok({
+      recipients: [...room.users, user_id],
+      funcId: user_url.ws.chat.leaveRoom.funcId,
+      code: user_url.ws.chat.leaveRoom.code.Left,
+      payload: {
+        user: user_id,
+        roomId: room.roomId,
       },
     });
   }

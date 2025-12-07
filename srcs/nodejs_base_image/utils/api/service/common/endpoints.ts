@@ -317,7 +317,7 @@ export const user_url = defineRoutes({
         wrapper: GenericAuthClientRequest,
         method: "POST",
         schema: {
-          body: z.null(),
+          body: GenericAuthClientRequest,
           response: {
             200: z.null(),
             500: ErrorResponse,
@@ -1056,6 +1056,34 @@ export const user_url = defineRoutes({
           AlreadyInRoom: 2,
         },
       },
+      leaveRoom: {
+        funcId: "/api/chat/leave_room",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestRoomByIdSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            RoomLeft: {
+              code: 0,
+              payload: RoomEventSchema,
+            },
+            NoSuchRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            FailedToLeaveRoom: {
+              code: 2,
+              payload: ErrorResponse,
+            }
+          },
+        },
+        code: {
+          Left: 0,
+          NoSuchRoom: 1,
+          NotInRoom: 2,
+        },
+      },
       getRoomData: {
         funcId: "/api/chat/get_room_data",
         container: "chat",
@@ -1466,6 +1494,18 @@ export const int_url = defineRoutes({
           body: AddToRoomPayloadSchema.extend({ type: z.number() }),
           response: {
             200: z.null(), // User added successfully
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      removeUserFromRoom: {
+        endpoint: "/internal_api/chat/rooms/remove_user",
+        method: "POST",
+        schema: {
+          body: z.object({ roomId: room_id_rule, user_to_remove: userIdValue }),
+          response: {
+            200: z.null(), // User removed successfully
             500: ErrorResponse, // Internal server error
           },
         },
