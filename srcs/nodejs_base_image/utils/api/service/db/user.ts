@@ -27,7 +27,7 @@ export const User = z.object({
 	alias: z.string().nullable(),
 	email: z.string(),
 	bio: z.string().nullable(),
-	accountType: z.enum(UserAccountType),
+	accountType: z.nativeEnum(UserAccountType),
 	avatarUrl: z.string().nullable(),
 	has2FA: z.coerce.boolean().optional(),
 });
@@ -44,7 +44,7 @@ export const FullUser = User.extend({
 export const UserAuthData = z.object({
 	id: userIdValue,
 	passwordHash: z.string().nullable(),
-	accountType: z.enum(UserAccountType)
+	accountType: z.nativeEnum(UserAccountType)
 });
 
 export const GetUser = z.object({

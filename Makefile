@@ -23,7 +23,6 @@ REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
-all: check-deps ensure_npx down build
 all: check-deps ensure_npx down build ensure_network
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" -f "$(PATH_TO_MONITORING_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
@@ -78,8 +77,37 @@ debug:
 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
 	rm -f $(VOLUMES_DIR)users.db
 
-build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build
+# Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
+HARDHAT_IMAGE_TAG := hardhat:local
+EXPLORER_IMAGE_TAG := blockchain-explorer:local
+BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
+
+build: create_shared_volume_folder compile_ts_to_cjs build_base_nodejs build_react debug pass_global_envs_test_to_nodejs_containers build_hardhat_if_needed build_explorer_if_needed
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build db auth chat hub pong users nginx
+
+build_hardhat_if_needed:
+	@if ! docker image inspect $(HARDHAT_IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "Building Hardhat image (first time)..."; \
+		docker build -f "$(BLOCKCHAIN_DIR)/Dockerfile" -t $(HARDHAT_IMAGE_TAG) "$(BLOCKCHAIN_DIR)"; \
+	else \
+		echo "Hardhat image exists, skipping rebuild (use 'make build-hardhat' to force)"; \
+	fi
+
+build_explorer_if_needed:
+	@if ! docker image inspect $(EXPLORER_IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "Building Block Explorer image (first time)..."; \
+		docker build -f "$(BLOCKCHAIN_DIR)/explorer/Dockerfile" -t $(EXPLORER_IMAGE_TAG) "$(BLOCKCHAIN_DIR)/explorer"; \
+	else \
+		echo "Block Explorer image exists, skipping rebuild"; \
+	fi
+
+build-hardhat:
+	@echo "Force rebuilding Hardhat image..."
+	docker build -f "$(BLOCKCHAIN_DIR)/Dockerfile" -t $(HARDHAT_IMAGE_TAG) "$(BLOCKCHAIN_DIR)"
+
+build-explorer:
+	@echo "Force rebuilding Block Explorer image..."
+	docker build -f "$(BLOCKCHAIN_DIR)/explorer/Dockerfile" -t $(EXPLORER_IMAGE_TAG) "$(BLOCKCHAIN_DIR)/explorer"
 
 build_base_nodejs:
 	docker build -f "$(PATH_TO_BASE_IMAGE)" -t $(BASE_IMAGE_TAG) "$(NODEJS_BASE_IMAGE_DIR)"
@@ -87,6 +115,34 @@ build_base_nodejs:
 build_react:
 	npm install --prefix $(REACT_DIR)
 	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
+
+# Vault development helpers
+vault-bootstrap:
+	@echo "Starting Vault (dev) and bootstrapping..."
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d vault || true
+	@printf "Waiting for Vault to be healthy..."
+	@until curl -sSf http://127.0.0.1:8200/v1/sys/health >/dev/null 2>&1; do printf .; sleep 1; done; echo
+	@docker cp srcs/vault/bootstrap_vault_dev.sh vault:/bootstrap_vault_dev.sh || true
+	@docker exec vault sh -c "chmod +x /bootstrap_vault_dev.sh && VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=root-token-for-dev /bootstrap_vault_dev.sh"
+	@TOKEN=$$(docker exec vault sh -c "VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=root-token-for-dev vault token create -policy=nginx-policy -field=token"); \
+	printf "VAULT token: $$TOKEN\n"; \
+	if grep -q '^VAULT_TOKEN=' srcs/globals.env >/dev/null 2>&1; then \
+		sed -i "s#^VAULT_TOKEN=.*#VAULT_TOKEN=$$TOKEN#" srcs/globals.env; \
+	else \
+		echo "VAULT_TOKEN=$$TOKEN" >> srcs/globals.env; \
+	fi; \
+	# Enable USE_VAULT for local testing
+	sed -i 's#^USE_VAULT=.*#USE_VAULT=true#' srcs/globals.env || true; \
+	echo "Wrote token to srcs/globals.env (dev-only)."
+
+vault-down:
+	@echo "Stopping and removing Vault (dev) container..."
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" stop vault || true
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" rm -f vault || true
+	@echo "Removing VAULT_TOKEN from $(PATH_TO_COMPOSE_ENV_FILE) and disabling USE_VAULT"
+	@sed -i '/^VAULT_TOKEN=/d' "$(PATH_TO_COMPOSE_ENV_FILE)" || true
+	@sed -i 's/^USE_VAULT=.*/USE_VAULT=false/' "$(PATH_TO_COMPOSE_ENV_FILE)" || echo "USE_VAULT=false" >> "$(PATH_TO_COMPOSE_ENV_FILE)"
+	@echo "Vault stopped and token removed (dev-only)."
 
 check-deps:
 	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
@@ -132,7 +188,7 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
-CONTAINERS := hub pong users lobby
+CONTAINERS := hub pong users
 
 # Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
 TSC_JOBS ?= 2
@@ -172,4 +228,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all
+.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all vault-bootstrap vault-down

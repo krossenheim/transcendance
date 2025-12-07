@@ -12,6 +12,12 @@ RUN chmod 644 /etc/nginx/un_expanded/nginx.conf.to_expand
 COPY mysite.conf.to_expand /etc/nginx/un_expanded
 RUN chmod 644 /etc/nginx/un_expanded/mysite.conf.to_expand
 
+# ModSecurity templates (envsubst'd by nginx_entryp.sh). The actual ModSecurity dynamic
+# module is NOT installed here by default in this POC — enable module in your build
+# or base image to activate blocking rules. These files provide the config and CRS.
+COPY modsecurity /etc/nginx/un_expanded/modsecurity
+RUN chmod -R 644 /etc/nginx/un_expanded/modsecurity || true
+
 RUN rm -f /etc/nginx/conf.d/default.d
 
 EXPOSE 443

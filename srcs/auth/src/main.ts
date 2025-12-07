@@ -1,8 +1,7 @@
 'use strict'
 import { StoreTokenPayload, VerifyTokenPayload } from '@app/shared/api/service/db/token';
+import { registerRoute, createFastify } from '@app/shared/api/service/common/fastify';
 import { int_url, pub_url, user_url } from '@app/shared/api/service/common/endpoints';
-import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { registerRoute } from '@app/shared/api/service/common/fastify';
 import { TokenPayload } from '@app/shared/api/service/auth/tokenData';
 import { ErrorResponse } from '@app/shared/api/service/common/error';
 import { Result } from '@app/shared/api/service/common/result';
@@ -11,12 +10,11 @@ import containers from '@app/shared/internal_api'
 
 import type { ErrorResponseType } from '@app/shared/api/service/common/error';
 import type { TokenDataType } from '@app/shared/api/service/auth/tokenData';
-import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 import type { FullUserType } from '@app/shared/api/service/db/user';
+import type { FastifyInstance } from 'fastify';
 
 import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
-import Fastify from 'fastify';
 import axios from 'axios';
 
 // Temporary storage for pending 2FA logins (in production, use Redis)
@@ -32,19 +30,31 @@ setInterval(() => {
 	}
 }, 5 * 60 * 1000);
 
-const zodFastify = (
-	options: FastifyServerOptions = { logger: true }
-) => {
-	const server = Fastify(options);
-	server.setValidatorCompiler(validatorCompiler);
-	server.setSerializerCompiler(serializerCompiler);
-	return server;
-}
+const fastify: FastifyInstance = createFastify({ logger: true } as any);
 
-const fastify: FastifyInstance = zodFastify();
+// Attach cookie consent to each request: true when cookie_consent === 'accepted'
+fastify.addHook('preHandler', async (request, reply) => {
+	// `request.cookies` is provided by @fastify/cookie (registered in createFastify)
+	const consentCookie = (request as any).cookies?.cookie_consent;
+	const headerConsent = (request.headers['x-cookie-consent'] as string | undefined) || null;
+	(request as any).cookieConsent = (consentCookie === 'accepted') || (headerConsent === 'accepted');
 
-const secretKey = "shgdfkjwriuhfsdjkghdfjvnsdk";
+	// Temporary debug logging: print Authorization and headers for GDPR and avatar requests
+	try {
+		const url = (request as any).url || request.url || '';
+		if (typeof url === 'string' && (url.startsWith('/api/auth/gdpr') || url.startsWith('/api/users/pfp'))) {
+			console.log('[auth][incoming request]', { url, method: request.method, authorization: request.headers['authorization'], headers: request.headers });
+		}
+	} catch (e) {
+		// ignore logging failures
+	}
+});
+
+const secretKey = process.env.JWT_SECRET || "shgdfkjwriuhfsdjkghdfjvnsdk";
 const jwtExpiry = '15min'; // 15 min
+
+// Frontend URL for OAuth redirects - should be set via environment variable in production
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://localhost';
 
 // OAuth state management
 const pendingOAuthStates = new Map<string, number>();
@@ -195,6 +205,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		}
 
 		// Exchange code for access token
+		console.log('Exchanging code for token with:', { clientId: clientId.substring(0, 8) + '...', redirectUri, code: code.substring(0, 8) + '...' });
 		const tokenResp = await axios.post(
 			'https://github.com/login/oauth/access_token',
 			{
@@ -207,6 +218,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			{ headers: { Accept: 'application/json' }, validateStatus: () => true }
 		);
 
+		console.log('GitHub token response:', tokenResp.status, JSON.stringify(tokenResp.data));
 		if (tokenResp.status !== 200 || !tokenResp.data?.access_token) {
 			return reply.status(401).send({ message: 'Failed to obtain GitHub token' });
 		}
@@ -255,7 +267,8 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			const tokens = await generateToken(user.id);
 			if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 			const tokenData = tokens.unwrap();
-			const redirectUrl = `https://localhost/?jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+			// Use URL fragment (hash) instead of query params to prevent tokens from being logged in server access logs
+			const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 			return reply.redirect(redirectUrl);
 		}
 
@@ -305,17 +318,20 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 					});
 				}
 			}
-		} catch (_) {}
+		} catch (_) {
+			console.warn('Failed to set GitHub avatar:', _);
+		}
 
 		const tokens = await generateToken(newUser.id);
 		if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 		
-		// Redirect to frontend with tokens in URL hash (or use cookies)
+		// Use URL fragment (hash) instead of query params to prevent tokens from being logged
 		const tokenData = tokens.unwrap();
-		const redirectUrl = `https://localhost/?jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+		const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 		return reply.redirect(redirectUrl);
-	} catch (err: any) {
-		console.error('OAuth error:', err?.message || err);
+	} catch (err: unknown) {
+		const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+		console.error('OAuth error:', errorMessage);
 		return reply.status(500).send({ message: 'OAuth processing failed' });
 	}
 });
@@ -422,6 +438,63 @@ registerRoute(fastify, user_url.http.auth.logoutUser, async (request, reply) => 
 	} else {
 		return reply.status(500).send({ message: 'Failed to log out' });
 	}
+});
+
+// GDPR: fetch personal data (requires auth wrapper on client side)
+registerRoute(fastify, user_url.http.auth.fetchPersonalData, async (request, reply) => {
+	const { userId } = request.body;
+	const responseResult = await containers.db.get(int_url.http.db.getUser, { userId });
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		const parse = FullUser.safeParse(response.data);
+		if (!parse.success) return reply.status(500).send({ message: 'DB returned malformed user data' });
+		return reply.status(200).send(parse.data);
+	}
+
+	return reply.status(500).send(response.data);
+});
+
+// GDPR: request anonymization of personal data
+registerRoute(fastify, user_url.http.auth.requestAnonymize, async (request, reply) => {
+	const { userId } = request.body;
+	const responseResult = await containers.db.post(int_url.http.db.anonymizeUser as any, null as any, { userId });
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		const parse = FullUser.safeParse(response.data);
+		if (!parse.success) return reply.status(500).send({ message: 'DB returned malformed user data' });
+		return reply.status(200).send(parse.data);
+	}
+
+	if (response.status === 400) return reply.status(400).send(response.data);
+	return reply.status(500).send(response.data);
+});
+
+// GDPR: request account deletion (permanent)
+registerRoute(fastify, user_url.http.auth.requestAccountDeletion, async (request, reply) => {
+	const { userId } = request.body;
+	const responseResult = await containers.db.post(int_url.http.db.deleteUser as any, null as any, { userId });
+
+	if (responseResult.isErr()) {
+		return reply.status(500).send({ message: responseResult.unwrapErr() });
+	}
+
+	const response = responseResult.unwrap();
+	if (response.status === 200) {
+		return reply.status(200).send(null);
+	}
+
+	if (response.status === 400) return reply.status(400).send(response.data);
+	return reply.status(500).send(response.data);
 });
 
 // 2FA Setup: Generate QR code

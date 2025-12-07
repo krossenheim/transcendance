@@ -32,7 +32,12 @@ class ContainerTarget {
     query?: RouteQuery<T>
   ): Promise<Result<AxiosResponse<any>, string>> {
     try {
-      return Result.Ok(await axios.post(this.buildUrl(targetAPI.endpoint, params, query), body, { validateStatus: () => true }));
+      const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+      const url = this.buildUrl(targetAPI.endpoint, params, query);
+      console.log('[internal_api] POST ->', url);
+      console.log('[internal_api] headers ->', headers);
+      console.log('[internal_api] body ->', body);
+      return Result.Ok(await axios.post(url, body, { headers, validateStatus: () => true }));
     } catch (error: any) {
       console.error(
         "Error in internal API POST request url was " +

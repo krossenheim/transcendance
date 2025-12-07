@@ -5,6 +5,7 @@ import { getUserColorCSS } from "./userColorUtils"
 import { useWebSocket } from "./socketComponent"
 import { user_url } from "../../../nodejs_base_image/utils/api/service/common/endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"
+import { getCurrentUserId } from "./jwtUtils"
 
 interface UserProfile {
   userId: number
@@ -74,16 +75,13 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
 
 // Get current user ID from JWT token
 useEffect(() => {
-  const jwt = localStorage.getItem('jwt')
-  if (jwt) {
-    try {
-      const payload = JSON.parse(atob(jwt.split('.')[1]))
-      setCurrentUserId(payload.uid)
-    } catch (error) {
-      console.error('[v0] Error decoding JWT:', error)
-    }
+  const userId = getCurrentUserId();
+  if (userId !== null) {
+    setCurrentUserId(userId);
+  } else {
+    console.warn('[v0] Could not get user ID from JWT');
   }
-}, [])
+}, []);
 
 useEffect(() => {
   if (isOpen && userId) {
@@ -186,13 +184,18 @@ if (timeoutRef.current) {
     }
     if (payloadReceived.funcId === user_url.ws.users.fetchUserGameResults.funcId) {
       if (payloadReceived.code === 0) {
-        const results = Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
+        const results: Array<{ id: number; userId: number; score: number; rank: number }> = 
+          Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
         setGameResults(results)
         // Derive stats
         const gamesPlayed = results.length
-        const wins = results.filter(r => r.rank === 1).length
+        const wins = results.filter((r) => r.rank === 1).length
         const losses = gamesPlayed - wins
-        setProfile(prev => prev ? { ...prev, stats: { gamesPlayed, wins, losses }, matchHistory: results.map(r => ({ id: r.id, score: r.score, rank: r.rank })) } : prev)
+        setProfile(prev => prev ? { 
+          ...prev, 
+          stats: { gamesPlayed, wins, losses }, 
+          matchHistory: results.map((r) => ({ id: r.id, score: r.score, rank: r.rank })) 
+        } : prev)
       }
     }
   }, [payloadReceived, showToast])
@@ -313,14 +316,14 @@ useEffect(() => {
             setProfile({ ...profile, avatar: avatarFile.name })
           }
           
-          // Update localStorage userData to refresh user menu
+          // Update localStorage userData to refresh user menu (use avatarUrl to match API response)
           const userData = localStorage.getItem('userData')
           if (userData) {
             const user = JSON.parse(userData)
-            user.avatar = avatarFile.name
+            user.avatarUrl = avatarFile.name
             localStorage.setItem('userData', JSON.stringify(user))
-            // Trigger a storage event to notify AppRoot
-            window.dispatchEvent(new Event('storage'))
+            // Dispatch custom event to notify AppRoot in the same window
+            window.dispatchEvent(new Event('profileUpdated'))
           }
         }
       }
@@ -563,6 +566,18 @@ useEffect(() => {
                       if (active) setShowSetupImmediately(true);
                     }}
                   />
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        // Close modal and navigate to GDPR page
+                        try { window.dispatchEvent(new CustomEvent('navigate', { detail: 'gdpr' })); } catch {};
+                        onClose();
+                      }}
+                      className="px-3 py-2 mt-2 bg-gray-100 dark:bg-dark-700 text-sm hover:bg-gray-200 dark:hover:bg-dark-600 rounded"
+                    >
+                      Manage My Data (GDPR)
+                    </button>
+                  </div>
                 </div>
               )}
 

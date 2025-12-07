@@ -41,6 +41,13 @@ export class ChatService {
     return this.setUserRoomAccessType(userId, roomId, ChatRoomUserAccessType.JOINED);
   }
 
+  removeUserFromRoom(userId: number, roomId: number): Result<null, string> {
+    return this.db.run(
+      `DELETE FROM users_room_relationships WHERE roomId = ? AND userId = ?`,
+      [roomId, userId]
+    ).map(() => null);
+  }
+
   createNewRoom(roomName: string, roomType: ChatRoomType, owner: number): Result<TypeRoomSchema, string> {
     const roomCreationResult = this.db.run(
       `INSERT INTO chat_rooms (roomType, roomName) VALUES (?, ?)`,

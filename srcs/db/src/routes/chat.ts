@@ -49,6 +49,16 @@ export async function chatRoutes(fastify: FastifyInstance) {
         else return reply.status(200).send(null);
     });
 
+    registerRoute(fastify, int_url.http.db.removeUserFromRoom, async (request, reply) => {
+        const removeUserResult = chatService.removeUserFromRoom(
+            request.body.user_to_remove,
+            request.body.roomId
+        );
+        if (removeUserResult.isErr())
+            return reply.status(500).send({ message: removeUserResult.unwrapErr() });
+        else return reply.status(200).send(null);
+    });
+
     registerRoute(fastify, int_url.http.db.fetchDMRoomInfo, async (request, reply) => {
         const fetchDMRoomResult = chatService.fetchDMRoom(request.params.userId1, request.params.userId2);
         console.log(fetchDMRoomResult);

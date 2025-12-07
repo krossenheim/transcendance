@@ -204,7 +204,7 @@ export function TwoFactorSetup({
         <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
           Enable Two-Factor Authentication
         </h2>
-        <p className="mb-6 text-gray-600 dark:text-gray-400">
+        <p className="mb-6 text-gray-900">
           Two-factor authentication adds an extra layer of security to your account.
           You'll need an authenticator app like Google Authenticator or Authy.
         </p>
@@ -242,10 +242,10 @@ export function TwoFactorSetup({
       </h2>
       
       <div className="mb-6">
-        <p className="mb-4 text-gray-600 dark:text-gray-400">
+        <p className="mb-4 text-gray-900">
           1. Open your authenticator app
         </p>
-        <p className="mb-4 text-gray-600 dark:text-gray-400">
+        <p className="mb-4 text-gray-900">
           2. Scan this QR code:
         </p>
         {qrCode && (
@@ -263,7 +263,7 @@ export function TwoFactorSetup({
           </div>
         </details>
 
-        <p className="mb-4 text-gray-600 dark:text-gray-400">
+        <p className="mb-4 text-gray-900">
           3. Enter the 6-digit code from your app:
         </p>
       </div>

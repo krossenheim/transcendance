@@ -97,28 +97,36 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
 
   if (showSetup) {
     return (
-      <TwoFactorSetup
-        userId={userId}
-        username={username}
-        onSetupComplete={handleSetupComplete}
-        onCancel={() => {
-          setShowSetup(false);
-          onActiveStateChange?.(false);
-        }}
-      />
+      <div className="fixed inset-0 z-60 flex items-center justify-center" onClick={() => { setShowSetup(false); onActiveStateChange?.(false); }}>
+        <div className="mx-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <TwoFactorSetup
+            userId={userId}
+            username={username}
+            onSetupComplete={handleSetupComplete}
+            onCancel={() => {
+              setShowSetup(false);
+              onActiveStateChange?.(false);
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
   if (showDisable) {
     return (
-      <TwoFactorDisable
-        userId={userId}
-        onDisableComplete={handleDisableComplete}
-        onCancel={() => {
-          setShowDisable(false);
-          onActiveStateChange?.(false);
-        }}
-      />
+      <div className="fixed inset-0 z-60 flex items-center justify-center" onClick={() => { setShowDisable(false); onActiveStateChange?.(false); }}>
+        <div className="mx-4 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <TwoFactorDisable
+            userId={userId}
+            onDisableComplete={handleDisableComplete}
+            onCancel={() => {
+              setShowDisable(false);
+              onActiveStateChange?.(false);
+            }}
+          />
+        </div>
+      </div>
     );
   }
 

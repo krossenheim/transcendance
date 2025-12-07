@@ -15,6 +15,7 @@ import BabylonPongRenderer from "./BabylonPongRenderer"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
 import PongLobby, { type PongLobbyData, type LobbyPlayer } from "./pongLobby"
 import TournamentBracket, { type TournamentData, type TournamentMatch } from "./tournamentBracket"
+import TournamentStats from "./tournamentStats"
 import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications"
 
 // =========================
@@ -57,7 +58,9 @@ export default function PongComponent({
   const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
   const [lobby, setLobby] = useState<PongLobbyData | null>(null)
   const [tournament, setTournament] = useState<TournamentData | null>(null)
+  const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null) // Track tournament ID during game
   const [showInviteModalLocal, setShowInviteModalLocal] = useState(false)
+  const [showTournamentStats, setShowTournamentStats] = useState(false)
   // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
   // Cleanup polling on unmount (in case any leftover intervals exist)
@@ -144,13 +147,13 @@ export default function PongComponent({
     if (!payloadReceived) return
     
     // Debug: Log all pong-related messages
-    if (payloadReceived.funcId === 'create_pong_lobby' || payloadReceived.funcId === 'pong_lobby_invitation' || payloadReceived.funcId === 'lobby_state_update') {
-      console.log("[Pong] DEBUG: Received message:", JSON.stringify(payloadReceived))
+    if (payloadReceived.funcId === 'create_pong_lobby' || payloadReceived.funcId === 'pong_lobby_invitation' || payloadReceived.funcId === 'lobby_state_update' || payloadReceived.funcId === 'start_game_from_lobby') {
+      console.log("[Pong] DEBUG: Received message:", payloadReceived.funcId, "source_container:", payloadReceived.source_container, "code:", payloadReceived.code)
     }
     
     if (payloadReceived.source_container !== 'pong') {
-      if (payloadReceived.funcId === 'create_pong_lobby') {
-        console.log("[Pong] DEBUG: create_pong_lobby filtered out! source_container:", payloadReceived.source_container)
+      if (payloadReceived.funcId === 'create_pong_lobby' || payloadReceived.funcId === 'start_game_from_lobby') {
+        console.log("[Pong] DEBUG:", payloadReceived.funcId, "filtered out! source_container:", payloadReceived.source_container)
       }
       return
     }
@@ -186,6 +189,31 @@ export default function PongComponent({
           },
           status: payloadReceived.payload.status,
         })
+        
+        // If this is a tournament lobby, capture the SERVER's tournament ID (not the client-generated one)
+        if (payloadReceived.payload.tournament?.tournamentId) {
+          const serverTournament = payloadReceived.payload.tournament
+          console.log("[Pong] Tournament lobby created, setting activeTournamentId:", serverTournament.tournamentId)
+          setActiveTournamentId(serverTournament.tournamentId)
+          
+          // Set tournament state from server data (overwrite any client-generated tournament)
+          setTournament({
+            tournamentId: serverTournament.tournamentId,
+            name: serverTournament.name || "Tournament",
+            mode: serverTournament.mode || payloadReceived.payload.gameMode,
+            players: serverTournament.players?.map((p: any) => ({
+              id: p.userId || p.id,
+              username: p.username || `Player ${p.userId || p.id}`,
+              alias: p.alias,
+            })) || [],
+            matches: serverTournament.matches || [],
+            currentRound: serverTournament.currentRound || 1,
+            totalRounds: serverTournament.totalRounds || 2,
+            status: serverTournament.status || "in_progress",
+            winner: serverTournament.winnerId || null,
+          })
+        }
+        
         setCurrentView("lobby")
       }
     }
@@ -237,22 +265,30 @@ export default function PongComponent({
     }
 
     // Handle game start from lobby - sent to all players
-    if (payloadReceived.funcId === 'start_game_from_lobby' && payloadReceived.code === 0) {
-      console.log("[Pong] Game started from lobby! Received game state:", payloadReceived.payload)
-      const gameState = payloadReceived.payload
-      
-      // Set up the game for all players
-      setPlayerIDsHelper(gameState)
-      setGameState(gameState)
-      setLobby(null) // Clear lobby state
-      
-      // Use setTimeout to ensure state is updated before switching view
-      setTimeout(() => {
-        setCurrentView("game")
-        console.log("[Pong] Starting game")
-      }, 0)
+    if (payloadReceived.funcId === 'start_game_from_lobby') {
+      console.log("[Pong] Received start_game_from_lobby! code:", payloadReceived.code, "payload:", payloadReceived.payload)
+      if (payloadReceived.code === 0) {
+        console.log("[Pong] Game started from lobby! Processing game state")
+        const gameState = payloadReceived.payload
+        
+        // Preserve tournament ID before clearing lobby
+        const tournamentIdToPreserve = activeTournamentId || tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId
+        if (tournamentIdToPreserve) {
+          console.log("[Pong] Preserving tournament ID:", tournamentIdToPreserve)
+          setActiveTournamentId(tournamentIdToPreserve)
+        }
+        
+        // Set up the game for all players
+        console.log("[Pong] Setting game state and transitioning to game view")
+        setPlayerIDsHelper(gameState)
+        setGameState(gameState)
+        setLobby(null) // Clear lobby state
+        setCurrentView("game") // Transition immediately
+      } else {
+        console.warn("[Pong] start_game_from_lobby failed with code:", payloadReceived.code)
+      }
     }
-  }, [payloadReceived, authResponse, currentView])
+  }, [payloadReceived, authResponse, currentView, activeTournamentId])
 
   // Handle accepted invitation from AppRoot
   useEffect(() => {
@@ -278,6 +314,13 @@ export default function PongComponent({
         },
         status: storedLobbyData.status,
       })
+      
+      // Capture tournament ID if this is a tournament lobby
+      if (storedLobbyData.tournament?.tournamentId) {
+        console.log("[Pong] Accepted tournament lobby, setting activeTournamentId:", storedLobbyData.tournament.tournamentId)
+        setActiveTournamentId(storedLobbyData.tournament.tournamentId)
+      }
+      
       setCurrentView("lobby")
       if (onLobbyJoined) onLobbyJoined()
       // Clear after use
@@ -356,6 +399,12 @@ export default function PongComponent({
           setGameState(parsed.data);
           gameStateReceivedRef.current = true;
           setPlayerIDsHelper(parsed.data);
+          // If we received valid game state and we're not in game view, switch to it
+          if (currentView !== 'game' && parsed.data?.board_id) {
+            console.log("[Pong] Received game state while not in game view, transitioning to game");
+            setLobby(null);
+            setCurrentView("game");
+          }
           break;
         case user_url.ws.pong.startGame.funcId:
           console.log("[Pong] Game started, received game info:", parsed.data);
@@ -657,6 +706,13 @@ export default function PongComponent({
     
     console.log("[Pong] Starting game from lobby:", lobby.lobbyId)
     
+    // Preserve tournament ID before anything else
+    const tournamentId = tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId
+    if (tournamentId) {
+      console.log("[Pong] Preserving tournament ID for game start:", tournamentId)
+      setActiveTournamentId(tournamentId)
+    }
+    
     // Send start game request to backend with lobby ID
     const payload = {
       lobbyId: lobby.lobbyId,
@@ -670,10 +726,24 @@ export default function PongComponent({
       }))
       console.log("[Pong] Sent start game from lobby to backend")
       setLobby({ ...lobby, status: "starting" })
+      
+      // Fallback: if we don't transition to game within 2 seconds, request game state
+      // This handles cases where the WebSocket message doesn't trigger the effect for the host
+      setTimeout(() => {
+        console.log("[Pong] Fallback check: currentView after start request")
+        // Request game state - if we're in a game, the response will trigger the transition
+        if (socket.current?.readyState === WebSocket.OPEN) {
+          socket.current.send(JSON.stringify({
+            funcId: "get_game_state",
+            payload: {},
+            target_container: "pong",
+          }))
+        }
+      }, 1500)
     } else {
       console.warn("[Pong] WebSocket not open, cannot start game")
     }
-  }, [lobby, authResponse, socket])
+  }, [lobby, authResponse, socket, tournament])
 
   // Handler for leaving lobby
   const handleLeaveLobby = useCallback(() => {
@@ -728,7 +798,51 @@ export default function PongComponent({
       // Remove invitation from list
       setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId))
       
-      // Switch to lobby view - the lobby data is already received from create_lobby message
+      // Switch to lobby view - apply lobby data from the invitation so invitee sees the lobby
+      if (invitation.lobbyData) {
+        const lobbyData = invitation.lobbyData as any
+        const lobbyState: PongLobbyData = {
+          lobbyId: lobbyData.lobbyId || Date.now(),
+          gameMode: lobbyData.gameMode,
+          players: (lobbyData.players || []).map((p: any) => ({
+            id: p.userId || p.id,
+            username: p.username,
+            isReady: p.isReady || false,
+            isHost: p.isHost || false,
+          })),
+          settings: {
+            ballCount: lobbyData.ballCount,
+            maxScore: lobbyData.maxScore,
+            allowPowerups: lobbyData.allowPowerups,
+          },
+          status: lobbyData.status || "waiting",
+        }
+        setLobby(lobbyState)
+
+        // If the invite contains a tournament payload, set tournament state and go to tournament view
+        if (lobbyData.tournament) {
+          const t = lobbyData.tournament
+          const newTournament: TournamentData = {
+            tournamentId: t.tournamentId,
+            name: t.name,
+            mode: t.mode,
+            players: (t.players || []).map((p: any) => ({ id: p.userId, username: p.username, alias: p.alias })),
+            matches: t.matches || [],
+            currentRound: t.currentRound,
+            totalRounds: t.totalRounds,
+            status: t.status,
+            winner: t.winnerId || null,
+          }
+          setTournament(newTournament)
+          setCurrentView("tournament")
+          return
+        }
+
+        setCurrentView("lobby")
+        return
+      }
+
+      // Fallback: just switch to lobby view
       setCurrentView("lobby")
     },
     [pongInvitations]
@@ -745,7 +859,7 @@ export default function PongComponent({
   )
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50/40 dark:bg-dark-600 p-4 space-y-4">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
       {/* Main Menu */}
@@ -794,6 +908,34 @@ export default function PongComponent({
             onStartGame={handleStartGameFromLobby}
             onLeaveLobby={handleLeaveLobby}
           />
+          {/* If this lobby is associated with a tournament (or we have tournament state), allow viewing stats */}
+          { (tournament || (lobby as any).tournamentId) && (
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setShowTournamentStats(true)}
+                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+              >
+                View Tournament Stats
+              </button>
+            </div>
+          )}
+
+          {showTournamentStats && (tournament ? (
+            <TournamentStats
+              tournamentId={tournament.tournamentId}
+              onClose={() => setShowTournamentStats(false)}
+            />
+          ) : activeTournamentId ? (
+            <TournamentStats
+              tournamentId={activeTournamentId}
+              onClose={() => setShowTournamentStats(false)}
+            />
+          ) : (lobby as any)?.tournamentId ? (
+            <TournamentStats
+              tournamentId={(lobby as any).tournamentId}
+              onClose={() => setShowTournamentStats(false)}
+            />
+          ) : null)}
         </div>
       )}
 
@@ -806,6 +948,20 @@ export default function PongComponent({
             onEnterAlias={handleEnterAlias}
             onJoinMatch={handleJoinTournamentMatch}
           />
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setShowTournamentStats(true)}
+              className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+            >
+              View Tournament Stats
+            </button>
+          </div>
+          {showTournamentStats && (
+            <TournamentStats
+              tournamentId={tournament.tournamentId}
+              onClose={() => setShowTournamentStats(false)}
+            />
+          )}
           <button
             onClick={handleLeaveLobby}
             className="mt-4 px-6 py-2 bg-red-500 text-white hover:bg-red-600 transition-colors"
@@ -888,6 +1044,40 @@ export default function PongComponent({
                 style={{ backgroundColor: "#059669", color: "white", padding: "8px 12px", borderRadius: 8 }}
               >
                 DEBUG: Declare Ready
+              </button>
+            </div>
+          )}
+          {/* DEBUG: Complete Tournament - calls server endpoint to finish tournament */}
+          {(tournament || activeTournamentId || (lobby as any)?.tournamentId) && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={async () => {
+                  const tid = tournament?.tournamentId || activeTournamentId || (lobby as any)?.tournamentId
+                  const winnerId = authResponse?.user?.id || 0
+                  console.log("[Pong][DEBUG] Completing tournament", tid, "winner:", winnerId)
+                  try {
+                    const res = await fetch("/public_api/pong/debug/complete_tournament", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ tournamentId: tid, winnerId })
+                    })
+                    const data = await res.json()
+                    console.log("[Pong][DEBUG] Tournament completed:", data)
+                    if (data.tournament) {
+                      setTournament(data.tournament)
+                      setActiveTournamentId(null) // Clear after completion
+                      alert(`Tournament completed! Winner: ${data.tournament.winnerId}\nOn-chain TX: ${data.tournament.onchainTxHashes?.join(", ") || "none"}`)
+                    } else {
+                      alert("Error: " + (data.message || JSON.stringify(data)))
+                    }
+                  } catch (e) {
+                    console.error("[Pong][DEBUG] Failed to complete tournament:", e)
+                    alert("Failed to complete tournament: " + e)
+                  }
+                }}
+                style={{ backgroundColor: "#dc2626", color: "white", padding: "8px 12px", borderRadius: 8 }}
+              >
+                🏆 DEBUG: Complete Tournament
               </button>
             </div>
           )}

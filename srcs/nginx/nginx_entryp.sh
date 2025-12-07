@@ -25,6 +25,20 @@ ${PONG_NAME}
 ${FORWARDED_SSL_PORT_FROM_NAT_HOST}' < /etc/nginx/un_expanded/mysite.conf.to_expand > /etc/nginx/sites-enabled/mysite.conf
 
 envsubst '${TR_NETWORK_SUBNET}' < /etc/nginx/un_expanded/nginx.conf.to_expand > /etc/nginx/nginx.conf
+# Ensure a default ModSecurity rule engine if not provided
+if [ -z "${MODSEC_RULE_ENGINE}" ]; then
+  export MODSEC_RULE_ENGINE=DetectionOnly
+fi
+
+# If modsecurity templates exist, envsubst them into /etc/nginx/modsecurity
+if [ -f "/etc/nginx/un_expanded/modsecurity/modsecurity.conf.to_expand" ]; then
+  mkdir -p /etc/nginx/modsecurity
+  envsubst '${MODSEC_RULE_ENGINE}' < /etc/nginx/un_expanded/modsecurity/modsecurity.conf.to_expand > /etc/nginx/modsecurity/modsecurity.conf
+  # copy any CRS rules (already static files)
+  if [ -d "/etc/nginx/un_expanded/modsecurity/crs" ]; then
+    cp -R /etc/nginx/un_expanded/modsecurity/crs /etc/nginx/modsecurity/
+  fi
+fi
 
 mkdir -p /etc/nginx/ssl
 cd /etc/nginx/ssl 

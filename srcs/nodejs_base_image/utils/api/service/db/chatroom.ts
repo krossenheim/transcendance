@@ -10,7 +10,7 @@ export enum ChatRoomType {
 export const ChatRoom = z.object({
 	roomId: z.number(),
 	roomName: z.string(),
-	roomType: z.enum(ChatRoomType),
+	roomType: z.nativeEnum(ChatRoomType),
 }).strict();
 
 export const ChatMessage = z.object({

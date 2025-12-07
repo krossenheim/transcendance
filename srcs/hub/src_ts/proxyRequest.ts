@@ -1,6 +1,13 @@
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import axios from 'axios';
 
-export async function proxyRequest(req: any, reply: any, method: string, url: string, body: any) {
+export async function proxyRequest(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  method: string,
+  url: string,
+  body: unknown
+): Promise<void> {
   console.log(`Proxying ${method} request to: ${url}`);
   console.log(`Query params:`, req.query);
   console.log(`Full req.url:`, req.url);
@@ -30,9 +37,11 @@ export async function proxyRequest(req: any, reply: any, method: string, url: st
       headersToForward['location'] = respHeaders['location'];
     }
     return reply.code(status).headers(headersToForward).send(response.data);
-  } catch (error : any) {
-    console.log("Error proxying request:", error);
-    return reply.code(500).send({ error: "Internal Server Error: " + error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Error proxying request:", errorMessage);
+    // Don't expose internal error details to clients
+    return reply.code(500).send({ error: "Internal Server Error" });
   }
 }
 

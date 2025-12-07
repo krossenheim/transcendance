@@ -130,8 +130,14 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-2xl glass-light-sm dark:glass-dark-sm glass-border shadow-lg overflow-hidden">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
+      onClick={(e) => {
+        // If the user clicks the overlay (not the modal content), close the modal
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="w-full max-w-2xl glass-light-sm dark:glass-dark-sm glass-border shadow-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Friends & Privacy</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100/40 dark:hover:bg-dark-700">

@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import fastifyCookie from '@fastify/cookie';
 import {
 	serializerCompiler,
 	validatorCompiler,
@@ -21,6 +22,9 @@ export function createFastify(options = {
   },
 }): FastifyInstance {
 	const server = Fastify(options);
+
+	// register cookie parser for request.cookies usage
+	server.register(fastifyCookie, {});
 	server.setValidatorCompiler(validatorCompiler);
 	server.setSerializerCompiler(serializerCompiler);
 	return server;

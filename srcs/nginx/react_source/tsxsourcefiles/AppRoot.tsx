@@ -8,6 +8,7 @@ import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState, useEffect } from "react";
 import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
+import GDPRPage from "./GDPRPage";
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
@@ -15,16 +16,14 @@ import UserMenu from "./userMenu";
 import PongInviteNotifications, { type PongInvitation } from "./pongInviteNotifications";
 import PongInvitationHandler from "./pongInvitationHandler";
 import AccessibilitySettings from "./accessibilitySettings";
+import CookieBanner from "./CookieBanner";
+import StarfieldBackground from "./StarfieldBackground";
 
 export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
-  const [currentPage, setCurrentPage] = useState<'chat' | 'pong'>('chat');
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
-    }
-    return false;
-  });
+  const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>('chat');
+  // Always use dark mode
+  const darkMode = true;
   const [showPongInviteModal, setShowPongInviteModal] = useState(false);
   const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
   const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
@@ -42,17 +41,10 @@ export default function AppRoot() {
     console.log("[AppRoot] pongInvitations updated:", pongInvitations);
   }, [pongInvitations]);
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('darkMode', 'true');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('darkMode', 'false');
-    }
-  };
+  // Ensure dark mode is always enabled
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
 
   // Apply accessibility settings to document
   useEffect(() => {
@@ -128,7 +120,10 @@ export default function AppRoot() {
       const userData = localStorage.getItem('userData');
       const user = userData ? JSON.parse(userData) : authResponse?.user;
       
-      if (user?.id && user?.avatar) {
+      // Check for avatarUrl (the correct field name from the API)
+      const avatarFileName = user?.avatarUrl || user?.avatar;
+      
+      if (user?.id && avatarFileName) {
         try {
           const response = await fetch(`/api/users/pfp`, {
             method: 'POST',
@@ -136,7 +131,7 @@ export default function AppRoot() {
               'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ file: user.avatar })
+            body: JSON.stringify({ file: avatarFileName })
           });
           if (response.ok) {
             const base64 = await response.text();
@@ -156,8 +151,15 @@ export default function AppRoot() {
     };
     window.addEventListener('storage', handleStorageChange);
     
+    // Also listen for custom event when profile is updated in the same tab
+    const handleProfileUpdate = () => {
+      fetchAvatar();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
   }, [authResponse?.user?.id, authResponse?.user?.avatarUrl]);
 
@@ -186,10 +188,24 @@ export default function AppRoot() {
         return;
       }
 
-      // Check for OAuth tokens in URL query parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const jwtFromUrl = urlParams.get('jwt');
-      const refreshFromUrl = urlParams.get('refresh');
+      // Check for OAuth tokens in URL hash (more secure than query params)
+      // Format: /#jwt=...&refresh=...
+      const hash = window.location.hash;
+      let jwtFromUrl: string | null = null;
+      let refreshFromUrl: string | null = null;
+      
+      if (hash && hash.length > 1) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        jwtFromUrl = hashParams.get('jwt');
+        refreshFromUrl = hashParams.get('refresh');
+      }
+      
+      // Fallback to query parameters for backwards compatibility
+      if (!jwtFromUrl) {
+        const urlParams = new URLSearchParams(window.location.search);
+        jwtFromUrl = urlParams.get('jwt');
+        refreshFromUrl = urlParams.get('refresh');
+      }
       
       if (jwtFromUrl && refreshFromUrl) {
         try {
@@ -212,7 +228,7 @@ export default function AppRoot() {
               setAuthResponse(data);
             }
             
-            // Clean up URL by removing query parameters
+            // Clean up URL by removing hash and query parameters
             window.history.replaceState({}, document.title, window.location.pathname);
             setIsAutoLoggingIn(false);
             return;
@@ -274,6 +290,20 @@ export default function AppRoot() {
     return () => { cancelled = true; };
   }, []);
 
+  // Listen for simple global navigation events (e.g. from modals)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const ev = e as CustomEvent<string>;
+        if (ev?.detail === 'gdpr') setCurrentPage('gdpr');
+      } catch (err) {
+        // ignore
+      }
+    };
+    window.addEventListener('navigate', handler as EventListener);
+    return () => window.removeEventListener('navigate', handler as EventListener);
+  }, []);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | null>(null);
 
@@ -316,7 +346,10 @@ export default function AppRoot() {
           const res = await fetch('/api/auth/logout', {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`
+            },
             body: JSON.stringify({ userId: authResponse.user.id })
           });
           if (res.ok) backendOk = true;
@@ -341,18 +374,15 @@ export default function AppRoot() {
 
   return (
     <div
-      className="min-h-screen bg-cover bg-center bg-fixed transition-colors duration-200"
-      style={{ backgroundImage: darkMode ? 'url(/static/react_dist/bg_dark.png)' : 'url(/static/react_dist/bg_light.png)' }}
+      className="min-h-screen bg-cover bg-center bg-fixed"
+      style={{ backgroundColor: 'transparent' }}
     >
-      {/* Skip to main content for keyboard users */}
-      <a href="#main-content" className="skip-to-main">
-        Skip to main content
-      </a>
-
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ backgroundColor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)' }}></div>
+      {/* Starfield animation background - behind everything */}
+      <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />
 
       <div className="relative">
-        {toastMessage && (
+          <CookieBanner />
+          {toastMessage && (
           <div className={`fixed top-6 right-6 z-50 px-4 py-2 rounded shadow-md ${toastType === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
             {toastMessage}
           </div>
@@ -390,7 +420,7 @@ export default function AppRoot() {
               />
               
               <div className="flex flex-col h-screen">
-                <header className="bg-white/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
+                <header className="bg-gray-100/95 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
                   <div className="max-w-5xl mx-auto px-4 py-4">
                     <div className="flex justify-between items-center">
                       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
@@ -405,18 +435,6 @@ export default function AppRoot() {
                             className={`px-4 py-2 ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
                           >Pong</button>
                         </nav>
-
-                        <button onClick={toggleDarkMode} className="p-2" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
-                          {darkMode ? (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                            </svg>
-                          )}
-                        </button>
 
                         <button onClick={() => setShowAccessibilitySettings(true)} className="p-2" aria-label="Open accessibility settings">
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -443,8 +461,8 @@ export default function AppRoot() {
                   <div className="w-full max-w-5xl px-4 py-6 flex flex-col">
 
                     {/* Card wrapper (fixes border clipping) */}
-                    <div className="shadow dark:shadow-dark-700 h-full">
-                      <div className="bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 h-full flex flex-col">
+                      <div className="shadow dark:shadow-dark-700 h-full">
+                      <div className="glass-light-sm dark:glass-dark-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
 
                         {currentPage === 'chat' ? (
                           // CHAT PAGE — only inner content scrolls
@@ -460,6 +478,10 @@ export default function AppRoot() {
                                 }}
                               />
                             </div>
+                          </div>
+                        ) : currentPage === 'gdpr' ? (
+                          <div className="p-6 h-full flex flex-col">
+                            <GDPRPage showToast={showToast} onNavigateBack={() => setCurrentPage('chat')} />
                           </div>
                         ) : (
                           // PONG PAGE — no scroll
@@ -511,18 +533,7 @@ export default function AppRoot() {
             ) : (
               <div className="max-w-4xl w-full space-y-8">
                 <div className="text-center">
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome to Transcendence</h2>
-                  <button onClick={toggleDarkMode} className="mt-4 p-2">
-                    {darkMode ? (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                      </svg>
-                    )}
-                  </button>
+                  <h2 className="text-3xl font-bold text-white">Welcome to Transcendence</h2>
                 </div>
 
                 <div className="mt-8 py-8 px-4">

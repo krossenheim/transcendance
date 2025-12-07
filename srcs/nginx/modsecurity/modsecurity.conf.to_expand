@@ -1,0 +1,31 @@
+## Minimal ModSecurity configuration (to be envsubst'd)
+## This file is intended as a hardened baseline for ModSecurity v3 with OWASP CRS.
+
+### Core engine
+SecRuleEngine ${MODSEC_RULE_ENGINE}
+
+### Request body handling
+SecRequestBodyAccess On
+SecRequestBodyLimit 13107200
+SecRequestBodyNoFilesLimit 131072
+## SecRequestBodyInMemoryLimit removed for ModSecurity v3 compatibility
+## (v3 follows webserver memory handling for request bodies)
+
+### Response body disabled by default to reduce overhead
+SecResponseBodyAccess Off
+
+### Basic debug / logging
+SecAuditEngine RelevantOnly
+SecAuditLogParts ABIJDEFHZ
+SecAuditLogType Serial
+SecAuditLog /var/log/modsecurity/modsec_audit.log
+
+### Default actions
+SecDefaultAction "phase:2,deny,log"
+SecDefaultAction "phase:1,pass"
+
+### Basic protections / small example rules - tune and expand CRS as needed
+SecRule REQUEST_HEADERS:User-Agent "^$" "id:900001,phase:1,deny,log,msg:'Empty User-Agent denied'"
+
+### Include local CRS rules (copied by entrypoint if present)
+Include /etc/nginx/modsecurity/crs/*.conf

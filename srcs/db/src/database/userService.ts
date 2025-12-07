@@ -7,6 +7,7 @@ import { Result } from '@app/shared/api/service/common/result';
 import { Database } from './database.js';
 import { Resvg } from '@resvg/resvg-js';
 import fs from 'fs/promises';
+import path from 'path';
 import axios from 'axios';
 
 function createGuestUsername(): string {
@@ -203,7 +204,23 @@ export class UserService {
 
 	async fetchUserAvatar(file: string): Promise<Result<string, string>> {
 		try {
-			const png = await fs.readFile(`/etc/database_data/pfps/${file}`);
+			// Sanitize filename to prevent path traversal attacks
+			// Only allow alphanumeric characters, underscores, hyphens, and dots
+			const sanitizedFile = path.basename(file);
+			if (!sanitizedFile || sanitizedFile !== file || /[^a-zA-Z0-9_\-.]/.test(sanitizedFile)) {
+				console.error('Invalid avatar filename attempted:', file);
+				return Result.Err('Invalid filename');
+			}
+			
+			// Ensure the resolved path is within the allowed directory
+			const basePath = '/etc/database_data/pfps';
+			const resolvedPath = path.resolve(basePath, sanitizedFile);
+			if (!resolvedPath.startsWith(basePath + path.sep)) {
+				console.error('Path traversal attempt detected:', file);
+				return Result.Err('Invalid filename');
+			}
+			
+			const png = await fs.readFile(resolvedPath);
 			return Result.Ok(png.toString('base64'));
 		} catch (error) {
 			console.error('Failed to read avatar:', error);
@@ -269,5 +286,59 @@ export class UserService {
 		}
 
 		return this.fetchUserById(userId);
+	}
+
+	async anonymizeUser(userId: number): Promise<Result<FullUserType, string>> {
+		const userRes = this.fetchUserById(userId);
+		if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
+		const user = userRes.unwrap();
+
+		// attempt to remove avatar file if present
+		if (user.avatarUrl) {
+			try {
+				await fs.unlink(`/etc/database_data/pfps/${user.avatarUrl}`);
+			} catch (e) {
+				// ignore file removal errors
+			}
+		}
+
+		// create anonymized unique username and email
+		const anonUsername = `deleted_user_${userId}_${Date.now()}`;
+		const anonEmail = `deleted+${userId}_${Date.now()}@example.invalid`;
+
+		const updateResult = this.db.run(
+			`UPDATE users SET username = ?, alias = NULL, email = ?, bio = NULL, passwordHash = NULL, avatarUrl = NULL, accountType = ? WHERE id = ?`,
+			[anonUsername, anonEmail, UserAccountType.Guest.valueOf(), userId]
+		);
+
+		if (updateResult.isErr()) {
+			console.error('Failed to anonymize user:', updateResult.unwrapErr());
+			return Result.Err('Failed to anonymize user');
+		}
+
+		return this.fetchUserById(userId);
+	}
+
+	async deleteUser(userId: number): Promise<Result<null, string>> {
+		const userRes = this.fetchUserById(userId);
+		if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
+		const user = userRes.unwrap();
+
+		// remove avatar file if present
+		if (user.avatarUrl) {
+			try {
+				await fs.unlink(`/etc/database_data/pfps/${user.avatarUrl}`);
+			} catch (e) {
+				// ignore file removal errors
+			}
+		}
+
+		const del = this.db.run(`DELETE FROM users WHERE id = ?`, [userId]);
+		if (del.isErr()) {
+			console.error('Failed to delete user:', del.unwrapErr());
+			return Result.Err('Failed to delete user');
+		}
+
+		return Result.Ok(null);
 	}
 }

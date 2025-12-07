@@ -3,6 +3,7 @@ import {
   AddToRoomPayloadSchema,
   EmptySchema,
   RequestRoomByIdSchema,
+  room_id_rule,
   SendDMMessagePayloadSchema,
   SendMessagePayloadSchema,
 } from "@app/shared/api/service/chat/chat_interfaces";
@@ -233,6 +234,49 @@ export const pub_url = defineRoutes({
           },
         },
       },
+
+      // GDPR / Privacy endpoints (public-facing, require auth wrapper)
+      fetchPersonalData: {
+        endpoint: "/api/auth/gdpr/me",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: FullUser,
+            401: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      requestAnonymize: {
+        endpoint: "/api/auth/gdpr/anonymize",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: FullUser,
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      requestAccountDeletion: {
+        endpoint: "/api/auth/gdpr/delete",
+        wrapper: GenericAuthClientRequest,
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: z.null(),
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
     },
   },
 
@@ -266,13 +310,49 @@ export const user_url = defineRoutes({
         wrapper: GenericAuthClientRequest,
         method: "POST",
         schema: {
-          body: z.null(),
+          body: GenericAuthClientRequest,
           response: {
             200: z.null(),
             500: ErrorResponse,
           },
         },
       },
+        fetchPersonalData: {
+          endpoint: "/api/auth/gdpr/me",
+          method: "POST",
+          schema: {
+            body: GenericAuthClientRequest,
+            response: {
+              200: FullUser,
+              401: ErrorResponse,
+              500: ErrorResponse,
+            },
+          },
+        },
+        requestAnonymize: {
+          endpoint: "/api/auth/gdpr/anonymize",
+          method: "POST",
+          schema: {
+            body: GenericAuthClientRequest,
+            response: {
+              200: FullUser,
+              400: ErrorResponse,
+              500: ErrorResponse,
+            },
+          },
+        },
+        requestAccountDeletion: {
+          endpoint: "/api/auth/gdpr/delete",
+          method: "POST",
+          schema: {
+            body: GenericAuthClientRequest,
+            response: {
+              200: z.null(),
+              400: ErrorResponse,
+              500: ErrorResponse,
+            },
+          },
+        },
     }
   },
 
@@ -552,9 +632,9 @@ export const user_url = defineRoutes({
           },
         },
       },
-    },  // <-- CLOSE users HERE
+    },
 
-    pong: {  // <-- pong should be at the same level as users
+    pong: {
       getGameState: {
         funcId: "get_game_state",
         container: "pong",
@@ -969,6 +1049,34 @@ export const user_url = defineRoutes({
           AlreadyInRoom: 2,
         },
       },
+      leaveRoom: {
+        funcId: "/api/chat/leave_room",
+        container: "chat",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: RequestRoomByIdSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            RoomLeft: {
+              code: 0,
+              payload: RoomEventSchema,
+            },
+            NoSuchRoom: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            FailedToLeaveRoom: {
+              code: 2,
+              payload: ErrorResponse,
+            }
+          },
+        },
+        code: {
+          Left: 0,
+          NoSuchRoom: 1,
+          NotInRoom: 2,
+        },
+      },
       getRoomData: {
         funcId: "/api/chat/get_room_data",
         container: "chat",
@@ -1249,6 +1357,33 @@ export const int_url = defineRoutes({
         },
       },
 
+      // GDPR internal endpoints
+      anonymizeUser: {
+        endpoint: "/internal_api/db/users/anonymize/:userId",
+        method: "POST",
+        schema: {
+          params: GetUser,
+          response: {
+            200: FullUser,
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
+      deleteUser: {
+        endpoint: "/internal_api/db/users/delete/:userId",
+        method: "POST",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.null(),
+            400: ErrorResponse,
+            500: ErrorResponse,
+          },
+        },
+      },
+
       // Tokendata endpoints
       validateToken: {
         endpoint: "/internal_api/db/users/validate_token",
@@ -1352,6 +1487,18 @@ export const int_url = defineRoutes({
           body: AddToRoomPayloadSchema.extend({ type: z.number() }),
           response: {
             200: z.null(), // User added successfully
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      removeUserFromRoom: {
+        endpoint: "/internal_api/chat/rooms/remove_user",
+        method: "POST",
+        schema: {
+          body: z.object({ roomId: room_id_rule, user_to_remove: userIdValue }),
+          response: {
+            200: z.null(), // User removed successfully
             500: ErrorResponse, // Internal server error
           },
         },

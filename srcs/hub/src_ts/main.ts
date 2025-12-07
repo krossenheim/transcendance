@@ -1,5 +1,5 @@
 import { AuthClientRequest } from "./utils/api/service/common/clientRequest.js";
-import { containersIpToName } from "./utils/container_names.js";
+import { containersIpToName, containersNameToIp } from "./utils/container_names.js";
 import { rawDataToString } from "./utils/raw_data_to_string.js";
 import { isRequestAuthenticated } from "./auth.js";
 import { proxyRequest } from "./proxyRequest.js";
@@ -16,6 +16,19 @@ const fastify: FastifyInstance = Fastify();
 await fastify.register(websocketPlugin);
 
 const ctx = new HubCTX();
+
+// Whitelist of allowed container names for proxy requests
+const ALLOWED_CONTAINERS = new Set([
+  process.env.CHATROOM_NAME,
+  process.env.DATABASE_NAME,
+  process.env.AUTH_NAME,
+  process.env.PONG_NAME,
+  process.env.USERS_NAME,
+].filter(Boolean));
+
+function isValidContainer(containerName: string): boolean {
+  return ALLOWED_CONTAINERS.has(containerName);
+}
 
 function listInternalContainerConnection(socket: WebSocket, request: FastifyRequest): string | null {
   const containerIp4 = request.ip.startsWith("::ffff:")
@@ -98,6 +111,13 @@ fastify.all("/api/:container/*", async (req, reply) => {
   const userId = authResult.unwrap();
   console.log("Authenticated user ID:", userId);
   const { container } = req.params as { container: string };
+  
+  // Validate container name to prevent SSRF attacks
+  if (!isValidContainer(container)) {
+    console.error("SSRF attempt blocked - invalid container:", container);
+    return reply.status(400).send({ error: "Invalid container name" });
+  }
+  
   const body = AuthClientRequest(z.any()).parse({
     userId: Number(userId),
     payload: req.body,
@@ -113,6 +133,13 @@ fastify.all("/api/:container/*", async (req, reply) => {
 
 fastify.all("/public_api/:container/*", async (req, reply) => {
   const { container } = req.params as { container: string };
+  
+  // Validate container name to prevent SSRF attacks
+  if (!isValidContainer(container)) {
+    console.error("SSRF attempt blocked - invalid container:", container);
+    return reply.status(400).send({ error: "Invalid container name" });
+  }
+  
   await proxyRequest(
     req,
     reply,

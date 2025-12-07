@@ -48,13 +48,31 @@ type InferWSReceiver<T extends WebSocketRouteDef> = (
   schema: T["schema"]
 ) => Promise<Result<null, string>>;
 
+// Type definitions for handler storage
+interface HandlerCallable {
+  metadata: WebSocketRouteDef;
+  handler: InferWSHandler<WebSocketRouteDef>;
+}
+
+interface ReceiverCallable {
+  metadata: WebSocketRouteDef;
+  handler: InferWSReceiver<WebSocketRouteDef>;
+}
+
+// Configuration constants
+const MAX_MESSAGE_QUEUE_SIZE = 100;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const INITIAL_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+
 export class OurSocket {
   private socket: WebSocket;
   private container: string;
-  private handlerCallables: Record<string, any> = {};
-  private receiverCallables: Record<string, any> = {};
+  private handlerCallables: Record<string, HandlerCallable> = {};
+  private receiverCallables: Record<string, ReceiverCallable> = {};
   private messageStack: Array<string> = [];
   private lastReconnectTime: number = 0;
+  private reconnectAttempts: number = 0;
 
   constructor(container: string) {
     this.container = container;
@@ -128,7 +146,7 @@ export class OurSocket {
 
     this.handlerCallables[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
-      handler,
+      handler: handler as unknown as InferWSHandler<WebSocketRouteDef>,
     };
   }
 
@@ -144,7 +162,7 @@ export class OurSocket {
 
     (this.receiverCallables[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
-      handler,
+      handler: handler as unknown as InferWSReceiver<WebSocketRouteDef>,
     });
   }
 
@@ -407,20 +425,34 @@ export class OurSocket {
     return Result.Ok(undefined);
   }
 
-  private _sendMessageToHub(data: any) {
+  private _sendMessageToHub(data: unknown): void {
     const messageString = JSON.stringify(data);
     if (this.socket.readyState === WebSocket.OPEN) {
       console.log("Sending WS message to hub:", messageString);
-      this.socket.send(messageString);
+      try {
+        this.socket.send(messageString);
+      } catch (error) {
+        console.error("Failed to send message to hub:", error);
+        this._queueMessage(messageString);
+      }
     } else {
-      console.log("Socket not open, stacking message:", messageString);
-      this.messageStack.push(messageString);
+      this._queueMessage(messageString);
     }
+  }
+
+  private _queueMessage(messageString: string): void {
+    // Enforce message queue size limit to prevent memory issues
+    if (this.messageStack.length >= MAX_MESSAGE_QUEUE_SIZE) {
+      console.warn(`Message queue full (${MAX_MESSAGE_QUEUE_SIZE}), dropping oldest message`);
+      this.messageStack.shift();
+    }
+    console.log("Socket not open, stacking message:", messageString);
+    this.messageStack.push(messageString);
   }
 
   private _connectToHub(): WebSocket {
     console.log("Connecting to hub...");
-    let socket = new WebSocket(`ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`);
+    const socket = new WebSocket(`ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`);
 
     socket.on("message", async (data: WebSocket.RawData) => {
       const result = await this._handleOnMessage(data);
@@ -437,31 +469,55 @@ export class OurSocket {
       console.error("WebSocket error:", err.message);
     });
 
-    socket.on("close", async (code: number, reason: Buffer) => {
+    socket.on("close", (code: number, reason: Buffer) => {
       console.error("Connection to hub closed: ", code, reason.toString());
-      const now = Date.now();
-      const timeSinceLastReconnect = now - this.lastReconnectTime;
-      const reconnectDelay = Math.max(0, 5000 - timeSinceLastReconnect);
-
+      
+      // Exponential backoff for reconnection
+      if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
+        return;
+      }
+      
+      const delay = Math.min(
+        INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+        MAX_RECONNECT_DELAY_MS
+      );
+      
+      this.reconnectAttempts++;
+      console.log(`Reconnecting to hub in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+      
       setTimeout(() => {
-        console.log("Reconnecting to hub...");
         this.lastReconnectTime = Date.now();
         this.socket = this._connectToHub();
-      }, reconnectDelay);
+      }, delay);
+      console.log(`Last reconnect time set to ${this.lastReconnectTime}`);
     });
 
     socket.on("open", () => {
-      for (const message of this.messageStack) {
-        console.log("Sending stacked message to hub:", message);
-        this.socket.send(message);
-      }
+      console.log("WebSocket connection to hub established");
+      // Reset reconnect attempts on successful connection
+      this.reconnectAttempts = 0;
+      
+      // Flush queued messages
+      const messagesToSend = [...this.messageStack];
       this.messageStack = [];
+      
+      for (const message of messagesToSend) {
+        console.log("Sending stacked message to hub:", message);
+        try {
+          this.socket.send(message);
+        } catch (error) {
+          console.error("Failed to send queued message:", error);
+          // Re-queue failed messages
+          this._queueMessage(message);
+        }
+      }
     });
 
     return socket;
   }
 
-  register(func: (socket: OurSocket) => void) {
+  register(func: (socket: OurSocket) => void): void {
     func(this);
   }
 }

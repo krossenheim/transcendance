@@ -1,0 +1,16 @@
+{
+  "name": "opnieuw-blockchain",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "hardhat": "^2.17.0",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "ethers": "^6.0.0",
+    "dotenv": "^16.1.4"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network hardhat",
+    "test": "hardhat test"
+  }
+}
