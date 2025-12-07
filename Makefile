@@ -144,6 +144,87 @@ vault-down:
 	@sed -i 's/^USE_VAULT=.*/USE_VAULT=false/' "$(PATH_TO_COMPOSE_ENV_FILE)" || echo "USE_VAULT=false" >> "$(PATH_TO_COMPOSE_ENV_FILE)"
 	@echo "Vault stopped and token removed (dev-only)."
 
+# ============================================================================
+# Vault Production Targets
+# ============================================================================
+VAULT_DIR := $(SOURCES_DIR)/vault
+VAULT_COMPOSE := $(VAULT_DIR)/docker-compose.prod.yml
+VAULT_CONTAINER := transcendance-vault
+VAULT_KEYS := $(VAULT_DIR)/.vault-keys.json
+
+# Start production Vault (generates TLS certs if needed, starts container)
+vault-prod-up: ensure_network
+	@echo "Starting production Vault..."
+	@if [ ! -f "$(VAULT_DIR)/tls/vault-cert.pem" ]; then \
+		echo "Generating TLS certificates..."; \
+		cd $(VAULT_DIR) && ./generate-tls.sh; \
+	fi
+	@docker compose -f "$(VAULT_COMPOSE)" up -d
+	@sleep 3
+	@docker exec $(VAULT_CONTAINER) chown -R vault:vault /vault/data 2>/dev/null || true
+	@echo "Vault container started."
+
+# Initialize Vault (first time only) - creates keys, unseals, bootstraps secrets
+vault-prod-init: vault-prod-up
+	@if [ -f "$(VAULT_KEYS)" ]; then \
+		echo "Vault already initialized ($(VAULT_KEYS) exists)."; \
+		echo "Run 'make vault-prod-unseal' if Vault is sealed."; \
+		exit 0; \
+	fi
+	@echo "Initializing Vault (first time setup)..."
+	@VAULT_CONTAINER=$(VAULT_CONTAINER) $(VAULT_DIR)/vault-manage.sh init
+	@echo ""
+	@echo "=============================================="
+	@echo "IMPORTANT: Back up $(VAULT_KEYS) securely!"
+	@echo "=============================================="
+
+# Unseal Vault (after restarts)
+vault-prod-unseal:
+	@if [ ! -f "$(VAULT_KEYS)" ]; then \
+		echo "Error: $(VAULT_KEYS) not found. Run 'make vault-prod-init' first."; \
+		exit 1; \
+	fi
+	@echo "Unsealing Vault..."
+	@VAULT_CONTAINER=$(VAULT_CONTAINER) $(VAULT_DIR)/vault-manage.sh unseal
+
+# Set real secrets interactively
+vault-prod-secrets:
+	@if [ ! -f "$(VAULT_KEYS)" ]; then \
+		echo "Error: Vault not initialized. Run 'make vault-prod-init' first."; \
+		exit 1; \
+	fi
+	@$(VAULT_DIR)/secrets-init.sh
+
+# Stop production Vault
+vault-prod-down:
+	@echo "Stopping production Vault..."
+	@docker compose -f "$(VAULT_COMPOSE)" down
+
+# Full production Vault setup (init + secrets prompt)
+vault-prod-setup: vault-prod-init vault-prod-secrets
+	@echo "Production Vault setup complete!"
+
+# Check Vault status
+vault-status:
+	@docker exec -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault status 2>/dev/null || \
+		echo "Vault container not running. Start with 'make vault-prod-up'"
+
+# View secrets in Vault (requires root token)
+vault-show-secrets:
+	@if [ ! -f "$(VAULT_KEYS)" ]; then \
+		echo "Error: $(VAULT_KEYS) not found."; \
+		exit 1; \
+	fi
+	@ROOT_TOKEN=$$(jq -r '.root_token' "$(VAULT_KEYS)"); \
+	echo "=== Auth Secrets ==="; \
+	docker exec -e VAULT_TOKEN="$$ROOT_TOKEN" -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault kv get secret/transcendance/auth; \
+	echo ""; \
+	echo "=== DB Secrets ==="; \
+	docker exec -e VAULT_TOKEN="$$ROOT_TOKEN" -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault kv get secret/transcendance/db; \
+	echo ""; \
+	echo "=== Elastic Secrets ==="; \
+	docker exec -e VAULT_TOKEN="$$ROOT_TOKEN" -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault kv get secret/transcendance/elastic
+
 check-deps:
 	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
 	@if ! command -v node >/dev/null 2>&1; then \
@@ -229,4 +310,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all vault-bootstrap vault-down
+.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all vault-bootstrap vault-down vault-prod-up vault-prod-init vault-prod-unseal vault-prod-secrets vault-prod-down vault-prod-setup vault-status vault-show-secrets
