@@ -98,7 +98,7 @@ socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
 });
 socket.registerHandler(user_url.ws.pong.getGameState, async (wrapper) => {
   const user_id = wrapper.user_id;
-  const game_id_optional = wrapper.payload.game_id;
+  const game_id_optional = wrapper.payload.gameId;
   // If no game_id provided, get first active game for the user
   const game_id = game_id_optional ?? singletonPong.getFirstGameIdForPlayer(user_id);
   if (!game_id) {
@@ -459,7 +459,7 @@ socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
 });
 console.log(singletonPong.startGame(7, [4, 5, 5], 1));
 
-registerRoute(fastify, int_url.http.pong.startGame, async (request, reply) => {
+registerRoute(fastify, int_url.http.pong.createGame, async (request, reply) => {
   const { balls, player_list } = request.body;
   let result = PongGame.create(balls, player_list);
 
