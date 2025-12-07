@@ -1,126 +1,114 @@
-# services:
-#   prometheus:
-#     image: prom/prometheus:latest
-#     container_name: prometheus
-#     volumes:
-#       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-#       - ./monitoring/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
-#       - prometheus_data:/prometheus
-#     command:
-#       - '--config.file=/etc/prometheus/prometheus.yml'
-#       - '--storage.tsdb.path=/prometheus'
-#       - '--web.enable-lifecycle'
-#     ports:
-#       - '9090:9090'
-#     networks:
-#       - monitoring
-#       - transcendance_network
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - /home/jbakker/transcendance/srcs/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /home/jbakker/transcendance/srcs/monitoring/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9090:9090'
+    networks:
+      - monitoring
+      - transcendance_network
 
-#   alertmanager:
-#     image: prom/alertmanager:latest
-#     container_name: alertmanager
-#     volumes:
-#       - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-#     command:
-#       - '--config.file=/etc/alertmanager/alertmanager.yml'
-#     ports:
-#       - '9093:9093'
-#     networks:
-#       - monitoring
+  grafana:
+    image: grafana/grafana:9.0.0
+    container_name: grafana
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - /home/jbakker/transcendance/srcs/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /home/jbakker/transcendance/srcs/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    ports:
+      - '3000:3000'
+    networks:
+      - monitoring
+      - transcendance_network
 
-#   grafana:
-#     image: grafana/grafana:9.0.0
-#     container_name: grafana
-#     depends_on:
-#       - prometheus
-#     volumes:
-#       - grafana_data:/var/lib/grafana
-#       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-#       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-#     environment:
-#       - GF_SECURITY_ADMIN_PASSWORD=admin
-#       - GF_AUTH_ANONYMOUS_ENABLED=false
-#     ports:
-#       - '3000:3000'
-#     networks:
-#       - monitoring
-#       - transcendance_network
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - '9100:9100'
+    command:
+      - '--path.rootfs=/rootfs'
+    volumes:
+      - /proc:/proc:ro
+      - /sys:/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring
 
-#   node-exporter:
-#     image: prom/node-exporter:latest
-#     container_name: node-exporter
-#     ports:
-#       - '9100:9100'
-#     command:
-#       - '--path.rootfs=/rootfs'
-#     volumes:
-#       - /proc:/proc:ro
-#       - /sys:/sys:ro
-#       - /:/rootfs:ro
-#     networks:
-#       - monitoring
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - '8080:8080'
+    networks:
+      - monitoring
+      - transcendance_network
 
-#   cadvisor:
-#     image: gcr.io/cadvisor/cadvisor:latest
-#     container_name: cadvisor
-#     volumes:
-#       - /:/rootfs:ro
-#       - /var/run:/var/run:ro
-#       - /sys:/sys:ro
-#       - /var/lib/docker/:/var/lib/docker:ro
-#     ports:
-#       - '8080:8080'
-    # networks:
-    #   - monitoring
-    #   - transcendance_network
+  # The elasticsearch_exporter and nginx-exporter services have been
+  # temporarily removed because their images failed to pull on this host
+  # (registry/network restrictions). Re-add these blocks later when you
+  # can pull or have loaded the exporter images locally.
+  # Example: Elasticsearch exporter (requires ES URI / auth). Uncomment
+  # and set the `ES_URI` or `--es.uri` argument to allow the exporter to
+  # connect to your Elasticsearch cluster. You may need to provide a
+  # secret or bind a credentials file in production.
+  elasticsearch_exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:latest
+    container_name: elasticsearch_exporter
+    restart: unless-stopped
+    environment:
+      # Example: set ES_URI to include credentials: http://elastic:changeme@elasticsearch:9200
+      - ES_URI=http://elasticsearch:9200
+    # Use a literal ES URI by default; adjust if your cluster uses different host/credentials.
+    command:
+      - '--es.uri=http://elasticsearch:9200'
+    networks:
+      - monitoring
+      - transcendance_network
 
-#   # The elasticsearch_exporter and nginx-exporter services have been
-#   # temporarily removed because their images failed to pull on this host
-#   # (registry/network restrictions). Re-add these blocks later when you
-#   # can pull or have loaded the exporter images locally.
-#   # Example: Elasticsearch exporter (requires ES URI / auth). Uncomment
-#   # and set the `ES_URI` or `--es.uri` argument to allow the exporter to
-#   # connect to your Elasticsearch cluster. You may need to provide a
-#   # secret or bind a credentials file in production.
-#   elasticsearch_exporter:
-#     image: quay.io/prometheuscommunity/elasticsearch-exporter:latest
-#     container_name: elasticsearch_exporter
-#     restart: unless-stopped
-#     environment:
-#       # Example: set ES_URI to include credentials: http://elastic:changeme@elasticsearch:9200
-#       - ES_URI=http://elasticsearch:9200
-#     # Use a literal ES URI by default; adjust if your cluster uses different host/credentials.
-#     command:
-#       - '--es.uri=http://elasticsearch:9200'
-#     networks:
-#       - monitoring
-#       - transcendance_network
+  # Example: Nginx prometheus exporter. Configure `NGINX_STATUS_URL` if
+  # your nginx exposes stub_status at a non-default path or host.
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.11.0
+    container_name: nginx-exporter
+    restart: unless-stopped
+    ports:
+      - '9113:9113'
+    # SCRAPE_URI can be overridden with a container env var. Nginx in the
+    # application stack exposes HTTP on port 80 — use `/status` (no port)
+    # unless your nginx is configured differently.
+    environment:
+      - SCRAPE_URI=http://nginx/status
+    command:
+      - '--nginx.scrape-uri=http://nginx/status'
+    networks:
+      - monitoring
+      - transcendance_network
 
-#   # Example: Nginx prometheus exporter. Configure `NGINX_STATUS_URL` if
-#   # your nginx exposes stub_status at a non-default path or host.
-#   nginx-exporter:
-#     image: nginx/nginx-prometheus-exporter:0.11.0
-#     container_name: nginx-exporter
-#     restart: unless-stopped
-#     ports:
-#       - '9113:9113'
-#     # SCRAPE_URI can be overridden with a container env var. Nginx in the
-#     # application stack exposes HTTP on port 80 — use `/status` (no port)
-#     # unless your nginx is configured differently.
-#     environment:
-#       - SCRAPE_URI=http://nginx/status
-#     command:
-#       - '--nginx.scrape-uri=http://nginx/status'
-#     networks:
-#       - monitoring
-#       - transcendance_network
+volumes:
+  prometheus_data:
+  grafana_data:
 
-# volumes:
-#   prometheus_data:
-#   grafana_data:
-
-# networks:
-#   monitoring:
-#     driver: bridge
-#   transcendance_network:
-#     external: true
+networks:
+  monitoring:
+    driver: bridge
+  transcendance_network:
+    external: true
