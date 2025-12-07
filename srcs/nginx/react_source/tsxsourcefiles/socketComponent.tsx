@@ -44,19 +44,21 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttemptsRef = useRef(0)
   const messageQueueRef = useRef<string[]>([]) // Queue messages while disconnected
-  
+
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
   const wsUrl = protocol + "//" + window.location.host + "/ws"
 
   // Safe send function that queues messages when disconnected
   const sendMessage = useCallback((message: string | object): boolean => {
     const messageStr = typeof message === 'string' ? message : JSON.stringify(message)
-    
+
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(messageStr)
       return true
     } else {
       console.log('[v0] Socket not connected, queueing message')
+      console.log(`[V0] Current queue length: ${messageQueueRef.current.length}`)
+      console.log(`[V0] Socket readyState: ${socket.current ? socket.current.readyState : 'null'}`)
       messageQueueRef.current.push(messageStr)
       return false
     }
@@ -67,7 +69,7 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
     try {
       console.log("[Auth] Refreshing JWT token...")
       console.log("[Auth] Using refresh token:", AuthResponseObject.tokens.refresh?.substring(0, 20) + "...")
-      
+
       const response = await fetch("/public_api/auth/refresh", {
         method: "POST",
         headers: {
@@ -88,32 +90,32 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
       const data = await response.json()
       console.log("[Auth] Token refreshed successfully")
       console.log("[Auth] New JWT:", data.tokens.jwt?.substring(0, 20) + "...")
-      
+
       // Update the current JWT
       setCurrentJwt(data.tokens.jwt)
-      
+
       // Update AuthResponseObject to persist the new tokens
       AuthResponseObject.tokens.jwt = data.tokens.jwt
       if (data.tokens.refresh) {
         AuthResponseObject.tokens.refresh = data.tokens.refresh
         console.log("[Auth] New refresh token received")
       }
-      
+
       // Re-authenticate the WebSocket with new token
       if (socket.current && socket.current.readyState === WebSocket.OPEN) {
         console.log("[Auth] Re-authenticating WebSocket with new token")
-socket.current.send(JSON.stringify({
-  target_container: "hub",
-  funcId: "user_connected",
-  payload: { token: data.tokens.jwt },
-}))
+        socket.current.send(JSON.stringify({
+          target_container: "hub",
+          funcId: "user_connected",
+          payload: { token: data.tokens.jwt },
+        }))
       } else {
         console.warn("[Auth] WebSocket not connected, cannot re-authenticate")
       }
-      
+
     } catch (error) {
       console.error("[Auth] Token refresh failed:", error)
-      
+
       // Handle refresh failure - redirect to login after a short delay
       console.error("[Auth] Redirecting to login in 3 seconds...")
       setTimeout(() => {
@@ -147,6 +149,7 @@ socket.current.send(JSON.stringify({
   }, [refreshToken])
 
   useEffect(() => {
+    console.log("[v0] useEffect triggered to (re)connect WebSocket")
     if (!socket.current || socket.current.readyState === WebSocket.CLOSED || socket.current.readyState === WebSocket.CLOSING) {
       console.log("[v0] Creating new WebSocket connection to:", wsUrl)
       socket.current = new WebSocket(wsUrl)
@@ -156,14 +159,14 @@ socket.current.send(JSON.stringify({
         console.log("[v0] WebSocket connected, authorizing with JWT")
         socket.current!.send(JSON.stringify({ authorization: currentJwt }))
         setIsConnected(true)
-        
+
         // Reset reconnection attempts on successful connection
         reconnectAttemptsRef.current = 0
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current)
           reconnectTimeoutRef.current = null
         }
-        
+
         // Send any queued messages
         if (messageQueueRef.current.length > 0) {
           console.log(`[v0] Sending ${messageQueueRef.current.length} queued messages`)
@@ -172,7 +175,7 @@ socket.current.send(JSON.stringify({
           })
           messageQueueRef.current = []
         }
-        
+
         // Show success notification if this was a reconnection
         if (reconnectAttemptsRef.current > 0 && showToast) {
           showToast("Reconnected successfully", 'success')
@@ -186,19 +189,19 @@ socket.current.send(JSON.stringify({
           if (data.funcId !== 'get_game_state') {
             console.log("[v0] WebSocket message:", data.funcId)
           }
-          
+
           // Check if this is an auth error that requires token refresh
           if (data.code === 401 || data.message?.includes("unauthorized") || data.message?.includes("token expired")) {
             console.warn("[Auth] Received auth error, attempting token refresh")
             refreshToken()
           }
-          
+
           setPayloadReceived(data)
         } catch {
           // Handle non-JSON error messages
           const errorMessage = String(event.data)
           console.log("[v0] Couldn't parse:", errorMessage)
-          
+
           // Show user-friendly error notification for service connection issues
           if (errorMessage.includes("Failed to forward to container") || errorMessage.includes("has never opened a socket")) {
             if (showToast) {
@@ -215,27 +218,27 @@ socket.current.send(JSON.stringify({
         console.log("[v0] WebSocket disconnected, code:", event.code, "reason:", event.reason)
         globalSocket = null
         setIsConnected(false)
-        
+
         // Don't reconnect if it was a normal closure (code 1000) initiated by client
         if (event.code === 1000 && event.wasClean) {
           console.log("[v0] Clean disconnect, not reconnecting")
           return
         }
-        
+
         // Implement reconnection with exponential backoff
         const maxAttempts = 10
         const baseDelay = 1000 // Start with 1 second
-        
+
         if (reconnectAttemptsRef.current < maxAttempts) {
           const delay = Math.min(baseDelay * Math.pow(2, reconnectAttemptsRef.current), 30000) // Cap at 30 seconds
           reconnectAttemptsRef.current += 1
-          
+
           console.log(`[v0] Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxAttempts})`)
-          
+
           if (showToast && reconnectAttemptsRef.current === 1) {
             showToast("Connection lost. Reconnecting...", 'error')
           }
-          
+
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log("[v0] Reconnecting...")
             socket.current = null

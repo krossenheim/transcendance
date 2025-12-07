@@ -6,7 +6,7 @@ VOLUMES_DIR := $(OUTPUT_FILES_DIR)/transcendance_volumes/
 
 # Docker compose & env
 PATH_TO_COMPOSE_ENV_FILE := $(SOURCES_DIR)/globals.env
-PATH_TO_COMPOSE := $(SOURCES_DIR)/compose.yml
+PATH_TO_COMPOSE := compose.yml
 PATH_TO_MONITORING_COMPOSE := $(SOURCES_DIR)/monitoring/docker-compose.yml
 
 # Base image
@@ -132,7 +132,7 @@ npm_install_tsc:
 
 ensure_tsc: install_nodejs npm_install_tsc
 
-CONTAINERS := auth chat db hub pong users lobby
+CONTAINERS := hub pong users lobby
 
 # Limit parallel TypeScript compilations to reduce peak memory use (override with TSC_JOBS=N)
 TSC_JOBS ?= 2

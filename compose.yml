@@ -1,0 +1,231 @@
+services:
+  nginx:
+    container_name: nginx
+    image: nginx
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/nginx/site.env
+    build:
+      context: ./srcs/nginx
+    restart: always
+    ports:
+      - "443:443"
+    networks:
+      transcendance_network:
+        ipv4_address: ${NGINX_IPV4_ADDRESS}
+  nodejs_base_image:
+    image: nodejs_base_image:1.0
+    build:
+      context: ./srcs/nodejs_base_image
+  hub:
+    container_name: ${HUB_NAME}
+    image: ${HUB_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${HUB_NAME}/service_env.env
+    build:
+      context: ./srcs/${HUB_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${HUB_IPV4_ADDRESS}
+  chat:
+    container_name: ${CHATROOM_NAME}
+    image: ${CHATROOM_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${CHATROOM_NAME}/service_env.env
+    build:
+      context: .
+      dockerfile: ./srcs/${CHATROOM_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${CHATROOM_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${CHATROOM_IPV4_ADDRESS}
+    depends_on:
+      hub:
+        condition: service_healthy
+  db:
+    container_name: ${DATABASE_NAME}
+    image: ${DATABASE_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${DATABASE_NAME}/service_env.env
+    build:
+      context: .
+      dockerfile: ./srcs/${DATABASE_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${DATABASE_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${DATABASE_IPV4_ADDRESS}
+    depends_on:
+      hub:
+        condition: service_healthy
+    volumes:
+      - databases:/etc/database_data
+  auth:
+    container_name: ${AUTH_NAME}
+    image: ${AUTH_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${AUTH_NAME}/service_env.env
+    build:
+      context: .
+      dockerfile: ./srcs/${AUTH_NAME}/Dockerfile
+      args:
+        - SERVICE_NAME=${AUTH_NAME}
+    restart: always
+    networks:
+      transcendance_network:
+        ipv4_address: ${AUTH_IPV4_ADDRESS}
+    depends_on:
+      hub:
+        condition: service_healthy
+  lobby:
+    container_name: ${LOBBY_NAME}
+    image: ${LOBBY_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${LOBBY_NAME}/service_env.env
+    build:
+      context: ./srcs/${LOBBY_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${LOBBY_IPV4_ADDRESS}
+  pong:
+    container_name: ${PONG_NAME}
+    image: ${PONG_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${PONG_NAME}/service_env.env
+    build:
+      context: ./srcs/${PONG_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${PONG_IPV4_ADDRESS}
+  users:
+    container_name: ${USERS_NAME}
+    image: ${USERS_NAME}
+    security_opt:
+      - apparmor:unconfined
+    env_file:
+      - ./srcs/globals.env
+      - ./srcs/${USERS_NAME}/service_env.env
+    build:
+      context: ./srcs/${USERS_NAME}
+    restart: always
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks:
+      transcendance_network:
+        ipv4_address: ${USERS_IPV4_ADDRESS}
+
+  # elasticsearch:
+  #   container_name: elasticsearch
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+  #   security_opt:
+  #     - apparmor:unconfined
+  #   environment:
+  #     - discovery.type=single-node
+  #     - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+  #     - xpack.security.enabled=true
+  #   volumes:
+  #     - ./srcs/elk/elasticsearch/config:/usr/share/elasticsearch/config
+  #     - esdata:/usr/share/elasticsearch/data
+  #   ports:
+  #     - "9200:9200"
+  #   networks:
+  #     transcendance_network:
+  #       ipv4_address: ${ELASTICSEARCH_IPV4_ADDRESS}
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -u elastic:${ELASTIC_PASSWORD} -f http://localhost:9200/_cluster/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+
+  # logstash:
+  #   container_name: logstash
+  #   image: docker.elastic.co/logstash/logstash:8.12.0
+  #   security_opt:
+  #     - apparmor:unconfined
+  #   environment:
+  #     - LS_JAVA_OPTS=-Xms256m -Xmx256m
+  #   volumes:
+  #     - ./srcs/elk/logstash/config:/usr/share/logstash/config
+  #     - ./srcs/elk/logstash/pipeline:/usr/share/logstash/pipeline
+  #   ports:
+  #     - "5044:5044"
+  #   networks:
+  #     transcendance_network:
+  #       ipv4_address: ${LOGSTASH_IPV4_ADDRESS}
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+
+  # kibana:
+  #   container_name: kibana
+  #   image: docker.elastic.co/kibana/kibana:8.12.0
+  #   security_opt:
+  #     - apparmor:unconfined
+  #   env_file:
+  #     - ./srcs/.env
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   volumes:
+  #     - ./srcs/elk/kibana/config:/usr/share/kibana/config
+  #   ports:
+  #     - "5601:5601"
+  #   networks:
+  #     transcendance_network:
+  #       ipv4_address: ${KIBANA_IPV4_ADDRESS}
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+
+volumes:
+  databases:
+    name: databases
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUMES_DIR}
+  esdata:
+    driver: local
+
+networks:
+  transcendance_network:
+    name: transcendance_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${TR_NETWORK_SUBNET}
+

@@ -1,0 +1,56 @@
+{
+    "name": "@app/shared",
+    "version": "1.0.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": "./dist/index.js",
+        "./*": "./dist/*.js"
+    },
+    "scripts": {
+        "build": "tsc"
+    },
+    "devDependencies": {
+        "typescript": "^5.2.2",
+        "@types/node": "^22.0.0",
+        "fastify": "latest",
+        "@fastify/websocket": "latest",
+        "ip": "latest",
+        "@types/ip": "latest",
+        "@types/ws": "latest",
+        "@types/jsonwebtoken": "latest",
+        "jsonwebtoken": "latest",
+        "axios": "latest",
+        "pino-pretty": "latest",
+        "zod": "latest",
+        "fastify-type-provider-zod": "latest",
+        "bcrypt": "latest",
+        "crypto": "latest",
+        "@dicebear/core": "latest",
+        "@resvg/resvg-js": "^2.6.2",
+        "@dicebear/collection": "latest",
+        "better-sqlite3": "latest",
+        "prom-client": "latest",
+        "qrcode": "latest",
+        "@types/qrcode": "latest"
+    },
+    "dependencies": {
+        "fastify": "latest",
+        "@fastify/websocket": "latest",
+        "ip": "latest",
+        "jsonwebtoken": "latest",
+        "axios": "latest",
+        "pino-pretty": "latest",
+        "zod": "latest",
+        "fastify-type-provider-zod": "latest",
+        "bcrypt": "latest",
+        "crypto": "latest",
+        "@dicebear/core": "latest",
+        "@resvg/resvg-js": "^2.6.2",
+        "@dicebear/collection": "latest",
+        "better-sqlite3": "latest",
+        "prom-client": "latest",
+        "qrcode": "latest",
+        "@types/qrcode": "latest"
+    }
+}

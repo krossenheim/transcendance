@@ -1,20 +1,60 @@
-FROM nodejs_base_image:1.0
+# ---- Builder Stage ----
+FROM node:24.8-alpine AS builder
 
-RUN apt-get update && \
-    apt-get install -y sqlite3 libsqlite3-dev && \
-    apt-get clean
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
 
-RUN mkdir -p /appservice/
+RUN apk add --no-cache python3 make g++
 
-WORKDIR /appservice/
+WORKDIR /app/shared
 
-COPY appservice/ /appservice/
-COPY dist/ /appservice/
-COPY structure.sql /appservice/
-RUN chmod 444 /appservice/*
+COPY shared/package.json shared/tsconfig.json ./
+RUN npm install
 
-RUN cat /appservice/check_global_envs.sh /appservice/service_entryp.sh > /appservice/entrypoint.sh \
-    && chmod +x /appservice/entrypoint.sh
+COPY shared ./
+RUN npm run build
 
-ENTRYPOINT ["/appservice/entrypoint.sh"]
-CMD node /appservice/$SERVICE_MAINJS
+WORKDIR /app/srcs/${SERVICE_NAME}
+
+COPY srcs/${SERVICE_NAME}/package.json srcs/${SERVICE_NAME}/tsconfig.json ./
+RUN npm install
+
+COPY srcs/${SERVICE_NAME}/src ./src
+RUN npm run build
+
+
+# ---- Runner Stage ----
+FROM node:24.8-alpine AS runner
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -u 1001 -D -S -G nodejs nodejs && \
+    apk add --no-cache su-exec
+
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
+ENV NODE_ENV=production
+
+RUN mkdir -p /etc/database_data && \
+    chown -R nodejs:nodejs /etc/database_data
+
+RUN mkdir -p /app/shared /app/srcs/${SERVICE_NAME} && \
+    chown -R nodejs:nodejs /app
+
+WORKDIR /app/shared
+
+COPY --chown=nodejs:nodejs --from=builder /app/shared/package.json ./
+RUN npm install --only=production --install-links
+
+COPY --chown=nodejs:nodejs --from=builder /app/shared/dist ./dist
+
+WORKDIR /app/srcs/${SERVICE_NAME}
+COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/package.json ./
+RUN npm install --only=production --install-links
+
+COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/dist/srcs/${SERVICE_NAME}/src ./dist
+COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/entrypoint.sh ./entrypoint.sh
+COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/structure.sql ./structure.sql
+RUN chmod +x ./entrypoint.sh
+
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["npm", "start"]
