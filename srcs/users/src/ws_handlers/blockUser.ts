@@ -13,13 +13,15 @@ export enum BlockUserResult {
   SameUser,
   AlreadyBlocked,
   FailedToUpdate,
+  SystemUser,
 };
 
 export type BlockUserResponse =
   | { result: BlockUserResult.Success, usersUpdated: number[] }
   | { result: BlockUserResult.SameUser }
   | { result: BlockUserResult.AlreadyBlocked }
-  | { result: BlockUserResult.FailedToUpdate };
+  | { result: BlockUserResult.FailedToUpdate }
+  | { result: BlockUserResult.SystemUser };
 
 async function blockUser(
   blocker: FullUserType,
@@ -27,6 +29,9 @@ async function blockUser(
 ): Promise<BlockUserResponse> {
   if (blocker.id === target.id)
     return { result: BlockUserResult.SameUser };
+
+  if (target.id === 1)
+    return { result: BlockUserResult.SystemUser };
 
   const existingStatus = retrieveUserConnectionStatus(blocker, target);
   if (existingStatus === UserFriendshipStatusEnum.Blocked)
@@ -75,6 +80,7 @@ export function wsBlockUserHandlers(socket: OurSocket) {
       switch (blockResult.result) {
         case BlockUserResult.AlreadyBlocked:
         case BlockUserResult.SameUser:
+        case BlockUserResult.SystemUser:
           return Result.Ok({
             recipients: [body.user_id],
             code: schema.output.InvalidStatusRequest.code,
@@ -87,6 +93,7 @@ export function wsBlockUserHandlers(socket: OurSocket) {
             payload: { message: "Failed to update friendship status" },
           });
         case BlockUserResult.Success:
+          console.log("Block successful, usersUpdated:", blockResult.usersUpdated);
           socket.invokeHandler(
             user_url.ws.users.fetchUserConnections,
             blockResult.usersUpdated,

@@ -89,7 +89,7 @@ export default function ChatInputComponent({
       // Determine target container based on funcId if not explicitly provided
       let container = targetContainer
       if (!container) {
-        if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_') || funcId === 'user_profile') {
+        if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_') || funcId === 'user_profile' || funcId.includes('block') || funcId.includes('unblock')) {
           container = "users"
         } else {
           container = "chat"
@@ -155,8 +155,8 @@ export default function ChatInputComponent({
 
         // Extract blocked users (status === 3) - users WE have blocked
         const blocked = connections
-          .filter((conn: any) => conn.status === 3 && conn.userId === selfUserId) // We initiated the block
-          .map((conn: any) => conn.id)
+          .filter((conn: any) => conn.status === 3)
+          .map((conn: any) => conn.friendId)
         setBlockedUserIds(blocked)
         console.log("Blocked users:", blocked)
         break
@@ -1134,6 +1134,7 @@ export default function ChatInputComponent({
               blockedUserIds={blockedUserIds}
               onOpenProfile={handleOpenProfile}
               roomUsers={currentRoomUsers}
+              selfUserId={selfUserId}
             />
           </div>
         </div>

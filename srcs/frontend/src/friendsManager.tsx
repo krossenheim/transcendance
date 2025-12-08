@@ -59,6 +59,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
   useEffect(() => {
     if (!payloadReceived) return
     if (payloadReceived.funcId === user_url.ws.users.fetchUserConnections.funcId) {
+      console.log("Received fetchUserConnections:", payloadReceived.payload)
       const list = Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
       setConnections(list as ConnectionItem[])
       setLoading(false)
@@ -70,6 +71,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
       payloadReceived.funcId === user_url.ws.users.denyFriendship.funcId ||
       payloadReceived.funcId === user_url.ws.users.removeFriendship.funcId
     ) {
+      console.log("Received action response:", payloadReceived.funcId)
       // Refresh list after action completes
       setTimeout(() => sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null), 200)
     }
@@ -77,7 +79,11 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
   }, [payloadReceived])
 
   const friends = useMemo(() => connections.filter(c => c.status === 2), [connections])
-  const blocked = useMemo(() => connections.filter(c => c.status === 3), [connections])
+  const blocked = useMemo(() => {
+    const b = connections.filter(c => c.status === 3)
+    console.log("Blocked connections:", b)
+    return b
+  }, [connections])
   const pending = useMemo(() => connections.filter(c => c.status === 1), [connections])
 
   const ActionButtons: React.FC<{ item: ConnectionItem }> = ({ item }) => {
@@ -110,6 +116,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
             <button
               onClick={() => sendToSocket(user_url.ws.users.blockUser.funcId, item.friendId)}
               className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
+              disabled={item.friendId === selfUserId || item.friendId === 1}
             >
               Block
             </button>

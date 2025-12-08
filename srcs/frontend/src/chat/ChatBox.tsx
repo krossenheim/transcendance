@@ -15,6 +15,7 @@ interface ChatBoxProps {
   blockedUserIds: number[]
   onOpenProfile: (username: string) => void
   roomUsers: RoomUser[]
+  selfUserId: number
 }
 
 const commands: SlashCommand[] = [
@@ -35,6 +36,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   blockedUserIds,
   onOpenProfile,
   roomUsers,
+  selfUserId,
 }) => {
   const [input, setInput] = useState("")
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -168,7 +170,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                       >
                         {msg.user}
                       </span>
-                      {msg.userId !== undefined && (
+                      {msg.userId !== undefined && msg.userId !== selfUserId && msg.userId !== 1 && (
                         <button
                           onClick={() => onBlockUser(msg.userId!)}
                           className="text-xs text-red-500 hover:underline"
