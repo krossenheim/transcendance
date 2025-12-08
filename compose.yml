@@ -1,3 +1,5 @@
+name: transcendance
+
 services:
   nginx:
     container_name: ${NGINX_NAME}
