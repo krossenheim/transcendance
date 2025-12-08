@@ -1,4 +1,29 @@
-FROM jasonish/nginx-modsecurity:latest
+FROM node:24.8-slim AS react_builder
+
+WORKDIR /app/shared
+
+COPY shared/package.json shared/tsconfig.json ./
+RUN npm install
+
+COPY shared ./
+RUN npm run build
+
+WORKDIR /app/srcs/frontend
+
+COPY srcs/frontend/package.json srcs/frontend/tsconfig.json ./
+RUN npm install
+
+COPY srcs/frontend/src ./src
+COPY srcs/frontend/postcss.config.js ./
+COPY srcs/frontend/tailwind.config.js ./
+COPY srcs/frontend/vite.config.mts ./
+COPY srcs/frontend/index.html ./
+RUN npm run build
+
+
+FROM owasp/modsecurity-crs:nginx
+
+USER root
 
 # This Dockerfile is a quick POC image that uses a prebuilt nginx+ModSecurity image.
 # It mirrors the original `Dockerfile` behavior for templating but relies on the base
@@ -8,30 +33,29 @@ RUN apt-get update && apt-get install -y gettext openssl procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/nginx/un_expanded/
-COPY nginx.conf.to_expand /etc/nginx/un_expanded
+COPY srcs/nginx/nginx.conf.to_expand /etc/nginx/un_expanded
 RUN chmod 644 /etc/nginx/un_expanded/nginx.conf.to_expand
 
 # Make un_expanded and move things awaiting nginx_entryp.sh to replace env vars within the files.
-COPY mysite.conf.to_expand /etc/nginx/un_expanded
+COPY srcs/nginx/mysite.conf.to_expand /etc/nginx/un_expanded
 RUN chmod 644 /etc/nginx/un_expanded/mysite.conf.to_expand
 
 # Copy ModSecurity templates (these will be envsubst'd by the entrypoint)
-COPY modsecurity /etc/nginx/un_expanded/modsecurity
+COPY srcs/nginx/modsecurity /etc/nginx/un_expanded/modsecurity
 RUN chmod -R 644 /etc/nginx/un_expanded/modsecurity || true
 
 RUN rm -f /etc/nginx/conf.d/default.d || true
 
 EXPOSE 443
 
-COPY nginx_entryp.sh /etc/nginx_entryp.sh
+COPY srcs/nginx/nginx_entryp.sh /etc/nginx_entryp.sh
 RUN chmod 755 /etc/nginx_entryp.sh
 
 RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/ || true
-COPY /staticfiles/ /var/www/html/
+COPY static/ /var/www/html/
 
-RUN mkdir -p /var/www/html/react_dist/
-COPY /react_source/dist /var/www/html/react_dist
+COPY --from=react_builder /app/srcs/frontend/dist /var/www/html/react_dist
 
 ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]

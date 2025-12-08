@@ -7,7 +7,7 @@ services:
       - ./srcs/nginx/site.env
     build:
       context: .
-      dockerfile: ./srcs/nginx/Dockerfile.modsec.build
+      dockerfile: ./srcs/nginx/Dockerfile.modsec
       args:
         - SERVICE_NAME=nginx
     healthcheck:
