@@ -1,15 +1,16 @@
 services:
   nginx:
-    container_name: nginx
-    image: nginx
+    container_name: ${NGINX_NAME}
+    image: ${NGINX_NAME}
     env_file:
-      - ./srcs/globals.env
-      - ./srcs/nginx/site.env
+      - ./globals.env
+      - ./secrets.env
+      - ./srcs/${NGINX_NAME}/site.env
     build:
       context: .
-      dockerfile: ./srcs/nginx/Dockerfile.modsec
+      dockerfile: ./srcs/${NGINX_NAME}/Dockerfile.modsec
       args:
-        - SERVICE_NAME=nginx
+        - SERVICE_NAME=${NGINX_NAME}
     healthcheck:
       test: ["CMD-SHELL", "nginx -V 2>&1 | grep -q modsecurity && curl -k -s -o /dev/null 'https://localhost/?q=union%20select' && sleep 0.5 && grep -q '910100' /var/log/modsecurity/modsec_audit.log || exit 1"]
       interval: 30s
@@ -27,7 +28,8 @@ services:
     container_name: ${HUB_NAME}
     image: ${HUB_NAME}
     env_file:
-      - ./srcs/globals.env
+      - ./globals.env
+      - ./secrets.env
       - ./srcs/${HUB_NAME}/service_env.env
     build:
       context: .
@@ -43,7 +45,8 @@ services:
     container_name: ${CHATROOM_NAME}
     image: ${CHATROOM_NAME}
     env_file:
-      - ./srcs/globals.env
+      - ./globals.env
+      - ./secrets.env
       - ./srcs/${CHATROOM_NAME}/service_env.env
     build:
       context: .
@@ -62,7 +65,8 @@ services:
     container_name: ${DATABASE_NAME}
     image: ${DATABASE_NAME}
     env_file:
-      - ./srcs/globals.env
+      - ./globals.env
+      - ./secrets.env
       - ./srcs/${DATABASE_NAME}/service_env.env
     build:
       context: .
@@ -89,7 +93,8 @@ services:
     container_name: ${AUTH_NAME}
     image: ${AUTH_NAME}
     env_file:
-      - ./srcs/globals.env
+      - ./globals.env
+      - ./secrets.env
       - ./srcs/${AUTH_NAME}/service_env.env
     build:
       context: .
@@ -110,7 +115,8 @@ services:
     container_name: ${PONG_NAME}
     image: ${PONG_NAME}
     env_file:
-      - ./srcs/globals.env
+      - ./globals.env
+      - ./secrets.env
       - ./srcs/${PONG_NAME}/service_env.env
     build:
       context: .
@@ -133,7 +139,8 @@ services:
     container_name: ${USERS_NAME}
     image: ${USERS_NAME}
     env_file:
-      - ./srcs/globals.env
+      - ./globals.env
+      - ./secrets.env
       - ./srcs/${USERS_NAME}/service_env.env
     build:
       context: .

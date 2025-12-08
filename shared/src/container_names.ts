@@ -40,11 +40,6 @@ if (!process.env.USERS_IPV4_ADDRESS)
       throw new Error("Env var USERS_IPV4_ADDRESS not set'");
 }
 
-if (!process.env.LOBBY_IPV4_ADDRESS)
-{
-      throw new Error("Env var LOBBY_IPV4_ADDRESS not set'");
-}
-
 export const containersIpToName = new Map<string | undefined, string | undefined>();
 export const containersNameToIp = new Map<string | undefined, string | undefined>();
 
@@ -57,7 +52,6 @@ containersIpToName.set(process.env.AUTH_IPV4_ADDRESS, process.env.AUTH_NAME);
 containersIpToName.set(process.env.HUB_IPV4_ADDRESS, process.env.HUB_NAME);
 containersIpToName.set(process.env.PONG_IPV4_ADDRESS, process.env.PONG_NAME);
 containersIpToName.set(process.env.USERS_IPV4_ADDRESS, process.env.USERS_NAME);
-containersIpToName.set(process.env.LOBBY_IPV4_ADDRESS, process.env.LOBBY_NAME);
 // 
 
 export const my_address = run_bash_command("getent hosts ${HOSTNAME} | awk '{print $1}'");

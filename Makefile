@@ -5,16 +5,12 @@ SOURCES_DIR := $(PROJECT_ROOT)srcs
 VOLUMES_DIR := $(OUTPUT_FILES_DIR)/transcendance_volumes/
 
 # Docker compose & env
-PATH_TO_COMPOSE_ENV_FILE := $(SOURCES_DIR)/globals.env
+PATH_TO_COMPOSE_ENV_FILE := globals.env
+PATH_TO_COMPOSE_SECRETS_FILE := secrets.env
 PATH_TO_COMPOSE := compose.yml
-
-# Base image
-PATH_TO_BASE_IMAGE := $(SOURCES_DIR)/nodejs_base_image/Dockerfile
-BASE_IMAGE_TAG := nodejs_base_image:1.0
 
 # Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
-NODEJS_BASE_IMAGE_DIR =$(PROJECT_ROOT)srcs/nodejs_base_image
 
 # React build directory for npm arguments
 REACT_DIR := $(SOURCES_DIR)/nginx/react_source
@@ -22,13 +18,17 @@ REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
-all: check-deps ensure_npx down build ensure_network
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
+all: ensure_env check-deps down build ensure_network
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --remove-orphans
 
-ensure_npx:
-	@if ! [ -x "$$(command -v npx)" ]; then \
-		echo "Attempting to install npx." >&2; \
-		npm install typescript @types/node --save-dev; \
+ensure_env:
+	if [ ! -f "$(PATH_TO_COMPOSE_ENV_FILE)" ]; then \
+		echo "Error: Environment file '$(PATH_TO_COMPOSE_ENV_FILE)' not found."; \
+		exit 1; \
+	fi
+
+	if [ ! -f "$(PATH_TO_COMPOSE_SECRETS_FILE)" ]; then \
+		echo "Error: Secrets file '$(PATH_TO_COMPOSE_SECRETS_FILE)' not found."; \
 		exit 1; \
 	fi
 
@@ -105,115 +105,6 @@ build_react:
 	npm install --prefix $(REACT_DIR)
 	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
-# Vault development helpers
-vault-bootstrap:
-	@echo "Starting Vault (dev) and bootstrapping..."
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d vault || true
-	@printf "Waiting for Vault to be healthy..."
-	@until curl -sSf http://127.0.0.1:8200/v1/sys/health >/dev/null 2>&1; do printf .; sleep 1; done; echo
-	@docker cp srcs/vault/bootstrap_vault_dev.sh vault:/bootstrap_vault_dev.sh || true
-	@docker exec vault sh -c "chmod +x /bootstrap_vault_dev.sh && VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=root-token-for-dev /bootstrap_vault_dev.sh"
-	@TOKEN=$$(docker exec vault sh -c "VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=root-token-for-dev vault token create -policy=nginx-policy -field=token"); \
-	printf "VAULT token: $$TOKEN\n"; \
-	if grep -q '^VAULT_TOKEN=' srcs/globals.env >/dev/null 2>&1; then \
-		sed -i "s#^VAULT_TOKEN=.*#VAULT_TOKEN=$$TOKEN#" srcs/globals.env; \
-	else \
-		echo "VAULT_TOKEN=$$TOKEN" >> srcs/globals.env; \
-	fi; \
-	# Enable USE_VAULT for local testing
-	sed -i 's#^USE_VAULT=.*#USE_VAULT=true#' srcs/globals.env || true; \
-	echo "Wrote token to srcs/globals.env (dev-only)."
-
-vault-down:
-	@echo "Stopping and removing Vault (dev) container..."
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" stop vault || true
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" rm -f vault || true
-	@echo "Removing VAULT_TOKEN from $(PATH_TO_COMPOSE_ENV_FILE) and disabling USE_VAULT"
-	@sed -i '/^VAULT_TOKEN=/d' "$(PATH_TO_COMPOSE_ENV_FILE)" || true
-	@sed -i 's/^USE_VAULT=.*/USE_VAULT=false/' "$(PATH_TO_COMPOSE_ENV_FILE)" || echo "USE_VAULT=false" >> "$(PATH_TO_COMPOSE_ENV_FILE)"
-	@echo "Vault stopped and token removed (dev-only)."
-
-# ============================================================================
-# Vault Production Targets
-# ============================================================================
-VAULT_DIR := $(SOURCES_DIR)/vault
-VAULT_COMPOSE := $(VAULT_DIR)/docker-compose.prod.yml
-VAULT_CONTAINER := transcendance-vault
-VAULT_KEYS := $(VAULT_DIR)/.vault-keys.json
-
-# Start production Vault (generates TLS certs if needed, starts container)
-vault-prod-up: ensure_network
-	@echo "Starting production Vault..."
-	@if [ ! -f "$(VAULT_DIR)/tls/vault-cert.pem" ]; then \
-		echo "Generating TLS certificates..."; \
-		cd $(VAULT_DIR) && ./generate-tls.sh; \
-	fi
-	@docker compose -f "$(VAULT_COMPOSE)" up -d
-	@sleep 3
-	@docker exec $(VAULT_CONTAINER) chown -R vault:vault /vault/data 2>/dev/null || true
-	@echo "Vault container started."
-
-# Initialize Vault (first time only) - creates keys, unseals, bootstraps secrets
-vault-prod-init: vault-prod-up
-	@if [ -f "$(VAULT_KEYS)" ]; then \
-		echo "Vault already initialized ($(VAULT_KEYS) exists)."; \
-		echo "Run 'make vault-prod-unseal' if Vault is sealed."; \
-		exit 0; \
-	fi
-	@echo "Initializing Vault (first time setup)..."
-	@VAULT_CONTAINER=$(VAULT_CONTAINER) $(VAULT_DIR)/vault-manage.sh init
-	@echo ""
-	@echo "=============================================="
-	@echo "IMPORTANT: Back up $(VAULT_KEYS) securely!"
-	@echo "=============================================="
-
-# Unseal Vault (after restarts)
-vault-prod-unseal:
-	@if [ ! -f "$(VAULT_KEYS)" ]; then \
-		echo "Error: $(VAULT_KEYS) not found. Run 'make vault-prod-init' first."; \
-		exit 1; \
-	fi
-	@echo "Unsealing Vault..."
-	@VAULT_CONTAINER=$(VAULT_CONTAINER) $(VAULT_DIR)/vault-manage.sh unseal
-
-# Set real secrets interactively
-vault-prod-secrets:
-	@if [ ! -f "$(VAULT_KEYS)" ]; then \
-		echo "Error: Vault not initialized. Run 'make vault-prod-init' first."; \
-		exit 1; \
-	fi
-	@$(VAULT_DIR)/secrets-init.sh
-
-# Stop production Vault
-vault-prod-down:
-	@echo "Stopping production Vault..."
-	@docker compose -f "$(VAULT_COMPOSE)" down
-
-# Full production Vault setup (init + secrets prompt)
-vault-prod-setup: vault-prod-init vault-prod-secrets
-	@echo "Production Vault setup complete!"
-
-# Check Vault status
-vault-status:
-	@docker exec -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault status 2>/dev/null || \
-		echo "Vault container not running. Start with 'make vault-prod-up'"
-
-# View secrets in Vault (requires root token)
-vault-show-secrets:
-	@if [ ! -f "$(VAULT_KEYS)" ]; then \
-		echo "Error: $(VAULT_KEYS) not found."; \
-		exit 1; \
-	fi
-	@ROOT_TOKEN=$$(jq -r '.root_token' "$(VAULT_KEYS)"); \
-	echo "=== Auth Secrets ==="; \
-	docker exec -e VAULT_TOKEN="$$ROOT_TOKEN" -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault kv get secret/transcendance/auth; \
-	echo ""; \
-	echo "=== DB Secrets ==="; \
-	docker exec -e VAULT_TOKEN="$$ROOT_TOKEN" -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault kv get secret/transcendance/db; \
-	echo ""; \
-	echo "=== Elastic Secrets ==="; \
-	docker exec -e VAULT_TOKEN="$$ROOT_TOKEN" -e VAULT_SKIP_VERIFY=true $(VAULT_CONTAINER) vault kv get secret/transcendance/elastic
-
 check-deps:
 	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
 	@if ! command -v node >/dev/null 2>&1; then \
@@ -231,33 +122,6 @@ check-deps:
 print_config: create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
 
-pass_global_envs_test_to_nodejs_containers:
-	@echo "Generating process.env checks from $(PATH_TO_COMPOSE_ENV_FILE)"
-	@echo "#!/bin/sh" > ${NODEJS_BASE_IMAGE_DIR}/appservice/check_global_envs.sh
-	@echo "set -ex" >> ${NODEJS_BASE_IMAGE_DIR}/appservice/check_global_envs.sh
-	@grep -v '^\s*#' $(PATH_TO_COMPOSE_ENV_FILE) | grep -v '^\s*$$' | \
-		awk -F= '{print "if [ -z \"$${" $$1 "}\" ]; then echo \"ERROR: " $$1 " is not set\" >&2; exit 1; fi"}' \
-		>> ${NODEJS_BASE_IMAGE_DIR}/appservice/check_global_envs.sh
-
-install_nodejs:
-	@if ! node -v >/dev/null 2>&1; then \
-		if ! grep -qi 'debian\|ubuntu' /etc/os-release; then \
-			echo "nodejs needs to be installed."; \
-			exit 1; \
-		fi; \
-		curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -; \
-		sudo apt install -y nodejs; \
-	fi
-
-npm_install_tsc:
-	@if ! npm list typescript >/dev/null 2>&1; then \
-		npm install --save-dev typescript @types/node --prefix ${PROJECT_ROOT}; \
-		npm install; \
-	fi
-
-
-ensure_tsc: install_nodejs npm_install_tsc
-
 create_shared_volume_folder:
 	if [ ! -d "$(VOLUMES_DIR)" ]; then \
 		mkdir -p "$(VOLUMES_DIR)"; \
@@ -267,16 +131,6 @@ clean: down
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
-# babylon: build_react
-# 	@echo "Starting containers..."
-# 	@VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d nginx || true
-# 	@sleep 3
-# 	@echo "Creating directories in nginx container..."
-# 	@docker exec nginx mkdir -p /var/www/html/react_dist
-# 	@echo "Copying static files..."
-# 	@docker cp $(PROJECT_ROOT)srcs/nginx/staticfiles/. nginx:/var/www/html
-# 	@docker cp $(PROJECT_ROOT)srcs/nginx/react_source/dist/. nginx:/var/www/html/react_dist
-
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
 	docker volume prune -f
@@ -285,4 +139,4 @@ fclean: clean
 list:
 	docker ps -a
 
-.PHONY: up down build all re clean list check-deps $(CONTAINERS) up-monitoring down-monitoring up-all down-all vault-bootstrap vault-down vault-prod-up vault-prod-init vault-prod-unseal vault-prod-secrets vault-prod-down vault-prod-setup vault-status vault-show-secrets
+.PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed

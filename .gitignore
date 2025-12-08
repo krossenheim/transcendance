@@ -22,3 +22,4 @@ srcs/vault/bootstrap_vault_dev.sh
 db_data/
 secrets.local.sh
 static/react_dist/
+secrets.env
