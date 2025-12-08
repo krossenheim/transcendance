@@ -1,6 +1,0 @@
-# TLS certificates will be generated here
-# Run ../generate-tls.sh to create self-signed certificates
-# Or place your production certificates here:
-#   - vault-cert.pem (server certificate)
-#   - vault-key.pem  (server private key)
-#   - ca-cert.pem    (CA certificate, optional)

@@ -1,6 +1,0 @@
-## JVM configuration
--Xms512m
--Xmx512m
-## GC configuration
--XX:+UseG1GC
--Djava.awt.headless=true
