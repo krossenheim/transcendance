@@ -30,6 +30,24 @@ export default defineConfig({
       strict: true,
       allow: ['..'],
     },
+    proxy: {
+      '/public_api': {
+        target: 'https://localhost',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api': {
+        target: 'https://localhost',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/ws': {
+        target: 'https://localhost',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
+    },
   },
   base: "/static/react_dist/",
 });
