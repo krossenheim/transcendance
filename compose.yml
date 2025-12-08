@@ -154,7 +154,7 @@ services:
     container_name: hardhat
     image: hardhat:local
     build:
-      context: ../blockchain
+      context: ./blockchain
       dockerfile: Dockerfile
     restart: always
     ports:
@@ -173,7 +173,7 @@ services:
     container_name: blockchain-explorer
     image: blockchain-explorer:local
     build:
-      context: ../blockchain/explorer
+      context: ./blockchain/explorer
       dockerfile: Dockerfile
     restart: always
     environment:

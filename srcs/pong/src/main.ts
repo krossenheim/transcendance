@@ -485,7 +485,7 @@ fastify.get('/metrics', async (request, reply) => {
 });
 
 // Public API: Get tournament stats including on-chain tx hashes
-fastify.get('/api/pong/tournaments/:id/stats', async (request, reply) => {
+fastify.get('/public_api/pong/tournaments/:id/stats', async (request, reply) => {
   const idParam = (request.params as any).id;
   const tid = Number(idParam);
   if (Number.isNaN(tid)) return reply.status(400).send({ message: 'invalid tournament id' });

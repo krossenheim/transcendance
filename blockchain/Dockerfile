@@ -3,8 +3,7 @@ FROM node:24.8-slim
 WORKDIR /app
 
 # Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Install dependencies
 COPY package.json package-lock.json* ./
