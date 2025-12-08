@@ -6,4 +6,4 @@ if [ -d "/etc/database_data" ]; then
     chown -R nodejs:nodejs /etc/database_data
 fi
 
-exec su-exec nodejs "$@"
+exec gosu nodejs "$@"

@@ -1,6 +1,7 @@
 FROM nginx:1.29.0
 
-RUN apt-get update && apt-get install -y gettext openssl procps && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gettext openssl procps \
+    && rm -rf /var/lib/apt/lists/*
 
 # HEALTHCHECK --interval=5s --timeout=2s --retries=3 CMD nginx -t
 

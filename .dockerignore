@@ -1,0 +1,56 @@
+# ------------------------------------------------------------------------------
+# DEPENDENCIES (Ignore everywhere to force fresh installs inside container)
+# ------------------------------------------------------------------------------
+**/node_modules
+**/npm-debug.log
+**/yarn-error.log
+**/yarn.lock
+**/package-lock.json
+# Note: Keep lock files ONLY if you want deterministic builds (recommended).
+# If you keep lock files, remove the two lines above.
+
+# ------------------------------------------------------------------------------
+# BUILD ARTIFACTS (Don't copy local builds to Docker)
+# ------------------------------------------------------------------------------
+**/dist
+**/build
+**/coverage
+**/.next
+**/.nuxt
+**/.serverless
+
+# ------------------------------------------------------------------------------
+# SECURITY & SECRETS (Critical!)
+# ------------------------------------------------------------------------------
+**/.env
+**/.env.local
+**/.env.*
+**/Dockerfile
+**/docker-compose.yml
+**/docker-compose.*.yml
+**/.dockerignore
+**/npmrc
+**/.npmrc
+
+# ------------------------------------------------------------------------------
+# GIT & VERSION CONTROL
+# ------------------------------------------------------------------------------
+**/.git
+**/.gitignore
+**/.github
+**/.gitlab-ci.yml
+
+# ------------------------------------------------------------------------------
+# EDITOR & OS FILES (Reduce noise)
+# ------------------------------------------------------------------------------
+**/.vscode
+**/.idea
+**/.DS_Store
+**/Thumbs.db
+
+# ------------------------------------------------------------------------------
+# DOCUMENTATION & MISC
+# ------------------------------------------------------------------------------
+**/README.md
+**/CHANGELOG.md
+**/LICENSE

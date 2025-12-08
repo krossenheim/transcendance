@@ -1,6 +1,6 @@
 ARG NGINX_VERSION=1.29.0
 
-FROM node:24.8-alpine AS react_builder
+FROM node:24.8-slim AS react_builder
 
 WORKDIR /app/shared
 
@@ -80,7 +80,8 @@ ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
 
 # install small tools used by entrypoint
-RUN apt-get update && apt-get install -y --no-install-recommends gettext openssl procps jq ca-certificates curl liblua5.3-0 libyajl2 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gettext openssl procps jq ca-certificates curl liblua5.3-0 libyajl2 \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy compiled module and libmodsecurity
 # Copy the compiled module and libmodsecurity runtime libraries from the builder.

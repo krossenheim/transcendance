@@ -1,10 +1,11 @@
 # ---- Builder Stage ----
-FROM node:24.8-alpine AS builder
+FROM node:24.8-slim AS builder
 
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
 
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/shared
 
@@ -24,10 +25,11 @@ RUN npm run build
 
 
 # ---- Runner Stage ----
-FROM node:24.8-alpine AS runner
+FROM node:24.8-slim AS runner
 
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -u 1001 -D -S -G nodejs nodejs
+RUN groupadd -g 1001 nodejs && \
+    useradd -u 1001 -g nodejs -m -s /usr/sbin/nologin nodejs
+
 
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}

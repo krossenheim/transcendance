@@ -4,7 +4,8 @@ FROM jasonish/nginx-modsecurity:latest
 # It mirrors the original `Dockerfile` behavior for templating but relies on the base
 # image to already contain the ModSecurity dynamic module and runtime.
 
-RUN apt-get update && apt-get install -y gettext openssl procps && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gettext openssl procps \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/nginx/un_expanded/
 COPY nginx.conf.to_expand /etc/nginx/un_expanded
