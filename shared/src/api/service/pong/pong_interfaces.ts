@@ -112,18 +112,6 @@ export const LobbyPlayerSchema = z
   })
   .strict();
 
-export const LobbyDataSchema = z
-  .object({
-    lobbyId: gameIdValue,
-    gameMode: GameModeSchema,
-    players: z.array(LobbyPlayerSchema),
-    ballCount: z.coerce.number(),
-    maxScore: z.coerce.number(),
-    allowPowerups: z.boolean(),
-    status: z.enum(["waiting", "starting", "in_progress"]),
-  })
-  .strict();
-
 export const TournamentPlayerSchema = z
   .object({
     userId: userIdValue,
@@ -154,6 +142,22 @@ export const TournamentDataSchema = z
     totalRounds: z.coerce.number().int().min(1),
     status: z.enum(["registration", "in_progress", "completed"]),
     winnerId: userIdValue.nullable(),
+    ballCount: z.coerce.number(),
+    maxScore: z.coerce.number(),
+    onchainTxHashes: z.array(z.string()).optional(),
+  })
+  .strict();
+
+export const LobbyDataSchema = z
+  .object({
+    lobbyId: gameIdValue,
+    gameMode: GameModeSchema,
+    players: z.array(LobbyPlayerSchema),
+    ballCount: z.coerce.number(),
+    maxScore: z.coerce.number(),
+    allowPowerups: z.boolean(),
+    status: z.enum(["waiting", "starting", "in_progress"]),
+    tournament: TournamentDataSchema.optional(),
   })
   .strict();
 
