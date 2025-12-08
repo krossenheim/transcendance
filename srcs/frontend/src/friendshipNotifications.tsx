@@ -215,14 +215,20 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
 
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleAcceptRoomInvite(invite.roomId)}
+                            onClick={() => {
+                              handleAcceptRoomInvite(invite.roomId)
+                              setIsDropdownOpen(false)
+                            }}
                             disabled={processingId === `chat_${invite.roomId}` || isLoading}
                             className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Join
                           </button>
                           <button
-                            onClick={() => handleDeclineRoomInvite(invite.roomId)}
+                            onClick={() => {
+                              handleDeclineRoomInvite(invite.roomId)
+                              setIsDropdownOpen(false)
+                            }}
                             disabled={processingId === `chat_${invite.roomId}` || isLoading}
                             className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
@@ -259,14 +265,20 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
 
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleAcceptDmInvite(invite.roomId)}
+                            onClick={() => {
+                              handleAcceptDmInvite(invite.roomId)
+                              setIsDropdownOpen(false)
+                            }}
                             disabled={processingId === `dm_${invite.roomId}` || isLoading}
                             className="px-3 py-1 text-xs font-medium bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Open
                           </button>
                           <button
-                            onClick={() => handleDeclineDmInvite(invite.roomId)}
+                            onClick={() => {
+                              handleDeclineDmInvite(invite.roomId)
+                              setIsDropdownOpen(false)
+                            }}
                             disabled={processingId === `dm_${invite.roomId}` || isLoading}
                             className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
