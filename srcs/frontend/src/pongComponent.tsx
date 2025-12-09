@@ -17,6 +17,7 @@ import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
+import user from "@app/shared/api/service/db/user"
 
 // =========================
 // Component
@@ -113,7 +114,9 @@ export default function PongComponent({
         });
         const payload = {
           funcId: user_url.ws.pong.getGameState.funcId,
-          payload: {},
+          payload: {
+            gameId: lastCreatedBoardId,
+          },
           target_container: user_url.ws.pong.getGameState.container,
         };
         const strToSend = JSON.stringify(payload);
@@ -414,7 +417,9 @@ export default function PongComponent({
           // Game has been created, now request the game state once
           const requestGameStatePayload = {
             funcId: user_url.ws.pong.getGameState.funcId,
-            payload: {},
+            payload: {
+              gameId: parsed.data.board_id,
+            },
             target_container: user_url.ws.pong.getGameState.container,
           };
           if (socket.current?.readyState === WebSocket.OPEN) {
@@ -735,7 +740,9 @@ export default function PongComponent({
         if (socket.current?.readyState === WebSocket.OPEN) {
           socket.current.send(JSON.stringify({
             funcId: "get_game_state",
-            payload: {},
+            payload: {
+              gameId: 1,
+            },
             target_container: "pong",
           }))
         }

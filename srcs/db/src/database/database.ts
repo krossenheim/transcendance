@@ -9,10 +9,6 @@ export class Database {
 	private db: BetterSqlite3Database;
 
 	constructor(dbPath: string = 'inception.db') {
-		if (fs.existsSync(dbPath)) {
-			fs.unlinkSync(dbPath);
-		}
-
 		this.db = new DatabaseConstructor(dbPath);
 		this._initializeDatabase();
 	}

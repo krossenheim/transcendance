@@ -819,7 +819,7 @@ export const user_url = defineRoutes({
           output: {
             GameStarted: {
               code: 0,
-              payload: GameStateSchema,
+              payload: z.any(),
             },
             NotAllReady: {
               code: 1,

@@ -67,10 +67,10 @@ YELLOW := \033[1;33m
 NC := \033[0m  # No Color (reset)
 
 debug:
-	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
-	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
-	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
-	rm -f $(VOLUMES_DIR)users.db
+# 	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
+# 	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
+# 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
+# 	rm -f $(VOLUMES_DIR)users.db
 
 # Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
 HARDHAT_IMAGE_TAG := hardhat:local

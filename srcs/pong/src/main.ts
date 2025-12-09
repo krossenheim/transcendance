@@ -1,11 +1,11 @@
 "use strict";
+import { PongGameOptions } from "./game/game.js";
 import PongManager from "./pongManager.js";
 import LobbyManager from "./lobbyManager.js";
 import TournamentManager from "./tournamentManager.js";
 import websocketPlugin from "@fastify/websocket";
-import WebSocket from "ws";
 import { OurSocket } from "@app/shared/socket_to_hub";
-import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
+import { user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import type { FastifyInstance } from "fastify";
 import { createFastify } from "@app/shared/api/service/common/fastify";
@@ -16,99 +16,93 @@ import client from "prom-client";
 client.collectDefaultMetrics({ prefix: 'pong_' });
 
 // Expose metrics on /metrics
-import { registerRoute } from "@app/shared/api/service/common/fastify";
-import PongGame from "./pongGame.js";
-import { PongLobbyStatus } from "./playerPaddle.js";
 import BlockchainService from "./services/blockchainService.js";
 
 const fastify: FastifyInstance = createFastify();
 
 fastify.register(websocketPlugin);
 
-const singletonPong = new PongManager();
+const socket = new OurSocket("pong");
+const singletonPong = new PongManager(socket);
 const lobbyManager = new LobbyManager();
 const tournamentManager = new TournamentManager();
-const socket = new OurSocket("pong");
 const blockchainService = new BlockchainService();
 
-async function backgroundTask() {
-  try {
-    while (true) {
-      // Use the ws library OPEN constant to reliably compare readyState
-      if (socket.getSocket().readyState !== WebSocket.OPEN) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        continue;
-      }
-      for (const [game_id, game] of singletonPong.pong_instances) {
-        game.gameLoop();
-        const payload = game.getGameState();
-        const recipients = game.player_ids;
-
-        const out = {
-          recipients: recipients,
-          funcId: user_url.ws.pong.getGameState.funcId,
-          code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-          payload: payload,
-        };
-        if (!game.paused && game_id) socket.getSocket().send(JSON.stringify(out));
-      }
-      const getNextFrameTime = 17; // game.next_frame_when?
-      await new Promise((resolve) => setTimeout(resolve, getNextFrameTime));
-    }
-  } catch (err) {
-    // TypeScript doesn’t know what `err` is, so check if it has `message`
-    if (err instanceof Error) {
-      console.error("Caught exception:", err.message);
-    } else {
-      console.error("Caught unknown exception:", err);
-    }
-    console.error(
-      "INFINITE LOOP! CAN TOTALLY RECONNECT AND STUFF! HERE IT GOES."
-    );
-    while (true) {}
-  }
+function createBasicGameOptions(): PongGameOptions {
+  return {
+    canvasWidth: 1000,
+    canvasHeight: 1000,
+    ballSpeed: 450,
+    paddleSpeedFactor: 1.5,
+    paddleWidthFactor: 0.15,
+    paddleHeight: 30,
+    paddleWallOffset: 40,
+    amountOfBalls: 1,
+    powerupFrequency: 10,
+    gameDuration: 180,
+  };
 }
 
-backgroundTask();
-
 //handle input to a function funcId
-socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
-  const game_id = wrapper.payload.board_id;
-  const paddle_id = wrapper.payload.paddle_id;
-  const user_id = wrapper.user_id;
-  const to_right = wrapper.payload.m;
-  return singletonPong.movePaddle(game_id, paddle_id, user_id, to_right);
-});
+// socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
+//   const game_id = wrapper.payload.board_id;
+//   const paddle_id = wrapper.payload.paddle_id;
+//   const user_id = wrapper.user_id;
+//   const to_right = wrapper.payload.m;
+//   return singletonPong.movePaddle(game_id, paddle_id, user_id, to_right);
+// });
 socket.registerHandler(user_url.ws.pong.startGame, async (wrapper) => {
-  const user_id = wrapper.user_id;
   const player_list_requested = wrapper.payload.player_list;
-  const ball_count_requested = wrapper.payload.balls;
-  return singletonPong.startGame(
-    user_id,
+  const startGameResult = singletonPong.startGame(
     player_list_requested,
-    ball_count_requested
+    createBasicGameOptions()
   );
-});
-socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const game_id = wrapper.payload.game_id;
-  return singletonPong.userReportsReady(user_id, game_id);
-});
-socket.registerHandler(user_url.ws.pong.getGameState, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const game_id_optional = wrapper.payload.gameId;
-  // If no game_id provided, get first active game for the user
-  const game_id = game_id_optional ?? singletonPong.getFirstGameIdForPlayer(user_id);
-  if (!game_id) {
+
+  if (startGameResult.isErr()) {
     return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.getGameState.schema.output.NotInRoom.code,
+      recipients: [wrapper.user_id],
+      code: user_url.ws.pong.startGame.schema.output.FailedCreateGame.code,
       payload: {
-        message: "User is not in any active game.",
+        message: "Failed to create game instance.",
       },
     });
   }
-  return singletonPong.getGameState(user_id, game_id);
+
+  const gameId = startGameResult.unwrap();
+  return Result.Ok({
+    recipients: player_list_requested,
+    code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
+    payload: {
+      board_id: gameId,
+      player_list: player_list_requested,
+    },
+  });
+});
+// socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
+//   const user_id = wrapper.user_id;
+//   const game_id = wrapper.payload.game_id;
+//   return singletonPong.userReportsReady(user_id, game_id);
+//   // return singletonPong.userReportsReady(user_id, game_id);
+// });
+socket.registerHandler(user_url.ws.pong.getGameState, async (wrapper) => {
+  const userId = wrapper.user_id;
+  const gameId = wrapper.payload.gameId;
+  const gameDataResult = singletonPong.getGameState(userId, gameId);
+  if (gameDataResult.isErr()) {
+    return Result.Ok({
+      recipients: [userId],
+      code: user_url.ws.pong.getGameState.schema.output.NotInRoom.code,
+      payload: {
+        message: gameDataResult.unwrapErr(),
+      },
+    });
+  }
+  const gameData = gameDataResult.unwrap();
+  return Result.Ok({
+    recipients: [userId],
+    code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+    payload: gameData,
+  });
 });
 
 // Lobby and Tournament handlers
@@ -323,8 +317,8 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
   
   // Create the actual pong game
   const playerIds = lobby.players.map((p) => p.userId);
-  const gameResult = singletonPong.startGame(user_id, playerIds, lobby.ballCount);
-  
+  const gameResult = singletonPong.startGame(playerIds, createBasicGameOptions());
+
   if (gameResult.isErr()) {
     return Result.Ok({
       recipients: [user_id],
@@ -334,138 +328,108 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
   }
   
   // Get the game_id from the startGame response
-  const startResult = gameResult.unwrap();
-  
-  if (!startResult || !startResult.payload) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Failed to get game data" },
-    });
-  }
-  
-  const startPayload = startResult.payload;
-  let game_id: number;
-  
-  if ('board_id' in startPayload) {
-    game_id = startPayload.board_id;
-  } else {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Failed to get game board ID" },
-    });
-  }
-  
+  const gameId = gameResult.unwrap();
+
   // Mark lobby as in progress
-  lobbyManager.startGame(lobbyId, user_id, game_id);
-  
-  // Get game instance to get state
-  const game = singletonPong.pong_instances.get(game_id);
-  if (!game) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Game not found after creation" },
-    });
-  }
-  
-  // Set all paddles to Ready status since we're starting from a lobby
-  // where all players have already confirmed ready
-  for (const paddle of game.player_paddles) {
-    paddle.connectionStatus = PongLobbyStatus.Ready;
-  }
+  lobbyManager.startGame(lobbyId, user_id, gameId);
   
   // Get game state directly
-  const gameState = game.getGameState();
+  const gameState = singletonPong.getGameState(user_id, gameId);
+  if (gameState.isErr()) {
+    return Result.Ok({
+      recipients: [user_id],
+      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
+      payload: { message: "Failed to retrieve game state" },
+    });
+  }
   
   // Clean up lobby now that game has started
-  console.log(`[Pong] Game ${game_id} started from lobby ${lobbyId}, removing lobby`);
+  console.log(`[Pong] Game ${gameId} started from lobby ${lobbyId}, removing lobby`);
   lobbyManager.removeLobby(lobbyId);
   
   return Result.Ok({
     recipients: playerIds,
     code: user_url.ws.pong.startFromLobby.schema.output.GameStarted.code,
-    payload: gameState,
+    payload: gameState.unwrap(),
   });
 });
 
 // Handle output from a function funcId
-socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
-  if (
-    wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
-  ) {
-    console.log("Wrapper is: ", JSON.stringify(wrapper));
-    const userId = wrapper.payload.userId;
-    if (!userId) throw new Error("Schema not validated.");
-    singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
+// socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
+//   if (
+//     wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
+//   ) {
+//     console.log("Wrapper is: ", JSON.stringify(wrapper));
+//     const userId = wrapper.payload.userId;
+//     if (!userId) throw new Error("Schema not validated.");
+//     singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
     
-    // Remove player from any lobby they're in
-    const playerLobby = lobbyManager.getLobbyForPlayer(userId);
-    if (playerLobby) {
-      console.log(`[Pong] User ${userId} disconnected, removing from lobby ${playerLobby.lobbyId}`);
-      lobbyManager.removePlayerFromLobby(playerLobby.lobbyId, userId);
-    }
-  } else
-    return Result.Err(
-      `Unhandled code(${
-        wrapper.code
-      }) for int_url.ws.hub.userDisconnected, wrapper: ${JSON.stringify(
-        wrapper
-      )}`
-    );
-  return Result.Ok(null);
-});
-socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
-  if (
-    wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
-  ) {
-    console.log("Wrapper is: ", JSON.stringify(wrapper));
-    const userId = wrapper.payload.userId;
-    if (!userId) {
-      console.error("INVALID SCHEMA");
-      throw new Error("Schema not validated.");
-    }
-    singletonPong.setPlayerStatus(userId, PongLobbyStatus.Paused);
-    // find any games the user is on and send a getGameState from each
-    const ongoing_user_games = singletonPong.getGamesWithPlayerById(userId);
-    if (!ongoing_user_games) {
-      // console.log("No ongoing games for user ", userId);
-      return Result.Ok(null);
-    }
-    for (const game of ongoing_user_games) {
-      const payload = game.getGameState();
-      const recipients = game.player_ids;
+//     // Remove player from any lobby they're in
+//     const playerLobby = lobbyManager.getLobbyForPlayer(userId);
+//     if (playerLobby) {
+//       console.log(`[Pong] User ${userId} disconnected, removing from lobby ${playerLobby.lobbyId}`);
+//       lobbyManager.removePlayerFromLobby(playerLobby.lobbyId, userId);
+//     }
+//   } else
+//     return Result.Err(
+//       `Unhandled code(${
+//         wrapper.code
+//       }) for int_url.ws.hub.userDisconnected, wrapper: ${JSON.stringify(
+//         wrapper
+//       )}`
+//     );
+//   return Result.Ok(null);
+// });
+// socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
+//   if (
+//     wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
+//   ) {
+//     console.log("Wrapper is: ", JSON.stringify(wrapper));
+//     const userId = wrapper.payload.userId;
+//     if (!userId) {
+//       console.error("INVALID SCHEMA");
+//       throw new Error("Schema not validated.");
+//     }
+//     singletonPong.setPlayerStatus(userId, PongLobbyStatus.Paused);
+//     // find any games the user is on and send a getGameState from each
+//     const ongoing_user_games = singletonPong.getGamesWithPlayerById(userId);
+//     if (!ongoing_user_games) {
+//       // console.log("No ongoing games for user ", userId);
+//       return Result.Ok(null);
+//     }
+//     for (const game of ongoing_user_games) {
+//       const payload = game.getGameState();
+//       const recipients = game.player_ids;
 
-      const out = {
-        recipients: recipients,
-        funcId: user_url.ws.pong.getGameState.funcId,
-        code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-        payload: payload,
-      };
-      // console.log("Sending out: ", JSON.stringify(out));
-      socket.getSocket().send(JSON.stringify(out));
-    }
-  } else
-    return Result.Err(
-      `Unhandled code(${
-        wrapper.code
-      }) for int_url.ws.hub.userConnected, wrapper: ${JSON.stringify(wrapper)}`
-    );
+//       const out = {
+//         recipients: recipients,
+//         funcId: user_url.ws.pong.getGameState.funcId,
+//         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+//         payload: payload,
+//       };
+//       // console.log("Sending out: ", JSON.stringify(out));
+//       socket.getSocket().send(JSON.stringify(out));
+//     }
+//   } else
+//     return Result.Err(
+//       `Unhandled code(${
+//         wrapper.code
+//       }) for int_url.ws.hub.userConnected, wrapper: ${JSON.stringify(wrapper)}`
+//     );
 
-  return Result.Ok(null);
-});
-console.log(singletonPong.startGame(7, [4, 5, 5], 1));
+//   return Result.Ok(null);
+// });
+// console.log(singletonPong.startGame(7, [4, 5, 5], 1));
 
-registerRoute(fastify, int_url.http.pong.createGame, async (request, reply) => {
-  const { balls, player_list } = request.body;
-  let result = PongGame.create(balls, player_list);
+// registerRoute(fastify, int_url.http.pong.createGame, async (request, reply) => {
+//   const { balls, player_list } = request.body;
+//   let result = PongGame.create(balls, player_list);
 
-  if (result.isErr()) {
-    return reply.status(500).send({ message: result.unwrapErr() });
-  }
-  return reply.status(200).send(result.unwrap().getGameState());
-});
+//   if (result.isErr()) {
+//     return reply.status(500).send({ message: result.unwrapErr() });
+//   }
+//   return reply.status(200).send(result.unwrap().getGameState());
+// });
 
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",

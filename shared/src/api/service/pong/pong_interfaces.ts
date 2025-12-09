@@ -24,33 +24,37 @@ export const StartNewPongGameSchema = z
   .strict();
 
 export const PongBallSchema = z
-  .object({
-    id: z.coerce.number(),
-    x: z.coerce.number(),
-    y: z.coerce.number(),
-    dx: z.coerce.number().min(-1).max(1),
-    dy: z.coerce.number().min(-1).max(1),
-  })
-  .strict();
+  .tuple([
+    z.coerce.number(), // x
+    z.coerce.number(), // y
+    z.coerce.number(), // velocity x
+    z.coerce.number(), // velocity y
+    z.coerce.number(), // radius
+    z.coerce.number(), // inverse mass
+  ]);
 
 export const PongPaddleSchema = z
-  .object({
-    x: z.coerce.number(),
-    y: z.coerce.number(),
-    l: z.coerce.number().gt(0),
-    w: z.coerce.number().gt(0),
-    r: z.coerce.number(),
-    paddle_id: gameIdValue, // paddle id
-    owner_id: userIdValue, 
-  })
-  .strict();
+  .tuple([
+    z.coerce.number(), // center x
+    z.coerce.number(), // center y
+    z.coerce.number(), // angle
+    z.coerce.number(), // width
+    z.coerce.number(), // height
+    z.coerce.number(), // velocity x
+    z.coerce.number(), // velocity y
+    z.coerce.number(), // player id
+  ]);
 
-const PongEdgeSchema = z
-  .object({
-    x: z.coerce.number(),
-    y: z.coerce.number(),
-  })
-  .strict();
+const PongWallSchema = z
+  .tuple([
+    z.coerce.number(), // pointA x
+    z.coerce.number(), // pointA y
+    z.coerce.number(), // pointB x
+    z.coerce.number(), // pointB y
+    z.coerce.number(), // velocity x
+    z.coerce.number(), // velocity y
+    z.coerce.number().nullable(), // player id or null
+  ]);
 
 export const MovePaddlePayloadScheme = z
   .object({
@@ -65,7 +69,7 @@ export const GameStateSchema = z
     board_id: gameIdValue,
     balls: z.array(PongBallSchema),
     paddles: z.array(PongPaddleSchema),
-    edges: z.array(PongEdgeSchema),
+    walls: z.array(PongWallSchema),
   })
   .strict();
 
@@ -203,7 +207,7 @@ export type TypeMovePaddlePayloadScheme = z.infer<
 >;
 export type TypeStartNewPongGame = z.infer<typeof StartNewPongGameSchema>;
 export type TypeGameStateSchema = z.infer<typeof GameStateSchema>;
-export type TypePongEdgeSchema = z.infer<typeof PongEdgeSchema>;
+export type TypePongWallSchema = z.infer<typeof PongWallSchema>;
 export type TypePongPaddle = z.infer<typeof PongPaddleSchema>;
 export type TypePongBall = z.infer<typeof PongBallSchema>;
 export type TypeCreateLobby = z.infer<typeof CreateLobbySchema>;

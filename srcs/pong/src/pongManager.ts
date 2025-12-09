@@ -1,204 +1,99 @@
-import PongGame from "./pongGame.js";
-import { Result } from "@app/shared/api/service/common/result";
-import type { ErrorResponseType } from "@app/shared/api/service/common/error";
 import { user_url } from "@app/shared/api/service/common/endpoints";
-import type { WSHandlerReturnValue } from "@app/shared/socket_to_hub";
-import { PongLobbyStatus } from "./playerPaddle.js";
+import { Result } from "@app/shared/api/service/common/result";
+import { PongGame, PongGameOptions } from "./game/game";
+import { OurSocket } from "@app/shared/socket_to_hub";
+
+type gameDataType = {
+  disconnected_players: number[];
+  last_frame_time: number;
+  ready_players: number[];
+  game: PongGame;
+};
+
+const PONG_FRAME_INTERVAL_MS = 16; // Approx 60 FPS
 
 export class PongManager {
-  public pong_instances: Map<number, PongGame>;
+  public games: Map<number, gameDataType>;
   public static instance: PongManager;
-  public debugGameID: number;
-  constructor() {
-    this.debugGameID = 1;
-    this.pong_instances = new Map();
+
+  private hubSocket: OurSocket;
+
+  constructor(hubSocket: OurSocket) {
+    this.games = new Map();
+    this.hubSocket = hubSocket;
     if (PongManager.instance) {
       return PongManager.instance;
     }
     PongManager.instance = this;
+
+    setInterval(() => {
+      this.handleGameFrames();
+    }, PONG_FRAME_INTERVAL_MS);
     return this;
   }
 
-  setPlayerStatus(user_id: number, status: PongLobbyStatus) {
-    for (const [game_id, game] of this.pong_instances) {
-      for (const paddle of game.player_paddles) {
-        if (paddle.player_ID === user_id && game_id) {
-          paddle.connectionStatus = status;
-        }
+  private handleGameFrames() {
+    const now = Date.now();
+    for (const gameData of this.games.values()) {
+      const deltaTime = (now - gameData.last_frame_time) / 1000.0;
+      gameData.game.playSimulation(deltaTime);
+      gameData.last_frame_time = now;
+      for (const playerId of gameData.game.getUniquePlayerIds()) {
+        console.log(`Sending game state to player ${playerId}`);
+        this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
+          recipients: gameData.game.getPlayers(),
+          code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+          payload: gameData.game.fetchBoardJSON(),
+        });
       }
     }
   }
 
-  userReportsReady(
-    user_id: number,
-    gameIdReq: number
-  ): Result<
-    WSHandlerReturnValue<
-      typeof user_url.ws.pong.userReportsReady.schema.output
-    >,
-    ErrorResponseType
-  > {
-    const game: undefined | PongGame = this.pong_instances.get(gameIdReq);
-    if (game === undefined || !game.player_ids.find((id) => id === user_id)) {
-      console.warn(`User ${user_id} not in game`);
-      return Result.Ok({
-        recipients: [user_id],
-        code: user_url.ws.pong.userReportsReady.schema.output.FailedToReady
-          .code,
-        payload: {
-          message: `No game by ID ${gameIdReq}" exists, or you are not in it.`,
-        },
-      });
-    }
-    for (const paddle of game.player_paddles) {
-      // Case two paddles 1 player.
-      if (paddle.player_ID !== user_id) continue;
-      if (paddle.connectionStatus === PongLobbyStatus.Ready) {
-        paddle.connectionStatus = PongLobbyStatus.Paused;
-      } else {
-        if (paddle.connectionStatus === PongLobbyStatus.NotConnected) {
-          console.warn("    'JoinGame' first?");
-        }
-        paddle.connectionStatus = PongLobbyStatus.Ready;
-      }
-    }
-    // Send the player a snap of the game
-    return Result.Ok({
-      recipients: game.player_ids,
-      code: user_url.ws.pong.userReportsReady.schema.output.UserIsReady.code,
-      payload: {
-        game_id: gameIdReq,
-        user_id: user_id,
-      },
-    });
-  }
   startGame(
-    user_id: number,
-    player_list: number[],
-    ball_count: number
-  ): Result<
-    WSHandlerReturnValue<
-      typeof user_url.ws.pong.startGame.schema.output
-    > | null,
-    ErrorResponseType
-  > {
-    // const { user_id } = parsed;
-    let result = PongGame.create(ball_count, player_list);
-    if (result.isErr()) {
-      return Result.Ok({
-        recipients: [user_id],
-        code: user_url.ws.pong.startGame.schema.output.FailedCreateGame.code,
-        payload: {
-          message: "Could not start pong game: failed to create game instance.",
-        },
-      });
-    }
-    const pong_game = result.unwrap();
-    const game_id = this.debugGameID;
-    this.debugGameID++;
-    this.pong_instances.clear(); //debug debug debug
-    this.pong_instances.set(game_id, pong_game);
-    // Send the users the game id.
-    {
-      return Result.Ok({
-        recipients: player_list,
-        code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
-        payload: {
-          board_id: game_id,
-          player_list: player_list,
-        },
-      });
-    }
-  }
+    players: number[],
+    options: PongGameOptions
+  ): Result<number, null> {
+    let game = new PongGame(players, options);
+    this.games.set(game.id, {
+      disconnected_players: [],
+      ready_players: [],
+      game: game,
+      last_frame_time: Date.now(),
+    });
 
-  movePaddle(
-    game_id: number,
-    paddle_id: number,
-    user_id: number,
-    m: boolean | null // left or right movement. | stop movement.
-  ): Result<
-    WSHandlerReturnValue<
-      typeof user_url.ws.pong.movePaddle.schema.output
-    > | null,
-    ErrorResponseType
-  > {
-    const game = this.pong_instances.get(game_id);
-    if (!game || !game.player_ids.find((id) => id === user_id)) {
-      return Result.Ok({
-        recipients: [user_id],
-        funcId: user_url.ws.pong.movePaddle.funcId,
-        code: user_url.ws.pong.movePaddle.schema.output.NotInRoom.code,
-        payload: {
-          message: "You're not in game with ID " + game_id,
-        },
-      });
-    }
-    const paddle = game.player_paddles.find((p) => p.pad_id === paddle_id);
-    if (!paddle) {
-      return Result.Ok({
-        recipients: [user_id],
-        funcId: user_url.ws.pong.movePaddle.funcId,
-        code: user_url.ws.pong.movePaddle.schema.output.NoSuchPaddle.code,
-        payload: {
-          message: `No paddle with ID ${paddle_id} in game (ID ${game_id})`,
-        },
-      });
-    }
-    if (paddle.player_ID !== user_id) {
-      return Result.Ok({
-        recipients: [user_id],
-        funcId: user_url.ws.pong.movePaddle.funcId,
-        code: user_url.ws.pong.movePaddle.schema.output.NotYourPaddle.code,
-        payload: {
-          message: `Player with ID ${paddle.player_ID} is using paddle (ID ${paddle.pad_id}).`,
-        },
-      });
-    }
-    paddle.setMoveOnNextFrame(m);
-    return Result.Ok(null);
-  }
-
-  getGamesWithPlayerById(playerId: number): PongGame[] {
-    return [...this.pong_instances.values()].filter((g) =>
-      g.player_paddles.find((n) => n.player_ID === playerId)
-    );
-  }
-
-  getFirstGameIdForPlayer(playerId: number): number | null {
-    for (const [game_id, game] of this.pong_instances) {
-      if (game.player_ids.find((id) => id === playerId)) {
-        return game_id;
+    for (const playerId of players) {
+      for (const paddle of game.getPlayerPaddles(playerId)) {
+        paddle.addLeftKey("arrowleft");
+        paddle.addLeftKey("a");
+        paddle.addRightKey("arrowright");
+        paddle.addRightKey("d");
       }
     }
-    return null;
+
+    return Result.Ok(game.id);
+  }
+
+  handleUserInput(
+    userId: number,
+    keys: string[]
+  ) {
+    for (const gameData of this.games.values()) {
+      const game = gameData.game;
+      const parsedKeys = Array.from(new Set(keys.map((key) => key.toLowerCase())));
+      if (game.getPlayers().includes(userId)) {
+        game.handlePressedKeys(parsedKeys);
+      }
+    }
   }
 
   getGameState(
-    user_id: number,
-    game_id: number
-  ): Result<
-    WSHandlerReturnValue<
-      typeof user_url.ws.pong.getGameState.schema.output
-    >,
-    ErrorResponseType
-  > {
-    const game = this.pong_instances.get(game_id);
-    if (game === undefined || !game.player_ids.find((id) => id === user_id)) {
-      return Result.Ok({
-        recipients: [user_id],
-        code: user_url.ws.pong.getGameState.schema.output.NotInRoom.code,
-        payload: {
-          message: `Game with ID ${game_id} does not exist or you are not in it.`,
-        },
-      });
-    }
-    // Return the current game state to the requesting user
-    const gameState = game.getGameState();
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-      payload: gameState,
-    });
+    userId: number,
+    gameId: number
+  ): Result<any, string> {
+    const gameData = this.games.get(gameId);
+    if (gameData === undefined || !gameData.game.getPlayers().includes(userId))
+        return Result.Err("Game not found");
+    return Result.Ok(gameData.game.fetchBoardJSON());
   }
 }
 

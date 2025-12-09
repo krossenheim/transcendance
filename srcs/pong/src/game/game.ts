@@ -1,7 +1,7 @@
 // Engine imports
 import { BaseObject, CircleObject } from "../engine/baseObjects.js";
 import { CollisionResponse } from "../engine/collision.js";
-import { Vec2, EPS } from "../engine/math.js";
+import { Vec2, EPS, FAT_EPS } from "../engine/math.js";
 import { Scene } from "../engine/scene.js";
 
 // Game imports
@@ -19,6 +19,7 @@ export type PongGameOptions = {
     paddleWallOffset?: number;
     amountOfBalls?: number;
     powerupFrequency: number;
+    gameDuration: number;
 }
 
 export enum PowerupType {
@@ -135,7 +136,7 @@ export class Powerup extends CircleObject {
 
 export class PongGame {
     private static instanceCount: number = 0;
-    public readonly id: number = PongGame.instanceCount++;
+    public readonly id: number = ++PongGame.instanceCount;
 
     private walls: (Wall | PlayerWall)[] = [];
     private balls: PongBall[] = [];
@@ -272,7 +273,9 @@ export class PongGame {
     }
 
     public playSimulation(deltaTime: number): void {
-        let timeRemaining = deltaTime;
+        let timeRemaining = Math.min(this.gameOptions.gameDuration - this.scene.getElapsedTime(), deltaTime);
+        if (timeRemaining <= 0) return;
+
         this.cleanUpExpiredPowerups();
 
         if (this.scene.getElapsedTime() >= this.nextPowerupSpawnTime) {
@@ -382,6 +385,14 @@ export class PongGame {
         }
     }
 
+    public handlePressedKeys(keys: string[]): void {
+        for (const paddle of this.paddles) {
+            for (const keyData of paddle.keyData) {
+                keyData.isPressed = keys.includes(keyData.key);
+            }
+        }
+    }
+
     public fetchPlayerScoreMap(): Map<number, number> {
         const allPlayers: Set<number> = new Set();
         for (const paddle of this.paddles)
@@ -428,6 +439,7 @@ export class PongGame {
                 gameOptions: this.gameOptions,
                 elapsedTime: this.scene.getElapsedTime(),
                 players: this.players,
+                id: this.id,
             },
             walls: this.walls.map(wall => wall.toJSON()),
             balls: this.balls.map(ball => ball.toJSON()),
@@ -439,5 +451,17 @@ export class PongGame {
 
     public getPlayers(): number[] {
         return Array.from(this.players);
+    }
+
+    public getUniquePlayerIds(): Set<number> {
+        return new Set(this.players);
+    }
+
+    public getPlayerPaddles(playerId: number): PongPaddle[] {
+        return Array.from(this.paddles.filter(paddle => paddle.playerId === playerId));
+    }
+
+    public isGameOver(): boolean {
+        return this.scene.getElapsedTime() >= this.gameOptions.gameDuration - FAT_EPS;
     }
 }
