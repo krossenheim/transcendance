@@ -29,9 +29,9 @@ interface FriendshipContextType {
   // Room invites
   roomInvites: RoomInvite[]
   setRoomInvites: (invites: RoomInvite[]) => void
-  handleAcceptRoomInvite: (roomId: number) => void
+  handleAcceptRoomInvite: (roomId: number, roomName?: string) => void
   handleDeclineRoomInvite: (roomId: number) => void
-  setAcceptRoomInviteHandler: (handler: (roomId: number) => void) => void
+  setAcceptRoomInviteHandler: (handler: (roomId: number, roomName?: string) => void) => void
   setDeclineRoomInviteHandler: (handler: (roomId: number) => void) => void
   // DM invites
   dmInvites: DmInvite[]
@@ -51,7 +51,7 @@ export function FriendshipProvider({ children }: { children: ReactNode }) {
 
   // Room invites state
   const [roomInvites, setRoomInvites] = useState<RoomInvite[]>([])
-  const [acceptRoomInviteHandler, setAcceptRoomInviteHandler] = useState<(roomId: number) => void>(() => { })
+  const [acceptRoomInviteHandler, setAcceptRoomInviteHandler] = useState<(roomId: number, roomName?: string) => void>(() => { })
   const [declineRoomInviteHandler, setDeclineRoomInviteHandler] = useState<(roomId: number) => void>(() => { })
 
   // DM invites state
@@ -74,8 +74,14 @@ export function FriendshipProvider({ children }: { children: ReactNode }) {
   )
 
   const handleAcceptRoomInvite = useCallback(
-    (roomId: number) => {
-      acceptRoomInviteHandler(roomId)
+    (roomId: number, roomName?: string) => {
+      // Forward roomId and optional roomName to the registered handler
+      try {
+        acceptRoomInviteHandler(roomId, roomName)
+      } catch {
+        // Handler may ignore second param; best-effort forwarding
+        try { acceptRoomInviteHandler(roomId) } catch { }
+      }
     },
     [acceptRoomInviteHandler],
   )

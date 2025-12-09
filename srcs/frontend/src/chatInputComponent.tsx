@@ -584,6 +584,13 @@ export default function ChatInputComponent({
         if (payloadReceived.code === 0 && payloadReceived.payload) {
           const userId = payloadReceived.payload.userId
           if (userId && typeof userId === 'number') {
+                // Ensure the displayed room name is set when we receive full room data
+                try {
+                  if (Number(roomIdStr) === currentRoomId) {
+                    setCurrentRoomName(computeRoomDisplayName(roomData.room))
+                    setCurrentRoomType(roomData.room.roomType ?? null)
+                  }
+                } catch (e) { /* ignore */ }
             console.log(`User ${userId} connected, fetching username...`)
             fetchUsername(userId)
             // Mark online in current room list if present
@@ -900,6 +907,21 @@ export default function ChatInputComponent({
     sendToSocket(user_url.ws.chat.listRooms.funcId, {})
   }, [])
 
+  // Ensure the displayed room name updates when the rooms list changes
+  useEffect(() => {
+    if (currentRoomId != null) {
+      try {
+        const room = rooms.find(r => r.roomId === currentRoomId)
+        console.log(`[rooms effect] currentRoomId=${currentRoomId} rooms.length=${rooms.length} found=`, !!room)
+        if (room) {
+          console.log(`[rooms effect] setting currentRoomName from rooms: ${room.roomName}`)
+          setCurrentRoomName(computeRoomDisplayName(room))
+          setCurrentRoomType(room.roomType ?? null)
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }, [rooms, currentRoomId, computeRoomDisplayName])
+
   const handleInvitePong = useCallback((roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => {
     if (!currentRoomId) return
     console.log("Inviting to pong in room:", currentRoomId)
@@ -938,13 +960,31 @@ export default function ChatInputComponent({
 
   // Handler for accepting a room invite (join the room)
   const handleAcceptRoomInvite = useCallback(
-    (roomId: number) => {
-      console.log("Accepting room invite, joining room:", roomId)
+    (roomId: number, roomName?: string) => {
+      console.log("Accepting room invite, joining room:", roomId, roomName)
       sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
       // Remove from pending invites
       setPendingRoomInvites(prev => prev.filter(inv => inv.roomId !== roomId))
       // Select the room and open it
       setCurrentRoomId(roomId)
+      // If the invite provided a roomName, set a provisional display name immediately
+      try {
+        if (roomName) {
+          console.log(`[handleAcceptRoomInvite] setting provisional name from invite: ${roomName}`)
+          setCurrentRoomName(roomName)
+          setCurrentRoomType(null)
+        }
+      } catch (e) { /* ignore */ }
+      // Try to set a display name immediately if we already know the room
+      try {
+        const room = rooms.find(r => r.roomId === roomId)
+        console.log(`[handleAcceptRoomInvite] lookup roomId=${roomId} found=`, !!room)
+        if (room) {
+          console.log(`[handleAcceptRoomInvite] setting name from rooms list: ${room.roomName}`)
+          setCurrentRoomName(computeRoomDisplayName(room))
+          setCurrentRoomType(room.roomType ?? null)
+        }
+      } catch (e) { /* ignore */ }
       // Refresh rooms list and get room data
       setTimeout(() => {
         sendToSocket(user_url.ws.chat.listRooms.funcId, {})

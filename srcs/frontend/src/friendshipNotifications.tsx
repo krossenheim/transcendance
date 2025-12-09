@@ -216,7 +216,7 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
-                              handleAcceptRoomInvite(invite.roomId)
+                              handleAcceptRoomInvite(invite.roomId, invite.roomName)
                               setIsDropdownOpen(false)
                             }}
                             disabled={processingId === `chat_${invite.roomId}` || isLoading}
