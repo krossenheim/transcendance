@@ -35,6 +35,10 @@ export class PongManager {
   private handleGameFrames() {
     const now = Date.now();
     for (const gameData of this.games.values()) {
+      if (gameData.game.isGameOver()) {
+        continue;
+      }
+
       const deltaTime = (now - gameData.last_frame_time) / 1000.0;
       gameData.game.playSimulation(deltaTime);
       gameData.last_frame_time = now;
