@@ -2,7 +2,7 @@
 PROJECT_ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OUTPUT_FILES_DIR := $(PROJECT_ROOT)out
 SOURCES_DIR := $(PROJECT_ROOT)srcs
-VOLUMES_DIR := $(OUTPUT_FILES_DIR)/transcendance_volumes/
+VOLUMES_DIR := $(OUTPUT_FILES_DIR)/volumes/
 
 # Docker compose & env
 PATH_TO_COMPOSE_ENV_FILE := globals.env
@@ -18,7 +18,7 @@ REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
-all: ensure_env check-deps down build ensure_network
+all: ensure_env ensure_volumes check-deps down build ensure_network
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --remove-orphans
 
 ensure_env:
@@ -31,6 +31,9 @@ ensure_env:
 		echo "Error: Secrets file '$(PATH_TO_COMPOSE_SECRETS_FILE)' not found."; \
 		exit 1; \
 	fi
+
+ensure_volumes:
+	mkdir -p "$(VOLUMES_DIR)"/database
 
 dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
@@ -106,13 +109,7 @@ build_react:
 	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
 check-deps:
-	@echo "Checking system dependencies (node, npm, docker, docker compose)..."
-	@if ! command -v node >/dev/null 2>&1; then \
-		echo "Missing nodejs. Install with: sudo apt install nodejs" >&2; exit 1; \
-	fi
-	@if ! command -v npm >/dev/null 2>&1; then \
-		echo "Missing npm. Install with: sudo apt install npm" >&2; exit 1; \
-	fi
+	@echo "Checking system dependencies (docker, docker compose)..."
 	@if ! command -v docker >/dev/null 2>&1; then \
 		echo "Missing docker. Follow installation: sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" >&2; exit 1; \
 	fi
