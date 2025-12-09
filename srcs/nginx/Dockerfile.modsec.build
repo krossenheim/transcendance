@@ -5,7 +5,8 @@ FROM node:24.8-slim AS react_builder
 WORKDIR /app/shared
 
 COPY shared/package.json shared/tsconfig.json ./
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 COPY shared ./
 RUN npm run build
@@ -13,7 +14,8 @@ RUN npm run build
 WORKDIR /app/srcs/frontend
 
 COPY srcs/frontend/package.json srcs/frontend/tsconfig.json ./
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 COPY srcs/frontend/src ./src
 COPY srcs/frontend/postcss.config.js ./

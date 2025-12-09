@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y curl \
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 # Copy contract sources and scripts
 COPY contracts/ ./contracts/

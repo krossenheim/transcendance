@@ -7,7 +7,8 @@ ENV SERVICE_NAME=${SERVICE_NAME}
 WORKDIR /app/shared
 
 COPY shared/package.json shared/tsconfig.json ./
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 COPY shared ./
 RUN npm run build
@@ -15,7 +16,8 @@ RUN npm run build
 WORKDIR /app/srcs/${SERVICE_NAME}
 
 COPY srcs/${SERVICE_NAME}/package.json srcs/${SERVICE_NAME}/tsconfig.json ./
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 COPY srcs/${SERVICE_NAME}/src ./src
 RUN npm run build
@@ -42,13 +44,15 @@ RUN mkdir -p /app/shared /app/srcs/${SERVICE_NAME} && \
 WORKDIR /app/shared
 
 COPY --chown=nodejs:nodejs --from=builder /app/shared/package.json ./
-RUN npm install --only=production --install-links
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --only=production --install-links
 
 COPY --chown=nodejs:nodejs --from=builder /app/shared/dist ./dist
 
 WORKDIR /app/srcs/${SERVICE_NAME}
 COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/package.json ./
-RUN npm install --only=production --install-links
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --only=production --install-links
 
 COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/dist/srcs/${SERVICE_NAME}/src ./dist
 COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/entrypoint.sh ./entrypoint.sh
