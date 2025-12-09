@@ -42,14 +42,11 @@ export class PongManager {
       const deltaTime = (now - gameData.last_frame_time) / 1000.0;
       gameData.game.playSimulation(deltaTime);
       gameData.last_frame_time = now;
-      for (const playerId of gameData.game.getUniquePlayerIds()) {
-        console.log(`Sending game state to player ${playerId}`);
-        this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-          recipients: gameData.game.getPlayers(),
-          code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-          payload: gameData.game.fetchBoardJSON(),
-        });
-      }
+      this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
+        recipients: Array.from(gameData.game.getUniquePlayerIds()),
+        code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+        payload: gameData.game.fetchBoardJSON(),
+      });
     }
   }
 
