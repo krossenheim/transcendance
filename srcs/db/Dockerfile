@@ -26,7 +26,7 @@ FROM node:24.8-slim AS runner
 
 RUN groupadd -g 1001 nodejs && \
     useradd -u 1001 -g nodejs -m -s /usr/sbin/nologin nodejs && \
-    apt-get update && apt-get install -y sqlite3 gosu curl && \
+    apt-get update && apt-get install -y sqlite3 gosu curl python3 && \
     rm -rf /var/lib/apt/lists/*
 
 ARG SERVICE_NAME

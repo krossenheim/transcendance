@@ -48,7 +48,7 @@ async function unblockUser(
 export function wsUnblockUserHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.unblockUser,
-    async (body, schema) => {
+    async (body, response) => {
       const usersMapResult = await getUsersById([
         body.user_id,
         body.payload
@@ -59,28 +59,22 @@ export function wsUnblockUserHandlers(socket: OurSocket) {
       const me = usersMapResult.unwrap()[body.user_id];
       const other = usersMapResult.unwrap()[body.payload];
       if (me === undefined || other === undefined) {
-        return Result.Ok({
-          recipients: [body.user_id],
-          code: schema.output.UserDoesNotExist.code,
-          payload: { message: "User not found" },
-        });
+        return Result.Ok(response.select("UserDoesNotExist").reply({
+          message: "User not found",
+        }));
       }
 
       const res = await unblockUser(me, other);
       switch (res.result) {
         case UnblockUserResult.SameUser:
         case UnblockUserResult.NotBlocked:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Invalid friendship status request" },
-          });
+          return Result.Ok(response.select("InvalidStatusRequest").reply({
+            message: "Invalid friendship status request",
+          }));
         case UnblockUserResult.FailedToUpdate:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Failed to update friendship status" },
-          });
+          return Result.Ok(response.select("InvalidStatusRequest").reply({
+            message: "Failed to update friendship status",
+          }));
         case UnblockUserResult.Success:
           socket.invokeHandler(
             user_url.ws.users.fetchUserConnections,
@@ -89,11 +83,7 @@ export function wsUnblockUserHandlers(socket: OurSocket) {
           );
       }
 
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.ConnectionUpdated.code,
-        payload: null,
-      });
+      return Result.Ok(response.select("ConnectionUpdated").reply(null));
     }
   );
 }

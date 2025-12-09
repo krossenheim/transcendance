@@ -280,6 +280,7 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
 
   // Update game state
   useEffect(() => {
+    console.log("[BabylonPongRenderer] Updating game state:", gameState)
     if (!gameState || !sceneRef.current) return
 
     const scene = sceneRef.current

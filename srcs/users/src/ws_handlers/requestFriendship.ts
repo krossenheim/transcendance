@@ -62,7 +62,7 @@ export async function requestUserFriendship(
 export function wsRequestFriendshipHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.requestFriendship,
-    async (body, schema) => {
+    async (body, response) => {
       const usersMapResult = await getUsersById([
         body.user_id,
         body.payload,
@@ -72,11 +72,9 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
       const me = usersMapResult.unwrap()[body.user_id];
       const friend = usersMapResult.unwrap()[body.payload];
       if (me === undefined || friend === undefined)
-        return Result.Ok({
-          recipients: [body.user_id],
-          code: schema.output.UserDoesNotExist.code,
-          payload: { message: "User not found" },
-        });
+        return Result.Ok(response.select("UserDoesNotExist").reply({
+          message: "User not found",
+        }));
 
       const friendshipResult = await requestUserFriendship(me, friend);
       console.log("Friendship request result:", friendshipResult);
@@ -85,17 +83,13 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
         case FriendshipCreationResult.AlreadyFriends:
         case FriendshipCreationResult.PendingRequestExists:
         case FriendshipCreationResult.UserBlocked:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Invalid friendship status request" },
-          });
+          return Result.Ok(response.select("InvalidStatusRequest").reply({
+            message: "Invalid friendship status request",
+          }));
         case FriendshipCreationResult.FailedToUpdate:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Failed to update friendship status" },
-          });
+          return Result.Ok(response.select("InvalidStatusRequest").reply({
+            message: "Failed to update friendship status",
+          }));
       }
 
       socket.invokeHandler(
@@ -104,11 +98,7 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
         null
       );
 
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.ConnectionUpdated.code,
-        payload: null,
-      });
+      return Result.Ok(response.select("ConnectionUpdated").reply(null));
     }
   );
 }

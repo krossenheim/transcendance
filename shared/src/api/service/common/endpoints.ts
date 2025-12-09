@@ -34,7 +34,7 @@ import { GenericAuthClientRequest } from "@app/shared/api/service/common/clientR
 import {
   GameStateSchema,
   GetGameInfoSchema,
-  MovePaddlePayloadScheme,
+  HandleGameKeysSchema,
   PlayerDeclaresReadyForGame,
   PlayerReadyForGameSchema,
   StartNewPongGameSchema,
@@ -317,42 +317,42 @@ export const user_url = defineRoutes({
           },
         },
       },
-        fetchPersonalData: {
-          endpoint: "/api/auth/gdpr/me",
-          method: "POST",
-          schema: {
-            body: GenericAuthClientRequest,
-            response: {
-              200: FullUser,
-              401: ErrorResponse,
-              500: ErrorResponse,
-            },
+      fetchPersonalData: {
+        endpoint: "/api/auth/gdpr/me",
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: FullUser,
+            401: ErrorResponse,
+            500: ErrorResponse,
           },
         },
-        requestAnonymize: {
-          endpoint: "/api/auth/gdpr/anonymize",
-          method: "POST",
-          schema: {
-            body: GenericAuthClientRequest,
-            response: {
-              200: FullUser,
-              400: ErrorResponse,
-              500: ErrorResponse,
-            },
+      },
+      requestAnonymize: {
+        endpoint: "/api/auth/gdpr/anonymize",
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: FullUser,
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
-        requestAccountDeletion: {
-          endpoint: "/api/auth/gdpr/delete",
-          method: "POST",
-          schema: {
-            body: GenericAuthClientRequest,
-            response: {
-              200: z.null(),
-              400: ErrorResponse,
-              500: ErrorResponse,
-            },
+      },
+      requestAccountDeletion: {
+        endpoint: "/api/auth/gdpr/delete",
+        method: "POST",
+        schema: {
+          body: GenericAuthClientRequest,
+          response: {
+            200: z.null(),
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
+      },
     }
   },
 
@@ -621,8 +621,8 @@ export const user_url = defineRoutes({
           args: UpdateUserData,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
-            ProfileUpdated: { 
-              code: 0, 
+            ProfileUpdated: {
+              code: 0,
               payload: FullUser,
             },
             FailedToUpdate: {
@@ -658,12 +658,12 @@ export const user_url = defineRoutes({
           },
         },
       },
-      movePaddle: {
-        funcId: "move_paddle",
+      handleGameKeys: {
+        funcId: "handle_game_keys",
         container: "pong",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: MovePaddlePayloadScheme,
+          args: HandleGameKeysSchema,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             MessageSent: {

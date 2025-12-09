@@ -1,5 +1,5 @@
 // Minimal pong interfaces for frontend rendering
-export interface TypeMovePaddlePayloadScheme { board_id: number; paddle_id: number; m: boolean | null }
+export interface TypeHandleGameKeysSchema { board_id: number; pressed_keys: string[] }
 export interface TypeStartNewPongGame { player_list: number[]; balls: number }
 export interface TypePlayerDeclaresReadyForGame { game_id: number }
 export interface TypePlayerReadyForGameSchema { user_id: number; game_id: number }

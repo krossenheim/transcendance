@@ -52,7 +52,7 @@ async function removeFriendship(
 export function wsRemoveFriendshipHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.removeFriendship,
-    async (body, schema) => {
+    async (body, response) => {
       const usersMapResult = await getUsersById([
         body.user_id,
         body.payload
@@ -63,11 +63,9 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
       const me = usersMapResult.unwrap()[body.user_id];
       const friend = usersMapResult.unwrap()[body.payload];
       if (me === undefined || friend === undefined) {
-        return Result.Ok({
-          recipients: [body.user_id],
-          code: schema.output.UserDoesNotExist.code,
-          payload: { message: "User not found" },
-        });
+        return Result.Ok(response.select("UserDoesNotExist").reply({
+          message: "User not found",
+        }));
       }
 
       const removeResult = await removeFriendship(me, friend);
@@ -75,25 +73,26 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
       
       switch (removeResult.result) {
         case RemoveFriendshipResult.NotFriends:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.NotFriends.code,
-            payload: { message: "You are not friends with this user" },
-          });
+          return Result.Ok(response.select("NotFriends").reply({
+            message: "You are not friends with this user",
+          }));
         case RemoveFriendshipResult.SameUser:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.UserDoesNotExist.code,
-            payload: { message: "Cannot remove yourself" },
-          });
+          return Result.Ok(response.select("UserDoesNotExist").reply({
+            message: "Cannot remove yourself",
+          }));
         case RemoveFriendshipResult.FailedToUpdate:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.FailedToUpdate.code,
-            payload: { message: "Failed to update friendship status" },
-          });
+          return Result.Ok(response.select("FailedToUpdate").reply({
+            message: "Failed to update friendship status",
+          }));
+        case RemoveFriendshipResult.SameUser:
+          return Result.Ok(response.select("UserDoesNotExist").reply({
+            message: "Cannot remove yourself",
+          }));
+        case RemoveFriendshipResult.FailedToUpdate:
+          return Result.Ok(response.select("FailedToUpdate").reply({
+            message: "Failed to update friendship status",
+          }));
         case RemoveFriendshipResult.Success:
-          // Notify both users to refresh their connections
           socket.invokeHandler(
             user_url.ws.users.fetchUserConnections,
             removeResult.usersUpdated,
@@ -102,11 +101,7 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
           break;
       }
 
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.ConnectionUpdated.code,
-        payload: null,
-      });
+      return Result.Ok(response.select("ConnectionUpdated").reply(null));
     }
   );
 }

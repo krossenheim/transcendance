@@ -44,13 +44,11 @@ export async function fetchAllowedOnlineStatusViewers(userId: number): Promise<A
 export function wsUserOnlineStatusHandler(socket: OurSocket, onlineUsers: Set<number>) {
 	socket.registerHandler(
 		user_url.ws.users.userOnlineStatusUpdate,
-		async (body, schema) => {
-            const allowedViewers = await fetchAllowedOnlineStatusViewers(body.user_id);
-			return Result.Ok({
-                recipients: [body.user_id],
-                code: schema.output.GetOnlineUsers.code,
-                payload: Array.from(allowedViewers).filter((uid) => onlineUsers.has(uid)),
-            });
+		async (body, response) => {
+      const allowedViewers = await fetchAllowedOnlineStatusViewers(body.user_id);
+      return Result.Ok(response.select("GetOnlineUsers").reply(
+        Array.from(allowedViewers).filter((uid) => onlineUsers.has(uid))
+      ));
 		}
 	);
 }

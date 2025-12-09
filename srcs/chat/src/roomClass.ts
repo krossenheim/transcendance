@@ -1,7 +1,8 @@
+import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { ChatRoomType } from "@app/shared/api/service/chat/chat_interfaces";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
-import type { OurSocket, WSHandlerReturnValue } from "@app/shared/socket_to_hub";
-import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
+import type { WSHandlerReturnValue } from "@app/shared/websocketResponse";
+import type { OurSocket } from "@app/shared/socket_to_hub";
 import {
   ChatRoomUserAccessType,
   type TypeFullRoomInfoSchema,
@@ -41,7 +42,7 @@ class Room {
   public allowedUsers: Array<any>;
   public readonly max_messages: number;
 
-  constructor(room_data: TypeRoomSchema, user_connections? : Array<[number, number]>) {
+  constructor(room_data: TypeRoomSchema, user_connections?: Array<[number, number]>) {
     this.roomId = room_data.roomId;
     this.room_name = room_data.roomName;
     this.room_type = room_data.roomType;
@@ -169,7 +170,7 @@ class Room {
       user_to_add: userToAdd,
       type: ChatRoomUserAccessType.INVITED,
     });
-    
+
     if (storageResult.isErr() || storageResult.unwrap().status !== 200) {
       return Result.Ok({
         recipients: [user_id],
@@ -316,9 +317,11 @@ class ChatRooms {
     const newroom = new Room(room_data, [[user_id, ChatRoomUserAccessType.JOINED]]);
     this.rooms.set(newroom.roomId, newroom);
 
+    const userData = await containers.db.fetchUserData(user_id, true);
+    const userRepr = userData.isOk() ? userData.unwrap().username : user_id;
     containers.chat.post(int_url.http.chat.sendSystemMessage, {
       roomId: newroom.roomId,
-      messageString: `Room "${room_data.roomName}" created by user ${user_id}`,
+      messageString: `Room "${room_data.roomName}" created by ${userRepr}!`,
     }).catch((err) => {
       console.error('Failed to send system message for new room:', err);
     });
@@ -393,7 +396,7 @@ class ChatRooms {
       });
     }
     const room = roomResult.unwrap();
-    
+
     // Check if user is already in the room
     if (room.users.find((id) => id === user_id)) {
       return Result.Ok({

@@ -1,7 +1,7 @@
+import { InferWSHandlerBody, WSHandlerReturnValue, createResponseBuilder, ResponseBuilder } from "@app/shared/websocketResponse";
 import { zodParse } from "@app/shared/api/service/common/zodUtils";
 import { rawDataToString } from "@app/shared/raw_data_to_string";
 import { Result } from "@app/shared/api/service/common/result";
-
 import {
   type T_PayloadToUsers,
   PayloadToUsersSchema,
@@ -15,21 +15,10 @@ import {
 import WebSocket from "ws";
 import { z, ZodType } from "zod";
 
-export type WSHandlerReturnValue<
-  T extends Record<string, { code: number; payload: z.ZodTypeAny }>
-> = {
-  [R in keyof T]: {
-    recipients: number[];
-    code: T[R]["code"];
-    payload: z.infer<T[R]["payload"]>;
-  };
-}[keyof T];
 
 type InferWSHandler<T extends WebSocketRouteDef> = (
-  body: Omit<z.infer<T["schema"]["args_wrapper"]>, "payload"> & {
-    payload: z.infer<T["schema"]["args"]>;
-  },
-  schema: T["schema"]
+  body: InferWSHandlerBody<T>,
+  response: ResponseBuilder<T>
 ) => Promise<
   Result<WSHandlerReturnValue<T["schema"]["output"]> | null, ErrorResponseType>
 >;
@@ -286,7 +275,7 @@ export class OurSocket {
     const handlerResult = await this._executeHandler(
       handler,
       inputSchemaResult.unwrap(),
-      handler.metadata.schema
+      createResponseBuilder(handler.metadata, inputSchemaResult.unwrap())
     );
     if (handlerResult.isErr()) {
       console.error("Handler execution failed:", handlerResult.unwrapErr());

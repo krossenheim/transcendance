@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react"
 import type {
-  TypeMovePaddlePayloadScheme,
+  TypeHandleGameKeysSchema,
   TypeStartNewPongGame,
   TypeGameStateSchema,
   TypePlayerReadyForGameSchema,
@@ -489,30 +489,26 @@ export default function PongComponent({
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
       if (gameState === null) return
-      if (e.key !== "w" && e.key !== "s") return
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
       if (gameState.board_id === null) return
-      const payload: TypeMovePaddlePayloadScheme = {
+      const payload: TypeHandleGameKeysSchema = {
         board_id: gameState.board_id,
-        paddle_id: playerOnePaddleID,
-        m: e.key === "w",
+        pressed_keys: Array.from(keysPressed),
       }
-      handleUserInput(user_url.ws.pong.movePaddle, payload)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
       if (gameState === null || playerOnePaddleID === -1) return
-      if (e.key !== "w" && e.key !== "s") return
       keysPressed.delete(e.key)
 
       const payload = {
         board_id: gameState.board_id,
-        paddle_id: playerOnePaddleID,
-        m: null,
+        pressed_keys: Array.from(keysPressed),
       }
-      handleUserInput(user_url.ws.pong.movePaddle, payload)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     window.addEventListener("keydown", handleKeyDown)
@@ -531,30 +527,27 @@ export default function PongComponent({
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
       if (gameState === null || playerTwoPaddleID === -1) return
-      if (e.key !== "o" && e.key !== "l") return
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
       if (gameState.board_id === null) return
-      const payload: TypeMovePaddlePayloadScheme = {
+      const payload: TypeHandleGameKeysSchema = {
         board_id: gameState.board_id,
-        paddle_id: playerTwoPaddleID,
-        m: e.key === "o",
+        pressed_keys: Array.from(keysPressed),
       }
-      handleUserInput(user_url.ws.pong.movePaddle, payload)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
       if (gameState === null) return
-      if (e.key !== "o" && e.key !== "l") return
       keysPressed.delete(e.key)
 
       const payload = {
         board_id: gameState.board_id,
         paddle_id: playerTwoPaddleID,
-        m: null,
+        pressed_keys: Array.from(keysPressed),
       }
-      handleUserInput(user_url.ws.pong.movePaddle, payload)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     window.addEventListener("keydown", handleKeyDown)

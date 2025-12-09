@@ -43,76 +43,59 @@ function createBasicGameOptions(): PongGameOptions {
   };
 }
 
-//handle input to a function funcId
-// socket.registerHandler(user_url.ws.pong.movePaddle, async (wrapper) => {
-//   const game_id = wrapper.payload.board_id;
-//   const paddle_id = wrapper.payload.paddle_id;
-//   const user_id = wrapper.user_id;
-//   const to_right = wrapper.payload.m;
-//   return singletonPong.movePaddle(game_id, paddle_id, user_id, to_right);
-// });
-socket.registerHandler(user_url.ws.pong.startGame, async (wrapper) => {
-  const player_list_requested = wrapper.payload.player_list;
+socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) => {
+  singletonPong.handleUserInput(
+    body.user_id,
+    body.payload.pressed_keys,
+  );
+  return Result.Ok(response.select("MessageSent").reply({}));
+});
+
+socket.registerHandler(user_url.ws.pong.startGame, async (body, response) => {
+  const player_list_requested = body.payload.player_list;
   const startGameResult = singletonPong.startGame(
     player_list_requested,
     createBasicGameOptions()
   );
 
   if (startGameResult.isErr()) {
-    return Result.Ok({
-      recipients: [wrapper.user_id],
-      code: user_url.ws.pong.startGame.schema.output.FailedCreateGame.code,
-      payload: {
-        message: "Failed to create game instance.",
-      },
-    });
+    return Result.Ok(response.select("FailedCreateGame").reply({
+      message: "Failed to create game instance.",
+    }));
   }
 
   const gameId = startGameResult.unwrap();
-  return Result.Ok({
-    recipients: player_list_requested,
-    code: user_url.ws.pong.startGame.schema.output.GameInstanceCreated.code,
-    payload: {
+  return Result.Ok(response.select("GameInstanceCreated").replyTo(
+    player_list_requested,
+    {
       board_id: gameId,
       player_list: player_list_requested,
-    },
-  });
+    }
+  ));
 });
-// socket.registerHandler(user_url.ws.pong.userReportsReady, async (wrapper) => {
-//   const user_id = wrapper.user_id;
-//   const game_id = wrapper.payload.game_id;
-//   return singletonPong.userReportsReady(user_id, game_id);
-//   // return singletonPong.userReportsReady(user_id, game_id);
-// });
-socket.registerHandler(user_url.ws.pong.getGameState, async (wrapper) => {
-  const userId = wrapper.user_id;
-  const gameId = wrapper.payload.gameId;
+
+socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => {
+  const userId = body.user_id;
+  const gameId = body.payload.gameId;
   const gameDataResult = singletonPong.getGameState(userId, gameId);
   if (gameDataResult.isErr()) {
-    return Result.Ok({
-      recipients: [userId],
-      code: user_url.ws.pong.getGameState.schema.output.NotInRoom.code,
-      payload: {
-        message: gameDataResult.unwrapErr(),
-      },
+    response.select("NotInRoom").reply({
+      message: gameDataResult.unwrapErr(),
     });
   }
+
   const gameData = gameDataResult.unwrap();
-  return Result.Ok({
-    recipients: [userId],
-    code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-    payload: gameData,
-  });
+  return Result.Ok(response.select("GameUpdate").reply(gameData));
 });
 
 // Lobby and Tournament handlers
-socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = wrapper.payload;
-  
+socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
+  const user_id = body.user_id;
+  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = body.payload;
+
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
   console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}`);
-  
+
   // Create the lobby
   const lobbyResult = lobbyManager.createLobby(
     gameMode,
@@ -122,17 +105,15 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
     maxScore,
     allowPowerups || false
   );
-  
+
   if (lobbyResult.isErr()) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.createLobby.schema.output.Failed.code,
-      payload: { message: lobbyResult.unwrapErr().message },
-    });
+    return Result.Ok(response.select("Failed").reply({
+      message: lobbyResult.unwrapErr().message,
+    }));
   }
-  
+
   const lobby = lobbyResult.unwrap();
-  
+
   console.log(`[Pong] Created lobby, returning to ALL players including invitees: ${JSON.stringify(playerIds)}`);
   // If this lobby is a tournament, create a Tournament on the server-side
   // and attach it to the lobby so invitees receive tournament context.
@@ -160,7 +141,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
       console.error("Error while creating tournament for lobby:", e);
     }
   }
-  
+
   // Return lobby state to ALL players (host + invited)
   // This will be sent by the hub to all recipients
   // Build payload, include tournament data when present
@@ -175,37 +156,30 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (wrapper) => {
   };
   if (tournamentPayload) responsePayload.tournament = tournamentPayload;
 
-  return Result.Ok({
-    recipients: playerIds, // Send to ALL players, not just host
-    code: user_url.ws.pong.createLobby.schema.output.LobbyCreated.code,
-    payload: responsePayload,
-  });
+  return Result.Ok(response.select("LobbyCreated").replyTo(playerIds, responsePayload));
 });
 
-socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const { lobbyId } = wrapper.payload;
-  
+socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response) => {
+  const user_id = body.user_id;
+  const { lobbyId } = body.payload;
+
   const toggleResult = lobbyManager.togglePlayerReady(lobbyId, user_id);
-  
+
   if (toggleResult.isErr()) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.togglePlayerReady.schema.output.NotInLobby.code,
-      payload: { message: toggleResult.unwrapErr().message },
+    response.select("NotInLobby").reply({
+      message: toggleResult.unwrapErr().message,
     });
   }
-  
+
   const lobby = toggleResult.unwrap();
-  
+
   // Return lobby state to all players
   const playerIds = lobby.players.map((p) => p.userId);
   console.log(`[Pong] Toggled ready, returning lobby state to all players: ${JSON.stringify(playerIds)}`);
-  
-  return Result.Ok({
-    recipients: playerIds,  // Send to all players in lobby
-    code: user_url.ws.pong.togglePlayerReady.schema.output.LobbyUpdate.code,
-    payload: {
+
+  return Result.Ok(response.select("LobbyUpdate").replyTo(
+    playerIds,
+    {
       lobbyId: lobby.lobbyId,
       gameMode: lobby.gameMode,
       players: lobby.players,
@@ -213,56 +187,54 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (wrapper) => {
       maxScore: lobby.maxScore,
       allowPowerups: lobby.allowPowerups,
       status: lobby.status,
-    },
-  });
+    }
+  ));
 });
 
-socket.registerHandler(user_url.ws.pong.leaveLobby, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const { lobbyId } = wrapper.payload;
-  
+socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
+  const user_id = body.user_id;
+  const { lobbyId } = body.payload;
+
   const lobby = lobbyManager.getLobby(lobbyId);
   if (!lobby) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.leaveLobby.schema.output.NotInLobby.code,
-      payload: { message: "Lobby not found" },
-    });
+    return Result.Ok(response.select("NotInLobby").reply({
+      message: "Lobby not found",
+    }));
   }
-  
+
   const removeResult = lobbyManager.removePlayerFromLobby(lobbyId, user_id);
-  
+
   if (removeResult.isErr()) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.leaveLobby.schema.output.NotInLobby.code,
-      payload: { message: removeResult.unwrapErr().message },
-    });
+    return Result.Ok(response.select("NotInLobby").reply({
+      message: removeResult.unwrapErr().message,
+    }));
   }
-  
+
   const updatedLobby = removeResult.unwrap();
-  
+
   // If lobby was deleted (empty), just notify the leaving player
   if (updatedLobby === null) {
     console.log(`[Pong] Lobby ${lobbyId} deleted (empty)`);
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.leaveLobby.schema.output.LeftLobby.code,
-      payload: { message: "Left lobby" },
-    });
+    return Result.Ok(response.select("LeftLobby").reply({
+      message: "Left lobby",
+    }));
   }
-  
+
   // Notify leaving player they left
-  const leftResponse = Result.Ok({
-    recipients: [user_id],
-    code: user_url.ws.pong.leaveLobby.schema.output.LeftLobby.code,
-    payload: { message: "Left lobby" },
-  });
-  
+  // const leftResponse = Result.Ok({
+  //   recipients: [user_id],
+  //   code: user_url.ws.pong.leaveLobby.schema.output.LeftLobby.code,
+  //   payload: { message: "Left lobby" },
+  // });
+
+  return Result.Ok(response.select("LeftLobby").reply({
+    message: "Left lobby",
+  }));
+
   // Notify remaining players of updated lobby state
-  const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
-  console.log(`[Pong] Player ${user_id} left lobby ${lobbyId}, notifying remaining players: ${JSON.stringify(remainingPlayerIds)}`);
-  
+  // const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
+  // console.log(`[Pong] Player ${user_id} left lobby ${lobbyId}, notifying remaining players: ${JSON.stringify(remainingPlayerIds)}`);
+
   // Send update to remaining players
   // const updateResponse = Result.Ok({
   //   recipients: remainingPlayerIds,
@@ -277,76 +249,66 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (wrapper) => {
   //     status: updatedLobby.status,
   //   },
   // });
-  
+
   // TODO: Send both responses - for now, just return the left response
   // The hub needs to support multiple responses or we need to call send manually
-  return leftResponse;
+  // return leftResponse;
 });
 
-socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
-  const user_id = wrapper.user_id;
-  const { lobbyId } = wrapper.payload;
-  
+socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) => {
+  const user_id = body.user_id;
+  const { lobbyId } = body.payload;
+
   const lobby = lobbyManager.getLobby(lobbyId);
   if (!lobby) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Lobby not found" },
-    });
+    return Result.Ok(response.select("NotAllReady").reply({
+      message: "Lobby not found",
+    }));
   }
-  
+
   // Check if user is host
   const hostPlayer = lobby.players.find((p) => p.isHost);
   if (!hostPlayer || hostPlayer.userId !== user_id) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotHost.code,
-      payload: { message: "Only the host can start the game" },
-    });
+    return Result.Ok(response.select("NotHost").reply({
+      message: "Only the host can start the game",
+    }));
   }
-  
+
   // Check if all players are ready
   if (!lobbyManager.canStartGame(lobbyId)) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Not all players are ready" },
-    });
+    return Result.Ok(response.select("NotAllReady").reply({
+      message: "Not all players are ready",
+    }));
   }
-  
+
   // Create the actual pong game
   const playerIds = lobby.players.map((p) => p.userId);
   const gameResult = singletonPong.startGame(playerIds, createBasicGameOptions());
 
   if (gameResult.isErr()) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Failed to start game" },
-    });
+    return Result.Ok(response.select("NotAllReady").reply({
+      message: "Failed to start game",
+    }));
   }
-  
+
   // Get the game_id from the startGame response
   const gameId = gameResult.unwrap();
 
   // Mark lobby as in progress
   lobbyManager.startGame(lobbyId, user_id, gameId);
-  
+
   // Get game state directly
   const gameState = singletonPong.getGameState(user_id, gameId);
   if (gameState.isErr()) {
-    return Result.Ok({
-      recipients: [user_id],
-      code: user_url.ws.pong.startFromLobby.schema.output.NotAllReady.code,
-      payload: { message: "Failed to retrieve game state" },
-    });
+    return Result.Ok(response.select("NotAllReady").reply({
+      message: "Failed to retrieve game state",
+    }));
   }
-  
+
   // Clean up lobby now that game has started
   console.log(`[Pong] Game ${gameId} started from lobby ${lobbyId}, removing lobby`);
   lobbyManager.removeLobby(lobbyId);
-  
+
   return Result.Ok({
     recipients: playerIds,
     code: user_url.ws.pong.startFromLobby.schema.output.GameStarted.code,

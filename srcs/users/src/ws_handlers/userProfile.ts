@@ -12,29 +12,25 @@ import type { ErrorResponseType } from "@app/shared/api/service/common/error";
 export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number>) {
 	socket.registerHandler(
 		user_url.ws.users.requestUserProfileData,
-		async (body, schema) => {
+		async (body, response) => {
 			let targetUser: Result<FullUserType, ErrorResponseType> = Result.Err({message: "Invalid user identifier"});
 			if (typeof body.payload !== 'number') {
 				targetUser = await containers.db.fetchUserByUsername(body.payload, true);
 			} else {
 				targetUser = await containers.db.fetchUserData(body.payload, true);
 			}
-			
+
 			if (targetUser.isErr()) {
 				console.error("Error fetching user data:", targetUser.unwrapErr());
-				return Result.Ok({
-					recipients: [body.user_id],
-					code: schema.output.UserDoesNotExist.code,
-					payload: { message: "User not found" },
-				});
+				return Result.Ok(response.select("UserDoesNotExist").reply({
+					message: "User not found",
+				}));
 			}
 
 			const userData = targetUser.unwrap();
-			return Result.Ok({
-				recipients: [body.user_id],
-				code: schema.output.Success.code,
-				payload: generatePublicUserData(userData, onlineUsers.has(userData.id)),
-			})
+			return Result.Ok(response.select("Success").reply(
+				generatePublicUserData(userData, onlineUsers.has(userData.id))
+			));
 		}
 	);
 }

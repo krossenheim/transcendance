@@ -57,7 +57,7 @@ async function blockUser(
 export function wsBlockUserHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.blockUser,
-    async (body, schema) => {
+    async (body, response) => {
       const usersMapResult = await getUsersById([
         body.user_id,
         body.payload
@@ -68,11 +68,9 @@ export function wsBlockUserHandlers(socket: OurSocket) {
       const me = usersMapResult.unwrap()[body.user_id];
       const blockedUser = usersMapResult.unwrap()[body.payload];
       if (me === undefined || blockedUser === undefined) {
-        return Result.Ok({
-          recipients: [body.user_id],
-          code: schema.output.UserDoesNotExist.code,
-          payload: { message: "User not found" },
-        });
+        return Result.Ok(response.select("UserDoesNotExist").reply({
+          message: "User not found",
+        }));
       }
 
       const blockResult = await blockUser(me, blockedUser);
@@ -81,17 +79,13 @@ export function wsBlockUserHandlers(socket: OurSocket) {
         case BlockUserResult.AlreadyBlocked:
         case BlockUserResult.SameUser:
         case BlockUserResult.SystemUser:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Invalid friendship status request" },
-          });
+          return Result.Ok(response.select("InvalidStatusRequest").reply({
+            message: "Invalid friendship status request",
+          }));
         case BlockUserResult.FailedToUpdate:
-          return Result.Ok({
-            recipients: [body.user_id],
-            code: schema.output.InvalidStatusRequest.code,
-            payload: { message: "Failed to update friendship status" },
-          });
+          return Result.Ok(response.select("InvalidStatusRequest").reply({
+            message: "Failed to update friendship status",
+          }));
         case BlockUserResult.Success:
           console.log("Block successful, usersUpdated:", blockResult.usersUpdated);
           socket.invokeHandler(
@@ -101,11 +95,7 @@ export function wsBlockUserHandlers(socket: OurSocket) {
           );
       }
 
-      return Result.Ok({
-        recipients: [body.user_id],
-        code: schema.output.ConnectionUpdated.code,
-        payload: null,
-      });
+      return Result.Ok(response.select("ConnectionUpdated").reply(null));
     }
   );
 }

@@ -12,7 +12,7 @@ async function getUsersById(
 
   const usersMap: Record<number, FullUserType> = {};
   for (const user of usersResult.unwrap()) {
-	usersMap[user.id] = user;
+    usersMap[user.id] = user;
   }
 
   return Result.Ok(usersMap);

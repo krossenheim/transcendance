@@ -56,11 +56,10 @@ const PongWallSchema = z
     z.coerce.number().nullable(), // player id or null
   ]);
 
-export const MovePaddlePayloadScheme = z
+export const HandleGameKeysSchema = z
   .object({
     board_id: gameIdValue, // board id
-    paddle_id: gameIdValue, // paddle id
-    m: z.union([z.boolean(), z.null()]), // move right = yyes , left = no, not = null
+    pressed_keys: z.array(z.string()), // pressed keys
   })
   .strict();
 
@@ -203,7 +202,7 @@ export type TypePlayerReadyForGameSchema = z.infer<
 >;
 export type TypeGetGameInfoSchema = z.infer<typeof GetGameInfoSchema>;
 export type TypeMovePaddlePayloadScheme = z.infer<
-  typeof MovePaddlePayloadScheme
+  typeof HandleGameKeysSchema
 >;
 export type TypeStartNewPongGame = z.infer<typeof StartNewPongGameSchema>;
 export type TypeGameStateSchema = z.infer<typeof GameStateSchema>;

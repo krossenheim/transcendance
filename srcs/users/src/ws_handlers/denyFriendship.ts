@@ -26,19 +26,19 @@ async function denyUserFriendshipRequest(
   requester: FullUserType,
 ): Promise<DenyFriendshipResponse> {
   if (confirmer.id === requester.id)
-	return { result: DenyFriendshipResult.SameUser };
+    return { result: DenyFriendshipResult.SameUser };
 
   const reverseStatus = retrieveUserConnectionStatus(requester, confirmer);
   if (reverseStatus !== UserFriendshipStatusEnum.Pending)
-	return { result: DenyFriendshipResult.NoPendingInvite };
+    return { result: DenyFriendshipResult.NoPendingInvite };
 
   const storageResult = await containers.db.post(
-	int_url.http.db.updateUserConnectionStatus,
-	[{ userId: requester.id, friendId: confirmer.id, status: UserFriendshipStatusEnum.None }]
+    int_url.http.db.updateUserConnectionStatus,
+    [{ userId: requester.id, friendId: confirmer.id, status: UserFriendshipStatusEnum.None }]
   );
 
   if (storageResult.isErr()) {
-	return { result: DenyFriendshipResult.FailedToUpdate };
+    return { result: DenyFriendshipResult.FailedToUpdate };
   }
 
   return { result: DenyFriendshipResult.Success };
@@ -47,52 +47,42 @@ async function denyUserFriendshipRequest(
 // {"funcId":"deny_friendship","payload":1,"target_container":"users"}
 export function wsDenyFriendshipHandlers(socket: OurSocket) {
   socket.registerHandler(
-	user_url.ws.users.denyFriendship,
-	async (body, schema) => {
-	  const usersMapResult = await getUsersById([
-		body.user_id,
-		body.payload,
-	  ]);
-	  if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
+    user_url.ws.users.denyFriendship,
+    async (body, response) => {
+      const usersMapResult = await getUsersById([
+        body.user_id,
+        body.payload,
+      ]);
+      if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
-	  const me = usersMapResult.unwrap()[body.user_id];
-	  const friend = usersMapResult.unwrap()[body.payload];
-	  if (me === undefined || friend === undefined)
-		return Result.Ok({
-		  recipients: [body.user_id],
-		  code: schema.output.UserDoesNotExist.code,
-		  payload: { message: "User not found" },
-		});
+      const me = usersMapResult.unwrap()[body.user_id];
+      const friend = usersMapResult.unwrap()[body.payload];
+      if (me === undefined || friend === undefined)
+        return Result.Ok(response.select("UserDoesNotExist").reply({
+          message: "User not found",
+        }));
 
-	  const confirmResult = await denyUserFriendshipRequest(me, friend);
-	  console.log("Friendship confirmation result:", confirmResult);
-	  switch (confirmResult.result) {
-		case DenyFriendshipResult.SameUser:
-		case DenyFriendshipResult.NoPendingInvite:
-		  return Result.Ok({
-			recipients: [body.user_id],
-			code: schema.output.NoPendingRequest.code,
-			payload: { message: "Invalid friendship status request" },
-		  });
-		case DenyFriendshipResult.FailedToUpdate:
-		  return Result.Ok({
-			recipients: [body.user_id],
-			code: schema.output.FailedToUpdate.code,
-			payload: { message: "Failed to update friendship status" },
-		  });
-	  }
+      const confirmResult = await denyUserFriendshipRequest(me, friend);
+      console.log("Friendship confirmation result:", confirmResult);
+      switch (confirmResult.result) {
+        case DenyFriendshipResult.SameUser:
+        case DenyFriendshipResult.NoPendingInvite:
+          return Result.Ok(response.select("NoPendingRequest").reply({
+            message: "Invalid friendship status request",
+          }));
+        case DenyFriendshipResult.FailedToUpdate:
+          return Result.Ok(response.select("FailedToUpdate").reply({
+            message: "Failed to update friendship status",
+          }));
+      }
 
-	  socket.invokeHandler(
-		user_url.ws.users.fetchUserConnections,
-		[me.id, friend.id],
-		null
-	  );
+      socket.invokeHandler(
+        user_url.ws.users.fetchUserConnections,
+        [me.id, friend.id],
+        null
+      );
 
-	  return Result.Ok({
-		recipients: [body.user_id],
-		code: schema.output.ConnectionUpdated.code,
-		payload: null,
-	  });
-	}
+      return Result.Ok(response.select("ConnectionUpdated").reply(null));
+    }
   );
 }

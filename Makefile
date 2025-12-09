@@ -78,6 +78,9 @@ HARDHAT_IMAGE_TAG := hardhat:local
 EXPLORER_IMAGE_TAG := blockchain-explorer:local
 BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
 
+rebuild:
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --build --no-deps ${s}
+
 build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build db auth chat hub pong users nginx
 
