@@ -10,6 +10,8 @@ interface ChatBoxProps {
   onSendMessage: (content: string) => void
   currentRoom: number | null
   currentRoomName: string | null
+  isJoined?: boolean
+  onJoinRoom?: (roomId: number) => void
   onInvitePong: (roomUsers: RoomUser[]) => void
   onBlockUser: (userId: number) => void
   blockedUserIds: number[]
@@ -31,6 +33,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   onSendMessage,
   currentRoom,
   currentRoomName,
+  isJoined = false,
+  onJoinRoom,
   onInvitePong,
   onBlockUser,
   blockedUserIds,
@@ -139,13 +143,23 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           {currentRoomName ? `#${currentRoomName}` : "Select a Room"}
         </h2>
         {currentRoom && (
-          <button
-            onClick={() => onInvitePong(roomUsers)}
-            className="px-3 py-1 text-sm bg-pink-500 text-white hover:bg-pink-600 transition-all"
-            aria-label="Invite users to pong game"
-          >
-            🏓 Invite to Pong
-          </button>
+          isJoined ? (
+            <button
+              onClick={() => onInvitePong(roomUsers)}
+              className="px-3 py-1 text-sm bg-pink-500 text-white hover:bg-pink-600 transition-all"
+              aria-label="Invite users to pong game"
+            >
+              🏓 Invite to Pong
+            </button>
+          ) : (
+            <button
+              onClick={() => currentRoom && onJoinRoom && onJoinRoom(currentRoom)}
+              className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 transition-all"
+              aria-label="Join this room"
+            >
+              ➕ Join Room
+            </button>
+          )
         )}
       </div>
 

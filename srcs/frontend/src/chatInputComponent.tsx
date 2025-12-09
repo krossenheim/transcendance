@@ -852,13 +852,23 @@ export default function ChatInputComponent({
       setCurrentRoomName(computeRoomDisplayName(room))
       setCurrentRoomType(room?.roomType ?? null)
       setCurrentRoomUsers([]) // Clear users list while loading
-      // First join the room (so we're a member)
-      sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
-      // Get room data - join response should trigger room data update automatically
+      // Do NOT auto-join on select. Only fetch room data so user can inspect first.
+      // Joining must be an explicit action (click Join).
       sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
     },
     [rooms, computeRoomDisplayName],
   )
+
+  // Explicit join handler - called when the user clicks the Join button
+  const handleJoinSelectedRoom = useCallback((roomId: number) => {
+    console.log("Joining selected room:", roomId)
+    sendToSocket(user_url.ws.chat.joinRoom.funcId, { roomId })
+    // Refresh room data and list after joining
+    setTimeout(() => {
+      sendToSocket(user_url.ws.chat.getRoomData.funcId, { roomId })
+      sendToSocket(user_url.ws.chat.listRooms.funcId, {})
+    }, 250)
+  }, [])
 
   const handleLeaveRoom = useCallback(
     (roomId: number) => {
@@ -1111,7 +1121,7 @@ export default function ChatInputComponent({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-1">
             <RoomList
-              rooms={rooms}
+              rooms={rooms.filter(r => !pendingRoomInvites.some(inv => inv.roomId === r.roomId) && !pendingDmInvites.some(inv => inv.roomId === r.roomId))}
               currentRoom={currentRoomId}
               onSelectRoom={handleSelectRoom}
               onCreateRoom={handleCreateRoom}
@@ -1129,6 +1139,8 @@ export default function ChatInputComponent({
               onSendMessage={handleSendMessage}
               currentRoom={currentRoomId}
               currentRoomName={currentRoomName}
+              isJoined={rooms.some(r => r.roomId === currentRoomId)}
+              onJoinRoom={handleJoinSelectedRoom}
               onInvitePong={handleInvitePong}
               onBlockUser={handleBlockUser}
               blockedUserIds={blockedUserIds}
