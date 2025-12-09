@@ -1,27 +1,29 @@
-import { user_url } from "@app/shared/api/service/common/endpoints";
+import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import { PongGame, PongGameOptions } from "./game/game";
 import { OurSocket } from "@app/shared/socket_to_hub";
+import containers from "@app/shared/internal_api";
 
 type gameDataType = {
   disconnected_players: number[];
   last_frame_time: number;
   ready_players: number[];
   game: PongGame;
+  didGameEnd: boolean;
 };
 
-const PONG_FRAME_INTERVAL_MS = 16; // Approx 60 FPS
+const PONG_FRAME_INTERVAL_MS = 50; // Approx 20 FPS
 
 export class PongManager {
+  private static instance: PongManager | null = null;
   public games: Map<number, gameDataType>;
-  public static instance: PongManager;
 
   private hubSocket: OurSocket;
 
   constructor(hubSocket: OurSocket) {
     this.games = new Map();
     this.hubSocket = hubSocket;
-    if (PongManager.instance) {
+    if (PongManager.instance !== null) {
       return PongManager.instance;
     }
     PongManager.instance = this;
@@ -36,6 +38,10 @@ export class PongManager {
     const now = Date.now();
     for (const gameData of this.games.values()) {
       if (gameData.game.isGameOver()) {
+        if (gameData.didGameEnd === false) {
+          gameData.didGameEnd = true;
+          this.onGameEnd(gameData.game);
+        }
         continue;
       }
 
@@ -50,7 +56,7 @@ export class PongManager {
     }
   }
 
-  startGame(
+  public startGame(
     players: number[],
     options: PongGameOptions
   ): Result<number, null> {
@@ -60,6 +66,7 @@ export class PongManager {
       ready_players: [],
       game: game,
       last_frame_time: Date.now(),
+      didGameEnd: false,
     });
 
     for (const playerId of players) {
@@ -74,7 +81,7 @@ export class PongManager {
     return Result.Ok(game.id);
   }
 
-  handleUserInput(
+  public handleUserInput(
     userId: number,
     keys: string[]
   ) {
@@ -87,7 +94,7 @@ export class PongManager {
     }
   }
 
-  getGameState(
+  public getGameState(
     userId: number,
     gameId: number
   ): Result<any, string> {
@@ -96,6 +103,38 @@ export class PongManager {
         return Result.Err("Game not found");
     return Result.Ok(gameData.game.fetchBoardJSON());
   }
+
+  public handleUserDisconnect(userId: number): void {
+    for (const gameData of this.games.values()) {
+      const game = gameData.game;
+      if (game.getPlayers().includes(userId)) {
+        if (!gameData.disconnected_players.includes(userId)) {
+          gameData.disconnected_players.push(userId);
+        }
+        gameData.game.removePlayer(userId);
+      }
+    }
+  }
+
+  public async onGameEnd(game: PongGame): Promise<void> {
+    const playerScores = game.fetchPlayerScoreMap();
+    const rankings = Array.from(playerScores.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([playerId, score], index, list) => [playerId, score, list.findIndex(([_, s]) => s === score) + 1]);
+
+    const storageResult = await containers.db.post(int_url.http.db.storePongGameResults, rankings.map(([playerId, score, rank]) => ({
+      gameId: game.id,
+      userId: playerId as number,
+      score: score as number,
+      rank: rank as number,
+    })), undefined, undefined);
+    if (storageResult.isErr()) {
+      console.error("Failed to store game results:", storageResult.unwrapErr());
+    } else {
+      console.log("Game results stored successfully.");
+    }
+    console.log("Game ended. Final rankings:", rankings);
+  }
 }
 
-export default PongManager;
+// export default { PongManager };

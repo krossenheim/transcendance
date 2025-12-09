@@ -123,6 +123,7 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 	if (response.status !== 200 || !parse.success) {
 		console.error('Unexpected response from user service:', response.status, response.data);
 		console.error('Parsing error:', parse.error);
+		console.log('Response data: ', response.data);
 		return reply.status(500).send({ message: 'User service dropping agreement' });
 	}
 

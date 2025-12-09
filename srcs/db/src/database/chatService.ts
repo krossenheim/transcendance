@@ -90,7 +90,7 @@ export class ChatService {
 
   getRoomUsers(userConnections: TypeRoomUserConnectionSchema[]): Result<PublicUserDataType[], string> {
     const userIds = userConnections.map((conn) => conn.userId);
-    return userService.fetchUsersByIds(userIds);
+    return userService.fetchPublicUsersByIds(userIds);
   }
 
   getUserRooms(userId: number): Result<TypeRoomSchema[], string> {

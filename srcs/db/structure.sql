@@ -13,10 +13,11 @@ CREATE INDEX IF NOT EXISTS idx_user_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_user_email ON users(email);
 
 CREATE TABLE IF NOT EXISTS player_game_results (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	gameId INTEGER NOT NULL,
 	userId INTEGER NOT NULL,
 	score INTEGER NOT NULL,
 	rank INTEGER NOT NULL,
+	createdAt INTEGER DEFAULT (strftime('%s', 'now')),
 	FOREIGN KEY(userId) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_game_results_userId ON player_game_results(userId);

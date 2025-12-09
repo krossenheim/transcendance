@@ -1,7 +1,8 @@
 import type { FullUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
-import { User, Friend, UserAuthData, PublicUserData, UserAccountType } from '@app/shared/api/service/db/user';
+import { User, Friend, UserAuthData, UserAccountType } from '@app/shared/api/service/db/user';
 import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship';
-import type { GameResultType } from '@app/shared/api/service/db/gameResult';
+import { generatePublicUserData } from '@app/shared/api/service/db/user';
+import type { GameResultsWidgetType, GameResultType } from '@app/shared/api/service/db/gameResult';
 import { GameResult } from '@app/shared/api/service/db/gameResult';
 import { Result } from '@app/shared/api/service/common/result';
 import { Database } from './database.js';
@@ -103,15 +104,61 @@ export class UserService {
 			users.map(user => ({
 				...user,
 				friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+				gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
 			}))
 		);
 	}
 
 	fetchUserGameResults(userId: number): Result<GameResultType[], string> {
-		return this.db.all(
+		const result = this.db.all(
 			`SELECT * FROM player_game_results WHERE userId = ?`,
 			GameResult,
 			[userId]
+		);
+		console.log('Fetched game results for userId', userId, ':', result);
+		return result;
+	}
+
+	createGameResultWidget(userId: number): Result<GameResultsWidgetType | null, string> {
+		const resultsRes = this.fetchUserGameResults(userId);
+		if (resultsRes.isErr()) {
+			return Result.Err(resultsRes.unwrapErr());
+		}
+
+		const results = resultsRes.unwrap();
+		const totalGames = results.length;
+		const totalWins = results.filter(result => result.rank === 1).length;
+
+		if (totalGames === 0)
+			return Result.Err("No game results found for user");
+
+		const ret = Result.Ok({
+			last_games: results.slice(-10),
+			total_games_played: totalGames,
+			wins: totalWins,
+			win_rate: totalGames > 0 ? (totalWins / totalGames) * 100 : 0,
+		});
+		console.log('Game results widget for userId', userId, ':', ret);
+		return ret;
+	}
+
+	fetchPublicUsersByIds(ids: number[]): Result<PublicUserDataType[], string> {
+		if (ids.length === 0)
+			return Result.Ok([]);
+
+		const placeholders = ids.map(() => '?').join(', ');
+		return this.db.all(
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl, COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.id IN (${placeholders})`,
+			User.omit({ gameResults: true }),
+			ids
+		).map(users =>
+			users.map(user => generatePublicUserData({
+				...user,
+				gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
+			}))
 		);
 	}
 
@@ -122,25 +169,13 @@ export class UserService {
 			 FROM users u
 			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
 			 WHERE u.id = ?`,
-			User,
+			User.omit({ gameResults: true, }),
 			[id]
 		).map((user) => ({
 			...user,
 			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+			gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
 		}));
-	}
-
-	fetchUsersByIds(ids: number[]): Result<PublicUserDataType[], string> {
-		if (ids.length === 0) {
-			return Result.Ok([]);
-		}
-
-		const placeholders = ids.map(() => '?').join(', ');
-		return this.db.all(
-			`SELECT id, createdAt, username, alias, bio, avatarUrl FROM users WHERE id IN (${placeholders})`,
-			PublicUserData,
-			ids
-		);
 	}
 
 	async createNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Promise<Result<FullUserType, string>> {
@@ -186,11 +221,12 @@ export class UserService {
 			 FROM users u
 			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
 			 WHERE u.username = ?`,
-			User,
+			User.omit({ gameResults: true }),
 			[username]
 		).map((user) => ({
 			...user,
 			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
+			gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
 		}));
 	}
 
@@ -337,6 +373,29 @@ export class UserService {
 		if (del.isErr()) {
 			console.error('Failed to delete user:', del.unwrapErr());
 			return Result.Err('Failed to delete user');
+		}
+
+		return Result.Ok(null);
+	}
+
+	async storeGameResults(results: GameResultType[]): Promise<Result<null, string>> {
+		let baseStmt = `INSERT INTO player_game_results (gameId, userId, score, rank) VALUES `;
+		for (let i = 0; i < results.length; i++) {
+			baseStmt += `(?, ?, ?, ?)`;
+			if (i < results.length - 1) {
+				baseStmt += `, `;
+			}
+		}
+
+		const params: any[] = [];
+		for (const result of results) {
+			params.push(result.gameId, result.userId, result.score, result.rank);
+		}
+
+		const insertResult = this.db.run(baseStmt, params);
+		if (insertResult.isErr()) {
+			console.error('Failed to store game results:', insertResult.unwrapErr());
+			return Result.Err('Failed to store game results');
 		}
 
 		return Result.Ok(null);

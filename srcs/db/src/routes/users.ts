@@ -1,4 +1,4 @@
-import { UserAccountType, type UserAuthDataType } from '@app/shared/api/service/db/user';
+import { FullUserType, UserAccountType, type UserAuthDataType } from '@app/shared/api/service/db/user';
 import { registerRoute } from '@app/shared/api/service/common/fastify';
 import { int_url } from '@app/shared/api/service/common/endpoints';
 
@@ -23,14 +23,16 @@ function isUserAllowedToLogin(user: UserAuthDataType): boolean {
 async function userRoutes(fastify: FastifyInstance) {
 	registerRoute(fastify, int_url.http.db.fetchMultipleUsers, async (request, reply) => {
 		const requestedUsers: number[] = request.body;
-		const usersResult = userService.fetchAllUsers();
-		if (usersResult.isErr())
-			return reply.status(500).send({ message: usersResult.unwrapErr() });
-		else {
-			const allUsers = usersResult.unwrap();
-			const filteredUsers = allUsers.filter((user) => requestedUsers.includes(user.id));
-			return reply.status(200).send(filteredUsers);
+
+		let users: FullUserType[] = [];
+		for (const userId of requestedUsers) {
+			const userResult = userService.fetchUserById(userId);
+			if (userResult.isErr())
+				return reply.status(500).send({ message: `User ${userId} not found` });
+			users.push(userResult.unwrap());
 		}
+
+		return reply.status(200).send(users);
 	});
 
 	registerRoute(fastify, int_url.http.db.loginUser, async (request, reply) => {
@@ -47,8 +49,12 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(401).send({ message: 'Invalid password' });
 
 		const outUser = userService.fetchUserById(user.id);
-		if (outUser.isErr())
+		console.log('Login successful for user:', username);
+		console.log('User data:', outUser);
+		if (outUser.isErr()) {
+			console.error('Error fetching user:', outUser.unwrapErr());
 			return reply.status(500).send({ message: outUser.unwrapErr() });
+		}
 
 		return reply.status(200).send(outUser.unwrap());
 	});
@@ -172,6 +178,13 @@ async function userRoutes(fastify: FastifyInstance) {
 		if (gameResults.isErr())
 			return reply.status(500).send({ message: gameResults.unwrapErr() });
 		return reply.status(200).send(gameResults.unwrap());
+	});
+
+	registerRoute(fastify, int_url.http.db.storePongGameResults, async (request, reply) => {
+		const StorageResult = await userService.storeGameResults(request.body);
+		if (StorageResult.isErr())
+			return reply.status(500).send({ message: StorageResult.unwrapErr() });
+		return reply.status(200).send(null);
 	});
 }
 

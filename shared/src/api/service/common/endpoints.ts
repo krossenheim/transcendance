@@ -1197,8 +1197,7 @@ export const int_url = defineRoutes({
     db: {
       // Userdata endpoints
       fetchMultipleUsers: {
-        // DEBUG ONLY
-        endpoint: "/internal_api/db/users",
+        endpoint: "/internal_api/db/users/list",
         method: "POST",
         schema: {
           body: z.array(userIdValue),
@@ -1582,6 +1581,18 @@ export const int_url = defineRoutes({
         },
       },
 
+      // Pong endpoints
+      storePongGameResults: {
+        endpoint: "/internal_api/db/users/store_pong_game_result",
+        method: "POST",
+        schema: {
+          body: z.array(GameResult),
+          response: {
+            200: z.null(), // Game result stored successfully
+            500: ErrorResponse, // Internal server error
+          },
+        }
+      },
     },
 
     chat: {

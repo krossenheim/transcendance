@@ -1,11 +1,11 @@
 "use strict";
 import { PongGameOptions } from "./game/game.js";
-import PongManager from "./pongManager.js";
+import { PongManager } from "./pongManager.js";
 import LobbyManager from "./lobbyManager.js";
 import TournamentManager from "./tournamentManager.js";
 import websocketPlugin from "@fastify/websocket";
 import { OurSocket } from "@app/shared/socket_to_hub";
-import { user_url } from "@app/shared/api/service/common/endpoints";
+import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import type { FastifyInstance } from "fastify";
 import { createFastify } from "@app/shared/api/service/common/fastify";
@@ -23,8 +23,8 @@ const fastify: FastifyInstance = createFastify();
 fastify.register(websocketPlugin);
 
 const socket = new OurSocket("pong");
-const singletonPong = new PongManager(socket);
 const lobbyManager = new LobbyManager();
+const singletonPong = new PongManager(socket);
 const tournamentManager = new TournamentManager();
 const blockchainService = new BlockchainService();
 
@@ -39,7 +39,7 @@ function createBasicGameOptions(): PongGameOptions {
     paddleWallOffset: 40,
     amountOfBalls: 1,
     powerupFrequency: 10,
-    gameDuration: 180,
+    gameDuration: 10,
   };
 }
 
@@ -354,72 +354,14 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (wrapper) => {
   });
 });
 
-// Handle output from a function funcId
-// socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
-//   if (
-//     wrapper.code === int_url.ws.hub.userDisconnected.schema.output.Success.code
-//   ) {
-//     console.log("Wrapper is: ", JSON.stringify(wrapper));
-//     const userId = wrapper.payload.userId;
-//     if (!userId) throw new Error("Schema not validated.");
-//     singletonPong.setPlayerStatus(userId, PongLobbyStatus.Disconnected);
-    
-//     // Remove player from any lobby they're in
-//     const playerLobby = lobbyManager.getLobbyForPlayer(userId);
-//     if (playerLobby) {
-//       console.log(`[Pong] User ${userId} disconnected, removing from lobby ${playerLobby.lobbyId}`);
-//       lobbyManager.removePlayerFromLobby(playerLobby.lobbyId, userId);
-//     }
-//   } else
-//     return Result.Err(
-//       `Unhandled code(${
-//         wrapper.code
-//       }) for int_url.ws.hub.userDisconnected, wrapper: ${JSON.stringify(
-//         wrapper
-//       )}`
-//     );
-//   return Result.Ok(null);
-// });
-// socket.registerReceiver(int_url.ws.hub.userConnected, async (wrapper) => {
-//   if (
-//     wrapper.code === int_url.ws.hub.userConnected.schema.output.Success.code
-//   ) {
-//     console.log("Wrapper is: ", JSON.stringify(wrapper));
-//     const userId = wrapper.payload.userId;
-//     if (!userId) {
-//       console.error("INVALID SCHEMA");
-//       throw new Error("Schema not validated.");
-//     }
-//     singletonPong.setPlayerStatus(userId, PongLobbyStatus.Paused);
-//     // find any games the user is on and send a getGameState from each
-//     const ongoing_user_games = singletonPong.getGamesWithPlayerById(userId);
-//     if (!ongoing_user_games) {
-//       // console.log("No ongoing games for user ", userId);
-//       return Result.Ok(null);
-//     }
-//     for (const game of ongoing_user_games) {
-//       const payload = game.getGameState();
-//       const recipients = game.player_ids;
+socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
+  if (wrapper.code !== int_url.ws.hub.userDisconnected.schema.output.Success.code)
+    return Result.Ok(null);
 
-//       const out = {
-//         recipients: recipients,
-//         funcId: user_url.ws.pong.getGameState.funcId,
-//         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-//         payload: payload,
-//       };
-//       // console.log("Sending out: ", JSON.stringify(out));
-//       socket.getSocket().send(JSON.stringify(out));
-//     }
-//   } else
-//     return Result.Err(
-//       `Unhandled code(${
-//         wrapper.code
-//       }) for int_url.ws.hub.userConnected, wrapper: ${JSON.stringify(wrapper)}`
-//     );
-
-//   return Result.Ok(null);
-// });
-// console.log(singletonPong.startGame(7, [4, 5, 5], 1));
+  const userId = wrapper.payload.userId;
+  singletonPong.handleUserDisconnect(userId);
+  return Result.Ok(null);
+});
 
 // registerRoute(fastify, int_url.http.pong.createGame, async (request, reply) => {
 //   const { balls, player_list } = request.body;

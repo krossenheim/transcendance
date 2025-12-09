@@ -259,6 +259,11 @@ export class PongGame {
         this.players = Array.from(players);
         this.gameOptions = gameOptions;
 
+        this.score = new Map();
+        for (const playerId of players) {
+            this.score.set(playerId, 0);
+        }
+
         this.constructPlayingField();
 
         const amountOfBalls = Math.max(1, gameOptions.amountOfBalls || 1);
@@ -394,19 +399,18 @@ export class PongGame {
     }
 
     public fetchPlayerScoreMap(): Map<number, number> {
-        const allPlayers: Set<number> = new Set();
-        for (const paddle of this.paddles)
-            allPlayers.add(paddle.playerId);
-
         const scoreMap: Map<number, number> = new Map();
 
-        for (const basePlayerId of allPlayers) {
-            const playerNegativeScore = this.score.get(basePlayerId) || 0;
-            if (playerNegativeScore >= 0) continue;
+        for (const [playerId, playerScore] of this.score.entries()) {
+            for (const otherPlayerId of this.score.keys()) {
+                if (otherPlayerId === playerId) continue;
+                scoreMap.set(otherPlayerId, (scoreMap.get(otherPlayerId) || 0) + Math.abs(playerScore));
+            }
+        }
 
-            for (const playerId of allPlayers) {
-                if (playerId === basePlayerId) continue;
-                scoreMap.set(playerId, (scoreMap.get(playerId) || 0) + Math.abs(playerNegativeScore));
+        for (const playerId of scoreMap.keys()) {
+            if (!this.players.includes(playerId)) {
+                scoreMap.set(playerId, -1);
             }
         }
 
@@ -431,6 +435,7 @@ export class PongGame {
 			this.scene.addObject(newWall);
 		}
 		this.walls = this.walls.filter(wall => !(wall instanceof PlayerWall && wall.playerId === playerId) );
+        this.players = this.players.filter(id => id !== playerId);
 	}
 
     public fetchBoardJSON(): any {
