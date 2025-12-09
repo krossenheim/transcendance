@@ -7,6 +7,24 @@ import { z } from "zod";
 import type { HTTPRouteDef } from "@app/shared/api/service/common/endpoints";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+function addHealthcheckRoute(fastify: FastifyInstance) {
+	registerRoute(
+		fastify,
+		{
+			endpoint: "/health",
+			method: "GET",
+			schema: {
+				response: {
+					200: z.object({}),
+				},
+			},
+		},
+		async (req, reply) => {
+			return reply.status(200).send({});
+		}
+	);
+}
+
 export function createFastify(options = {
   logger: {
     level: "info", // or 'debug' for more verbosity
@@ -23,6 +41,7 @@ export function createFastify(options = {
 	const server = Fastify(options);
 	server.setValidatorCompiler(validatorCompiler);
 	server.setSerializerCompiler(serializerCompiler);
+	addHealthcheckRoute(server);
 	return server;
 }
 

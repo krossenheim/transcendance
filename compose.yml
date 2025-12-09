@@ -38,7 +38,7 @@ services:
       dockerfile: ./srcs/${HUB_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${HUB_NAME}
-    restart: always
+    restart: unless-stopped
     networks:
       transcendance_network:
         ipv4_address: ${HUB_IPV4_ADDRESS}
@@ -55,12 +55,20 @@ services:
       dockerfile: ./srcs/${CHATROOM_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${CHATROOM_NAME}
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     networks:
       transcendance_network:
         ipv4_address: ${CHATROOM_IPV4_ADDRESS}
     depends_on:
       hub:
+        condition: service_healthy
+      db:
         condition: service_healthy
 
   db:
@@ -75,19 +83,16 @@ services:
       dockerfile: ./srcs/${DATABASE_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${DATABASE_NAME}
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     networks:
       transcendance_network:
         ipv4_address: ${DATABASE_IPV4_ADDRESS}
-    depends_on:
-      hub:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "code=$(curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000/ || echo 000); [ \"$code\" != \"000\" ]"]
-      interval: 10s
-      timeout: 2s
-      retries: 5
-      start_period: 5s
     volumes:
       - database:/etc/database_data
 
@@ -103,7 +108,13 @@ services:
       dockerfile: ./srcs/${AUTH_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${AUTH_NAME}
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     networks:
       transcendance_network:
         ipv4_address: ${AUTH_IPV4_ADDRESS}
@@ -125,7 +136,13 @@ services:
       dockerfile: ./srcs/${PONG_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${PONG_NAME}
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     depends_on:
       hub:
         condition: service_healthy
@@ -149,7 +166,13 @@ services:
       dockerfile: ./srcs/${USERS_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${USERS_NAME}
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     depends_on:
       hub:
         condition: service_healthy

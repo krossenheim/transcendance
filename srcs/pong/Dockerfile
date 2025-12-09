@@ -4,9 +4,6 @@ FROM node:24.8-slim AS builder
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
 
-RUN apt-get update && apt-get install -y python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app/shared
 
 COPY shared/package.json shared/tsconfig.json ./
@@ -29,6 +26,9 @@ FROM node:24.8-slim AS runner
 
 RUN groupadd -g 1001 nodejs && \
     useradd -u 1001 -g nodejs -m -s /usr/sbin/nologin nodejs
+
+RUN apt-get update && apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
