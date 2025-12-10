@@ -258,7 +258,7 @@ export default function PongComponent({
             isReady: p.isReady,
             isHost: p.isHost,
           })),
-          gameConfig: payloadReceived.gameConfig,
+          gameConfig: payloadReceived.payload.gameConfig,
           status: payloadReceived.payload.status,
         })
 
