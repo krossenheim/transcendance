@@ -6,4 +6,6 @@ if [ -d "/etc/database_data" ]; then
     chown -R nodejs:nodejs /etc/database_data
 fi
 
+if [ -z "${TOKEN_ENCRYPTION_TOKEN}" ]; then echo "ERROR: TOKEN_ENCRYPTION_TOKEN is not set" >&2; exit 1; fi
+
 exec gosu nodejs "$@"

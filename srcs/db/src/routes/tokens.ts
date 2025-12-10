@@ -6,8 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import crypto from 'crypto';
 import {  int_url } from '@app/shared/api/service/common/endpoints';
 
-// TODO : Move to env variable or config file
-const TokenSecretKey = "hfskjryfweuifhjsdkghdnfbvdbviuweryteiuwtwhejkrfhrskjd";
+const TokenSecretKey = process.env.TOKEN_ENCRYPTION_TOKEN!;
 
 function hashToken(plainToken: string): string {
 	return crypto
