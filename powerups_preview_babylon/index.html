@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Powerups 3D Preview — BabylonJS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Powerups 3D Preview (BabylonJS)</h1>
+    <p class="muted">Preview 3D shapes for powerups. Use the selector to focus a single powerup or show all.</p>
+  </header>
+
+  <div id="controls">
+    <select id="powerupSelect"></select>
+    <button id="showAll">Show All</button>
+  </div>
+
+  <canvas id="renderCanvas"></canvas>
+
+  <!-- BabylonJS CDN -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <script src="scene.js"></script>
+</body>
+</html>
