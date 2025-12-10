@@ -134,6 +134,7 @@ export class CircleObject extends BaseObject {
 
 export class MultiObject extends BaseObject {
     public objects: BaseObject[];
+    private _flatCache: BaseObject[] | null = null;
 
     constructor(objects: BaseObject[], velocity: Vec2, inverseMass: number = 1.0, restitution: number = 1.0) {
         super(velocity, inverseMass, restitution);
@@ -142,6 +143,8 @@ export class MultiObject extends BaseObject {
         for (const obj of this.objects) {
             obj.setParentObject(this);
         }
+        // Initialize flat cache once; objects are rarely mutated during gameplay.
+        this._flatCache = this.objects.flatMap(obj => obj.iter());
     }
 
     override moveByDelta(delta: number): void {
@@ -170,6 +173,7 @@ export class MultiObject extends BaseObject {
     addObject(obj: BaseObject): void {
         obj.setParentObject(this);
         this.objects.push(obj);
+        this._flatCache = null;
     }
 
     override clone(): MultiObject {
@@ -178,6 +182,9 @@ export class MultiObject extends BaseObject {
     }
 
     override iter(): BaseObject[] {
-        return this.objects.flatMap(obj => obj.iter());
+        if (this._flatCache === null) {
+            this._flatCache = this.objects.flatMap(obj => obj.iter());
+        }
+        return this._flatCache;
     }
 }

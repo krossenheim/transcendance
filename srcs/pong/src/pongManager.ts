@@ -12,7 +12,11 @@ type gameDataType = {
   didGameEnd: boolean;
 };
 
-const PONG_FRAME_INTERVAL_MS = 50; // Approx 20 FPS
+// Simulation and broadcast timing
+// Run the physics simulation at a stable fixed timestep (60 Hz)
+const PONG_SIM_MS = 1000 / 60; // ~16.6667 ms (60 FPS)
+// Broadcast (send game state to clients) at a lower rate to reduce network jitter
+const PONG_BROADCAST_MS = 1000 / 60; // ~16.6667 ms (60 FPS)
 
 export class PongManager {
   private static instance: PongManager | null = null;
@@ -28,14 +32,32 @@ export class PongManager {
     }
     PongManager.instance = this;
 
-    setInterval(() => {
-      this.handleGameFrames();
-    }, PONG_FRAME_INTERVAL_MS);
+    // Start the main loop: fixed-timestep simulation + separate broadcast cadence
+    this._loopRunning = true;
+    this._lastLoopTime = Date.now();
+    this._broadcastAccumulator = 0;
+    this.loopTick();
     return this;
   }
 
-  private handleGameFrames() {
+  // Internal loop state
+  private _loopRunning: boolean = false;
+  private _lastLoopTime: number = 0;
+  private _broadcastAccumulator: number = 0;
+
+  private loopTick() {
+    if (!this._loopRunning) return;
     const now = Date.now();
+    let elapsed = now - this._lastLoopTime;
+    // Protect against huge elapsed times (e.g., if the process was suspended)
+    if (elapsed > 1000) elapsed = PONG_SIM_MS;
+    this._lastLoopTime = now;
+
+    // Accumulate elapsed time for simulation; run fixed-step updates
+    let simSteps = Math.max(1, Math.floor(elapsed / PONG_SIM_MS));
+    // Cap steps to avoid spiraling in pathological cases
+    if (simSteps > 8) simSteps = 8;
+
     for (const gameData of this.games.values()) {
       if (gameData.game.isGameOver()) {
         if (gameData.didGameEnd === false) {
@@ -45,15 +67,29 @@ export class PongManager {
         continue;
       }
 
-      const deltaTime = (now - gameData.last_frame_time) / 1000.0;
-      gameData.game.playSimulation(deltaTime);
-      gameData.last_frame_time = now;
-      this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-        recipients: Array.from(gameData.game.getUniquePlayerIds()),
-        code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-        payload: gameData.game.fetchBoardJSON(),
-      });
+      for (let s = 0; s < simSteps; s++) {
+        gameData.game.playSimulation(PONG_SIM_MS / 1000.0);
+      }
     }
+
+    // Broadcast at a lower cadence
+    this._broadcastAccumulator += elapsed;
+    if (this._broadcastAccumulator >= PONG_BROADCAST_MS) {
+      this._broadcastAccumulator = 0;
+      for (const gameData of this.games.values()) {
+        if (gameData.game.isGameOver()) continue;
+        this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
+          recipients: Array.from(gameData.game.getUniquePlayerIds()),
+          code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+          payload: gameData.game.fetchBoardJSON(),
+        });
+      }
+    }
+
+    // Schedule next tick attempting to compensate for drift
+    const tickDuration = Date.now() - now;
+    const delay = Math.max(0, PONG_SIM_MS - tickDuration);
+    setTimeout(() => this.loopTick(), delay);
   }
 
   public startGame(

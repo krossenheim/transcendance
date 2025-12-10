@@ -162,8 +162,25 @@ export class PongPaddle extends MultiObject {
 		const dir = this.clockwiseBaseVelocity;
 		const desiredSpeed = Math.abs(moveDirection) * this.boardPaddleSpeed;
 
-		const center = this.getCenter();
-		const maxTravelDistance = moveDirection > 0 ? this.bounds.max.sub(center).len() : center.sub(this.bounds.min).len();
+		// Compute center numerically to avoid allocating a Vec2
+		let sumX = 0;
+		let sumY = 0;
+		let count = 0;
+		for (const obj of this.objects) {
+			if (obj instanceof LineObject) {
+				sumX += obj.pointA.x + obj.pointB.x;
+				sumY += obj.pointA.y + obj.pointB.y;
+				count += 2;
+			} else if (obj instanceof CircleObject) {
+				sumX += obj.center.x;
+				sumY += obj.center.y;
+				count += 1;
+			}
+		}
+		const cx = sumX / count;
+		const cy = sumY / count;
+
+		const maxTravelDistance = moveDirection > 0 ? Math.hypot(this.bounds.max.x - cx, this.bounds.max.y - cy) : Math.hypot(cx - this.bounds.min.x, cy - this.bounds.min.y);
 
 		if (maxTravelDistance < 1) {
 			const v = this.velocity;

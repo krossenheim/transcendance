@@ -126,6 +126,29 @@ export class Vec2 {
     }
 }
 
+// Small optional Vec2 object pool to reduce temporary allocations in hot paths.
+// Use `Vec2.poolAcquire(x,y)` to get a Vec2 and `Vec2.poolRelease(v)` to return it.
+// The pool is optional and bounded to avoid unbounded memory usage.
+export namespace Vec2 {
+    const POOL_MAX = 256;
+    const pool: Vec2[] = [];
+
+    export function poolAcquire(x = 0, y = 0): Vec2 {
+        if (pool.length > 0) {
+            const v = pool.pop()!;
+            v.x = x;
+            v.y = y;
+            return v;
+        }
+        return new Vec2(x, y);
+    }
+
+    export function poolRelease(v: Vec2): void {
+        if (pool.length >= POOL_MAX) return;
+        pool.push(v);
+    }
+}
+
 export function solveQuadratic(a: number, b: number, c: number): number[] {
     if (isNearly(a, 0)) {
         if (isNearly(b, 0))

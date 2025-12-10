@@ -16,6 +16,8 @@ export class PongBall extends CircleObject {
     }
 
     public toJSON(): any {
+        // Return tuple with stable id appended at the end so frontend can keep
+        // consistent object identity between updates.
         return [
             this.center.x,
             this.center.y,
@@ -23,6 +25,7 @@ export class PongBall extends CircleObject {
             this.velocity.y,
             this.radius,
             this.inverseMass,
+            this.id,
         ]
     }
 }

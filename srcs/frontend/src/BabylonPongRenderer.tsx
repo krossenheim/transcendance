@@ -298,9 +298,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const scene = sceneRef.current
     const shadowGenerator = shadowGeneratorRef.current
 
-    // Helper to map backend coords to 3D
-    const toWorld = (x: number, y: number, yPos = 0) => {
-      return new Vector3((x - BACKEND_WIDTH / 2) * SCALE_FACTOR, yPos, (y - BACKEND_HEIGHT / 2) * SCALE_FACTOR)
+    // Helper to map backend coords to 3D as numeric components to avoid allocating Vector3
+    const toWorldNumeric = (x: number, y: number, yPos = 0) => {
+      return {
+        wx: (x - BACKEND_WIDTH / 2) * SCALE_FACTOR,
+        wy: yPos,
+        wz: (y - BACKEND_HEIGHT / 2) * SCALE_FACTOR,
+      }
     }
 
     // 1. Update Floor and Walls (only if edges change)
@@ -341,8 +345,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const p1 = gameState.edges[i]!
           const p2 = gameState.edges[(i + 1) % gameState.edges.length]!
 
-          const v1 = toWorld(p1.x, p1.y, 0)
-          const v2 = toWorld(p2.x, p2.y, 0)
+          const { wx: v1x, wy: v1y, wz: v1z } = toWorldNumeric(p1.x, p1.y, 0)
+          const { wx: v2x, wy: v2y, wz: v2z } = toWorldNumeric(p2.x, p2.y, 0)
+          const v1 = new Vector3(v1x, v1y, v1z)
+          const v2 = new Vector3(v2x, v2y, v2z)
 
           const center = Vector3.Center(v1, v2)
           const len = Vector3.Distance(v1, v2)
@@ -428,8 +434,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       if (typeof posX !== "number" || typeof posY !== "number") {
         console.warn("[BabylonPongRenderer] Paddle missing x/y, skipping position:", paddleId, p)
       } else {
-        const pos = toWorld(posX, posY, 0.25)
-        mesh.position = pos
+        const { wx, wy, wz } = toWorldNumeric(posX, posY, 0.25)
+        mesh.position.x = wx
+        mesh.position.y = wy
+        mesh.position.z = wz
       }
 
       // Rotation
@@ -494,11 +502,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         console.log("[Pong Sound] New ball created:", b.id, "with direction:", b.dx, b.dy)
       }
 
-      // Calculate distance moved since last update for rotation
-      // const prevVelData = previousBallVelocitiesRef.current.get(b.id)
-      const newPos = toWorld(b.x, b.y, 0.2)
-      const oldPos = mesh.position.clone()
-      mesh.position = newPos
+      // Calculate distance moved since last update for rotation (use numeric ops)
+      const { wx: newWx, wy: newWy, wz: newWz } = toWorldNumeric(b.x, b.y, 0.2)
+      const dxWorld = mesh.position.x - newWx
+      const dzWorld = mesh.position.z - newWz
+      const distanceMoved = Math.hypot(dxWorld, dzWorld)
+      // Update position in-place
+      mesh.position.x = newWx
+      mesh.position.y = newWy
+      mesh.position.z = newWz
 
       // Update mesh scale if backend radius changed
       try {
@@ -514,7 +526,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
       // Calculate rolling rotation based on actual distance traveled
       // The ball should rotate around an axis perpendicular to its movement direction
-      const distanceMoved = Vector3.Distance(oldPos, newPos)
       const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy)
 
       if (distanceMoved > 0.001 && speed > 0.001 && mesh.rotationQuaternion) {
@@ -683,13 +694,19 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               mat.specularColor = new Color3(0.2, 0.2, 0.2)
               mesh.material = mat
               // Render powerups slightly lower than balls so they appear beneath them
-              mesh.position = toWorld(x, y, 0.15)
+              const { wx: pwx, wy: pwy, wz: pwz } = toWorldNumeric(x, y, 0.15)
+              mesh.position.x = pwx
+              mesh.position.y = pwy
+              mesh.position.z = pwz
               console.debug(`[BabylonPongRenderer] Created powerup mesh ${name} for type ${typeIndex}`)
               powerupsRef.current.set(key, mesh)
             }
           } else {
             // update position (keep powerups below balls)
-            mesh.position = toWorld(x, y, 0.15)
+            const { wx: upx, wy: upy, wz: upz } = toWorldNumeric(x, y, 0.15)
+            mesh.position.x = upx
+            mesh.position.y = upy
+            mesh.position.z = upz
             // Small debug to ensure updates are occurring
             // console.debug(`[BabylonPongRenderer] Updated powerup ${key} position to (${x},${y})`)
           }

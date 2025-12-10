@@ -52,8 +52,10 @@ export default function PongComponent({
     // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
     const balls = (raw.balls || []).filter((b: any) => b != null).map((b: any, idx: number) => {
       if (Array.isArray(b)) {
+        // New backend includes stable ball id at index 6. Fallback to index if missing.
+        const stableId = Number.isFinite(Number(b[6])) ? Number(b[6]) : idx
         return {
-          id: idx,
+          id: stableId,
           x: Number(b[0]) || 0,
           y: Number(b[1]) || 0,
           dx: Number(b[2]) || 0,
