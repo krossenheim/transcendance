@@ -455,7 +455,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
       if (!mesh) {
         // Create sphere with more segments for smoother texture mapping
-        mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: 0.4, segments: 32 }, scene)
+        // Use backend radius (in backend units) mapped to world units via SCALE_FACTOR
+        const backendRadius = Number(b.radius || 10)
+        const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
+        const diameter = Math.max(0.05, worldRadius * 2)
+        mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: diameter, segments: 32 }, scene)
         const mat = new StandardMaterial("ballMat", scene)
 
         // Create beach ball texture if not already created
@@ -483,6 +487,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         light.diffuse = new Color3(1, 0, 0)
         ballLightsRef.current.set(b.id, light)
 
+        // store base diameter so we can scale reliably if backend radius changes later
+        ;(mesh as any).metadata = { baseDiameter: diameter }
         ballsRef.current.set(b.id, mesh)
 
         console.log("[Pong Sound] New ball created:", b.id, "with direction:", b.dx, b.dy)
@@ -494,6 +500,18 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       const oldPos = mesh.position.clone()
       mesh.position = newPos
 
+      // Update mesh scale if backend radius changed
+      try {
+        const backendRadius = Number(b.radius || 10)
+        const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
+        const desiredDiameter = Math.max(0.05, worldRadius * 2)
+        const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
+        const scale = desiredDiameter / baseDiameter
+        mesh.scaling = new Vector3(scale, scale, scale)
+      } catch (e) {
+        // ignore scaling errors
+      }
+
       // Calculate rolling rotation based on actual distance traveled
       // The ball should rotate around an axis perpendicular to its movement direction
       const distanceMoved = Vector3.Distance(oldPos, newPos)
@@ -501,8 +519,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
       if (distanceMoved > 0.001 && speed > 0.001 && mesh.rotationQuaternion) {
         // Calculate rotation amount: angle = arc_length / radius (in radians)
-        // Use actual distance moved for accurate rotation
-        const rotationAmount = distanceMoved / BALL_RADIUS
+        // Map backend radius to world radius and use it for rotation
+        const backendRadius = Number(b.radius || 10)
+        const worldBallRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
+        const rotationAmount = distanceMoved / worldBallRadius
 
         // Get current rotation quaternion
         const currentRotation = ballRotationsRef.current.get(b.id) || Quaternion.Identity()
@@ -662,13 +682,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               mat.emissiveColor = color.scale(0.25)
               mat.specularColor = new Color3(0.2, 0.2, 0.2)
               mesh.material = mat
-              mesh.position = toWorld(x, y, 0.6)
+              // Render powerups slightly lower than balls so they appear beneath them
+              mesh.position = toWorld(x, y, 0.15)
               console.debug(`[BabylonPongRenderer] Created powerup mesh ${name} for type ${typeIndex}`)
               powerupsRef.current.set(key, mesh)
             }
           } else {
-            // update position
-            mesh.position = toWorld(x, y, 0.6)
+            // update position (keep powerups below balls)
+            mesh.position = toWorld(x, y, 0.15)
             // Small debug to ensure updates are occurring
             // console.debug(`[BabylonPongRenderer] Updated powerup ${key} position to (${x},${y})`)
           }

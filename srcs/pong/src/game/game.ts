@@ -384,7 +384,7 @@ export class PongGame {
     public handleKeyPress(key: string, isPressed: boolean): void {
         for (const paddle of this.paddles) {
             for (const keyData of paddle.keyData) {
-                if (keyData.key !== key) continue;
+                if (keyData.key.toLowerCase() !== key.toLowerCase()) continue;
                 keyData.isPressed = isPressed;
             }
         }
@@ -393,7 +393,7 @@ export class PongGame {
     public handlePressedKeys(keys: string[]): void {
         for (const paddle of this.paddles) {
             for (const keyData of paddle.keyData) {
-                keyData.isPressed = keys.includes(keyData.key);
+                keyData.isPressed = keys.includes(keyData.key.toLowerCase());
             }
         }
     }
@@ -440,6 +440,8 @@ export class PongGame {
 
     public fetchBoardJSON(): any {
         return {
+            board_id: this.id,
+            boardId: this.id,
             metadata: {
                 gameOptions: this.gameOptions,
                 elapsedTime: this.scene.getElapsedTime(),

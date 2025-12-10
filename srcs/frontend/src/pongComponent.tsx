@@ -58,6 +58,7 @@ export default function PongComponent({
           y: Number(b[1]) || 0,
           dx: Number(b[2]) || 0,
           dy: Number(b[3]) || 0,
+          radius: Number(b[4]) || 10,
         }
       }
       // already object-shaped
@@ -67,6 +68,7 @@ export default function PongComponent({
         y: b.y ?? 0,
         dx: b.dx ?? 0,
         dy: b.dy ?? 0,
+        radius: b.radius ?? b.r ?? 10,
       }
     })
 
@@ -561,7 +563,7 @@ export default function PongComponent({
   useEffect(() => {
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
-      if (gameState === null) return
+      if (gameState === null || playerOnePaddleID === -1) return
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
@@ -570,6 +572,8 @@ export default function PongComponent({
         board_id: gameState.board_id,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug for debugging stuck keys
+      // console.debug('[Pong] KeyDown', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -581,6 +585,7 @@ export default function PongComponent({
         board_id: gameState.board_id,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyUp', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -608,18 +613,19 @@ export default function PongComponent({
         board_id: gameState.board_id,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyDown (player2)', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null) return
+      if (gameState === null || playerTwoPaddleID === -1) return
       keysPressed.delete(e.key)
 
       const payload = {
         board_id: gameState.board_id,
-        paddle_id: playerTwoPaddleID,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyUp (player2)', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
