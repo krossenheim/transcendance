@@ -50,7 +50,7 @@ export default function PongComponent({
     if (!raw) return null
 
     // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
-    const balls = (raw.balls || []).map((b: any, idx: number) => {
+    const balls = (raw.balls || []).filter((b: any) => b != null).map((b: any, idx: number) => {
       if (Array.isArray(b)) {
         return {
           id: idx,
@@ -61,19 +61,19 @@ export default function PongComponent({
           radius: Number(b[4]) || 10,
         }
       }
-      // already object-shaped
+      // already object-shaped (defensive access)
       return {
-        id: b.id ?? idx,
-        x: b.x ?? 0,
-        y: b.y ?? 0,
-        dx: b.dx ?? 0,
-        dy: b.dy ?? 0,
-        radius: b.radius ?? b.r ?? 10,
+        id: b?.id ?? idx,
+        x: b?.x ?? 0,
+        y: b?.y ?? 0,
+        dx: b?.dx ?? 0,
+        dy: b?.dy ?? 0,
+        radius: b?.radius ?? b?.r ?? 10,
       }
     })
 
     // paddles: tuple [x,y,angle,width,height,vx,vy,playerId] -> { x,y,r,w,l,owner_id,paddle_id }
-    const paddles = (raw.paddles || []).map((p: any, idx: number) => {
+    const paddles = (raw.paddles || []).filter((p: any) => p != null).map((p: any, idx: number) => {
       if (Array.isArray(p)) {
         const owner = Number(p[7]) ?? idx
         return {
@@ -87,22 +87,22 @@ export default function PongComponent({
         }
       }
       return {
-        x: p.x ?? 0,
-        y: p.y ?? 0,
-        r: p.r ?? p.rotation ?? 0,
-        w: p.w ?? p.width ?? 10,
-        l: p.l ?? p.length ?? 50,
-        owner_id: p.owner_id ?? p.ownerId ?? p.player_id ?? p.playerId ?? idx,
-        paddle_id: p.paddle_id ?? p.id ?? idx,
+        x: p?.x ?? 0,
+        y: p?.y ?? 0,
+        r: p?.r ?? p?.rotation ?? 0,
+        w: p?.w ?? p?.width ?? 10,
+        l: p?.l ?? p?.length ?? 50,
+        owner_id: p?.owner_id ?? p?.ownerId ?? p?.player_id ?? p?.playerId ?? idx,
+        paddle_id: p?.paddle_id ?? p?.id ?? idx,
       }
     })
 
     // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
-    const edges = (raw.walls || []).map((w: any) => {
+    const edges = (raw.walls || []).filter((w: any) => w != null).map((w: any) => {
       if (Array.isArray(w)) {
         return { x: Number(w[0]) || 0, y: Number(w[1]) || 0 }
       }
-      return { x: w.x ?? 0, y: w.y ?? 0 }
+      return { x: w?.x ?? 0, y: w?.y ?? 0 }
     })
 
     return {
