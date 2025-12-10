@@ -26,7 +26,6 @@ import { getUserColorBabylon, getUserColorCSS } from "./userColorUtils"
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
-const BALL_RADIUS = 0.2 // Half of diameter 0.4
 // Tunable offset for paddle rotation to match backend angle convention.
 // If paddles appear rotated by 90deg, change this to Math.PI/2 or 0 accordingly.
 const PADDLE_ROTATION_OFFSET = 0 // adjust to Math.PI/2 if needed
@@ -464,7 +463,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       if (!mesh) {
         // Create sphere with more segments for smoother texture mapping
         // Use backend radius (in backend units) mapped to world units via SCALE_FACTOR
-        const backendRadius = Number(b.radius || 10)
+        const backendRadius = Number((b as any).radius || 10)
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
         const diameter = Math.max(0.05, worldRadius * 2)
         mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: diameter, segments: 32 }, scene)
@@ -503,23 +502,30 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
 
       // Calculate distance moved since last update for rotation (use numeric ops)
-      const { wx: newWx, wy: newWy, wz: newWz } = toWorldNumeric(b.x, b.y, 0.2)
+      // Map backend X/Z into world; compute Y based on floor + object half-height so
+      // balls sit on the floor instead of floating.
+      const { wx: newWx, wz: newWz } = toWorldNumeric(b.x, b.y)
+      const backendRadius = Number((b as any).radius || 10)
+      const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
+      const floorY = floorRef.current?.position.y ?? -0.1
       const dxWorld = mesh.position.x - newWx
       const dzWorld = mesh.position.z - newWz
       const distanceMoved = Math.hypot(dxWorld, dzWorld)
-      // Update position in-place
+
+      // Update position in-place: center Y = floorY + worldRadius
       mesh.position.x = newWx
-      mesh.position.y = newWy
+      mesh.position.y = floorY + worldRadius
       mesh.position.z = newWz
 
-      // Update mesh scale if backend radius changed
+      // Update mesh scale if backend radius changed and keep it anchored on the floor
       try {
-        const backendRadius = Number(b.radius || 10)
-        const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
-        const desiredDiameter = Math.max(0.05, worldRadius * 2)
+        const desiredRadius = worldRadius
+        const desiredDiameter = Math.max(0.05, desiredRadius * 2)
         const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
         const scale = desiredDiameter / baseDiameter
         mesh.scaling = new Vector3(scale, scale, scale)
+        // After scaling, ensure the bottom sits on the floor by repositioning Y
+        mesh.position.y = floorY + (desiredDiameter / 2)
       } catch (e) {
         // ignore scaling errors
       }
@@ -531,7 +537,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       if (distanceMoved > 0.001 && speed > 0.001 && mesh.rotationQuaternion) {
         // Calculate rotation amount: angle = arc_length / radius (in radians)
         // Map backend radius to world radius and use it for rotation
-        const backendRadius = Number(b.radius || 10)
+        const backendRadius = Number((b as any).radius || 10)
         const worldBallRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
         const rotationAmount = distanceMoved / worldBallRadius
 
@@ -603,10 +609,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     // Cleanup missing balls
     // --- Powerups: create/update rotating shape meshes ---
     // gameState.powerups entries are arrays: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
-    if (gameState.powerups && Array.isArray(gameState.powerups)) {
-      console.debug("[BabylonPongRenderer] Received powerups:", gameState.powerups)
+    if ((gameState as any).powerups && Array.isArray((gameState as any).powerups)) {
+      console.debug("[BabylonPongRenderer] Received powerups:", (gameState as any).powerups)
       const activePowerupKeys = new Set<string>()
-      gameState.powerups.forEach((p: any, pidx: number) => {
+      ;(gameState as any).powerups.forEach((p: any, pidx: number) => {
         try {
           const isArray = Array.isArray(p)
           const x = Number(isArray ? p[0] : p.x) || 0
@@ -693,20 +699,29 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               mat.emissiveColor = color.scale(0.25)
               mat.specularColor = new Color3(0.2, 0.2, 0.2)
               mesh.material = mat
-              // Render powerups slightly lower than balls so they appear beneath them
-              const { wx: pwx, wy: pwy, wz: pwz } = toWorldNumeric(x, y, 0.15)
+              // Position powerup so it sits on the floor. Compute half-height from
+              // the mesh bounding box (fallback to `size` when not available).
+              const { wx: pwx, wz: pwz } = toWorldNumeric(x, y)
               mesh.position.x = pwx
-              mesh.position.y = pwy
+              const floorY2 = floorRef.current?.position.y ?? -0.1
+              const halfHeight = mesh.getBoundingInfo?.()?.boundingBox?.extendSize?.y ?? (size * 0.5)
+              mesh.position.y = floorY2 + halfHeight
               mesh.position.z = pwz
+              // Ensure powerups cast shadows onto the floor
+              if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
               console.debug(`[BabylonPongRenderer] Created powerup mesh ${name} for type ${typeIndex}`)
               powerupsRef.current.set(key, mesh)
             }
           } else {
             // update position (keep powerups below balls)
-            const { wx: upx, wy: upy, wz: upz } = toWorldNumeric(x, y, 0.15)
+            const { wx: upx, wz: upz } = toWorldNumeric(x, y)
             mesh.position.x = upx
-            mesh.position.y = upy
+            const floorY3 = floorRef.current?.position.y ?? -0.1
+            const halfH = mesh.getBoundingInfo?.()?.boundingBox?.extendSize?.y ?? (size * 0.5)
+            mesh.position.y = floorY3 + halfH
             mesh.position.z = upz
+            // Re-add as shadow caster if necessary (idempotent)
+            if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
             // Small debug to ensure updates are occurring
             // console.debug(`[BabylonPongRenderer] Updated powerup ${key} position to (${x},${y})`)
           }
