@@ -39,8 +39,13 @@ function createBasicGameOptions(userDefinedOptions: TypeUserGameConfigSchema): P
     paddleHeight: 30,
     paddleWallOffset: 40,
     amountOfBalls: 1,
+<<<<<<< HEAD
     powerupFrequency: userDefinedOptions.powerupFrequency ?? 2147483647,
     gameDuration: userDefinedOptions.gameDuration ?? 180,
+=======
+    powerupFrequency: 10,
+    gameDuration: 180,
+>>>>>>> origin/master
   };
 }
 

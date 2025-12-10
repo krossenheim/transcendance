@@ -109,8 +109,8 @@ export class PongPaddle extends MultiObject {
 
 		const isTopHalf = (new Vec2(0, -1).dot(paddleDirection) > 0);
 		this.keyData = [
-			{ key: "ArrowLeft", isPressed: false, isClockwise: !isTopHalf },
-			{ key: "ArrowRight", isPressed: false, isClockwise: isTopHalf },
+			{ key: "arrowleft", isPressed: false, isClockwise: !isTopHalf },
+			{ key: "arrowright", isPressed: false, isClockwise: isTopHalf },
 		]
 		this.basePaddleSpeed = protectedWallWidth * paddleSpeedFactor;
 		this.boardPaddleSpeed = protectedWallWidth * paddleSpeedFactor;
@@ -190,6 +190,7 @@ export class PongPaddle extends MultiObject {
 			velocity.x,
 			velocity.y,
 			this.playerId,
+			this.boardPaddleSpeed,
 		]
 	}
 

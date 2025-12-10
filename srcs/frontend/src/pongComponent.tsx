@@ -45,6 +45,76 @@ export default function PongComponent({
   onLobbyJoined?: () => void
   onNavigateToChat?: () => void
 }) {
+  // Helper: normalize server GameState (tuples) to frontend-friendly objects
+  const normalizeGameState = (raw: any) => {
+    if (!raw) return null
+
+    // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
+    const balls = (raw.balls || []).map((b: any, idx: number) => {
+      if (Array.isArray(b)) {
+        return {
+          id: idx,
+          x: Number(b[0]) || 0,
+          y: Number(b[1]) || 0,
+          dx: Number(b[2]) || 0,
+          dy: Number(b[3]) || 0,
+          radius: Number(b[4]) || 10,
+        }
+      }
+      // already object-shaped
+      return {
+        id: b.id ?? idx,
+        x: b.x ?? 0,
+        y: b.y ?? 0,
+        dx: b.dx ?? 0,
+        dy: b.dy ?? 0,
+        radius: b.radius ?? b.r ?? 10,
+      }
+    })
+
+    // paddles: tuple [x,y,angle,width,height,vx,vy,playerId] -> { x,y,r,w,l,owner_id,paddle_id }
+    const paddles = (raw.paddles || []).map((p: any, idx: number) => {
+      if (Array.isArray(p)) {
+        const owner = Number(p[7]) ?? idx
+        return {
+          x: Number(p[0]) || 0,
+          y: Number(p[1]) || 0,
+          r: Number(p[2]) || 0,
+          w: Number(p[3]) || 10,
+          l: Number(p[4]) || 50,
+          owner_id: owner,
+          paddle_id: owner,
+        }
+      }
+      return {
+        x: p.x ?? 0,
+        y: p.y ?? 0,
+        r: p.r ?? p.rotation ?? 0,
+        w: p.w ?? p.width ?? 10,
+        l: p.l ?? p.length ?? 50,
+        owner_id: p.owner_id ?? p.ownerId ?? p.player_id ?? p.playerId ?? idx,
+        paddle_id: p.paddle_id ?? p.id ?? idx,
+      }
+    })
+
+    // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
+    const edges = (raw.walls || []).map((w: any) => {
+      if (Array.isArray(w)) {
+        return { x: Number(w[0]) || 0, y: Number(w[1]) || 0 }
+      }
+      return { x: w.x ?? 0, y: w.y ?? 0 }
+    })
+
+    return {
+      board_id: raw.board_id ?? raw.boardId ?? null,
+      edges,
+      paddles,
+      balls,
+      metadata: raw.metadata ?? null,
+      powerups: raw.powerups ?? raw.power_up ?? [],
+      score: raw.score ?? null,
+    }
+  }
   const { socket, payloadReceived } = useWebSocket()
   const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] = useState<TypePlayerReadyForGameSchema | null>(null)
   const [gameSelectedInput, setGameSelectedInput] = useState<number>(1)
@@ -54,6 +124,9 @@ export default function PongComponent({
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
   const [lastCreatedBoardId, setLastCreatedBoardId] = useState<number | null>(null)
+  // Renderer controls for tuning paddle rotation and screenshots
+  const rendererRef = useRef<any>(null)
+  const [paddleRotationOffset, setPaddleRotationOffset] = useState<number>(0)
 
   // New state for lobby and tournament
   const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
@@ -273,10 +346,11 @@ export default function PongComponent({
           setActiveTournamentId(tournamentIdToPreserve)
         }
 
-        // Set up the game for all players
+        // Normalize and set up the game for all players
         console.log("[Pong] Setting game state and transitioning to game view")
-        setPlayerIDsHelper(gameState)
-        setGameState(gameState)
+        const normalized = normalizeGameState(gameState)
+        setPlayerIDsHelper(normalized)
+        setGameState(normalized)
         setLobby(null) // Clear lobby state
         setCurrentView("game") // Transition immediately
       } else {
@@ -386,10 +460,11 @@ export default function PongComponent({
             }
             break;
           }
-          // Update game state silently (happens frequently)
-          setGameState(parsed.data);
-          gameStateReceivedRef.current = true;
-          setPlayerIDsHelper(parsed.data);
+            // Update game state silently (happens frequently)
+            const normalized = normalizeGameState(parsed.data)
+            setGameState(normalized);
+            gameStateReceivedRef.current = true;
+            setPlayerIDsHelper(normalized);
           // If we received valid game state and we're not in game view, switch to it
           if (currentView !== 'game' && parsed.data?.board_id) {
             console.log("[Pong] Received game state while not in game view, transitioning to game");
@@ -476,7 +551,7 @@ export default function PongComponent({
   useEffect(() => {
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
-      if (gameState === null) return
+      if (gameState === null || playerOnePaddleID === -1) return
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
@@ -485,6 +560,8 @@ export default function PongComponent({
         board_id: gameState.board_id,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug for debugging stuck keys
+      // console.debug('[Pong] KeyDown', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -496,6 +573,7 @@ export default function PongComponent({
         board_id: gameState.board_id,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyUp', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -523,18 +601,19 @@ export default function PongComponent({
         board_id: gameState.board_id,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyDown (player2)', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null) return
+      if (gameState === null || playerTwoPaddleID === -1) return
       keysPressed.delete(e.key)
 
       const payload = {
         board_id: gameState.board_id,
-        paddle_id: playerTwoPaddleID,
         pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyUp (player2)', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -953,7 +1032,41 @@ export default function PongComponent({
       {currentView === "game" && (
         <>
           <div className="w-full flex-1 min-h-[500px] shadow-lg border border-gray-800 bg-black overflow-hidden relative">
-            <BabylonPongRenderer gameState={gameState} darkMode={darkMode} />
+            <BabylonPongRenderer ref={rendererRef} gameState={gameState} darkMode={darkMode} paddleRotationOffset={paddleRotationOffset} />
+            <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setPaddleRotationOffset(0)}
+                  className={`px-2 py-1 text-sm font-medium rounded ${paddleRotationOffset === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+                >
+                  Offset 0
+                </button>
+                <button
+                  onClick={() => setPaddleRotationOffset(Math.PI / 2)}
+                  className={`px-2 py-1 text-sm font-medium rounded ${Math.abs(paddleRotationOffset - Math.PI/2) < 0.001 ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+                >
+                  Offset 90°
+                </button>
+                <button
+                  onClick={() => {
+                    try {
+                      const data = rendererRef.current?.takeScreenshot?.()
+                      if (data) {
+                        const w = window.open()
+                        if (w) w.document.write(`<img src="${data}" style="max-width:100%"/>`)
+                      } else {
+                        console.warn('[Pong] Screenshot not available')
+                      }
+                    } catch (e) {
+                      console.warn('[Pong] Screenshot failed', e)
+                    }
+                  }}
+                  className="px-2 py-1 text-sm font-medium rounded bg-green-500 text-white"
+                >
+                  Screenshot
+                </button>
+              </div>
+            </div>
           </div>
 
           {!gameState && (

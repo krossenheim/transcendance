@@ -89,6 +89,16 @@ export class PongManager {
       const game = gameData.game;
       const parsedKeys = Array.from(new Set(keys.map((key) => key.toLowerCase())));
       if (game.getPlayers().includes(userId)) {
+        try {
+          console.debug(`[Pong] handleUserInput user=${userId} parsedKeys=`, parsedKeys)
+          // Show which paddle keyData entries exist for this user's paddles
+          const paddles = game.getPlayerPaddles(userId)
+          for (const p of paddles) {
+            console.debug(`[Pong] paddle ${p.playerId} keyData=`, p.keyData.map(k => ({ key: k.key, isClockwise: k.isClockwise })))
+          }
+        } catch (e) {
+          console.warn("[Pong] Failed to log paddle keyData for debugging", e)
+        }
         game.handlePressedKeys(parsedKeys);
       }
     }
