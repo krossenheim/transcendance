@@ -39,7 +39,7 @@ function createBasicGameOptions(): PongGameOptions {
     paddleWallOffset: 40,
     amountOfBalls: 1,
     powerupFrequency: 10,
-    gameDuration: 10,
+    gameDuration: 180,
   };
 }
 

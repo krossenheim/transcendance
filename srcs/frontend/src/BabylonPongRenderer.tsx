@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react"
 import {
   Engine,
   Scene,
@@ -27,6 +27,9 @@ const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
 const BALL_RADIUS = 0.2 // Half of diameter 0.4
+// Tunable offset for paddle rotation to match backend angle convention.
+// If paddles appear rotated by 90deg, change this to Math.PI/2 or 0 accordingly.
+const PADDLE_ROTATION_OFFSET = 0 // adjust to Math.PI/2 if needed
 
 // Create a beach ball texture with classic vertical stripes that wrap around the sphere
 function createBeachBallTexture(scene: Scene): DynamicTexture {
@@ -94,7 +97,10 @@ interface BabylonPongRendererProps {
   darkMode?: boolean
 }
 
-export default function BabylonPongRenderer({ gameState, darkMode = true }: BabylonPongRendererProps) {
+const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
+  { gameState, darkMode = true, paddleRotationOffset = PADDLE_ROTATION_OFFSET }: BabylonPongRendererProps & { paddleRotationOffset?: number },
+  ref,
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<Scene | null>(null)
   const engineRef = useRef<Engine | null>(null)
@@ -115,6 +121,9 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
 
   // Track ball rotation for realistic rolling effect (using quaternions)
   const ballRotationsRef = useRef<Map<number, Quaternion>>(new Map())
+
+  // Powerups: stable meshes keyed by spawnTime (string) + index fallback
+  const powerupsRef = useRef<Map<string, Mesh>>(new Map())
 
   // Store beach ball texture reference
   const beachBallTextureRef = useRef<DynamicTexture | null>(null)
@@ -228,6 +237,9 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
       edgesRef.current = []
       floorRef.current = null
       previousBallVelocitiesRef.current.clear()
+      // Dispose powerup meshes
+      powerupsRef.current.forEach(m => m.dispose())
+      powerupsRef.current.clear()
 
       scene.dispose()
       engine.dispose()
@@ -369,14 +381,29 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
     // 2. Update Paddles
     const activePaddleIds = new Set<number>()
     gameState.paddles.forEach((p) => {
-      activePaddleIds.add(p.paddle_id)
-      let mesh = paddlesRef.current.get(p.paddle_id)
+      // Defensive handling: incoming payloads may rename fields or include null entries.
+      const paddleId = (p as any).paddle_id ?? (p as any).id ?? (p as any).paddleId
+      if (paddleId === undefined || paddleId === null) {
+        console.warn("[BabylonPongRenderer] Skipping paddle with missing id:", p)
+        return
+      }
+
+      activePaddleIds.add(paddleId)
+      let mesh = paddlesRef.current.get(paddleId)
+
+      // Support multiple possible property names and provide sensible defaults
+      const rawW = (p as any).w ?? (p as any).width ?? 10
+      const rawL = (p as any).l ?? (p as any).length ?? 50
+      const posX = (p as any).x ?? (p as any).posX ?? (p as any).px
+      const posY = (p as any).y ?? (p as any).posY ?? (p as any).py
+      const rot = (p as any).r ?? (p as any).rotation ?? 0
+      const ownerId = (p as any).owner_id ?? (p as any).ownerId ?? paddleId
 
       if (!mesh) {
-        const width = p.w * SCALE_FACTOR
-        const length = p.l * SCALE_FACTOR
+        const width = rawW * SCALE_FACTOR
+        const length = rawL * SCALE_FACTOR
         mesh = MeshBuilder.CreateBox(
-          `paddle_${p.paddle_id}`,
+          `paddle_${paddleId}`,
           {
             width: length, // Length along the edge
             height: 0.5,
@@ -387,25 +414,29 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
 
         const mat = new StandardMaterial("paddleMat", scene)
         // Assign color based on owner_id so it matches username color everywhere
-        const baseColor = getUserColorBabylon((p as any).owner_id ?? p.paddle_id)
+        const baseColor = getUserColorBabylon(ownerId)
         // Dark mode: full brightness, Light mode: darker version
         mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
         mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
         mesh.material = mat
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
-        paddlesRef.current.set(p.paddle_id, mesh)
+        paddlesRef.current.set(paddleId, mesh)
       }
 
-      // Position
-      const pos = toWorld(p.x, p.y, 0.25)
-      mesh.position = pos
+      // Position - if x/y missing skip positioning and warn
+      if (typeof posX !== "number" || typeof posY !== "number") {
+        console.warn("[BabylonPongRenderer] Paddle missing x/y, skipping position:", paddleId, p)
+      } else {
+        const pos = toWorld(posX, posY, 0.25)
+        mesh.position = pos
+      }
 
       // Rotation
       // p.r is the angle of the paddle's normal (facing center)
       // The paddle mesh length is along X. We want X to be perpendicular to normal.
-      // So rotate by p.r + 90 deg
-      mesh.rotation.y = -p.r + Math.PI / 2
+      // Use a configurable offset to handle backend/frontend convention mismatches.
+      mesh.rotation.y = -rot + (paddleRotationOffset ?? PADDLE_ROTATION_OFFSET)
     })
 
     // Cleanup missing paddles
@@ -539,6 +570,138 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
     })
 
     // Cleanup missing balls
+    // --- Powerups: create/update rotating shape meshes ---
+    // gameState.powerups entries are arrays: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
+    if (gameState.powerups && Array.isArray(gameState.powerups)) {
+      console.debug("[BabylonPongRenderer] Received powerups:", gameState.powerups)
+      const activePowerupKeys = new Set<string>()
+      gameState.powerups.forEach((p: any, pidx: number) => {
+        try {
+          const isArray = Array.isArray(p)
+          const x = Number(isArray ? p[0] : p.x) || 0
+          const y = Number(isArray ? p[1] : p.y) || 0
+          const radius = Number(isArray ? p[4] : p.radius) || 10
+          const spawnTime = String(isArray ? p[5] ?? pidx : (p.spawnTime ?? pidx))
+          const rawType = isArray ? p[6] : p.type
+          const typeIndex = Number(rawType)
+          if (isNaN(typeIndex)) {
+            console.warn("[BabylonPongRenderer] powerup type is not a number, raw:", rawType)
+          }
+          const key = `${spawnTime}_${pidx}`
+          console.debug(`[BabylonPongRenderer] Powerup parsed: key=${key}, x=${x}, y=${y}, radius=${radius}, type=${typeIndex}`)
+          activePowerupKeys.add(key)
+
+          let mesh = powerupsRef.current.get(key)
+          const size = Math.max(0.1, radius * SCALE_FACTOR)
+
+          if (!mesh) {
+            const name = `powerup_${key}`
+            let created: Mesh | null = null
+            const color = (() => {
+              switch (typeIndex) {
+                case 0: return new Color3(0.9, 0.6, 0.1) // ADD_BALL -> orange cube
+                case 1: return new Color3(0.9, 0.2, 0.2) // INCREASE_PADDLE_SPEED -> red pyramid
+                case 2: return new Color3(0.2, 0.6, 0.9) // DECREASE_PADDLE_SPEED -> blue pyramid
+                case 3: return new Color3(0.8, 0.3, 0.9) // SUPER_SPEED -> purple octa
+                case 4: return new Color3(0.2, 0.9, 0.3) // INCREASE_BALL_SIZE -> green dodeca
+                case 5: return new Color3(0.9, 0.9, 0.2) // DECREASE_BALL_SIZE -> yellow rect prism
+                case 6: return new Color3(0.9, 0.4, 0.7) // REVERSE_CONTROLS -> pink icosa
+                default: return new Color3(0.8, 0.8, 0.8)
+              }
+            })()
+
+            // Create shape depending on type
+            switch (typeIndex) {
+              case 1:
+                // square pyramid
+                created = MeshBuilder.CreateCylinder(name, { diameterTop: 0, diameterBottom: size * 2.0, height: size * 2.0, tessellation: 4 }, scene)
+                break
+              case 2:
+                // hexagonal pyramid
+                created = MeshBuilder.CreateCylinder(name, { diameterTop: 0, diameterBottom: size * 2.0, height: size * 2.2, tessellation: 6 }, scene)
+                break
+              case 3:
+                // octahedron (polyhedron type 2)
+                try {
+                  created = MeshBuilder.CreatePolyhedron(name, { type: 2, size: size }, scene)
+                } catch (e) {
+                  created = MeshBuilder.CreateSphere(name, { diameter: size * 1.6, segments: 8 }, scene)
+                }
+                break
+              case 4:
+                // dodecahedron (polyhedron type 3)
+                try {
+                  created = MeshBuilder.CreatePolyhedron(name, { type: 3, size: size }, scene)
+                } catch (e) {
+                  created = MeshBuilder.CreateSphere(name, { diameter: size * 1.8, segments: 10 }, scene)
+                }
+                break
+              case 5:
+                // rectangular prism
+                created = MeshBuilder.CreateBox(name, { width: size * 2.5, height: size * 1.2, depth: size * 1.4 }, scene)
+                break
+              case 6:
+                // icosahedron (polyhedron type 4)
+                try {
+                  created = MeshBuilder.CreatePolyhedron(name, { type: 4, size: size }, scene)
+                } catch (e) {
+                  created = MeshBuilder.CreateSphere(name, { diameter: size * 1.6, segments: 8 }, scene)
+                }
+                break
+              case 0:
+              default:
+                // cube for ADD_BALL and default
+                created = MeshBuilder.CreateBox(name, { size: size * 1.6 }, scene)
+                break
+            }
+
+            if (created) {
+              mesh = created
+              const mat = new StandardMaterial(name + "_mat", scene)
+              mat.diffuseColor = color
+              mat.emissiveColor = color.scale(0.25)
+              mat.specularColor = new Color3(0.2, 0.2, 0.2)
+              mesh.material = mat
+              mesh.position = toWorld(x, y, 0.6)
+              console.debug(`[BabylonPongRenderer] Created powerup mesh ${name} for type ${typeIndex}`)
+              powerupsRef.current.set(key, mesh)
+            }
+          } else {
+            // update position
+            mesh.position = toWorld(x, y, 0.6)
+            // Small debug to ensure updates are occurring
+            // console.debug(`[BabylonPongRenderer] Updated powerup ${key} position to (${x},${y})`)
+          }
+        } catch (e) {
+          console.warn("Failed to create/update powerup mesh", e)
+        }
+      })
+
+      // Remove powerups that no longer exist in game state
+      for (const [k, m] of powerupsRef.current) {
+        if (!activePowerupKeys.has(k)) {
+          try { m.dispose() } catch (e) { /* ignore */ }
+          powerupsRef.current.delete(k)
+        }
+      }
+
+      // Register a simple rotation if not already registered
+      if (!scene.onBeforeRenderObservable.hasObservers()) {
+        // If there are other before-render observers we don't want to clobber them; add our own observer anyway.
+      }
+      // Add a dedicated rotation observer (idempotent by checking custom flag)
+      if (!(scene as any).__powerupRotationRegistered) {
+        (scene as any).__powerupRotationRegistered = true
+        scene.onBeforeRenderObservable.add(() => {
+          const dt = scene.getEngine().getDeltaTime() / 1000 // seconds
+          const rotSpeed = 0.9 // radians per second
+          for (const mesh of powerupsRef.current.values()) {
+            mesh.rotation.y += rotSpeed * dt
+            mesh.rotation.x += (rotSpeed * 0.25) * dt
+          }
+        })
+      }
+    }
     for (const [id, mesh] of ballsRef.current) {
       if (!activeBallIds.has(id)) {
         const light = ballLightsRef.current.get(id)
@@ -552,7 +715,20 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
         ballRotationsRef.current.delete(id)
       }
     }
-  }, [gameState, darkMode])
+  }, [gameState, darkMode, paddleRotationOffset])
+
+  // Expose imperative API to parent for screenshots
+  useImperativeHandle(ref, () => ({
+    takeScreenshot: () => {
+      try {
+        if (!canvasRef.current) return null
+        return canvasRef.current.toDataURL("image/png")
+      } catch (e) {
+        console.warn("[BabylonPongRenderer] Screenshot failed:", e)
+        return null
+      }
+    }
+  }))
 
   return (
     <canvas
@@ -565,4 +741,6 @@ export default function BabylonPongRenderer({ gameState, darkMode = true }: Baby
       }}
     />
   )
-}
+})
+
+export default BabylonPongRenderer
