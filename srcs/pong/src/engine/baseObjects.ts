@@ -89,9 +89,12 @@ export class LineObject extends BaseObject {
     }
 
     override moveByDelta(delta: number): void {
-        const move = this.velocity.mul(delta);
-        this.pointA = this.pointA.add(move);
-        this.pointB = this.pointB.add(move);
+        const mvx = this.velocity.x * delta;
+        const mvy = this.velocity.y * delta;
+        this.pointA.x += mvx;
+        this.pointA.y += mvy;
+        this.pointB.x += mvx;
+        this.pointB.y += mvy;
     }
 
     override clone(): LineObject {
@@ -114,8 +117,10 @@ export class CircleObject extends BaseObject {
     }
 
     override moveByDelta(delta: number): void {
-        const move = this.velocity.mul(delta);
-        this.center = this.center.add(move);
+        const mvx = this.velocity.x * delta;
+        const mvy = this.velocity.y * delta;
+        this.center.x += mvx;
+        this.center.y += mvy;
     }
 
     override clone(): CircleObject {
@@ -140,9 +145,25 @@ export class MultiObject extends BaseObject {
     }
 
     override moveByDelta(delta: number): void {
-        this.velocity = this.velocity.mul(delta);
+        // Move child objects by the parent's velocity * delta without
+        // mutating the parent's velocity. Use component-wise updates to
+        // avoid allocating temporary Vec2 instances in tight loops.
+        const mvx = this.velocity.x * delta;
+        const mvy = this.velocity.y * delta;
+
         for (const obj of this.objects) {
-            obj.moveByDelta(delta);
+            if (obj instanceof LineObject) {
+                obj.pointA.x += mvx;
+                obj.pointA.y += mvy;
+                obj.pointB.x += mvx;
+                obj.pointB.y += mvy;
+            } else if (obj instanceof CircleObject) {
+                obj.center.x += mvx;
+                obj.center.y += mvy;
+            } else {
+                // Fallback for any other nested composite objects
+                obj.moveByDelta(delta);
+            }
         }
     }
 

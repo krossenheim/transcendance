@@ -121,18 +121,21 @@ export class PongPaddle extends MultiObject {
 	}
 
 	private getCenter(): Vec2 {
-		let sum = new Vec2(0, 0);
+		let sumX = 0;
+		let sumY = 0;
 		let count = 0;
 		for (const obj of this.objects) {
 			if (obj instanceof LineObject) {
-				sum = sum.add(obj.pointA).add(obj.pointB);
+				sumX += obj.pointA.x + obj.pointB.x;
+				sumY += obj.pointA.y + obj.pointB.y;
 				count += 2;
 			} else if (obj instanceof CircleObject) {
-				sum = sum.add(obj.center);
+				sumX += obj.center.x;
+				sumY += obj.center.y;
 				count += 1;
 			}
 		}
-		return sum.div(count);
+		return new Vec2(sumX / count, sumY / count);
 	}
 
 	public setReverseControls(reverse: boolean): void {
@@ -149,20 +152,30 @@ export class PongPaddle extends MultiObject {
 		}
 
 		if (moveDirection === 0) {
-			this.velocity = new Vec2(0, 0);
+			const v = this.velocity; // mutate existing Vec2 to avoid allocation
+			v.x = 0;
+			v.y = 0;
 			return Infinity;
 		}
 
-		const desiredVelocity = this.clockwiseBaseVelocity.normalize().mul(moveDirection * this.boardPaddleSpeed);
-		const maxTravelDistance = moveDirection > 0 ? this.bounds.max.sub(this.getCenter()).len() : this.getCenter().sub(this.bounds.min).len();
+		// clockwiseBaseVelocity is already normalized in constructor; avoid re-normalizing
+		const dir = this.clockwiseBaseVelocity;
+		const desiredSpeed = Math.abs(moveDirection) * this.boardPaddleSpeed;
+
+		const center = this.getCenter();
+		const maxTravelDistance = moveDirection > 0 ? this.bounds.max.sub(center).len() : center.sub(this.bounds.min).len();
 
 		if (maxTravelDistance < 1) {
-			this.velocity = new Vec2(0, 0);
+			const v = this.velocity;
+			v.x = 0;
+			v.y = 0;
 			return Infinity;
 		}
 
-		const maxTravelTime = maxTravelDistance / desiredVelocity.len();
-		this.velocity = desiredVelocity;
+		const maxTravelTime = maxTravelDistance / desiredSpeed;
+		const v = this.velocity;
+		v.x = dir.x * moveDirection * this.boardPaddleSpeed;
+		v.y = dir.y * moveDirection * this.boardPaddleSpeed;
 		return maxTravelTime;
 	}
 

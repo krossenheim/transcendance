@@ -13,6 +13,9 @@ export class Scene {
     private elapsedTime: number = 0;
     private timeScale: number = 1.0;
 
+    // Disable scene debug logs in production; set true only for debugging.
+    private static readonly ENABLE_SCENE_LOGS = false;
+
     constructor() {
         this.objects = [];
     }
@@ -59,7 +62,10 @@ export class Scene {
             for (let j = 0; j < this.objects.length; j++) {
                 const parentB = this.objects[j]!;
                 if (parentA === parentB) continue;
-                if (parentA.velocity.sub(parentB.velocity).lenSq() < EPS) continue;
+                // Avoid allocating temporary Vec2 for relative velocity: compute components directly
+                const rvx = parentA.velocity.x - parentB.velocity.x;
+                const rvy = parentA.velocity.y - parentB.velocity.y;
+                if ((rvx * rvx + rvy * rvy) < EPS) continue;
 
                 for (const objA of parentA.iter()) {
                     for (const objB of parentB.iter()) {
@@ -75,13 +81,13 @@ export class Scene {
                             tHit = getWallCollisionTime(objB, objA);
                         }
 
-                        if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
+                                    if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
                             earliestCollision = {
                                 time: tHit,
                                 objectA: objA,
                                 objectB: objB,
                             };
-                        }
+                                    }
                     }
                 }
             }
@@ -123,7 +129,7 @@ export class Scene {
             const bTask = parentB.onCollision(parentA, this.elapsedTime);
 
             const handleMethod = Math.max(aTask, bTask);
-			console.log(`Handling collision between ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name} with method ${CollisionResponse[handleMethod]}`);
+            if (Scene.ENABLE_SCENE_LOGS) console.log(`Handling collision between ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name} with method ${CollisionResponse[handleMethod]}`);
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
                     collision.objectA.moveByDelta(FAT_EPS);
