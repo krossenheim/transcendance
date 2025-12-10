@@ -14,9 +14,9 @@ type gameDataType = {
 
 // Simulation and broadcast timing
 // Run the physics simulation at a stable fixed timestep (60 Hz)
-const PONG_SIM_MS = 1000 / 60; // ~16.6667 ms (60 FPS)
+const PONG_SIM_MS = 1000 / 120; // ~16.6667 ms (60 FPS)
 // Broadcast (send game state to clients) at a lower rate to reduce network jitter
-const PONG_BROADCAST_MS = 1000 / 60; // ~16.6667 ms (60 FPS)
+const PONG_BROADCAST_MS = 1000 / 120; // ~16.6667 ms (60 FPS)
 
 export class PongManager {
   private static instance: PongManager | null = null;
