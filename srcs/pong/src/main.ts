@@ -1,4 +1,5 @@
 "use strict";
+import type { TypeUserGameConfigSchema } from "@app/shared/api/service/pong/pong_interfaces";
 import { PongGameOptions } from "./game/game.js";
 import { PongManager } from "./pongManager.js";
 import LobbyManager from "./lobbyManager.js";
@@ -28,18 +29,18 @@ const singletonPong = new PongManager(socket);
 const tournamentManager = new TournamentManager();
 const blockchainService = new BlockchainService();
 
-function createBasicGameOptions(): PongGameOptions {
+function createBasicGameOptions(userDefinedOptions: TypeUserGameConfigSchema): PongGameOptions {
   return {
     canvasWidth: 1000,
     canvasHeight: 1000,
-    ballSpeed: 450,
-    paddleSpeedFactor: 1.5,
-    paddleWidthFactor: 0.15,
+    ballSpeed: userDefinedOptions.ballSpeed ?? 400,
+    paddleSpeedFactor: userDefinedOptions.paddleSpeedFactor ?? 1.5,
+    paddleWidthFactor: userDefinedOptions.paddleWidthFactor ?? 0.15,
     paddleHeight: 30,
     paddleWallOffset: 40,
     amountOfBalls: 1,
-    powerupFrequency: 10,
-    gameDuration: 10,
+    powerupFrequency: userDefinedOptions.powerupFrequency ?? 2147483647,
+    gameDuration: userDefinedOptions.gameDuration ?? 180,
   };
 }
 
@@ -55,7 +56,7 @@ socket.registerHandler(user_url.ws.pong.startGame, async (body, response) => {
   const player_list_requested = body.payload.player_list;
   const startGameResult = singletonPong.startGame(
     player_list_requested,
-    createBasicGameOptions()
+    createBasicGameOptions(body.payload.gameConfig ?? {})
   );
 
   if (startGameResult.isErr()) {
@@ -91,7 +92,7 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => 
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   const user_id = body.user_id;
-  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = body.payload;
+  const { gameMode, playerIds, playerUsernames, gameConfig } = body.payload;
 
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
   console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}`);
@@ -101,9 +102,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
     gameMode,
     playerIds,
     playerUsernames || {},
-    ballCount,
-    maxScore,
-    allowPowerups || false
+    gameConfig ?? {},
   );
 
   if (lobbyResult.isErr()) {
@@ -125,8 +124,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
         tournamentName,
         gameMode,
         playerIds,
-        ballCount,
-        maxScore
+        gameConfig ?? {}
       );
       if (!tResult.isErr()) {
         const tournament = tResult.unwrap();
@@ -149,9 +147,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
     lobbyId: lobby.lobbyId,
     gameMode: lobby.gameMode,
     players: lobby.players,
-    ballCount: lobby.ballCount,
-    maxScore: lobby.maxScore,
-    allowPowerups: lobby.allowPowerups,
+    gameConfig: lobby.gameConfig,
     status: lobby.status,
   };
   if (tournamentPayload) responsePayload.tournament = tournamentPayload;
@@ -183,9 +179,7 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
       lobbyId: lobby.lobbyId,
       gameMode: lobby.gameMode,
       players: lobby.players,
-      ballCount: lobby.ballCount,
-      maxScore: lobby.maxScore,
-      allowPowerups: lobby.allowPowerups,
+      gameConfig: lobby.gameConfig,
       status: lobby.status,
     }
   ));
@@ -283,7 +277,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
 
   // Create the actual pong game
   const playerIds = lobby.players.map((p) => p.userId);
-  const gameResult = singletonPong.startGame(playerIds, createBasicGameOptions());
+  const gameResult = singletonPong.startGame(playerIds, createBasicGameOptions(lobby.gameConfig ?? {}));
 
   if (gameResult.isErr()) {
     return Result.Ok(response.select("NotAllReady").reply({

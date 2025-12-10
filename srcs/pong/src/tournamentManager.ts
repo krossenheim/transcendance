@@ -1,3 +1,4 @@
+import type { TypeUserGameConfigSchema } from "@app/shared/api/service/pong/pong_interfaces";
 import type { Result } from "@app/shared/api/service/common/result";
 import { Result as ResultClass } from "@app/shared/api/service/common/result";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
@@ -28,8 +29,7 @@ export interface Tournament {
   totalRounds: number;
   status: "registration" | "in_progress" | "completed";
   winnerId: number | null;
-  ballCount: number;
-  maxScore: number;
+  gameConfig: TypeUserGameConfigSchema;
   onchainTxHashes?: string[];
 }
 
@@ -48,8 +48,7 @@ export class TournamentManager {
     name: string,
     mode: "tournament_1v1" | "tournament_multi",
     playerIds: number[],
-    ballCount: number,
-    maxScore: number
+    gameConfig: TypeUserGameConfigSchema
   ): Result<Tournament, ErrorResponseType> {
     if (playerIds.length < 2) {
       return ResultClass.Err({
@@ -74,8 +73,7 @@ export class TournamentManager {
       totalRounds,
       status: "registration",
       winnerId: null,
-      ballCount,
-      maxScore,
+      gameConfig,
       onchainTxHashes: [],
     };
 

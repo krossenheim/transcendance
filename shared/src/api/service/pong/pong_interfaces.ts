@@ -16,12 +16,6 @@ const player_list_rule = z.array(z.coerce.number()).refine(
     message: "N omore than 2 player IDS in a given pong game.",
   }
 );
-export const StartNewPongGameSchema = z
-  .object({
-    balls: z.coerce.number().int().gt(0).lt(1000),
-    player_list: player_list_rule,
-  })
-  .strict();
 
 export const PongBallSchema = z
   .tuple([
@@ -55,6 +49,22 @@ const PongWallSchema = z
     z.coerce.number(), // velocity y
     z.coerce.number().nullable(), // player id or null
   ]);
+
+export const UserGameConfigSchema = z.object({
+  ballSpeed: z.coerce.number().int().gt(100).lt(1000).optional().nullable(),
+  paddleSpeedFactor: z.coerce.number().gt(0.1).lt(10.0).optional().nullable(),
+  paddleWidthFactor: z.coerce.number().gt(0.01).lt(0.9).optional().nullable(),
+  powerupFrequency: z.coerce.number().gt(0).optional().nullable(),
+  gameDuration: z.coerce.number().gt(30).lt(600).optional().nullable()
+}).strict();
+
+export const StartNewPongGameSchema = z
+  .object({
+    balls: z.coerce.number().int().gt(0).lt(1000),
+    player_list: player_list_rule,
+    gameConfig: UserGameConfigSchema.optional().nullable(),
+  })
+  .strict();
 
 export const HandleGameKeysSchema = z
   .object({
@@ -100,9 +110,7 @@ export const CreateLobbySchema = z
     gameMode: GameModeSchema,
     playerIds: z.array(userIdValue),
     playerUsernames: z.record(z.string(), z.string()).optional(),
-    ballCount: z.coerce.number().int().min(1).max(5),
-    maxScore: z.coerce.number().int().min(3).max(21),
-    allowPowerups: z.boolean().optional().default(false),
+    gameConfig: UserGameConfigSchema.optional().nullable(),
   })
   .strict();
 
@@ -145,8 +153,7 @@ export const TournamentDataSchema = z
     totalRounds: z.coerce.number().int().min(1),
     status: z.enum(["registration", "in_progress", "completed"]),
     winnerId: userIdValue.nullable(),
-    ballCount: z.coerce.number(),
-    maxScore: z.coerce.number(),
+    gameConfig: UserGameConfigSchema.optional().nullable(),
     onchainTxHashes: z.array(z.string()).optional(),
   })
   .strict();
@@ -156,9 +163,7 @@ export const LobbyDataSchema = z
     lobbyId: gameIdValue,
     gameMode: GameModeSchema,
     players: z.array(LobbyPlayerSchema),
-    ballCount: z.coerce.number(),
-    maxScore: z.coerce.number(),
-    allowPowerups: z.boolean(),
+    gameConfig: UserGameConfigSchema.optional().nullable(),
     status: z.enum(["waiting", "starting", "in_progress"]),
     tournament: TournamentDataSchema.optional(),
   })
@@ -211,6 +216,7 @@ export type TypePongPaddle = z.infer<typeof PongPaddleSchema>;
 export type TypePongBall = z.infer<typeof PongBallSchema>;
 export type TypeCreateLobby = z.infer<typeof CreateLobbySchema>;
 export type TypeLobbyData = z.infer<typeof LobbyDataSchema>;
+export type TypeUserGameConfigSchema = z.infer<typeof UserGameConfigSchema>;
 export type TypeTournamentData = z.infer<typeof TournamentDataSchema>;
 export type TypeSetPlayerAlias = z.infer<typeof SetPlayerAliasSchema>;
 export type TypeJoinTournamentMatch = z.infer<typeof JoinTournamentMatchSchema>;

@@ -1,5 +1,6 @@
 "use client"
 
+import type { TypeUserGameConfigSchema } from "@app/shared/api/service/pong/pong_interfaces"
 import type { GameMode } from "./pongInviteModal"
 import { getUserColorCSS } from "./userColorUtils"
 
@@ -14,11 +15,7 @@ export interface PongLobbyData {
   lobbyId: number
   gameMode: GameMode
   players: LobbyPlayer[]
-  settings: {
-    ballCount: number
-    maxScore: number
-    allowPowerups: boolean
-  }
+  gameConfig: TypeUserGameConfigSchema,
   status: "waiting" | "starting" | "in_progress"
 }
 
@@ -78,29 +75,51 @@ export default function PongLobby({
       </div>
 
       {/* Game Settings */}
-      <div className="mb-6 p-4 bg-gray-50/40 dark:bg-gray-900/70">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+      <div className="mb-6 p-4 bg-gray-50/40 dark:bg-gray-900/70 border border-gray-300 dark:border-gray-700 rounded">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
           Game Settings
         </h3>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Balls:</span>{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {lobby.settings.ballCount}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Max Score:</span>{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {lobby.settings.maxScore}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Power-ups:</span>{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {lobby.settings.allowPowerups ? "Yes" : "No"}
-            </span>
-          </div>
+        <div className="space-y-2 text-sm">
+          {lobby.gameConfig.ballSpeed && (
+        <div className="flex justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Ball Speed:</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-200">
+            {lobby.gameConfig.ballSpeed}
+          </span>
+        </div>
+          )}
+          {lobby.gameConfig.paddleSpeedFactor && (
+        <div className="flex justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Paddle Speed:</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-200">
+            {lobby.gameConfig.paddleSpeedFactor.toFixed(2)}x
+          </span>
+        </div>
+          )}
+          {lobby.gameConfig.paddleWidthFactor && (
+        <div className="flex justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Paddle Width:</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-200">
+            {(lobby.gameConfig.paddleWidthFactor * 100).toFixed(0)}%
+          </span>
+        </div>
+          )}
+          {lobby.gameConfig.powerupFrequency && (
+        <div className="flex justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Power-up Frequency:</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-200">
+            {lobby.gameConfig.powerupFrequency}
+          </span>
+        </div>
+          )}
+          {lobby.gameConfig.gameDuration && (
+        <div className="flex justify-between">
+          <span className="text-gray-600 dark:text-gray-400">Game Duration:</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-200">
+            {lobby.gameConfig.gameDuration}s
+          </span>
+        </div>
+          )}
         </div>
       </div>
 

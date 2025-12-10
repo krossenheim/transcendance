@@ -185,11 +185,7 @@ export default function PongComponent({
             isReady: p.isReady,
             isHost: p.isHost,
           })),
-          settings: {
-            ballCount: payloadReceived.payload.ballCount,
-            maxScore: payloadReceived.payload.maxScore,
-            allowPowerups: payloadReceived.payload.allowPowerups,
-          },
+          gameConfig: payloadReceived.gameConfig,
           status: payloadReceived.payload.status,
         })
 
@@ -252,11 +248,7 @@ export default function PongComponent({
             isReady: p.isReady,
             isHost: p.isHost,
           })),
-          settings: {
-            ballCount: lobbyData.ballCount,
-            maxScore: lobbyData.maxScore,
-            allowPowerups: lobbyData.allowPowerups,
-          },
+          gameConfig: lobbyData.gameConfig,
           status: lobbyData.status,
         })
 
@@ -310,11 +302,7 @@ export default function PongComponent({
           isReady: p.isReady,
           isHost: p.isHost,
         })),
-        settings: {
-          ballCount: storedLobbyData.ballCount,
-          maxScore: storedLobbyData.maxScore,
-          allowPowerups: storedLobbyData.allowPowerups,
-        },
+        gameConfig: storedLobbyData.gameConfig,
         status: storedLobbyData.status,
       })
 
@@ -611,11 +599,7 @@ export default function PongComponent({
           isReady: false,
           isHost: id === authResponse?.user?.id,
         })),
-        settings: {
-          ballCount: settings.ballCount,
-          maxScore: settings.maxScore,
-          allowPowerups: settings.allowPowerups,
-        },
+        gameConfig: {},
         status: "waiting",
       }
 
@@ -635,9 +619,7 @@ export default function PongComponent({
           gameMode: mode,
           playerIds: selectedPlayers,
           playerUsernames: playerUsernames,
-          ballCount: settings.ballCount,
-          maxScore: settings.maxScore,
-          allowPowerups: settings.allowPowerups,
+          gameConfig: settings
         },
         target_container: "pong",
       }
@@ -810,11 +792,7 @@ export default function PongComponent({
             isReady: p.isReady || false,
             isHost: p.isHost || false,
           })),
-          settings: {
-            ballCount: lobbyData.ballCount,
-            maxScore: lobbyData.maxScore,
-            allowPowerups: lobbyData.allowPowerups,
-          },
+          gameConfig: lobbyData.gameConfig,
           status: lobbyData.status || "waiting",
         }
         setLobby(lobbyState)

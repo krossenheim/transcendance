@@ -1,6 +1,7 @@
-import type { Result } from "@app/shared/api/service/common/result";
-import { Result as ResultClass } from "@app/shared/api/service/common/result";
+import type { TypeUserGameConfigSchema } from "@app/shared/api/service/pong/pong_interfaces";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
+import { Result as ResultClass } from "@app/shared/api/service/common/result";
+import type { Result } from "@app/shared/api/service/common/result";
 
 export interface LobbyPlayer {
   userId: number;
@@ -13,12 +14,10 @@ export interface Lobby {
   lobbyId: number;
   gameMode: "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi";
   players: LobbyPlayer[];
-  ballCount: number;
-  maxScore: number;
-  allowPowerups: boolean;
   status: "waiting" | "starting" | "in_progress";
   gameId?: number; // Set when game starts
   tournamentId?: number; // Set if this is a tournament
+  gameConfig: TypeUserGameConfigSchema
 }
 
 export class LobbyManager {
@@ -36,9 +35,7 @@ export class LobbyManager {
     gameMode: "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi",
     playerIds: number[],
     playerUsernames: { [key: number]: string },
-    ballCount: number,
-    maxScore: number,
-    allowPowerups: boolean = false
+    gameConfig: TypeUserGameConfigSchema
   ): Result<Lobby, ErrorResponseType> {
     if (playerIds.length < 1) {
       return ResultClass.Err({ message: "Lobby requires at least 1 player" });
@@ -63,10 +60,8 @@ export class LobbyManager {
         isReady: false,
         isHost: userId === hostId,
       })),
-      ballCount,
-      maxScore,
-      allowPowerups,
       status: "waiting",
+      gameConfig,
     };
 
     this.lobbies.set(lobby.lobbyId, lobby);
