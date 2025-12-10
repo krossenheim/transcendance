@@ -22,12 +22,12 @@ all: ensure_env ensure_volumes check-deps down build ensure_network
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --remove-orphans
 
 ensure_env:
-	if [ ! -f "$(PATH_TO_COMPOSE_ENV_FILE)" ]; then \
+	@if [ ! -f "$(PATH_TO_COMPOSE_ENV_FILE)" ]; then \
 		echo "Error: Environment file '$(PATH_TO_COMPOSE_ENV_FILE)' not found."; \
 		exit 1; \
 	fi
 
-	if [ ! -f "$(PATH_TO_COMPOSE_SECRETS_FILE)" ]; then \
+	@if [ ! -f "$(PATH_TO_COMPOSE_SECRETS_FILE)" ]; then \
 		echo "Error: Secrets file '$(PATH_TO_COMPOSE_SECRETS_FILE)' not found."; \
 		exit 1; \
 	fi
@@ -124,7 +124,7 @@ print_config: create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
 
 create_shared_volume_folder:
-	if [ ! -d "$(VOLUMES_DIR)" ]; then \
+	@if [ ! -d "$(VOLUMES_DIR)" ]; then \
 		mkdir -p "$(VOLUMES_DIR)"; \
 	fi
 

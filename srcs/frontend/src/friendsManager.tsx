@@ -91,18 +91,32 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
       <div className="flex gap-2">
         {item.status === 1 && (
           <>
-            <button
-              onClick={() => sendToSocket(user_url.ws.users.confirmFriendship.funcId, item.id)}
-              className="px-3 py-1 text-xs font-medium bg-green-500 text-white hover:bg-green-600"
-            >
-              Accept
-            </button>
-            <button
-              onClick={() => sendToSocket(user_url.ws.users.denyFriendship.funcId, item.id)}
-              className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
-            >
-              Deny
-            </button>
+            {selfUserId !== null && item.friendId === selfUserId ? (
+              <>
+                <button
+                  onClick={() => sendToSocket(user_url.ws.users.confirmFriendship.funcId, item.id)}
+                  className="px-3 py-1 text-xs font-medium bg-green-500 text-white hover:bg-green-600"
+                >
+                  Accept
+                </button>
+                <button
+                  onClick={() => sendToSocket(user_url.ws.users.denyFriendship.funcId, item.id)}
+                  className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
+                >
+                  Deny
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="px-3 py-1 text-xs font-medium bg-yellow-400 text-white">Pending</span>
+                <button
+                  onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
+                  className="px-3 py-1 text-xs font-medium bg-gray-500 text-white hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
           </>
         )}
         {item.status === 2 && (
