@@ -1,4 +1,4 @@
-import { getBallCollisionTime, getWallCollisionTime, CollisionResponse, resolveBallCollision, resolveCircleLineCollision } from "./collision.js";
+import { getBallCollisionTime, getWallCollisionTime, CollisionResponse, resolveBallCollision, resolveCircleLineCollision, buildQuadtree, getBoundingBox, getSweptBoundingBox, isCircleCircleOverlappingAtTime, isCircleLineOverlappingAtTime } from "./collision.js";
 import { BaseObject, LineObject, CircleObject } from "./baseObjects.js";
 import { EPS, FAT_EPS } from "./math.js";
 
@@ -15,6 +15,13 @@ export class Scene {
 
     // Disable scene debug logs in production; set true only for debugging.
     private static readonly ENABLE_SCENE_LOGS = false;
+
+    // Enable temporary quadtree debug output to help tune PAD and quadtree behavior.
+    private static readonly DEBUG_QUADTREE = true;
+    // Lookahead time (in same normalized units as collision tests) to expand query boxes
+    private static readonly QUADTREE_LOOKAHEAD = 2.0; // increased to be more conservative
+    // Base padding for the quadtree bounds
+    private static readonly QUADTREE_BASE_PAD = 10;
 
     constructor() {
         this.objects = [];
@@ -58,39 +65,120 @@ export class Scene {
     private getNextCollisionBetweenObjects(mainObjects: BaseObject[]): Collision | null {
         let earliestCollision: Collision | null = null;
 
+        // Build quadtree over all raw objects to quickly query nearby candidates.
+        const raw = this.getRawObjects();
+        if (raw.length === 0) return null;
+        // Compute scene bounds
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const o of raw) {
+            const box = getBoundingBox(o as any);
+            if (box.minX < minX) minX = box.minX;
+            if (box.minY < minY) minY = box.minY;
+            if (box.maxX > maxX) maxX = box.maxX;
+            if (box.maxY > maxY) maxY = box.maxY;
+        }
+        // Pad bounds slightly
+        const PAD = Scene.QUADTREE_BASE_PAD;
+        const tree = buildQuadtree(raw as any, { minX: minX - PAD, minY: minY - PAD, maxX: maxX + PAD, maxY: maxY + PAD }, Scene.QUADTREE_LOOKAHEAD);
+
+        let totalCandidates = 0;
+        let totalPairsTested = 0;
+        let totalCollisionsFound = 0;
+
         for (const parentA of mainObjects) {
-            for (let j = 0; j < this.objects.length; j++) {
-                const parentB = this.objects[j]!;
-                if (parentA === parentB) continue;
-                // Avoid allocating temporary Vec2 for relative velocity: compute components directly
-                const rvx = parentA.velocity.x - parentB.velocity.x;
-                const rvy = parentA.velocity.y - parentB.velocity.y;
-                if ((rvx * rvx + rvy * rvy) < EPS) continue;
+            for (const objA of parentA.iter()) {
+                const queryBox = getSweptBoundingBox(objA as any, Scene.QUADTREE_LOOKAHEAD);
+                const candidates = tree.queryRange(queryBox);
+                if (Scene.DEBUG_QUADTREE && Scene.ENABLE_SCENE_LOGS) {
+                    console.log(`Quadtree: object ${objA.constructor.name} candidates=${candidates.length}`);
+                }
+                totalCandidates += candidates.length;
+                for (const objB of candidates) {
+                    if (objA === objB) continue;
+                    const parentB = this.fetchParentObject(objB) || objB;
+                    if (parentA === parentB) continue;
 
-                for (const objA of parentA.iter()) {
-                    for (const objB of parentB.iter()) {
-                        if (objA === objB) continue;
+                    // Avoid allocating temporary Vec2 for relative velocity: compute components directly
+                    const rvx = parentA.velocity.x - (parentB as BaseObject).velocity.x;
+                    const rvy = parentA.velocity.y - (parentB as BaseObject).velocity.y;
+                    if ((rvx * rvx + rvy * rvy) < EPS) continue;
 
-                        let tHit: number | null = null;
-
-                        if (objA instanceof CircleObject && objB instanceof CircleObject) {
-                            tHit = getBallCollisionTime(objA, objB);
-                        } else if (objA instanceof CircleObject && objB instanceof LineObject) {
-                            tHit = getWallCollisionTime(objA, objB);
-                        } else if (objA instanceof LineObject && objB instanceof CircleObject) {
-                            tHit = getWallCollisionTime(objB, objA);
+                    let tHit: number | null = null;
+                    if (objA instanceof CircleObject && objB instanceof CircleObject) {
+                        tHit = getBallCollisionTime(objA, objB);
+                        if ((tHit === null || isNaN(tHit)) && isCircleCircleOverlappingAtTime(objA, objB, 1.0)) {
+                            tHit = FAT_EPS;
                         }
+                    } else if (objA instanceof CircleObject && objB instanceof LineObject) {
+                        tHit = getWallCollisionTime(objA, objB);
+                        if ((tHit === null || isNaN(tHit)) && isCircleLineOverlappingAtTime(objA, objB, 1.0)) {
+                            tHit = FAT_EPS;
+                        }
+                    } else if (objA instanceof LineObject && objB instanceof CircleObject) {
+                        tHit = getWallCollisionTime(objB, objA);
+                        if ((tHit === null || isNaN(tHit)) && isCircleLineOverlappingAtTime(objB, objA, 1.0)) {
+                            tHit = FAT_EPS;
+                        }
+                    }
 
-                                    if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
-                            earliestCollision = {
-                                time: tHit,
-                                objectA: objA,
-                                objectB: objB,
-                            };
-                                    }
+                    totalPairsTested++;
+                    if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
+                        earliestCollision = {
+                            time: tHit,
+                            objectA: objA,
+                            objectB: objB,
+                        };
+                        totalCollisionsFound++;
                     }
                 }
             }
+        }
+
+        // If quadtree-based broadphase failed to find collisions (due to tight movement
+        // or padding issues), fall back to the original brute-force search to avoid
+        // missing collisions.
+        if (earliestCollision === null) {
+            // Brute-force fallback
+            if (Scene.DEBUG_QUADTREE && Scene.ENABLE_SCENE_LOGS) {
+                console.log(`Quadtree summary (before brute-force): candidates=${totalCandidates} pairs_tested=${totalPairsTested} collisions_found=${totalCollisionsFound}`);
+            }
+            for (const parentA of mainObjects) {
+                for (let j = 0; j < this.objects.length; j++) {
+                    const parentB = this.objects[j]!;
+                    if (parentA === parentB) continue;
+                    const rvx = parentA.velocity.x - parentB.velocity.x;
+                    const rvy = parentA.velocity.y - parentB.velocity.y;
+                    if ((rvx * rvx + rvy * rvy) < EPS) continue;
+
+                    for (const objA of parentA.iter()) {
+                        for (const objB of parentB.iter()) {
+                            if (objA === objB) continue;
+                            let tHit: number | null = null;
+                            if (objA instanceof CircleObject && objB instanceof CircleObject) {
+                                tHit = getBallCollisionTime(objA, objB);
+                            } else if (objA instanceof CircleObject && objB instanceof LineObject) {
+                                tHit = getWallCollisionTime(objA, objB);
+                            } else if (objA instanceof LineObject && objB instanceof CircleObject) {
+                                tHit = getWallCollisionTime(objB, objA);
+                            }
+
+                            totalPairsTested++;
+                            if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
+                                earliestCollision = {
+                                    time: tHit,
+                                    objectA: objA,
+                                    objectB: objB,
+                                };
+                                totalCollisionsFound++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (Scene.DEBUG_QUADTREE && Scene.ENABLE_SCENE_LOGS) {
+            console.log(`Quadtree final summary: candidates=${totalCandidates} pairs_tested=${totalPairsTested} collisions_found=${totalCollisionsFound}`);
         }
 
         return earliestCollision;

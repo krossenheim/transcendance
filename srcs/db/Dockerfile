@@ -16,6 +16,8 @@ RUN npm run build
 WORKDIR /app/srcs/${SERVICE_NAME}
 
 COPY srcs/${SERVICE_NAME}/package.json srcs/${SERVICE_NAME}/tsconfig.json ./
+# Install Python, make, and g++ for node-gyp
+RUN apt-get update && apt-get install -y python3 make g++ && ln -sf /usr/bin/python3 /usr/bin/python
 RUN --mount=type=cache,target=/root/.npm \
     npm install
 

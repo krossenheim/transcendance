@@ -1,6 +1,132 @@
 import { CircleObject, LineObject } from "./baseObjects.js";
 import { solveQuadratic, EPS } from "./math.js";
 
+// --- Quadtree spatial partitioning for collision optimization ---
+type BoundingBox = { minX: number, minY: number, maxX: number, maxY: number };
+
+export function getBoundingBox(obj: CircleObject | LineObject): BoundingBox {
+    if (obj instanceof CircleObject) {
+        return {
+            minX: obj.center.x - obj.radius,
+            minY: obj.center.y - obj.radius,
+            maxX: obj.center.x + obj.radius,
+            maxY: obj.center.y + obj.radius,
+        };
+    } else if (obj instanceof LineObject) {
+        return {
+            minX: Math.min(obj.pointA.x, obj.pointB.x),
+            minY: Math.min(obj.pointA.y, obj.pointB.y),
+            maxX: Math.max(obj.pointA.x, obj.pointB.x),
+            maxY: Math.max(obj.pointA.y, obj.pointB.y),
+        };
+    }
+    // Fallback for other types
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+}
+
+export function getSweptBoundingBox(obj: CircleObject | LineObject, lookahead: number): BoundingBox {
+    const base = getBoundingBox(obj);
+    const v = (obj as any).velocity;
+    if (!v || lookahead === 0) return base;
+    const dx = Math.abs(v.x * lookahead);
+    const dy = Math.abs(v.y * lookahead);
+    return {
+        minX: base.minX - dx,
+        minY: base.minY - dy,
+        maxX: base.maxX + dx,
+        maxY: base.maxY + dy,
+    };
+}
+
+class QuadtreeNode {
+    bounds: BoundingBox;
+    objects: (CircleObject | LineObject)[] = [];
+    children: QuadtreeNode[] = [];
+    maxObjects: number;
+    maxDepth: number;
+    depth: number;
+    lookahead: number;
+
+    constructor(bounds: BoundingBox, depth = 0, maxObjects = 8, maxDepth = 5, lookahead = 0) {
+        this.bounds = bounds;
+        this.depth = depth;
+        this.maxObjects = maxObjects;
+        this.maxDepth = maxDepth;
+        this.lookahead = lookahead;
+    }
+
+    insert(obj: CircleObject | LineObject) {
+        if (this.children.length > 0) {
+            const idx = this.getChildIndex(getSweptBoundingBox(obj, this.lookahead));
+            if (idx !== -1 && this.children[idx]) {
+                this.children[idx]!.insert(obj);
+                return;
+            }
+        }
+        this.objects.push(obj);
+        if (this.objects.length > this.maxObjects && this.depth < this.maxDepth) {
+            this.subdivide();
+        }
+    }
+
+    getChildIndex(box: BoundingBox): number {
+        for (let i = 0; i < this.children.length; ++i) {
+            const c = this.children[i];
+            if (!c) continue;
+            if (box.minX >= c.bounds.minX && box.maxX <= c.bounds.maxX && box.minY >= c.bounds.minY && box.maxY <= c.bounds.maxY) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    subdivide() {
+        const { minX, minY, maxX, maxY } = this.bounds;
+        const midX = (minX + maxX) / 2;
+        const midY = (minY + maxY) / 2;
+        this.children = [
+            new QuadtreeNode({ minX, minY, maxX: midX, maxY: midY }, this.depth + 1, this.maxObjects, this.maxDepth, this.lookahead),
+            new QuadtreeNode({ minX: midX, minY, maxX, maxY: midY }, this.depth + 1, this.maxObjects, this.maxDepth, this.lookahead),
+            new QuadtreeNode({ minX, minY: midY, maxX: midX, maxY }, this.depth + 1, this.maxObjects, this.maxDepth, this.lookahead),
+            new QuadtreeNode({ minX: midX, minY: midY, maxX, maxY }, this.depth + 1, this.maxObjects, this.maxDepth, this.lookahead),
+        ];
+        // Re-insert objects into children using swept boxes
+        for (const obj of this.objects) {
+            const idx = this.getChildIndex(getSweptBoundingBox(obj, this.lookahead));
+            if (idx !== -1 && this.children[idx]) {
+                this.children[idx]!.insert(obj);
+            }
+        }
+        this.objects = this.objects.filter(obj => {
+            const idx = this.getChildIndex(getSweptBoundingBox(obj, this.lookahead));
+            return idx === -1 || !this.children[idx];
+        });
+    }
+
+    queryRange(box: BoundingBox, found: (CircleObject | LineObject)[] = []): (CircleObject | LineObject)[] {
+        if (!this.intersects(box, this.bounds)) return found;
+        for (const obj of this.objects) {
+            if (this.intersects(box, getBoundingBox(obj))) {
+                found.push(obj);
+            }
+        }
+        for (const child of this.children) {
+            child.queryRange(box, found);
+        }
+        return found;
+    }
+
+    intersects(a: BoundingBox, b: BoundingBox): boolean {
+        return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
+    }
+}
+
+export function buildQuadtree(objects: (CircleObject | LineObject)[], bounds: BoundingBox, lookahead = 0): QuadtreeNode {
+    const tree = new QuadtreeNode(bounds, 0, 8, 5, lookahead);
+    for (const obj of objects) tree.insert(obj);
+    return tree;
+}
+
 export enum CollisionResponse {
     BOUNCE = 0,
     IGNORE = 1,
@@ -146,4 +272,41 @@ export function resolveCircleLineCollision(
     const vw = wall.velocity;
     vw.x = vw.x - jnx * wall.inverseMass;
     vw.y = vw.y - jny * wall.inverseMass;
+}
+
+// Fallback overlap checks at a given normalized time t in [0,1].
+export function isCircleCircleOverlappingAtTime(a: CircleObject, b: CircleObject, t: number): boolean {
+    const ax = a.center.x + a.velocity.x * t;
+    const ay = a.center.y + a.velocity.y * t;
+    const bx = b.center.x + b.velocity.x * t;
+    const by = b.center.y + b.velocity.y * t;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const distSq = dx * dx + dy * dy;
+    const r = a.radius + b.radius;
+    return distSq <= r * r + EPS;
+}
+
+export function isCircleLineOverlappingAtTime(ball: CircleObject, wall: LineObject, t: number): boolean {
+    const cx = ball.center.x + ball.velocity.x * t;
+    const cy = ball.center.y + ball.velocity.y * t;
+
+    const ax = wall.pointA.x + wall.velocity.x * t;
+    const ay = wall.pointA.y + wall.velocity.y * t;
+    const bx = wall.pointB.x + wall.velocity.x * t;
+    const by = wall.pointB.y + wall.velocity.y * t;
+
+    const wx = bx - ax;
+    const wy = by - ay;
+    const lenSq = wx * wx + wy * wy;
+    if (lenSq <= EPS) return false;
+
+    // Project center onto wall segment
+    const tProj = ((cx - ax) * wx + (cy - ay) * wy) / lenSq;
+    const clamped = Math.max(0, Math.min(1, tProj));
+    const closestX = ax + wx * clamped;
+    const closestY = ay + wy * clamped;
+    const dx = cx - closestX;
+    const dy = cy - closestY;
+    return (dx * dx + dy * dy) <= (ball.radius * ball.radius + EPS);
 }

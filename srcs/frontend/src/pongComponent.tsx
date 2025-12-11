@@ -464,6 +464,8 @@ export default function PongComponent({
           }
             // Update game state silently (happens frequently)
             const normalized = normalizeGameState(parsed.data)
+            // Expose last normalized game state to window for quick debugging in the browser
+            try { (window as any).__lastNormalizedPongState = normalized } catch (e) { /* ignore in server env */ }
             setGameState(normalized);
             gameStateReceivedRef.current = true;
             setPlayerIDsHelper(normalized);

@@ -22,6 +22,20 @@ export class PongPaddle extends MultiObject {
 	private reverseControls: boolean = false;
 
 	constructor(center: Vec2, width: number, height: number, paddleDirection: Vec2, protectedWallWidth: number, paddleSpeedFactor: number, walls: LineObject[] = [], playerId: number) {
+		try {
+			console.log(`[PongPaddle] ctor center=(${center.x},${center.y}) width=${width} height=${height} protectedWallWidth=${protectedWallWidth} paddleSpeedFactor=${paddleSpeedFactor} playerId=${playerId}`);
+		} catch (e) {
+			// ignore
+		}
+
+		// Defensive sanitization: ensure numeric inputs are finite and sensible.
+		if (!Number.isFinite(width) || width <= 0) width = 100;
+		if (!Number.isFinite(height) || height <= 0) height = 30;
+		if (!Number.isFinite(protectedWallWidth) || protectedWallWidth <= 0) protectedWallWidth = Math.max(width * 2, 200);
+		if (!Number.isFinite(paddleSpeedFactor) || paddleSpeedFactor <= 0) paddleSpeedFactor = 1.0;
+		if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
+			center = new Vec2(500, 500);
+		}
 		const halfWidth = width / 2;
 		const halfHeight = height / 2;
 
@@ -118,20 +132,75 @@ export class PongPaddle extends MultiObject {
 		this.paddleWidth = width;
 		this.paddleAngle = paddleDirection.angle();
 		this.playerId = playerId;
+
+		// Post-construction validation: if any component coordinates are non-finite, rebuild a safe axis-aligned paddle
+		let bad = false;
+		for (const obj of this.objects) {
+			if ((obj as any).pointA !== undefined && (obj as any).pointB !== undefined) {
+				const a = (obj as any).pointA;
+				const b = (obj as any).pointB;
+				if (!Number.isFinite(a.x) || !Number.isFinite(a.y) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) {
+					bad = true; break;
+				}
+			} else if ((obj as any).center !== undefined) {
+				const c = (obj as any).center;
+				if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !Number.isFinite((obj as any).radius)) {
+					bad = true; break;
+				}
+			}
+		}
+
+		if (bad) {
+			try {
+				console.warn(`[PongPaddle] ctor: detected non-finite geometry, rebuilding simple fallback paddle for player=${playerId}`);
+			} catch (e) {}
+			// Simple axis-aligned fallback around center
+			const hw = Math.max(1, width / 2);
+			const hh = Math.max(1, height / 2);
+			const tl = new LineObject(new Vec2(center.x - hw, center.y - hh), new Vec2(center.x + hw, center.y - hh), new Vec2(0,0), 0, 1.0);
+			const bl = new LineObject(new Vec2(center.x - hw, center.y + hh), new Vec2(center.x + hw, center.y + hh), new Vec2(0,0), 0, 1.0);
+			const ll = new LineObject(new Vec2(center.x - hw, center.y - hh), new Vec2(center.x - hw, center.y + hh), new Vec2(0,0), 0, 1.0);
+			const rl = new LineObject(new Vec2(center.x + hw, center.y - hh), new Vec2(center.x + hw, center.y + hh), new Vec2(0,0), 0, 1.0);
+			const tlc = new CircleObject(new Vec2(center.x - hw, center.y - hh), 0, new Vec2(0,0), 0, 1.0);
+			const trc = new CircleObject(new Vec2(center.x + hw, center.y - hh), 0, new Vec2(0,0), 0, 1.0);
+			const blc = new CircleObject(new Vec2(center.x - hw, center.y + hh), 0, new Vec2(0,0), 0, 1.0);
+			const brc = new CircleObject(new Vec2(center.x + hw, center.y + hh), 0, new Vec2(0,0), 0, 1.0);
+			this.objects = [tl, bl, ll, rl, tlc, trc, blc, brc];
+			this.paddleWidth = width;
+			this.paddleHeight = height;
+			this.clockwiseBaseVelocity = new Vec2(0, -1);
+		}
 	}
 
 	private getCenter(): Vec2 {
 		let sumX = 0;
 		let sumY = 0;
 		let count = 0;
-		for (const obj of this.objects) {
+		for (let i = 0; i < this.objects.length; ++i) {
+			const obj = this.objects[i]!;
 			if (obj instanceof LineObject) {
-				sumX += obj.pointA.x + obj.pointB.x;
-				sumY += obj.pointA.y + obj.pointB.y;
+				// Defensive: check for non-finite coordinates on each endpoint
+				const a = obj.pointA;
+				const b = obj.pointB;
+				if (!Number.isFinite(a.x) || !Number.isFinite(a.y) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) {
+					try {
+						const stack = (new Error("stacktrace")).stack;
+						console.warn(`[PongPaddle] getCenter: non-finite LineObject at index=${i} A=(${a.x},${a.y}) B=(${b.x},${b.y})`, { stack });
+					} catch (e) {}
+				}
+				sumX += a.x + b.x;
+				sumY += a.y + b.y;
 				count += 2;
 			} else if (obj instanceof CircleObject) {
-				sumX += obj.center.x;
-				sumY += obj.center.y;
+				const c = obj.center;
+				if (!Number.isFinite(c.x) || !Number.isFinite(c.y)) {
+					try {
+						const stack = (new Error("stacktrace")).stack;
+						console.warn(`[PongPaddle] getCenter: non-finite CircleObject at index=${i} C=(${c.x},${c.y}) radius=${(obj as any).radius}`, { stack });
+					} catch (e) {}
+				}
+				sumX += c.x;
+				sumY += c.y;
 				count += 1;
 			}
 		}
@@ -210,6 +279,29 @@ export class PongPaddle extends MultiObject {
 
 	public toJSON(): any {
 		const center = this.getCenter();
+		if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
+			try {
+				const stack = (new Error("stacktrace")).stack;
+				console.warn(`[PongPaddle] toJSON: CENTER INVALID player=${this.playerId} center=(${center.x},${center.y}) width=${this.paddleWidth} height=${this.paddleHeight} speed=${this.boardPaddleSpeed}`, { stack });
+				// Dump component objects count to help debug
+				console.warn(`[PongPaddle] objects.count=${this.objects.length}`);
+				for (let i = 0; i < this.objects.length; ++i) {
+					const obj = this.objects[i]!;
+					if ((obj as any).pointA !== undefined && (obj as any).pointB !== undefined) {
+						const a = (obj as any).pointA;
+						const b = (obj as any).pointB;
+						console.warn(`[PongPaddle] obj[${i}] Line A=(${a.x},${a.y}) B=(${b.x},${b.y})`);
+					} else if ((obj as any).center !== undefined) {
+						const c = (obj as any).center;
+						console.warn(`[PongPaddle] obj[${i}] Circle C=(${c.x},${c.y}) radius=${(obj as any).radius}`);
+					} else {
+						console.warn(`[PongPaddle] obj[${i}] Unknown type`);
+					}
+				}
+			} catch (e) {
+				// swallow
+			}
+		}
 		const velocity = this.velocity;
 		return [
 			center.x,

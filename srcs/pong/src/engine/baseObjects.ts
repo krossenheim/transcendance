@@ -7,6 +7,7 @@ export class BaseObject {
     private _restitution: number;
 
     private parentObject: BaseObject | null = null;
+    private _cachedRoot: BaseObject | null = null;
 
     private collisionHandler: (other: BaseObject, elapsedTime: number) => CollisionResponse = (other: BaseObject, elapsedTime: number) => CollisionResponse.BOUNCE;
 
@@ -71,10 +72,18 @@ export class BaseObject {
 
     setParentObject(parent: BaseObject): void {
         this.parentObject = parent;
+        this._cachedRoot = null;
     }
 
     getParentObject(): BaseObject {
-        return this.parentObject?.getParentObject() || this;
+        // Cache the root parent for faster repeated lookups
+        if (this._cachedRoot) return this._cachedRoot;
+        let obj: BaseObject = this;
+        while (obj.parentObject) {
+            obj = obj.parentObject;
+        }
+        this._cachedRoot = obj;
+        return obj;
     }
 }
 
@@ -182,8 +191,18 @@ export class MultiObject extends BaseObject {
     }
 
     override iter(): BaseObject[] {
+        // Only rebuild flat cache if objects array has changed
         if (this._flatCache === null) {
-            this._flatCache = this.objects.flatMap(obj => obj.iter());
+            // Use a for loop for performance
+            const result: BaseObject[] = [];
+            for (let i = 0; i < this.objects.length; ++i) {
+                const sub = this.objects[i]!;
+                const subs = sub.iter();
+                for (let j = 0; j < subs.length; ++j) {
+                    result.push(subs[j]!);
+                }
+            }
+            this._flatCache = result;
         }
         return this._flatCache;
     }
