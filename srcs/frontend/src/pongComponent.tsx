@@ -222,7 +222,8 @@ export default function PongComponent({
         setDisplayState({
           board_id: predictedState.board_id,
           edges: predictedState.edges,
-          paddles: predictedState.paddles.map(p => ({
+          // Use SERVER paddles (more reliable) - only predict balls
+          paddles: gameState?.paddles || predictedState.paddles.map(p => ({
             x: p.x,
             y: p.y,
             r: p.r,
@@ -231,6 +232,7 @@ export default function PongComponent({
             owner_id: p.owner_id,
             paddle_id: p.paddle_id,
           })),
+          // Use PREDICTED balls for smooth movement
           balls: predictedState.balls.map(b => ({
             id: b.id,
             x: b.x,
