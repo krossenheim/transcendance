@@ -43,6 +43,22 @@ function createBasicGameOptions(): PongGameOptions {
   };
 }
 
+function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean): PongGameOptions {
+  return {
+    canvasWidth: 1000,
+    canvasHeight: 1000,
+    ballSpeed: 450,
+    paddleSpeedFactor: 1.5,
+    paddleWidthFactor: 0.15,
+    paddleHeight: 30,
+    paddleWallOffset: 40,
+    amountOfBalls: ballCount,
+    // If powerups disabled, set frequency to very high number (effectively never spawns)
+    powerupFrequency: allowPowerups ? 10 : 999999,
+    gameDuration: 180,
+  };
+}
+
 socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) => {
   singletonPong.handleUserInput(
     body.user_id,
@@ -283,7 +299,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
 
   // Create the actual pong game
   const playerIds = lobby.players.map((p) => p.userId);
-  const gameResult = singletonPong.startGame(playerIds, createBasicGameOptions());
+  const gameResult = singletonPong.startGame(playerIds, createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups));
 
   if (gameResult.isErr()) {
     return Result.Ok(response.select("NotAllReady").reply({

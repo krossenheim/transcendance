@@ -191,15 +191,11 @@ export default function PongComponent({
   // This runs at 60fps and updates the local simulation
   // Provides smooth visuals independent of network latency
   useEffect(() => {
-    if (currentView !== "game" || !predictionEnabled) {
-      // Not in game or prediction disabled, cancel animation loop
+    if (currentView !== "game") {
+      // Not in game, cancel animation loop
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
-      }
-      // When prediction is disabled, clear display state so we use server state directly
-      if (!predictionEnabled) {
-        setDisplayState(null)
       }
       return
     }
@@ -209,43 +205,72 @@ export default function PongComponent({
       const deltaTime = (now - lastFrameTimeRef.current) / 1000 // Convert to seconds
       lastFrameTimeRef.current = now
 
-      const simulation = clientSimulationRef.current
+      if (predictionEnabled) {
+        // FULL PREDICTION MODE: Use client-side physics simulation
+        const simulation = clientSimulationRef.current
 
-      // Only run simulation if we have initial state
-      if (simulation.isInitialized()) {
-        // Clamp deltaTime to avoid huge jumps (e.g., after tab switch)
-        const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
-        simulation.simulate(clampedDelta)
+        // Only run simulation if we have initial state
+        if (simulation.isInitialized()) {
+          // Clamp deltaTime to avoid huge jumps (e.g., after tab switch)
+          const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
+          simulation.simulate(clampedDelta)
 
-        // Get the predicted state and update display
-        const predictedState = simulation.getState()
-        setDisplayState({
-          board_id: predictedState.board_id,
-          edges: predictedState.edges,
-          // Use SERVER paddles (more reliable) - only predict balls
-          paddles: gameState?.paddles || predictedState.paddles.map(p => ({
-            x: p.x,
-            y: p.y,
-            r: p.r,
-            w: p.w,
-            l: p.l,
-            owner_id: p.owner_id,
-            paddle_id: p.paddle_id,
-          })),
-          // Use PREDICTED balls for smooth movement
-          balls: predictedState.balls.map(b => ({
+          // Get the predicted state and update display
+          const predictedState = simulation.getState()
+          setDisplayState({
+            board_id: predictedState.board_id,
+            edges: predictedState.edges,
+            // Use SERVER paddles (more reliable) - only predict balls
+            paddles: gameState?.paddles || predictedState.paddles.map(p => ({
+              x: p.x,
+              y: p.y,
+              r: p.r,
+              w: p.w,
+              l: p.l,
+              owner_id: p.owner_id,
+              paddle_id: p.paddle_id,
+            })),
+            // Use PREDICTED balls for smooth movement
+            balls: predictedState.balls.map(b => ({
+              id: b.id,
+              x: b.x,
+              y: b.y,
+              dx: b.dx,
+              dy: b.dy,
+              radius: b.radius,
+            })),
+            metadata: predictedState.metadata,
+            // Powerups come from server state (not predicted locally)
+            powerups: gameState?.powerups || [],
+            score: gameState?.score || null, // Use server score
+          })
+        }
+      } else {
+        // SERVER-ONLY MODE: Simple interpolation using ball velocities
+        // This provides smooth animation between server updates
+        if (gameState && gameState.balls) {
+          const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
+          
+          // Interpolate ball positions based on their velocities
+          const interpolatedBalls = gameState.balls.map(b => ({
             id: b.id,
-            x: b.x,
-            y: b.y,
+            x: b.x + b.dx * clampedDelta,
+            y: b.y + b.dy * clampedDelta,
             dx: b.dx,
             dy: b.dy,
             radius: b.radius,
-          })),
-          metadata: predictedState.metadata,
-          // Powerups come from server state (not predicted locally)
-          powerups: gameState?.powerups || [],
-          score: gameState?.score || null, // Use server score
-        })
+          }))
+
+          setDisplayState({
+            board_id: gameState.board_id,
+            edges: gameState.edges,
+            paddles: gameState.paddles,
+            balls: interpolatedBalls,
+            metadata: gameState.metadata,
+            powerups: gameState.powerups || [],
+            score: gameState.score || null,
+          })
+        }
       }
 
       // Continue animation loop
@@ -262,7 +287,7 @@ export default function PongComponent({
         animationFrameRef.current = null
       }
     }
-  }, [currentView, gameState?.score, gameState?.powerups, predictionEnabled])
+  }, [currentView, gameState, predictionEnabled])
 
   // =========================
   // Fetch game state on mount

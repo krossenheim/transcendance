@@ -99,7 +99,8 @@ export class PongManager {
         } catch (e) {
           console.warn("[Pong] Failed to log paddle keyData for debugging", e)
         }
-        game.handlePressedKeys(parsedKeys);
+        // Only set keys for this specific user's paddles
+        game.handlePressedKeysForPlayer(parsedKeys, userId);
       }
     }
   }

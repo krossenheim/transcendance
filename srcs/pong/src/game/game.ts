@@ -398,6 +398,15 @@ export class PongGame {
         }
     }
 
+    public handlePressedKeysForPlayer(keys: string[], playerId: number): void {
+        for (const paddle of this.paddles) {
+            if (paddle.playerId !== playerId) continue;
+            for (const keyData of paddle.keyData) {
+                keyData.isPressed = keys.includes(keyData.key.toLowerCase());
+            }
+        }
+    }
+
     public fetchPlayerScoreMap(): Map<number, number> {
         const scoreMap: Map<number, number> = new Map();
 
