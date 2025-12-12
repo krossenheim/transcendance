@@ -13,15 +13,18 @@ type gameDataType = {
 };
 
 const PONG_FRAME_INTERVAL_MS = 50; // Approx 20 FPS
+const GAME_CLEANUP_DELAY_MS = 30000; // Clean up game 30 seconds after it ends
 
 export class PongManager {
   private static instance: PongManager | null = null;
   public games: Map<number, gameDataType>;
+  private playerToGame: Map<number, number>; // userId -> gameId for O(1) lookup
 
   private hubSocket: OurSocket;
 
   constructor(hubSocket: OurSocket) {
     this.games = new Map();
+    this.playerToGame = new Map();
     this.hubSocket = hubSocket;
     if (PongManager.instance !== null) {
       return PongManager.instance;
@@ -69,7 +72,9 @@ export class PongManager {
       didGameEnd: false,
     });
 
+    // Register players for O(1) lookup
     for (const playerId of players) {
+      this.playerToGame.set(playerId, game.id);
       for (const paddle of game.getPlayerPaddles(playerId)) {
         paddle.addLeftKey("arrowleft");
         paddle.addLeftKey("a");
@@ -85,24 +90,18 @@ export class PongManager {
     userId: number,
     keys: string[]
   ) {
-    for (const gameData of this.games.values()) {
-      const game = gameData.game;
-      const parsedKeys = Array.from(new Set(keys.map((key) => key.toLowerCase())));
-      if (game.getPlayers().includes(userId)) {
-        try {
-          console.debug(`[Pong] handleUserInput user=${userId} parsedKeys=`, parsedKeys)
-          // Show which paddle keyData entries exist for this user's paddles
-          const paddles = game.getPlayerPaddles(userId)
-          for (const p of paddles) {
-            console.debug(`[Pong] paddle ${p.playerId} keyData=`, p.keyData.map(k => ({ key: k.key, isClockwise: k.isClockwise })))
-          }
-        } catch (e) {
-          console.warn("[Pong] Failed to log paddle keyData for debugging", e)
-        }
-        // Only set keys for this specific user's paddles
-        game.handlePressedKeysForPlayer(parsedKeys, userId);
-      }
-    }
+    // O(1) lookup instead of iterating all games
+    const gameId = this.playerToGame.get(userId);
+    if (gameId === undefined) return;
+    
+    const gameData = this.games.get(gameId);
+    if (!gameData || gameData.didGameEnd) return;
+
+    const game = gameData.game;
+    const parsedKeys = Array.from(new Set(keys.map((key) => key.toLowerCase())));
+    
+    // Only set keys for this specific user's paddles
+    game.handlePressedKeysForPlayer(parsedKeys, userId);
   }
 
   public getGameState(
@@ -116,18 +115,21 @@ export class PongManager {
   }
 
   public handleUserDisconnect(userId: number): void {
-    for (const gameData of this.games.values()) {
-      const game = gameData.game;
-      if (game.getPlayers().includes(userId)) {
-        if (!gameData.disconnected_players.includes(userId)) {
-          gameData.disconnected_players.push(userId);
-        }
-        gameData.game.removePlayer(userId);
-      }
+    const gameId = this.playerToGame.get(userId);
+    if (gameId === undefined) return;
+    
+    const gameData = this.games.get(gameId);
+    if (!gameData) return;
+    
+    if (!gameData.disconnected_players.includes(userId)) {
+      gameData.disconnected_players.push(userId);
     }
+    gameData.game.removePlayer(userId);
+    this.playerToGame.delete(userId);
   }
 
   public async onGameEnd(game: PongGame): Promise<void> {
+    const gameId = game.id;
     const playerScores = game.fetchPlayerScoreMap();
     const rankings = Array.from(playerScores.entries())
       .sort((a, b) => b[1] - a[1])
@@ -145,6 +147,23 @@ export class PongManager {
       console.log("Game results stored successfully.");
     }
     console.log("Game ended. Final rankings:", rankings);
+
+    // Schedule cleanup after delay to allow clients to fetch final state
+    setTimeout(() => {
+      this.cleanupGame(gameId);
+    }, GAME_CLEANUP_DELAY_MS);
+  }
+
+  private cleanupGame(gameId: number): void {
+    const gameData = this.games.get(gameId);
+    if (gameData) {
+      console.log(`[PongManager] Cleaning up game ${gameId}`);
+      // Remove player-to-game mappings
+      for (const playerId of gameData.game.getPlayers()) {
+        this.playerToGame.delete(playerId);
+      }
+      this.games.delete(gameId);
+    }
   }
 }
 

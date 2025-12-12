@@ -50,7 +50,11 @@ fastify.addHook('preHandler', async (request, reply) => {
 	}
 });
 
-const secretKey = process.env.JWT_SECRET || "shgdfkjwriuhfsdjkghdfjvnsdk";
+// JWT Secret - logs warning if using default (for development only)
+if (!process.env.JWT_SECRET) {
+	console.warn('WARNING: JWT_SECRET not set, using insecure default - DO NOT USE IN PRODUCTION');
+}
+const jwtSecretKey = process.env.JWT_SECRET || "shgdfkjwriuhfsdjkghdfjvnsdk";
 const jwtExpiry = '15min'; // 15 min
 
 // Frontend URL for OAuth redirects - should be set via environment variable in production
@@ -80,7 +84,7 @@ async function generateToken(userId: number): Promise<Result<TokenDataType, Erro
 		return Result.Err({ message: 'Token service could not process request' });
 
 	return Result.Ok({
-		jwt: jwt.sign(TokenPayload.parse({ uid: userId }), secretKey, { expiresIn: jwtExpiry }),
+		jwt: jwt.sign(TokenPayload.parse({ uid: userId }), jwtSecretKey, { expiresIn: jwtExpiry }),
 		refresh: newRefreshToken,
 	});
 }
@@ -88,7 +92,7 @@ async function generateToken(userId: number): Promise<Result<TokenDataType, Erro
 function validateToken(token: string): Result<number, string> {
 	let decoded: { uid: number; iat: number; exp: number; };
 	try {
-		decoded = jwt.verify(token, secretKey) as { uid: number; iat: number; exp: number; };
+		decoded = jwt.verify(token, jwtSecretKey) as { uid: number; iat: number; exp: number; };
 	} catch (err) {
 		return Result.Err('Invalid JWT');
 	}
