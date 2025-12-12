@@ -18,6 +18,7 @@ import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
 import user from "@app/shared/api/service/db/user"
+import { ClientPongSimulation } from "./pong/physics"
 
 // =========================
 // Component
@@ -128,6 +129,22 @@ export default function PongComponent({
   const rendererRef = useRef<any>(null)
   const [paddleRotationOffset, setPaddleRotationOffset] = useState<number>(0)
 
+  // ====================
+  // CLIENT-SIDE PREDICTION
+  // ====================
+  // The simulation runs locally to provide smooth visuals
+  // Server state is used to correct any drift
+  const clientSimulationRef = useRef<ClientPongSimulation>(new ClientPongSimulation())
+  const lastFrameTimeRef = useRef<number>(performance.now())
+  const animationFrameRef = useRef<number | null>(null)
+  const pressedKeysRef = useRef<Set<string>>(new Set())
+  // State that the renderer actually displays (updated by client simulation)
+  const [displayState, setDisplayState] = useState<TypeGameStateSchema | null>(null)
+  // Track if we've received initial server state
+  const hasReceivedServerStateRef = useRef<boolean>(false)
+  // Toggle for prediction mode
+  const [predictionEnabled, setPredictionEnabled] = useState<boolean>(true)
+
   // New state for lobby and tournament
   const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
   const [lobby, setLobby] = useState<PongLobbyData | null>(null)
@@ -167,6 +184,83 @@ export default function PongComponent({
       }
     }
   }, [])
+
+  // ====================
+  // CLIENT-SIDE PREDICTION ANIMATION LOOP
+  // ====================
+  // This runs at 60fps and updates the local simulation
+  // Provides smooth visuals independent of network latency
+  useEffect(() => {
+    if (currentView !== "game" || !predictionEnabled) {
+      // Not in game or prediction disabled, cancel animation loop
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      // When prediction is disabled, clear display state so we use server state directly
+      if (!predictionEnabled) {
+        setDisplayState(null)
+      }
+      return
+    }
+
+    const runSimulation = () => {
+      const now = performance.now()
+      const deltaTime = (now - lastFrameTimeRef.current) / 1000 // Convert to seconds
+      lastFrameTimeRef.current = now
+
+      const simulation = clientSimulationRef.current
+
+      // Only run simulation if we have initial state
+      if (simulation.isInitialized()) {
+        // Clamp deltaTime to avoid huge jumps (e.g., after tab switch)
+        const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
+        simulation.simulate(clampedDelta)
+
+        // Get the predicted state and update display
+        const predictedState = simulation.getState()
+        setDisplayState({
+          board_id: predictedState.board_id,
+          edges: predictedState.edges,
+          paddles: predictedState.paddles.map(p => ({
+            x: p.x,
+            y: p.y,
+            r: p.r,
+            w: p.w,
+            l: p.l,
+            owner_id: p.owner_id,
+            paddle_id: p.paddle_id,
+          })),
+          balls: predictedState.balls.map(b => ({
+            id: b.id,
+            x: b.x,
+            y: b.y,
+            dx: b.dx,
+            dy: b.dy,
+            radius: b.radius,
+          })),
+          metadata: predictedState.metadata,
+          // Powerups come from server state (not predicted locally)
+          powerups: gameState?.powerups || [],
+          score: gameState?.score || null, // Use server score
+        })
+      }
+
+      // Continue animation loop
+      animationFrameRef.current = requestAnimationFrame(runSimulation)
+    }
+
+    // Start the animation loop
+    lastFrameTimeRef.current = performance.now()
+    animationFrameRef.current = requestAnimationFrame(runSimulation)
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
+  }, [currentView, gameState?.score, gameState?.powerups, predictionEnabled])
 
   // =========================
   // Fetch game state on mount
@@ -345,7 +439,7 @@ export default function PongComponent({
       console.log("[Pong] Received start_game_from_lobby! code:", payloadReceived.code, "payload:", payloadReceived.payload)
       if (payloadReceived.code === 0) {
         console.log("[Pong] Game started from lobby! Processing game state")
-        const gameState = payloadReceived.payload
+        const gameStatePayload = payloadReceived.payload
 
         // Preserve tournament ID before clearing lobby
         const tournamentIdToPreserve = activeTournamentId || tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId
@@ -356,9 +450,20 @@ export default function PongComponent({
 
         // Normalize and set up the game for all players
         console.log("[Pong] Setting game state and transitioning to game view")
-        const normalized = normalizeGameState(gameState)
+        const normalized = normalizeGameState(gameStatePayload)
         setPlayerIDsHelper(normalized)
         setGameState(normalized)
+        
+        // ====================
+        // CLIENT-SIDE PREDICTION: Initialize simulation for new game
+        // ====================
+        clientSimulationRef.current = new ClientPongSimulation()
+        hasReceivedServerStateRef.current = false
+        pressedKeysRef.current.clear()
+        clientSimulationRef.current.initFromServerState(gameStatePayload, authResponse?.user?.id || -1)
+        hasReceivedServerStateRef.current = true
+        setDisplayState(normalized)
+        
         setLobby(null) // Clear lobby state
         setCurrentView("game") // Transition immediately
       } else {
@@ -406,7 +511,7 @@ export default function PongComponent({
   }, [acceptedLobbyId, onLobbyJoined])
 
   const setPlayerIDsHelper = useCallback(
-    (game_data: TypeGameStateSchema) => {
+    (game_data: TypeGameStateSchema | null) => {
       if (!game_data) {
         console.log("[Pong] setPlayerIDsHelper: game_data is null");
         return;
@@ -477,6 +582,23 @@ export default function PongComponent({
             setGameState(normalized);
             gameStateReceivedRef.current = true;
             setPlayerIDsHelper(normalized);
+
+            // ====================
+            // CLIENT-SIDE PREDICTION: Initialize or Reconcile
+            // ====================
+            const simulation = clientSimulationRef.current
+            if (!hasReceivedServerStateRef.current) {
+              // First server state: initialize the simulation
+              console.log("[Pong] Initializing client simulation from server state")
+              simulation.initFromServerState(parsed.data, authResponse?.user?.id || -1)
+              hasReceivedServerStateRef.current = true
+              // Set display state immediately
+              setDisplayState(normalized)
+            } else {
+              // Subsequent server states: reconcile with prediction
+              simulation.reconcileWithServer(parsed.data, 0.3)
+            }
+
           // If we received valid game state and we're not in game view, switch to it
           if (currentView !== 'game' && parsed.data?.board_id) {
             console.log("[Pong] Received game state while not in game view, transitioning to game");
@@ -558,34 +680,53 @@ export default function PongComponent({
   )
 
   // =========================
-  // Keyboard input (W / S)
+  // Keyboard input - Single handler for all paddle controls
   // =========================
   useEffect(() => {
-    const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
-      if (gameState === null || playerOnePaddleID === -1) return
-      if (keysPressed.has(e.key)) return
-      keysPressed.add(e.key)
+      // Need game state and at least one paddle assigned
+      if (gameState === null) return
+      if (playerOnePaddleID === -1 && playerTwoPaddleID === -1) return
+      if (pressedKeysRef.current.has(e.key.toLowerCase())) return
+      
+      pressedKeysRef.current.add(e.key.toLowerCase())
 
       if (gameState.board_id === null) return
+      
+      // ====================
+      // CLIENT-SIDE PREDICTION: Apply input immediately to local simulation
+      // ====================
+      if (predictionEnabled) {
+        clientSimulationRef.current.setPressedKeys(Array.from(pressedKeysRef.current))
+      }
+      
+      // Send to server
       const payload: TypeHandleGameKeysSchema = {
         board_id: gameState.board_id,
-        pressed_keys: Array.from(keysPressed),
+        pressed_keys: Array.from(pressedKeysRef.current),
       }
-      // console.debug for debugging stuck keys
-      // console.debug('[Pong] KeyDown', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null || playerOnePaddleID === -1) return
-      keysPressed.delete(e.key)
+      // Need game state and at least one paddle assigned
+      if (gameState === null) return
+      if (playerOnePaddleID === -1 && playerTwoPaddleID === -1) return
+      
+      pressedKeysRef.current.delete(e.key.toLowerCase())
 
+      // ====================
+      // CLIENT-SIDE PREDICTION: Apply input immediately to local simulation
+      // ====================
+      if (predictionEnabled) {
+        clientSimulationRef.current.setPressedKeys(Array.from(pressedKeysRef.current))
+      }
+
+      // Send to server
       const payload = {
         board_id: gameState.board_id,
-        pressed_keys: Array.from(keysPressed),
+        pressed_keys: Array.from(pressedKeysRef.current),
       }
-      // console.debug('[Pong] KeyUp', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -596,47 +737,7 @@ export default function PongComponent({
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
     }
-  }, [gameState, handleUserInput, playerOnePaddleID])
-
-  // =========================
-  // Keyboard input (O / L)
-  // =========================
-  useEffect(() => {
-    const keysPressed = new Set<string>()
-    function handleKeyDown(e: KeyboardEvent) {
-      if (gameState === null || playerTwoPaddleID === -1) return
-      if (keysPressed.has(e.key)) return
-      keysPressed.add(e.key)
-
-      if (gameState.board_id === null) return
-      const payload: TypeHandleGameKeysSchema = {
-        board_id: gameState.board_id,
-        pressed_keys: Array.from(keysPressed),
-      }
-      // console.debug('[Pong] KeyDown (player2)', e.key, payload.pressed_keys)
-      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
-    }
-
-    function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null || playerTwoPaddleID === -1) return
-      keysPressed.delete(e.key)
-
-      const payload = {
-        board_id: gameState.board_id,
-        pressed_keys: Array.from(keysPressed),
-      }
-      // console.debug('[Pong] KeyUp (player2)', e.key, payload.pressed_keys)
-      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("keyup", handleKeyUp)
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
-    }
-  }, [gameState, handleUserInput, playerTwoPaddleID])
+  }, [gameState, handleUserInput, playerOnePaddleID, playerTwoPaddleID, predictionEnabled])
 
   // =========================
   // 3D Rendering is handled by BabylonPongRenderer component
@@ -1054,9 +1155,29 @@ export default function PongComponent({
       {currentView === "game" && (
         <>
           <div className="w-full flex-1 min-h-[500px] shadow-lg border border-gray-800 bg-black overflow-hidden relative">
-            <BabylonPongRenderer ref={rendererRef} gameState={gameState} darkMode={darkMode} paddleRotationOffset={paddleRotationOffset} />
+            {/* 
+              CLIENT-SIDE PREDICTION: Use displayState (locally predicted) for smooth visuals
+              Falls back to gameState if displayState is not yet available
+            */}
+            <BabylonPongRenderer 
+              ref={rendererRef} 
+              gameState={displayState || gameState} 
+              darkMode={darkMode} 
+              paddleRotationOffset={paddleRotationOffset} 
+            />
             <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-2">
+                <div className="flex space-x-2">
+                  {/* Prediction Toggle */}
+                  <button
+                    onClick={() => setPredictionEnabled(!predictionEnabled)}
+                    className={`px-2 py-1 text-sm font-medium rounded ${predictionEnabled ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+                    title={predictionEnabled ? "Client-side prediction ON (smooth)" : "Client-side prediction OFF (server only)"}
+                  >
+                    {predictionEnabled ? '🎯 Prediction ON' : '📡 Server Only'}
+                  </button>
+                </div>
+                <div className="flex space-x-2">
                 <button
                   onClick={() => setPaddleRotationOffset(0)}
                   className={`px-2 py-1 text-sm font-medium rounded ${paddleRotationOffset === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
@@ -1087,6 +1208,7 @@ export default function PongComponent({
                 >
                   Screenshot
                 </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1106,6 +1228,12 @@ export default function PongComponent({
                   target_container: "pong",
                 }))
               }
+              // Reset client simulation state
+              clientSimulationRef.current = new ClientPongSimulation()
+              hasReceivedServerStateRef.current = false
+              pressedKeysRef.current.clear()
+              setDisplayState(null)
+              
               setCurrentView("menu")
               setGameState(null)
               setLobby(null)

@@ -555,11 +555,17 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // Detect bounces by checking if velocity direction changed
       const prevVel = previousBallVelocitiesRef.current.get(b.id)
       if (prevVel) {
-        // Check if direction has changed (any component flipped sign or changed significantly)
-        const dxChanged = Math.abs(b.dx - prevVel.dx) > 0.01
-        const dyChanged = Math.abs(b.dy - prevVel.dy) > 0.01
+        // Check if direction has changed significantly (sign flip or major change)
+        // Use a larger threshold to avoid false positives from client-side prediction jitter
+        const velocityThreshold = 10 // Require significant velocity change to trigger sound
+        const dxChanged = Math.abs(b.dx - prevVel.dx) > velocityThreshold
+        const dyChanged = Math.abs(b.dy - prevVel.dy) > velocityThreshold
+        
+        // Also check if velocity actually flipped direction (more reliable bounce detection)
+        const dxFlipped = (b.dx * prevVel.dx < 0) && Math.abs(b.dx) > 1 && Math.abs(prevVel.dx) > 1
+        const dyFlipped = (b.dy * prevVel.dy < 0) && Math.abs(b.dy) > 1 && Math.abs(prevVel.dy) > 1
 
-        if (dxChanged || dyChanged) {
+        if ((dxChanged || dyChanged) && (dxFlipped || dyFlipped)) {
           // Direction changed - find closest paddle and play its sound
           let closestPaddleIndex = 0
           let minDist = Infinity
