@@ -598,7 +598,8 @@ export default function PongComponent({
               setDisplayState(normalized)
             } else {
               // Subsequent server states: reconcile with prediction
-              simulation.reconcileWithServer(parsed.data, 0.3)
+              // Use lower interpolation factor (0.15) for smoother corrections
+              simulation.reconcileWithServer(parsed.data, 0.15)
             }
 
           // If we received valid game state and we're not in game view, switch to it

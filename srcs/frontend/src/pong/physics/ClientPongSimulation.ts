@@ -383,13 +383,18 @@ export class ClientPongSimulation {
                     velocity: new Vec2(ball.dx, ball.dy),
                     inverseMass: ball.inverseMass,
                     restitution: 1.0,
+                    radius: ball.radius,
                 };
                 
-                resolveCircleLineCollision(
-                    ballObj,
-                    new Vec2(wall.ax, wall.ay),
-                    new Vec2(wall.bx, wall.by)
-                );
+                const wallObj = {
+                    pointA: new Vec2(wall.ax, wall.ay),
+                    pointB: new Vec2(wall.bx, wall.by),
+                    velocity: new Vec2(0, 0),
+                    inverseMass: 0,
+                    restitution: 1.0,
+                };
+                
+                resolveCircleLineCollision(ballObj, wallObj);
                 
                 ball.dx = ballObj.velocity.x;
                 ball.dy = ballObj.velocity.y;
@@ -427,9 +432,18 @@ export class ClientPongSimulation {
                     velocity: new Vec2(ball.dx, ball.dy),
                     inverseMass: ball.inverseMass,
                     restitution: 1.0,
+                    radius: ball.radius,
                 };
                 
-                resolveCircleLineCollision(ballObj, faceA, faceB, paddleVelocity);
+                const paddleLine = {
+                    pointA: faceA,
+                    pointB: faceB,
+                    velocity: paddleVelocity,
+                    inverseMass: 0,
+                    restitution: 1.0,
+                };
+                
+                resolveCircleLineCollision(ballObj, paddleLine);
                 
                 ball.dx = ballObj.velocity.x;
                 ball.dy = ballObj.velocity.y;
@@ -454,6 +468,7 @@ export class ClientPongSimulation {
                     velocity: new Vec2(ball.dx, ball.dy),
                     inverseMass: ball.inverseMass,
                     restitution: 1.0,
+                    radius: ball.radius,
                 };
                 
                 const ballB = {
@@ -461,6 +476,7 @@ export class ClientPongSimulation {
                     velocity: new Vec2(other.dx, other.dy),
                     inverseMass: other.inverseMass,
                     restitution: 1.0,
+                    radius: other.radius,
                 };
                 
                 resolveBallCollision(ballA, ballB);
@@ -516,20 +532,28 @@ export class ClientPongSimulation {
             // Calculate position difference
             const posDiff = Math.sqrt(Math.pow(local.x - server.x, 2) + Math.pow(local.y - server.y, 2));
             
-            // If difference is large (> 50 units), snap to server position
-            // Otherwise, smoothly interpolate
-            if (posDiff > 50) {
+            // Calculate velocity difference  
+            const velDiff = Math.sqrt(Math.pow(local.dx - server.dx, 2) + Math.pow(local.dy - server.dy, 2));
+            
+            // If difference is large (> 80 units), snap to server position (major desync)
+            if (posDiff > 80) {
                 local.x = server.x;
                 local.y = server.y;
                 local.dx = server.dx;
                 local.dy = server.dy;
-            } else if (posDiff > 1) {
-                // Smooth interpolation
-                local.x = local.x + (server.x - local.x) * interpolationFactor;
-                local.y = local.y + (server.y - local.y) * interpolationFactor;
-                // Velocity should be closer to server
-                local.dx = local.dx + (server.dx - local.dx) * interpolationFactor * 0.5;
-                local.dy = local.dy + (server.dy - local.dy) * interpolationFactor * 0.5;
+            } else if (posDiff > 5) {
+                // Gentle interpolation for medium differences
+                // Use smaller factor to avoid sudden jumps
+                const smoothFactor = Math.min(interpolationFactor, posDiff / 100);
+                local.x = local.x + (server.x - local.x) * smoothFactor;
+                local.y = local.y + (server.y - local.y) * smoothFactor;
+            }
+            // For small differences (< 5 units), trust local prediction
+            
+            // Velocity correction - only if significantly different
+            if (velDiff > 20) {
+                local.dx = local.dx + (server.dx - local.dx) * interpolationFactor * 0.3;
+                local.dy = local.dy + (server.dy - local.dy) * interpolationFactor * 0.3;
             }
             
             // Always sync radius

@@ -498,9 +498,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // const prevVelData = previousBallVelocitiesRef.current.get(b.id)
       const newPos = toWorld(b.x, b.y, 0.2)
       const oldPos = mesh.position.clone()
-      mesh.position = newPos
 
-      // Update mesh scale if backend radius changed
+      // Update mesh scale if backend radius changed, and adjust Y position to keep ball on floor
+      let adjustedYPos = newPos.y
       try {
         const backendRadius = Number(b.radius || 10)
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
@@ -508,9 +508,18 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
         const scale = desiredDiameter / baseDiameter
         mesh.scaling = new Vector3(scale, scale, scale)
+        
+        // Adjust Y position so ball stays on the floor (scale from bottom, not center)
+        // The base position (0.2) assumes a scale of 1.0
+        // When scale changes, we need to offset Y by the difference in radius
+        const baseRadius = baseDiameter / 2
+        const scaledRadius = baseRadius * scale
+        adjustedYPos = scaledRadius // Ball center should be at its radius height above floor
       } catch (e) {
         // ignore scaling errors
       }
+      
+      mesh.position = new Vector3(newPos.x, adjustedYPos, newPos.z)
 
       // Calculate rolling rotation based on actual distance traveled
       // The ball should rotate around an axis perpendicular to its movement direction
