@@ -454,6 +454,8 @@ export class PongGame {
             metadata: {
                 gameOptions: this.gameOptions,
                 elapsedTime: this.scene.getElapsedTime(),
+                timeScale: this.scene.getTimeScale(), // Current time scale (1.0 normal, 1.5 with SUPER_SPEED powerup)
+                serverTimestamp: Date.now(), // Wall clock time when state was generated
                 players: this.players,
                 id: this.id,
             },

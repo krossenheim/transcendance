@@ -144,6 +144,20 @@ export default function PongComponent({
   const hasReceivedServerStateRef = useRef<boolean>(false)
   // Toggle for prediction mode
   const [predictionEnabled, setPredictionEnabled] = useState<boolean>(true)
+  // Frame counter for server-only mode debug logging
+  const serverFrameCountRef = useRef<number>(0)
+  
+  // STATE BUFFER for smooth playback - stores recent server states with timestamps
+  interface BufferedState {
+    timestamp: number;  // When we received this state (performance.now())
+    balls: Array<{ id: number; x: number; y: number; dx: number; dy: number; radius: number }>;
+    paddles: Array<{ x: number; y: number; r: number; w: number; l: number; owner_id: number; paddle_id: number }>;
+  }
+  const stateBufferRef = useRef<BufferedState[]>([]);
+  const BUFFER_DELAY_MS = 50; // Play back 50ms behind server (adjustable)
+  
+  // Local paddle position for immediate response (client-side prediction for YOUR paddle)
+  const localPaddleRef = useRef<{ x: number; y: number; r: number } | null>(null);
 
   // New state for lobby and tournament
   const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
@@ -206,50 +220,165 @@ export default function PongComponent({
       lastFrameTimeRef.current = now
 
       if (predictionEnabled) {
-        // FULL PREDICTION MODE: Use client-side physics simulation
-        const simulation = clientSimulationRef.current
+        // BUFFERED INTERPOLATION MODE
+        // We store server states and play them back with a small delay
+        // This lets us smoothly interpolate between known server positions
+        if (gameState && gameState.balls) {
+          const now = performance.now();
+          const buffer = stateBufferRef.current;
+          const myUserId = authResponse?.user?.id;
+          
+          // The render time is slightly behind real-time
+          const renderTime = now - BUFFER_DELAY_MS;
+          
+          // Find the two states to interpolate between
+          // We want: state1.timestamp <= renderTime < state2.timestamp
+          let state1: BufferedState | null = null;
+          let state2: BufferedState | null = null;
+          
+          for (let i = 0; i < buffer.length - 1; i++) {
+            if (buffer[i]!.timestamp <= renderTime && buffer[i + 1]!.timestamp > renderTime) {
+              state1 = buffer[i]!;
+              state2 = buffer[i + 1]!;
+              break;
+            }
+          }
+          
+          // Clean up old states (keep only last 500ms worth)
+          while (buffer.length > 0 && buffer[0]!.timestamp < now - 500) {
+            buffer.shift();
+          }
+          
+          let smoothedBalls: typeof gameState.balls;
+          let smoothedPaddles: typeof gameState.paddles;
+          
+          if (state1 && state2) {
+            // Interpolate between the two states
+            const totalTime = state2.timestamp - state1.timestamp;
+            const elapsedTime = renderTime - state1.timestamp;
+            const t = Math.max(0, Math.min(1, elapsedTime / totalTime)); // 0 to 1
+            
+            // Simple index-based interpolation - if ball counts match, interpolate
+            // If they don't match, just use the newer state
+            if (state1.balls.length === state2.balls.length && 
+                state1.balls.length === gameState.balls.length) {
+              smoothedBalls = state1.balls.map((ball1, idx) => {
+                const ball2 = state2!.balls[idx]!;
+                return {
+                  id: ball1.id,
+                  x: ball1.x + (ball2.x - ball1.x) * t,
+                  y: ball1.y + (ball2.y - ball1.y) * t,
+                  dx: ball2.dx,
+                  dy: ball2.dy,
+                  radius: ball1.radius,
+                };
+              });
+            } else {
+              // Ball count changed - use latest server state directly
+              smoothedBalls = gameState.balls;
+            }
+            
+            // Interpolate paddles - but use local position for MY paddle
+            if (state1.paddles.length === state2.paddles.length &&
+                state1.paddles.length === gameState.paddles.length) {
+              smoothedPaddles = state1.paddles.map((paddle1, idx) => {
+                const paddle2 = state2!.paddles[idx]!;
+                const isMyPaddle = paddle1.owner_id === myUserId;
+                
+                if (isMyPaddle) {
+                  // MY PADDLE: Use latest server position (no delay for responsiveness)
+                  return gameState.paddles[idx]!;
+                }
+                
+                // OPPONENT PADDLE: Smooth interpolation with buffer delay
+                return {
+                  ...paddle1,
+                  x: paddle1.x + (paddle2.x - paddle1.x) * t,
+                  y: paddle1.y + (paddle2.y - paddle1.y) * t,
+                  r: paddle1.r + (paddle2.r - paddle1.r) * t,
+                };
+              });
+            } else {
+              // Paddle count changed - use latest server state
+              smoothedPaddles = gameState.paddles;
+            }
+          } else if (buffer.length > 0) {
+            // No interpolation pair found - extrapolate from latest state
+            const latest = buffer[buffer.length - 1]!;
+            const timeSinceLatest = (renderTime - latest.timestamp) / 1000; // Convert to seconds
+            const clampedDelta = Math.min(timeSinceLatest, 0.1);
+            
+            const canvasWidth = gameState.metadata?.gameOptions?.canvasWidth || 1000;
+            const canvasHeight = gameState.metadata?.gameOptions?.canvasHeight || 1000;
+            
+            // Only extrapolate if ball count matches
+            if (latest.balls.length === gameState.balls.length) {
+              smoothedBalls = latest.balls.map((bufferedBall, idx) => {
+                const radius = bufferedBall.radius || 10;
+                let newX = bufferedBall.x + bufferedBall.dx * clampedDelta;
+                let newY = bufferedBall.y + bufferedBall.dy * clampedDelta;
+                
+                // Clamp to bounds
+                newX = Math.max(radius, Math.min(canvasWidth - radius, newX));
+                newY = Math.max(radius, Math.min(canvasHeight - radius, newY));
+                
+                return {
+                  id: bufferedBall.id,
+                  x: newX,
+                  y: newY,
+                  dx: bufferedBall.dx,
+                  dy: bufferedBall.dy,
+                  radius: radius,
+                };
+              });
+            } else {
+              // Ball count changed - use server state
+              smoothedBalls = gameState.balls;
+            }
+            
+            // For paddles in extrapolation mode
+            if (latest.paddles.length === gameState.paddles.length) {
+              smoothedPaddles = latest.paddles.map((bufferedPaddle, idx) => {
+                const isMyPaddle = bufferedPaddle.owner_id === myUserId;
+                if (isMyPaddle) {
+                  return gameState.paddles[idx]!;
+                }
+                return bufferedPaddle;
+              });
+            } else {
+              smoothedPaddles = gameState.paddles;
+            }
+          } else {
+            // No buffer yet - use server state directly
+            smoothedBalls = gameState.balls;
+            smoothedPaddles = gameState.paddles;
+          }
 
-        // Only run simulation if we have initial state
-        if (simulation.isInitialized()) {
-          // Clamp deltaTime to avoid huge jumps (e.g., after tab switch)
-          const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
-          simulation.simulate(clampedDelta)
-
-          // Get the predicted state and update display
-          const predictedState = simulation.getState()
           setDisplayState({
-            board_id: predictedState.board_id,
-            edges: predictedState.edges,
-            // Use SERVER paddles (more reliable) - only predict balls
-            paddles: gameState?.paddles || predictedState.paddles.map(p => ({
-              x: p.x,
-              y: p.y,
-              r: p.r,
-              w: p.w,
-              l: p.l,
-              owner_id: p.owner_id,
-              paddle_id: p.paddle_id,
-            })),
-            // Use PREDICTED balls for smooth movement
-            balls: predictedState.balls.map(b => ({
-              id: b.id,
-              x: b.x,
-              y: b.y,
-              dx: b.dx,
-              dy: b.dy,
-              radius: b.radius,
-            })),
-            metadata: predictedState.metadata,
-            // Powerups come from server state (not predicted locally)
-            powerups: gameState?.powerups || [],
-            score: gameState?.score || null, // Use server score
-          })
+            board_id: gameState.board_id,
+            edges: gameState.edges,
+            paddles: smoothedPaddles,
+            balls: smoothedBalls,
+            metadata: gameState.metadata,
+            powerups: gameState.powerups || [],
+            score: gameState.score || null,
+          });
         }
       } else {
         // SERVER-ONLY MODE: Simple interpolation using ball velocities
         // This provides smooth animation between server updates
         if (gameState && gameState.balls) {
           const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
+          
+          // Debug: log server ball speed (every 60 frames = ~1 second)
+          serverFrameCountRef.current++;
+          if (gameState.balls.length > 0 && serverFrameCountRef.current % 60 === 0) {
+            const b = gameState.balls[0]!;
+            const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy);
+            // Store on window for easy inspection
+            (window as any).SERVER_ONLY_SPEED = { speed: speed.toFixed(1), dx: b.dx.toFixed(1), dy: b.dy.toFixed(1), frame: serverFrameCountRef.current };
+            console.error(`🔴 SERVER-ONLY | Speed: ${speed.toFixed(1)} | dx: ${b.dx.toFixed(1)} | dy: ${b.dy.toFixed(1)}`);
+          }
           
           // Interpolate ball positions based on their velocities
           const interpolatedBalls = gameState.balls.map(b => ({
@@ -491,6 +620,19 @@ export default function PongComponent({
         hasReceivedServerStateRef.current = true
         setDisplayState(normalized)
         
+        // Initialize state buffer with first state
+        stateBufferRef.current = [{
+          timestamp: performance.now(),
+          balls: normalized.balls.map(b => ({ ...b })),
+          paddles: normalized.paddles.map(p => ({ ...p })),
+        }];
+        
+        // Initialize local paddle position
+        const myPaddle = normalized.paddles.find(p => p.owner_id === authResponse?.user?.id);
+        if (myPaddle) {
+          localPaddleRef.current = { x: myPaddle.x, y: myPaddle.y, r: myPaddle.r };
+        }
+        
         setLobby(null) // Clear lobby state
         setCurrentView("game") // Transition immediately
       } else {
@@ -609,6 +751,21 @@ export default function PongComponent({
             setGameState(normalized);
             gameStateReceivedRef.current = true;
             setPlayerIDsHelper(normalized);
+            
+            // ====================
+            // BUFFER THE SERVER STATE for smooth interpolation
+            // ====================
+            if (predictionEnabled && normalized.balls) {
+              stateBufferRef.current.push({
+                timestamp: performance.now(),
+                balls: normalized.balls.map(b => ({ ...b })),
+                paddles: normalized.paddles.map(p => ({ ...p })),
+              });
+              // Keep buffer size reasonable (max ~30 states = ~1 second at 30Hz)
+              while (stateBufferRef.current.length > 30) {
+                stateBufferRef.current.shift();
+              }
+            }
 
             // ====================
             // CLIENT-SIDE PREDICTION: Initialize or Reconcile

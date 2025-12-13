@@ -1,7 +1,7 @@
 // Client-side Pong simulation that mirrors the server physics
 // This runs locally for smooth visuals while the server remains authoritative
 
-import { Vec2, EPS } from "./math";
+import { Vec2, EPS, FAT_EPS } from "./math";
 import {
     getWallCollisionTime,
     getBallCollisionTime,
@@ -83,6 +83,15 @@ export class ClientPongSimulation {
     // Track pressed keys for local paddle control
     private pressedKeys: Set<string> = new Set();
     private myUserId: number = -1;
+    
+    // Track distance traveled since last sync
+    private distanceSinceLastSync: Map<number, number> = new Map();
+    
+    // Debug frame counter
+    private static debugFrameCount: number = 0;
+    
+    // Smooth interpolation targets (server state we're blending toward)
+    private serverBallTargets: Map<number, { x: number; y: number; dx: number; dy: number }> = new Map();
 
     constructor() {}
 
@@ -230,12 +239,25 @@ export class ClientPongSimulation {
 
     /**
      * Run the physics simulation for deltaTime seconds
+     * Matches server's playSimulation() logic exactly
      */
     public simulate(deltaTime: number): void {
-        let timeRemaining = Math.min(this.gameOptions.gameDuration - this.elapsedTime, deltaTime) * this.timeScale;
+        // Match server exactly: timeRemaining = deltaTime * timeScale
+        let timeRemaining = deltaTime * this.timeScale;
         if (timeRemaining <= 0) return;
         
-        const maxIterations = 100;
+        // Debug: log actual speed being simulated (every 60 frames = ~1 second)
+        ClientPongSimulation.debugFrameCount++;
+        if (this.balls.length > 0 && ClientPongSimulation.debugFrameCount % 60 === 0) {
+            const ball = this.balls[0]!;
+            const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+            // Store on window for easy inspection
+            (window as any).PREDICTION_SPEED = { speed: speed.toFixed(1), dx: ball.dx.toFixed(1), dy: ball.dy.toFixed(1), timeScale: this.timeScale, frame: ClientPongSimulation.debugFrameCount };
+            console.error(`🔵 PREDICTION | Speed: ${speed.toFixed(1)} | dx: ${ball.dx.toFixed(1)} | dy: ${ball.dy.toFixed(1)} | timeScale: ${this.timeScale}`);
+        }
+        
+        // Match server's max iterations (1000)
+        const maxIterations = 1000;
         let iterations = 0;
         
         while (timeRemaining > EPS && iterations < maxIterations) {
@@ -244,7 +266,8 @@ export class ClientPongSimulation {
             // Find the next collision
             const collision = this.findNextCollision(timeRemaining);
             
-            if (collision === null || collision.time > timeRemaining) {
+            // Match server: collision.time - EPS > timeRemaining
+            if (collision === null || collision.time - EPS > timeRemaining) {
                 // No collision in remaining time, just move everything
                 this.moveObjects(timeRemaining);
                 this.elapsedTime += timeRemaining / this.timeScale;
@@ -255,6 +278,9 @@ export class ClientPongSimulation {
             this.moveObjects(collision.time);
             this.elapsedTime += collision.time / this.timeScale;
             timeRemaining -= collision.time;
+            
+            // Server moves objects by FAT_EPS BEFORE resolving collision
+            this.moveObjects(FAT_EPS);
             
             // Resolve collision
             this.resolveCollision(collision);
@@ -280,7 +306,8 @@ export class ClientPongSimulation {
                 
                 const tHit = getWallCollisionTime(ballCenter, ball.radius, ballVelocity, wallA, wallB);
                 
-                if (tHit !== null && tHit >= 0 && tHit <= maxTime) {
+                // Match server: only check if tHit is not null/NaN, and if it's earliest
+                if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
                     if (earliest === null || tHit < earliest.time) {
                         earliest = { time: tHit, type: 'wall', ballIdx: i, targetIdx: j };
                     }
@@ -291,13 +318,13 @@ export class ClientPongSimulation {
             for (let j = 0; j < this.paddles.length; j++) {
                 const paddle = this.paddles[j]!;
                 const paddleLines = this.getPaddleLines(paddle);
+                const paddleVelocity = new Vec2(paddle.vx, paddle.vy);
                 
                 for (const line of paddleLines) {
-                    // Account for paddle velocity
-                    const relVelocity = ballVelocity.sub(new Vec2(paddle.vx, paddle.vy));
-                    const tHit = getWallCollisionTime(ballCenter, ball.radius, relVelocity, line.a, line.b);
+                    // Pass paddle velocity as wall velocity so relative velocity is computed correctly
+                    const tHit = getWallCollisionTime(ballCenter, ball.radius, ballVelocity, line.a, line.b, paddleVelocity);
                     
-                    if (tHit !== null && tHit >= 0 && tHit <= maxTime) {
+                    if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
                         if (earliest === null || tHit < earliest.time) {
                             earliest = { time: tHit, type: 'paddle', ballIdx: i, targetIdx: j };
                         }
@@ -313,7 +340,7 @@ export class ClientPongSimulation {
                 
                 const tHit = getBallCollisionTime(ballCenter, ball.radius, ballVelocity, otherCenter, other.radius, otherVelocity);
                 
-                if (tHit !== null && tHit >= 0 && tHit <= maxTime) {
+                if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
                     if (earliest === null || tHit < earliest.time) {
                         earliest = { time: tHit, type: 'ball', ballIdx: i, targetIdx: j };
                     }
@@ -353,10 +380,18 @@ export class ClientPongSimulation {
      * Move all objects by deltaTime
      */
     private moveObjects(deltaTime: number): void {
-        // Move balls
+        // Move balls and track distance traveled
         for (const ball of this.balls) {
-            ball.x += ball.dx * deltaTime;
-            ball.y += ball.dy * deltaTime;
+            const dx = ball.dx * deltaTime;
+            const dy = ball.dy * deltaTime;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            ball.x += dx;
+            ball.y += dy;
+            
+            // Track cumulative distance since last sync
+            const prevDist = this.distanceSinceLastSync.get(ball.id) || 0;
+            this.distanceSinceLastSync.set(ball.id, prevDist + distance);
         }
         
         // Move paddles
@@ -368,16 +403,17 @@ export class ClientPongSimulation {
 
     /**
      * Resolve a collision
+     * Server moves objects by FAT_EPS BEFORE calling this, so no post-nudge needed
      */
     private resolveCollision(collision: { time: number; type: string; ballIdx: number; targetIdx?: number }): void {
         const ball = this.balls[collision.ballIdx]!;
         
-        // Larger nudge to prevent ball getting stuck (especially in paddles)
-        const nudgeTime = 0.001; // 1ms worth of movement
-        
         switch (collision.type) {
             case 'wall': {
                 const wall = this.walls[collision.targetIdx!]!;
+                
+                // Note: We no longer track pendingBounce here - sync is based on server ball position
+                
                 const ballObj = {
                     center: new Vec2(ball.x, ball.y),
                     velocity: new Vec2(ball.dx, ball.dy),
@@ -406,11 +442,8 @@ export class ClientPongSimulation {
                     const angle = Math.random() * 2 * Math.PI;
                     ball.dx = Math.cos(angle) * this.gameOptions.ballSpeed;
                     ball.dy = Math.sin(angle) * this.gameOptions.ballSpeed;
-                } else {
-                    // Nudge ball away from wall using new velocity direction
-                    ball.x += ball.dx * nudgeTime;
-                    ball.y += ball.dy * nudgeTime;
                 }
+                // No nudge needed - already done in main loop before resolution
                 break;
             }
             
@@ -447,16 +480,7 @@ export class ClientPongSimulation {
                 
                 ball.dx = ballObj.velocity.x;
                 ball.dy = ballObj.velocity.y;
-                
-                // Larger nudge for paddle collisions to prevent getting stuck
-                // Move ball away from paddle center
-                const ballCenter = new Vec2(ball.x, ball.y);
-                const paddleCenter = new Vec2(paddle.x, paddle.y);
-                const awayFromPaddle = ballCenter.sub(paddleCenter).normalize();
-                
-                // Nudge in direction away from paddle AND in velocity direction
-                ball.x += ball.dx * nudgeTime + awayFromPaddle.x * 2;
-                ball.y += ball.dy * nudgeTime + awayFromPaddle.y * 2;
+                // No nudge needed - already done in main loop before resolution
                 break;
             }
             
@@ -485,21 +509,85 @@ export class ClientPongSimulation {
                 ball.dy = ballA.velocity.y;
                 other.dx = ballB.velocity.x;
                 other.dy = ballB.velocity.y;
-                
-                // Nudge both balls apart
-                ball.x += ball.dx * nudgeTime;
-                ball.y += ball.dy * nudgeTime;
-                other.x += other.dx * nudgeTime;
-                other.y += other.dy * nudgeTime;
+                // No nudge needed - already done in main loop before resolution
                 break;
             }
         }
     }
 
     /**
-     * Reconcile local state with server state (smooth correction)
+     * Check if a ball is near any wall (within threshold distance)
+     * Used to detect when CLIENT ball is about to bounce
      */
-    public reconcileWithServer(serverState: any, interpolationFactor: number = 0.3): void {
+    private isBallNearWall(ball: { x: number; y: number; radius: number }): boolean {
+        const threshold = ball.radius * 3; // Within 3 radii of wall - sync before bounce
+        
+        for (const wall of this.walls) {
+            // Skip player walls (goals)
+            if (wall.playerId !== null) continue;
+            
+            // Calculate distance from ball center to wall line segment
+            const wallVec = { x: wall.bx - wall.ax, y: wall.by - wall.ay };
+            const wallLen = Math.sqrt(wallVec.x * wallVec.x + wallVec.y * wallVec.y);
+            if (wallLen < 0.001) continue;
+            
+            // Normalized wall direction
+            const wallDir = { x: wallVec.x / wallLen, y: wallVec.y / wallLen };
+            
+            // Vector from wall start to ball
+            const toBall = { x: ball.x - wall.ax, y: ball.y - wall.ay };
+            
+            // Project ball onto wall line
+            const projection = toBall.x * wallDir.x + toBall.y * wallDir.y;
+            
+            // Clamp to segment
+            const t = Math.max(0, Math.min(wallLen, projection));
+            
+            // Closest point on wall
+            const closest = { x: wall.ax + wallDir.x * t, y: wall.ay + wallDir.y * t };
+            
+            // Distance from ball to closest point
+            const dist = Math.sqrt((ball.x - closest.x) ** 2 + (ball.y - closest.y) ** 2);
+            
+            if (dist <= ball.radius + threshold) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Get indices of balls that are near walls and should be synced
+     */
+    private getBallsNearWalls(): Set<number> {
+        const nearWall = new Set<number>();
+        for (let i = 0; i < this.balls.length; i++) {
+            if (this.isBallNearWall(this.balls[i]!)) {
+                nearWall.add(i);
+            }
+        }
+        return nearWall;
+    }
+    
+    /**
+     * Reset sync tracking after a sync is performed
+     */
+    private resetSyncTracking(): void {
+        this.distanceSinceLastSync.clear();
+    }
+
+    /**
+     * Reconcile local state with server state
+     * Strategy: SMOOTH INTERPOLATION - continuously blend toward server state
+     * Never snap, always smooth. This prevents visible jumps.
+     */
+    public reconcileWithServer(serverState: any, interpolationFactor: number = 0.15): void {
+        // Always sync timeScale from server (for SUPER_SPEED powerup)
+        if (serverState.metadata?.timeScale !== undefined) {
+            this.timeScale = serverState.metadata.timeScale;
+        }
+        
         // Parse server balls
         const serverBalls = (serverState.balls || []).map((b: any, idx: number) => {
             if (Array.isArray(b)) {
@@ -524,43 +612,78 @@ export class ClientPongSimulation {
             };
         });
         
-        // Interpolate ball positions toward server state
+        // Store server targets for smooth blending in simulate()
+        for (let i = 0; i < serverBalls.length; i++) {
+            const server = serverBalls[i]!;
+            this.serverBallTargets.set(i, {
+                x: server.x,
+                y: server.y,
+                dx: server.dx,
+                dy: server.dy,
+            });
+        }
+        
+        // Update ball states with smooth interpolation
         for (let i = 0; i < Math.min(this.balls.length, serverBalls.length); i++) {
             const local = this.balls[i]!;
             const server = serverBalls[i]!;
             
-            // Calculate position difference
-            const posDiff = Math.sqrt(Math.pow(local.x - server.x, 2) + Math.pow(local.y - server.y, 2));
+            // Calculate position error
+            const posError = Math.sqrt(
+                Math.pow(local.x - server.x, 2) + Math.pow(local.y - server.y, 2)
+            );
             
-            // Calculate velocity difference  
-            const velDiff = Math.sqrt(Math.pow(local.dx - server.dx, 2) + Math.pow(local.dy - server.dy, 2));
+            // Debug: log position error occasionally
+            if (ClientPongSimulation.debugFrameCount % 60 === 0 && i === 0) {
+                (window as any).PREDICTION_ERROR = { posError: posError.toFixed(1), localX: local.x.toFixed(1), serverX: server.x.toFixed(1) };
+                console.error(`🟡 SYNC ERROR | posErr: ${posError.toFixed(1)}px | local: (${local.x.toFixed(0)},${local.y.toFixed(0)}) | server: (${server.x.toFixed(0)},${server.y.toFixed(0)})`);
+            }
             
-            // If difference is large (> 80 units), snap to server position (major desync)
-            if (posDiff > 80) {
-                local.x = server.x;
-                local.y = server.y;
+            // Dynamic interpolation: blend faster when error is large
+            // Small error (< 10px): blend slowly (0.05) - almost imperceptible
+            // Medium error (10-50px): blend moderately (0.15)
+            // Large error (> 50px): blend fast (0.4)
+            let blendFactor: number;
+            if (posError < 10) {
+                blendFactor = 0.05;
+            } else if (posError < 50) {
+                blendFactor = 0.15;
+            } else {
+                blendFactor = 0.4;
+            }
+            
+            // Smooth blend position only
+            local.x = local.x + (server.x - local.x) * blendFactor;
+            local.y = local.y + (server.y - local.y) * blendFactor;
+            
+            // VELOCITY: Only sync if direction actually changed (bounce happened)
+            // Check if velocity DIRECTION differs (dot product < 0 means opposite direction)
+            const localSpeed = Math.sqrt(local.dx * local.dx + local.dy * local.dy);
+            const serverSpeed = Math.sqrt(server.dx * server.dx + server.dy * server.dy);
+            
+            if (localSpeed > 0.1 && serverSpeed > 0.1) {
+                // Normalize and check dot product
+                const dotProduct = (local.dx * server.dx + local.dy * server.dy) / (localSpeed * serverSpeed);
+                
+                // If dot product < 0.5, velocities are significantly different direction (bounce happened)
+                if (dotProduct < 0.5) {
+                    // Bounce detected - snap velocity immediately for correct direction
+                    local.dx = server.dx;
+                    local.dy = server.dy;
+                }
+                // Otherwise: DON'T touch velocity - let prediction run with its own velocity
+                // This prevents unnatural curves mid-flight
+            } else {
+                // One or both speeds are near zero - just sync
                 local.dx = server.dx;
                 local.dy = server.dy;
-            } else if (posDiff > 5) {
-                // Gentle interpolation for medium differences
-                // Use smaller factor to avoid sudden jumps
-                const smoothFactor = Math.min(interpolationFactor, posDiff / 100);
-                local.x = local.x + (server.x - local.x) * smoothFactor;
-                local.y = local.y + (server.y - local.y) * smoothFactor;
-            }
-            // For small differences (< 5 units), trust local prediction
-            
-            // Velocity correction - only if significantly different
-            if (velDiff > 20) {
-                local.dx = local.dx + (server.dx - local.dx) * interpolationFactor * 0.3;
-                local.dy = local.dy + (server.dy - local.dy) * interpolationFactor * 0.3;
             }
             
-            // Always sync radius
+            // Always sync radius (powerups can change it)
             local.radius = server.radius;
         }
         
-        // Handle ball count changes
+        // Handle ball count changes (always do this)
         if (serverBalls.length > this.balls.length) {
             // Server has more balls, add them
             for (let i = this.balls.length; i < serverBalls.length; i++) {

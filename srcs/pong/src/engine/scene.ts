@@ -21,6 +21,10 @@ export class Scene {
         this.timeScale = scale;
     }
 
+    public getTimeScale(): number {
+        return this.timeScale;
+    }
+
     public addObject(obj: BaseObject): void {
         this.objects.push(obj);
     }
