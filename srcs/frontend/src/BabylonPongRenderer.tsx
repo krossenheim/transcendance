@@ -501,6 +501,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
       // Update mesh scale if backend radius changed, and adjust Y position to keep ball on floor
       let adjustedYPos = newPos.y
+      let actualVisualRadius = 0.2 // default fallback
       try {
         const backendRadius = Number(b.radius || 10)
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
@@ -509,12 +510,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const scale = desiredDiameter / baseDiameter
         mesh.scaling = new Vector3(scale, scale, scale)
         
+        // The actual visual radius after scaling
+        actualVisualRadius = (baseDiameter / 2) * scale
+        
         // Adjust Y position so ball stays on the floor (scale from bottom, not center)
-        // The base position (0.2) assumes a scale of 1.0
-        // When scale changes, we need to offset Y by the difference in radius
-        const baseRadius = baseDiameter / 2
-        const scaledRadius = baseRadius * scale
-        adjustedYPos = scaledRadius // Ball center should be at its radius height above floor
+        adjustedYPos = actualVisualRadius // Ball center should be at its radius height above floor
       } catch (e) {
         // ignore scaling errors
       }
@@ -522,40 +522,39 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       mesh.position = new Vector3(newPos.x, adjustedYPos, newPos.z)
 
       // Calculate rolling rotation based on actual distance traveled
-      // The ball should rotate around an axis perpendicular to its movement direction
-      const distanceMoved = Vector3.Distance(oldPos, newPos)
-      const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy)
+      // Simple physics: arc_length = angle * radius, so angle = arc_length / radius
+      // The ball rolls on the ground, so rotation angle = distance_moved / ball_radius
+      const moveDirX = newPos.x - oldPos.x
+      const moveDirZ = newPos.z - oldPos.z
+      const moveDist2D = Math.sqrt(moveDirX * moveDirX + moveDirZ * moveDirZ)
 
-      if (distanceMoved > 0.001 && speed > 0.001 && mesh.rotationQuaternion) {
-        // Calculate rotation amount: angle = arc_length / radius (in radians)
-        // Map backend radius to world radius and use it for rotation
-        const backendRadius = Number(b.radius || 10)
-        const worldBallRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
-        const rotationAmount = distanceMoved / worldBallRadius
+      // Only apply rotation if there's meaningful movement
+      if (moveDist2D > 0.001 && mesh.rotationQuaternion) {
+        // rotation = distance / radius (simple rolling without slipping)
+        // Negate because of Babylon's rotation direction convention
+        const rotationAmount = -moveDist2D / actualVisualRadius
 
         // Get current rotation quaternion
         const currentRotation = ballRotationsRef.current.get(b.id) || Quaternion.Identity()
 
-        // Movement direction in world space (XZ plane, Y is up)
-        // b.dx maps to world X, b.dy maps to world Z
-        // Normalize the direction
-        const dirX = b.dx / speed
-        const dirZ = b.dy / speed
+        // Normalize the movement direction
+        const dirX = moveDirX / moveDist2D
+        const dirZ = moveDirZ / moveDist2D
 
-        // Rotation axis is perpendicular to movement direction and lies in the XZ plane
-        // For a ball rolling on the floor: axis = cross(up, moveDir) = (-dirZ, 0, dirX)
-        // This makes the ball roll forward in the direction of movement
+        // Rotation axis is perpendicular to movement direction (cross product of up and move dir)
+        // axis = up × moveDir = (0,1,0) × (dirX, 0, dirZ) = (-dirZ, 0, dirX)
         const axisX = -dirZ
         const axisZ = dirX
 
-        // Create incremental rotation quaternion around this axis
+        // Create incremental rotation quaternion
         const incrementalRotation = Quaternion.RotationAxis(
           new Vector3(axisX, 0, axisZ),
           rotationAmount
         )
 
-        // Multiply current rotation by incremental rotation
+        // Apply incremental rotation to current rotation
         const newRotation = incrementalRotation.multiply(currentRotation)
+        newRotation.normalize()
 
         ballRotationsRef.current.set(b.id, newRotation)
         mesh.rotationQuaternion = newRotation
