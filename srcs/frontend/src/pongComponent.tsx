@@ -160,6 +160,11 @@ export default function PongComponent({
   const stateBufferRef = useRef<BufferedState[]>([]);
   const BUFFER_DELAY_MS = 1; // Absolute minimum - just for micro-jitter
   
+  // PADDLE LEAD TIME: How far ahead to show paddles (in seconds)
+  // This compensates for network latency - paddles appear where they'll be when collision happens
+  // Start with ~50ms (typical half-RTT) and can be tuned
+  const PADDLE_LEAD_TIME_MS = 50;
+  
   // Visual ball positions - what we actually display (smoothly blended)
   // Now also tracks previous velocity to detect bounces
   const visualBallsRef = useRef<Array<{ id: number; x: number; y: number; dx: number; dy: number; prevDx: number; prevDy: number }>>([]);
@@ -257,11 +262,26 @@ export default function PongComponent({
             }));
           }
           
-          // Helper: find nearest paddle to a point
+          // Pre-calculate extrapolated paddle positions for use in bounce detection
+          const leadTimeSec = PADDLE_LEAD_TIME_MS / 1000;
+          const extrapolatedPaddles = gameState.paddles.map(p => {
+            const vx = p.vx || 0;
+            const vy = p.vy || 0;
+            if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) {
+              const extrapolatedX = p.x + vx * leadTimeSec;
+              const extrapolatedY = p.y + vy * leadTimeSec;
+              const clampedX = Math.max(50, Math.min(canvasWidth - 50, extrapolatedX));
+              const clampedY = Math.max(50, Math.min(canvasHeight - 50, extrapolatedY));
+              return { ...p, x: clampedX, y: clampedY };
+            }
+            return { ...p };
+          });
+          
+          // Helper: find nearest paddle to a point (using extrapolated positions)
           const findNearestPaddle = (x: number, y: number) => {
             let nearest = null;
             let nearestDist = Infinity;
-            for (const paddle of gameState.paddles) {
+            for (const paddle of extrapolatedPaddles) {
               const dx = x - paddle.x;
               const dy = y - paddle.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
@@ -384,8 +404,9 @@ export default function PongComponent({
             };
           });
           
-          // Paddles: use latest server state directly
-          const smoothedPaddles = gameState.paddles.map(p => ({ ...p }));
+          // Paddles: use the pre-calculated extrapolated positions
+          // (already computed above for bounce detection)
+          const smoothedPaddles = extrapolatedPaddles;
 
           setDisplayState({
             board_id: gameState.board_id,
