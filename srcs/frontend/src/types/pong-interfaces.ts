@@ -1,5 +1,5 @@
 // Minimal pong interfaces for frontend rendering
-export interface TypeHandleGameKeysSchema { board_id: number; pressed_keys: string[] }
+export interface TypeHandleGameKeysSchema { board_id: number; pressed_keys: string[]; clientTimestamp?: number }
 export interface TypeStartNewPongGame { player_list: number[]; balls: number }
 export interface TypePlayerDeclaresReadyForGame { game_id: number }
 export interface TypePlayerReadyForGameSchema { user_id: number; game_id: number }

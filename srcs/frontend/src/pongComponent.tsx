@@ -118,6 +118,7 @@ export default function PongComponent({
       metadata: raw.metadata ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
       score: raw.score ?? null,
+      serverTimestamp: raw.serverTimestamp ?? null,  // Extract server timestamp for lag compensation
     }
   }
   const { socket, payloadReceived } = useWebSocket()
@@ -154,16 +155,17 @@ export default function PongComponent({
   // STATE BUFFER for smooth playback - stores recent server states with timestamps
   interface BufferedState {
     timestamp: number;  // When we received this state (performance.now())
+    serverTimestamp?: number;  // Server's timestamp when state was generated
     balls: Array<{ id: number; x: number; y: number; dx: number; dy: number; radius: number }>;
     paddles: Array<{ x: number; y: number; r: number; w: number; l: number; vx: number; vy: number; owner_id: number; paddle_id: number }>;
   }
   const stateBufferRef = useRef<BufferedState[]>([]);
   const BUFFER_DELAY_MS = 1; // Absolute minimum - just for micro-jitter
   
-  // PADDLE LEAD TIME: How far ahead to show paddles (in seconds)
-  // This compensates for network latency - paddles appear where they'll be when collision happens
-  // Start with ~50ms (typical half-RTT) and can be tuned
-  const PADDLE_LEAD_TIME_MS = 50;
+  // DYNAMIC LAG COMPENSATION
+  // Track estimated one-way latency based on server timestamps
+  const estimatedLatencyRef = useRef<number>(50);  // Start with 50ms estimate
+  const lastServerTimestampRef = useRef<number>(0);
   
   // Visual ball positions - what we actually display (smoothly blended)
   // Now also tracks previous velocity to detect bounces
@@ -171,6 +173,12 @@ export default function PongComponent({
   
   // Local paddle position for immediate response (client-side prediction for YOUR paddle)
   const localPaddleRef = useRef<{ x: number; y: number; r: number } | null>(null);
+  
+  // Ref to access latest gameState in animation loop without causing re-renders
+  const gameStateRef = useRef<TypeGameStateSchema | null>(null);
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   // New state for lobby and tournament
   const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
@@ -231,27 +239,20 @@ export default function PongComponent({
       const now = performance.now()
       const deltaTime = (now - lastFrameTimeRef.current) / 1000 // Convert to seconds
       lastFrameTimeRef.current = now
+      
+      // Use ref to get latest gameState without causing effect re-runs
+      const currentGameState = gameStateRef.current;
 
       if (predictionEnabled) {
-        // SMOOTH VISUAL MODE with BOUNCE DETECTION
-        // When ball bounces, adjust trajectory to exit from nearest paddle
-        if (gameState && gameState.balls) {
-          const now = performance.now();
-          const buffer = stateBufferRef.current;
-          
-          // Clean up old states (keep only last 500ms worth)
-          while (buffer.length > 0 && buffer[0]!.timestamp < now - 500) {
-            buffer.shift();
-          }
-          
-          const canvasWidth = gameState.metadata?.gameOptions?.canvasWidth || 1000;
-          const canvasHeight = gameState.metadata?.gameOptions?.canvasHeight || 1000;
-          
-          const latestState = buffer.length > 0 ? buffer[buffer.length - 1]! : null;
+        // SIMPLIFIED SMOOTH VISUAL MODE
+        // Uses dead reckoning with gentle corrections - no complex bounce detection
+        if (currentGameState && currentGameState.balls) {
+          const canvasWidth = currentGameState.metadata?.gameOptions?.canvasWidth || 1000;
+          const canvasHeight = currentGameState.metadata?.gameOptions?.canvasHeight || 1000;
           
           // Initialize visual balls if needed
-          if (visualBallsRef.current.length !== gameState.balls.length) {
-            visualBallsRef.current = gameState.balls.map(b => ({
+          if (visualBallsRef.current.length !== currentGameState.balls.length) {
+            visualBallsRef.current = currentGameState.balls.map(b => ({
               id: b.id,
               x: b.x,
               y: b.y,
@@ -262,14 +263,29 @@ export default function PongComponent({
             }));
           }
           
-          // Pre-calculate extrapolated paddle positions for use in bounce detection
-          const leadTimeSec = PADDLE_LEAD_TIME_MS / 1000;
-          const extrapolatedPaddles = gameState.paddles.map(p => {
+          // DYNAMIC LAG COMPENSATION: Update latency estimate from server timestamp
+          const serverTs = (currentGameState as any).serverTimestamp;
+          if (serverTs && serverTs > lastServerTimestampRef.current) {
+            lastServerTimestampRef.current = serverTs;
+            const clientNow = Date.now();
+            const measuredOneWay = clientNow - serverTs;
+            // Clamp to reasonable range and smooth with exponential average
+            const clampedLatency = Math.max(5, Math.min(150, measuredOneWay));
+            estimatedLatencyRef.current = estimatedLatencyRef.current * 0.9 + clampedLatency * 0.1;
+          }
+          
+          // Paddle extrapolation: show paddles slightly ahead based on latency
+          const leadTimeMs = Math.min(estimatedLatencyRef.current * 0.5, 30); // Cap at 30ms
+          const leadTimeSec = leadTimeMs / 1000;
+          
+          const extrapolatedPaddles = currentGameState.paddles.map(p => {
             const vx = p.vx || 0;
             const vy = p.vy || 0;
-            if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) {
+            // Only extrapolate if paddle is moving
+            if (Math.abs(vx) > 1 || Math.abs(vy) > 1) {
               const extrapolatedX = p.x + vx * leadTimeSec;
               const extrapolatedY = p.y + vy * leadTimeSec;
+              // Clamp to reasonable bounds
               const clampedX = Math.max(50, Math.min(canvasWidth - 50, extrapolatedX));
               const clampedY = Math.max(50, Math.min(canvasHeight - 50, extrapolatedY));
               return { ...p, x: clampedX, y: clampedY };
@@ -277,24 +293,8 @@ export default function PongComponent({
             return { ...p };
           });
           
-          // Helper: find nearest paddle to a point (using extrapolated positions)
-          const findNearestPaddle = (x: number, y: number) => {
-            let nearest = null;
-            let nearestDist = Infinity;
-            for (const paddle of extrapolatedPaddles) {
-              const dx = x - paddle.x;
-              const dy = y - paddle.y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist < nearestDist) {
-                nearestDist = dist;
-                nearest = paddle;
-              }
-            }
-            return { paddle: nearest, dist: nearestDist };
-          };
-          
-          // For each ball: detect bounces and adjust trajectory
-          const smoothedBalls = gameState.balls.map((serverBall, idx) => {
+          // For each ball: simple dead reckoning with snap-on-velocity-change
+          const smoothedBalls = currentGameState.balls.map((serverBall, idx) => {
             const radius = serverBall.radius || 10;
             const visual = visualBallsRef.current[idx];
             
@@ -302,132 +302,95 @@ export default function PongComponent({
               return serverBall;
             }
             
-            // Detect bounce: velocity direction changed significantly
-            const dotProduct = visual.prevDx * serverBall.dx + visual.prevDy * serverBall.dy;
-            const prevSpeed = Math.sqrt(visual.prevDx * visual.prevDx + visual.prevDy * visual.prevDy);
-            const currSpeed = Math.sqrt(serverBall.dx * serverBall.dx + serverBall.dy * serverBall.dy);
-            const bounceDetected = prevSpeed > 10 && currSpeed > 10 && dotProduct < 0; // Directions roughly opposite
+            // Check if server velocity changed significantly (ball bounced)
+            const vxDiff = Math.abs(serverBall.dx - visual.dx);
+            const vyDiff = Math.abs(serverBall.dy - visual.dy);
+            const velocityChanged = vxDiff > 50 || vyDiff > 50;
             
-            // Calculate target position (server position + small extrapolation)
-            let targetX = serverBall.x;
-            let targetY = serverBall.y;
+            let newX: number;
+            let newY: number;
+            let newDx: number;
+            let newDy: number;
             
-            if (latestState && latestState.balls[idx]) {
-              const lb = latestState.balls[idx]!;
-              const timeSinceUpdate = Math.min((now - latestState.timestamp) / 1000, 0.05);
-              targetX = lb.x + lb.dx * timeSinceUpdate;
-              targetY = lb.y + lb.dy * timeSinceUpdate;
-            }
-            
-            // Clamp target to bounds
-            targetX = Math.max(radius, Math.min(canvasWidth - radius, targetX));
-            targetY = Math.max(radius, Math.min(canvasHeight - radius, targetY));
-            
-            let newVisualX = visual.x;
-            let newVisualY = visual.y;
-            let newDx = visual.dx;
-            let newDy = visual.dy;
-            
-            if (bounceDetected) {
-              // BOUNCE DETECTED - find nearest paddle and start ball from its edge
-              const { paddle, dist } = findNearestPaddle(visual.x, visual.y);
-              
-              if (paddle && dist < 150) {
-                // Ball bounced near a paddle - position ball at paddle edge
-                // Calculate direction from paddle center to ball
-                const dirX = visual.x - paddle.x;
-                const dirY = visual.y - paddle.y;
-                const dirLen = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
-                
-                // Place ball just outside paddle (paddle length/2 + ball radius + small gap)
-                const paddleRadius = (paddle.l || 50) / 2 + radius + 5;
-                newVisualX = paddle.x + (dirX / dirLen) * paddleRadius;
-                newVisualY = paddle.y + (dirY / dirLen) * paddleRadius;
-                
-                // Immediately adopt server velocity (ball is now bouncing away)
-                newDx = serverBall.dx;
-                newDy = serverBall.dy;
-              } else {
-                // Bounce but no paddle nearby (wall bounce) - just snap velocity
-                newDx = serverBall.dx;
-                newDy = serverBall.dy;
-                // Blend position more aggressively
-                newVisualX = visual.x + (targetX - visual.x) * 0.5;
-                newVisualY = visual.y + (targetY - visual.y) * 0.5;
-              }
+            if (velocityChanged) {
+              // Velocity changed significantly - snap to server state
+              // This handles bounces cleanly
+              newX = serverBall.x;
+              newY = serverBall.y;
+              newDx = serverBall.dx;
+              newDy = serverBall.dy;
             } else {
-              // No bounce - normal smooth movement
-              // Extrapolate visual position
-              newVisualX = visual.x + visual.dx * deltaTime;
-              newVisualY = visual.y + visual.dy * deltaTime;
+              // Normal dead reckoning: move visual ball by its velocity
+              newX = visual.x + visual.dx * deltaTime;
+              newY = visual.y + visual.dy * deltaTime;
               
-              // Blend velocity toward server velocity
-              const velBlend = 0.3;
-              newDx = visual.dx + (serverBall.dx - visual.dx) * velBlend;
-              newDy = visual.dy + (serverBall.dy - visual.dy) * velBlend;
+              // Blend velocity toward server more quickly to prevent drift
+              newDx = visual.dx * 0.8 + serverBall.dx * 0.2;
+              newDy = visual.dy * 0.8 + serverBall.dy * 0.2;
               
-              // Calculate distance to target
-              const distX = targetX - newVisualX;
-              const distY = targetY - newVisualY;
-              const dist = Math.sqrt(distX * distX + distY * distY);
+              // Calculate error from server position
+              const errorX = serverBall.x - newX;
+              const errorY = serverBall.y - newY;
+              const errorDist = Math.sqrt(errorX * errorX + errorY * errorY);
               
-              // Blend toward target
-              if (dist > 50) {
-                newVisualX = targetX - (distX / dist) * 30;
-                newVisualY = targetY - (distY / dist) * 30;
-              } else if (dist > 5) {
-                const posBlend = 0.15;
-                newVisualX += distX * posBlend;
-                newVisualY += distY * posBlend;
+              // Apply gentle position correction (larger correction for larger error)
+              if (errorDist > 80) {
+                // Large error: snap to server
+                newX = serverBall.x;
+                newY = serverBall.y;
+                newDx = serverBall.dx;
+                newDy = serverBall.dy;
+              } else if (errorDist > 5) {
+                // Medium error: blend toward server proportionally
+                const correctionStrength = Math.min(0.2, errorDist / 200);
+                newX += errorX * correctionStrength;
+                newY += errorY * correctionStrength;
               }
+              // Small error (<5): ignore, dead reckoning is close enough
             }
             
-            // Clamp visual to bounds
-            newVisualX = Math.max(radius, Math.min(canvasWidth - radius, newVisualX));
-            newVisualY = Math.max(radius, Math.min(canvasHeight - radius, newVisualY));
+            // Clamp to bounds
+            newX = Math.max(radius, Math.min(canvasWidth - radius, newX));
+            newY = Math.max(radius, Math.min(canvasHeight - radius, newY));
             
-            // Update visual ref (store current velocity as prev for next frame)
+            // Update visual ref
             visual.prevDx = visual.dx;
             visual.prevDy = visual.dy;
-            visual.x = newVisualX;
-            visual.y = newVisualY;
+            visual.x = newX;
+            visual.y = newY;
             visual.dx = newDx;
             visual.dy = newDy;
             
             return {
               id: serverBall.id,
-              x: newVisualX,
-              y: newVisualY,
+              x: newX,
+              y: newY,
               dx: newDx,
               dy: newDy,
               radius: radius,
             };
           });
-          
-          // Paddles: use the pre-calculated extrapolated positions
-          // (already computed above for bounce detection)
-          const smoothedPaddles = extrapolatedPaddles;
 
           setDisplayState({
-            board_id: gameState.board_id,
-            edges: gameState.edges,
-            paddles: smoothedPaddles,
+            board_id: currentGameState.board_id,
+            edges: currentGameState.edges,
+            paddles: extrapolatedPaddles,
             balls: smoothedBalls,
-            metadata: gameState.metadata,
-            powerups: gameState.powerups || [],
-            score: gameState.score || null,
+            metadata: currentGameState.metadata,
+            powerups: currentGameState.powerups || [],
+            score: currentGameState.score || null,
           });
         }
       } else {
         // SERVER-ONLY MODE: Simple interpolation using ball velocities
         // This provides smooth animation between server updates
-        if (gameState && gameState.balls) {
+        if (currentGameState && currentGameState.balls) {
           const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
           
           // Debug: log server ball speed (every 60 frames = ~1 second)
           serverFrameCountRef.current++;
-          if (gameState.balls.length > 0 && serverFrameCountRef.current % 60 === 0) {
-            const b = gameState.balls[0]!;
+          if (currentGameState.balls.length > 0 && serverFrameCountRef.current % 60 === 0) {
+            const b = currentGameState.balls[0]!;
             const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy);
             // Store on window for easy inspection
             (window as any).SERVER_ONLY_SPEED = { speed: speed.toFixed(1), dx: b.dx.toFixed(1), dy: b.dy.toFixed(1), frame: serverFrameCountRef.current };
@@ -435,7 +398,7 @@ export default function PongComponent({
           }
           
           // Interpolate ball positions based on their velocities
-          const interpolatedBalls = gameState.balls.map(b => ({
+          const interpolatedBalls = currentGameState.balls.map(b => ({
             id: b.id,
             x: b.x + b.dx * clampedDelta,
             y: b.y + b.dy * clampedDelta,
@@ -445,13 +408,13 @@ export default function PongComponent({
           }))
 
           setDisplayState({
-            board_id: gameState.board_id,
-            edges: gameState.edges,
-            paddles: gameState.paddles,
+            board_id: currentGameState.board_id,
+            edges: currentGameState.edges,
+            paddles: currentGameState.paddles,
             balls: interpolatedBalls,
-            metadata: gameState.metadata,
-            powerups: gameState.powerups || [],
-            score: gameState.score || null,
+            metadata: currentGameState.metadata,
+            powerups: currentGameState.powerups || [],
+            score: currentGameState.score || null,
           })
         }
       }
@@ -470,7 +433,7 @@ export default function PongComponent({
         animationFrameRef.current = null
       }
     }
-  }, [currentView, gameState, predictionEnabled])
+  }, [currentView, predictionEnabled])  // Removed gameState - use ref instead
 
   // =========================
   // Fetch game state on mount
@@ -939,10 +902,11 @@ export default function PongComponent({
         clientSimulationRef.current.setPressedKeys(Array.from(pressedKeysRef.current))
       }
       
-      // Send to server
+      // Send to server with timestamp for lag compensation
       const payload: TypeHandleGameKeysSchema = {
         board_id: gameState.board_id,
         pressed_keys: Array.from(pressedKeysRef.current),
+        clientTimestamp: Date.now(),  // Send client timestamp for server-side lag estimation
       }
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
@@ -961,10 +925,11 @@ export default function PongComponent({
         clientSimulationRef.current.setPressedKeys(Array.from(pressedKeysRef.current))
       }
 
-      // Send to server
+      // Send to server with timestamp for lag compensation
       const payload = {
         board_id: gameState.board_id,
         pressed_keys: Array.from(pressedKeysRef.current),
+        clientTimestamp: Date.now(),  // Send client timestamp for server-side lag estimation
       }
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }

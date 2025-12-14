@@ -63,6 +63,7 @@ socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) =
   singletonPong.handleUserInput(
     body.user_id,
     body.payload.pressed_keys,
+    body.payload.clientTimestamp,  // Pass client timestamp for lag compensation
   );
   return Result.Ok(response.select("MessageSent").reply({}));
 });
