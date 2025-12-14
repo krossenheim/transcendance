@@ -138,6 +138,19 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   // Store beach ball texture reference
   const beachBallTextureRef = useRef<DynamicTexture | null>(null)
 
+  // Lerp-based smoothing: store target positions and let Babylon's render loop interpolate
+  // This decouples React state updates from rendering for smoother motion
+  interface LerpTarget {
+    targetPos: Vector3
+    targetScaleX: number
+    targetScaleY: number
+    targetScaleZ: number
+  }
+  const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
+  const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
+  const lastFrameDeltaRef = useRef<number>(16.667) // Default to 60fps
+  const EXPECTED_FRAME_MS = 16.667 // 60fps target
+
   // Initialize Babylon scene
   useEffect(() => {
     if (!canvasRef.current) return
@@ -227,8 +240,40 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Render loop
+    // Render loop with lerp-based smoothing
     engine.runRenderLoop(() => {
+      // Track frame delta for lerp calculations
+      const dt = engine.getDeltaTime()
+      lastFrameDeltaRef.current = dt
+      
+      // Lerp alpha: how much to interpolate this frame
+      // dt/expected gives us frame-rate independent smoothing
+      const lerpAlpha = Math.min(dt / EXPECTED_FRAME_MS, 1)
+      
+      // Lerp balls toward their targets
+      ballsRef.current.forEach((mesh, ballId) => {
+        const target = ballTargetsRef.current.get(ballId)
+        if (target) {
+          // Lerp position
+          mesh.position = Vector3.Lerp(mesh.position, target.targetPos, lerpAlpha)
+          
+          // Lerp scale (for squash animation)
+          mesh.scaling = Vector3.Lerp(
+            mesh.scaling,
+            new Vector3(target.targetScaleX, target.targetScaleY, target.targetScaleZ),
+            lerpAlpha
+          )
+        }
+      })
+      
+      // Lerp paddles toward their targets
+      paddlesRef.current.forEach((mesh, paddleId) => {
+        const targetPos = paddleTargetsRef.current.get(paddleId)
+        if (targetPos) {
+          mesh.position = Vector3.Lerp(mesh.position, targetPos, lerpAlpha)
+        }
+      })
+      
       scene.render()
     })
 
@@ -400,6 +445,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
       activePaddleIds.add(paddleId)
       let mesh = paddlesRef.current.get(paddleId)
+      const isNewPaddle = !mesh
 
       // Support multiple possible property names and provide sensible defaults
       const rawW = (p as any).w ?? (p as any).width ?? 10
@@ -439,7 +485,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         console.warn("[BabylonPongRenderer] Paddle missing x/y, skipping position:", paddleId, p)
       } else {
         const pos = toWorld(posX, posY, 0.25)
-        mesh.position = pos
+        // Set target for lerp-based smoothing (render loop will interpolate)
+        paddleTargetsRef.current.set(paddleId, pos)
+        // If paddle is new, snap to position immediately
+        if (isNewPaddle) {
+          mesh.position = pos
+        }
       }
 
       // Rotation
@@ -454,6 +505,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       if (!activePaddleIds.has(id)) {
         mesh.dispose()
         paddlesRef.current.delete(id)
+        paddleTargetsRef.current.delete(id)
       }
     }
 
@@ -462,6 +514,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     gameState.balls.forEach((b) => {
       activeBallIds.add(b.id)
       let mesh = ballsRef.current.get(b.id)
+      const isNewBall = !mesh
 
       if (!mesh) {
         // Create sphere with more segments for smoother texture mapping
@@ -584,18 +637,29 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           }
         }
         
-        mesh.scaling = new Vector3(scaleX, scaleY, scaleZ)
-        
         // The actual visual radius after scaling (use average for Y positioning)
         actualVisualRadius = (baseDiameter / 2) * baseScale
         
         // Adjust Y position so ball stays on the floor (scale from bottom, not center)
         adjustedYPos = actualVisualRadius // Ball center should be at its radius height above floor
+        
+        // Set target for lerp-based smoothing (render loop will interpolate)
+        const targetPos = new Vector3(newPos.x, adjustedYPos, newPos.z)
+        ballTargetsRef.current.set(b.id, {
+          targetPos,
+          targetScaleX: scaleX,
+          targetScaleY: scaleY,
+          targetScaleZ: scaleZ
+        })
+        
+        // If ball is new, snap to position immediately
+        if (isNewBall) {
+          mesh.position = targetPos
+          mesh.scaling = new Vector3(scaleX, scaleY, scaleZ)
+        }
       } catch (e) {
         // ignore scaling errors
       }
-      
-      mesh.position = new Vector3(newPos.x, adjustedYPos, newPos.z)
 
       // Calculate rolling rotation based on actual distance traveled
       // Simple physics: arc_length = angle * radius, so angle = arc_length / radius
@@ -841,6 +905,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ballsRef.current.delete(id)
         previousBallVelocitiesRef.current.delete(id)
         ballRotationsRef.current.delete(id)
+        ballTargetsRef.current.delete(id)
+        ballSquashRef.current.delete(id)
       }
     }
   }, [gameState, darkMode, paddleRotationOffset])
