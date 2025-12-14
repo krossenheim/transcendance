@@ -23,7 +23,7 @@ type gameDataType = {
   playerRTT: Map<number, number>;
 };
 
-const PONG_FRAME_INTERVAL_MS = 50; // Approx 20 FPS
+const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
 const GAME_CLEANUP_DELAY_MS = 30000; // Clean up game 30 seconds after it ends
 const INPUT_HISTORY_MAX_AGE_MS = 500; // Keep inputs for 500ms for lag compensation
 const DEFAULT_RTT_MS = 50; // Default assumed RTT

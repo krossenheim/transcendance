@@ -65,7 +65,7 @@ export class Powerup extends CircleObject {
 
 		this.setCollisionHandler((other: BaseObject) => {
 			if (other instanceof PongBall) {
-				console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
+				// Powerup collected
 				this.game.applyPowerupEffect(this, other);
 			}
 
@@ -171,10 +171,9 @@ export class PongGame {
         } else {
             const wall = new PlayerWall(pointA, pointB, playerId);
             wall.setCollisionHandler((other: BaseObject): CollisionResponse => {
-                console.log(`Ball collided with player ${playerId}\'s wall.`);
+                // Ball hit player's wall - score point
                 if (other instanceof PongBall) {
                     this.score.set(playerId, (this.score.get(playerId) || 0) - 1);
-                    console.log(`Player ${playerId} conceded a point! Current score: ${this.score.get(playerId)}.`);
                 }
                 return CollisionResponse.BOUNCE;
             });
@@ -242,13 +241,11 @@ export class PongGame {
     }
 
     private spawnNewPowerup(): void {
-        console.log(this.powerupSpawnRadius);
         const position = (new Vec2(1, 0).rotate(Math.random() * 2 * Math.PI)).mul(Math.sqrt(Math.random()) * this.powerupSpawnRadius).add(new Vec2(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2));
         const velocity = new Vec2(0, 0);
         const powerup = Powerup.generateRandomPowerup(position, velocity, this);
         this.powerups.push(powerup);
         this.scene.addObject(powerup);
-        console.log(`Spawned new powerup of type ${PowerupType[powerup.getPowerupType()]} at position (${position.x.toFixed(2)}, ${position.y.toFixed(2)}).`);
     }
 
     constructor(players: number[], gameOptions: PongGameOptions) {
@@ -306,7 +303,6 @@ export class PongGame {
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
         switch (powerup.getPowerupType()) {
             case PowerupType.ADD_BALL:
-				console.log(`Spawning new ball due to powerup effect.`);
                 this.spawnNewBall(ball.center.clone(), ball.velocity.clone().rotate(Math.random() * Math.PI / 4 - Math.PI / 8), ball.radius, ball.inverseMass, this.gameOptions);
                 break;
 
@@ -373,7 +369,7 @@ export class PongGame {
         this.powerups = this.powerups.filter(powerup => {
             const couldBeRemoved = !(powerup.isPowerupActive(currentTime) || !powerup.isPowerupTaken());
             if (couldBeRemoved) {
-                console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
+                // Expired powerup removed
                 this.scene.removeObject(powerup);
                 this.removePowerupEffects(powerup);
             }
@@ -437,7 +433,6 @@ export class PongGame {
 			
 			const newWall = new Wall(wall.pointA.clone(), wall.pointB.clone());
 			newWall.setCollisionHandler((other: BaseObject): CollisionResponse => {
-				console.log(`Ball collided with a neutral wall.`);
 				return CollisionResponse.BOUNCE;
 			});
 			this.walls.push(newWall);
