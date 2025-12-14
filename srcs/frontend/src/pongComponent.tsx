@@ -886,14 +886,17 @@ export default function PongComponent({
   // =========================
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // Use ref to avoid stale closure - gameState changes every frame
+      const currentGameState = gameStateRef.current
+      
       // Need game state and at least one paddle assigned
-      if (gameState === null) return
+      if (currentGameState === null) return
       if (playerOnePaddleID === -1 && playerTwoPaddleID === -1) return
       if (pressedKeysRef.current.has(e.key.toLowerCase())) return
       
       pressedKeysRef.current.add(e.key.toLowerCase())
 
-      if (gameState.board_id === null) return
+      if (currentGameState.board_id === null) return
       
       // ====================
       // CLIENT-SIDE PREDICTION: Apply input immediately to local simulation
@@ -904,7 +907,7 @@ export default function PongComponent({
       
       // Send to server with timestamp for lag compensation
       const payload: TypeHandleGameKeysSchema = {
-        board_id: gameState.board_id,
+        board_id: currentGameState.board_id,
         pressed_keys: Array.from(pressedKeysRef.current),
         clientTimestamp: Date.now(),  // Send client timestamp for server-side lag estimation
       }
@@ -912,8 +915,11 @@ export default function PongComponent({
     }
 
     function handleKeyUp(e: KeyboardEvent) {
+      // Use ref to avoid stale closure - gameState changes every frame
+      const currentGameState = gameStateRef.current
+      
       // Need game state and at least one paddle assigned
-      if (gameState === null) return
+      if (currentGameState === null) return
       if (playerOnePaddleID === -1 && playerTwoPaddleID === -1) return
       
       pressedKeysRef.current.delete(e.key.toLowerCase())
@@ -927,7 +933,7 @@ export default function PongComponent({
 
       // Send to server with timestamp for lag compensation
       const payload = {
-        board_id: gameState.board_id,
+        board_id: currentGameState.board_id,
         pressed_keys: Array.from(pressedKeysRef.current),
         clientTimestamp: Date.now(),  // Send client timestamp for server-side lag estimation
       }
@@ -941,7 +947,7 @@ export default function PongComponent({
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
     }
-  }, [gameState, handleUserInput, playerOnePaddleID, playerTwoPaddleID, predictionEnabled])
+  }, [handleUserInput, playerOnePaddleID, playerTwoPaddleID, predictionEnabled])
 
   // =========================
   // 3D Rendering is handled by BabylonPongRenderer component

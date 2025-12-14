@@ -122,6 +122,16 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   // Track ball rotation for realistic rolling effect (using quaternions)
   const ballRotationsRef = useRef<Map<number, Quaternion>>(new Map())
 
+  // Track squash animation state per ball
+  // When a ball bounces, we animate: squash (flatten) -> stretch -> normal
+  interface SquashState {
+    active: boolean
+    startTime: number
+    impactAngle: number  // Direction of impact (radians) for oriented squash
+    impactSpeed: number  // Speed at impact - faster = more squash
+  }
+  const ballSquashRef = useRef<Map<number, SquashState>>(new Map())
+
   // Powerups: stable meshes keyed by spawnTime (string) + index fallback
   const powerupsRef = useRef<Map<string, Mesh>>(new Map())
 
@@ -507,11 +517,77 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
         const desiredDiameter = Math.max(0.05, worldRadius * 2)
         const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
-        const scale = desiredDiameter / baseDiameter
-        mesh.scaling = new Vector3(scale, scale, scale)
+        const baseScale = desiredDiameter / baseDiameter
         
-        // The actual visual radius after scaling
-        actualVisualRadius = (baseDiameter / 2) * scale
+        // Apply squash and stretch animation
+        let scaleX = baseScale
+        let scaleY = baseScale
+        let scaleZ = baseScale
+        
+        const squashState = ballSquashRef.current.get(b.id)
+        if (squashState?.active) {
+          const elapsed = performance.now() - squashState.startTime
+          const SQUASH_DURATION = 120 // ms for full squash/stretch cycle
+          
+          if (elapsed < SQUASH_DURATION) {
+            // Animation progress (0 to 1)
+            const t = elapsed / SQUASH_DURATION
+            
+            // Scale squash intensity based on impact speed
+            // Typical speeds: ~300-800 backend units. Map to intensity 0.15-0.4
+            const MIN_SPEED = 200
+            const MAX_SPEED = 1000
+            const MIN_INTENSITY = 0.15  // Gentle bounce
+            const MAX_INTENSITY = 0.45  // Hard smash
+            const speedNorm = Math.min(1, Math.max(0, (squashState.impactSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)))
+            const squashIntensity = MIN_INTENSITY + speedNorm * (MAX_INTENSITY - MIN_INTENSITY)
+            
+            // Use a sine wave for smooth squash-stretch-return
+            // First half: squash (compress), second half: stretch (elongate)
+            // Then return to normal
+            let squashFactor: number
+            if (t < 0.25) {
+              // Quick squash (0 to 0.25)
+              squashFactor = 1 - squashIntensity * Math.sin(t * 4 * Math.PI / 2)
+            } else if (t < 0.5) {
+              // Stretch past normal (0.25 to 0.5)
+              squashFactor = (1 - squashIntensity) + (squashIntensity * 1.4) * Math.sin((t - 0.25) * 4 * Math.PI / 2)
+            } else {
+              // Settle back to normal with slight overshoot (0.5 to 1)
+              const overshoot = squashIntensity * 0.4
+              squashFactor = 1 + overshoot - overshoot * Math.sin((t - 0.5) * 2 * Math.PI)
+            }
+            
+            // Apply squash perpendicular to impact direction
+            // In 2D pong space: impactAngle gives us the direction of impact
+            // Squash along impact axis, stretch perpendicular
+            const stretchFactor = 1 / squashFactor // Volume preservation
+            
+            // Map the 2D impact angle to 3D axes
+            // impactAngle: 0 = horizontal impact (paddle hit), ±π/2 = vertical (wall hit)
+            const impactX = Math.cos(squashState.impactAngle)
+            const impactZ = Math.sin(squashState.impactAngle)
+            
+            // Blend between X and Z based on impact direction
+            // For paddle hits (mostly horizontal): squash X, stretch Z
+            // For wall hits (mostly vertical): squash Z, stretch X
+            const xBlend = Math.abs(impactX)
+            const zBlend = Math.abs(impactZ)
+            
+            scaleX = baseScale * (squashFactor * xBlend + stretchFactor * zBlend)
+            scaleZ = baseScale * (stretchFactor * xBlend + squashFactor * zBlend)
+            // Y (height) gets a slight squash for volume feel
+            scaleY = baseScale * (1 + (squashFactor - 1) * 0.3)
+          } else {
+            // Animation complete
+            ballSquashRef.current.set(b.id, { ...squashState, active: false })
+          }
+        }
+        
+        mesh.scaling = new Vector3(scaleX, scaleY, scaleZ)
+        
+        // The actual visual radius after scaling (use average for Y positioning)
+        actualVisualRadius = (baseDiameter / 2) * baseScale
         
         // Adjust Y position so ball stays on the floor (scale from bottom, not center)
         adjustedYPos = actualVisualRadius // Ball center should be at its radius height above floor
@@ -596,6 +672,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               console.warn("[Pong Sound] Failed to play:", error)
             }
           }
+          
+          // Trigger squash animation on bounce
+          // Calculate impact angle from velocity change direction
+          const impactAngle = Math.atan2(
+            prevVel.dy - b.dy,  // Change in dy
+            prevVel.dx - b.dx   // Change in dx
+          )
+          // Calculate impact speed (magnitude of velocity change)
+          const impactSpeed = Math.sqrt(
+            Math.pow(b.dx - prevVel.dx, 2) + Math.pow(b.dy - prevVel.dy, 2)
+          )
+          ballSquashRef.current.set(b.id, {
+            active: true,
+            startTime: performance.now(),
+            impactAngle: impactAngle,
+            impactSpeed: impactSpeed
+          })
         }
       }
 
