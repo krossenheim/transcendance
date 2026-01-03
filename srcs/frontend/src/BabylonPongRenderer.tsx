@@ -18,26 +18,30 @@ import {
   PolygonMeshBuilder,
   DynamicTexture,
   Quaternion,
-  type Observer, // <-- Added import for Observer
+  type Observer,
 } from "@babylonjs/core"
 import earcut from "earcut"
 import type { TypeGameStateSchema } from "./types/pong-interfaces"
 import { getUserColorBabylon, getUserColorCSS } from "./userColorUtils"
+import { ClientPredictionManager } from "./ClientPredictionManager"
 
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
-// Tunable offset for paddle rotation to match backend angle convention.
-// If paddles appear rotated by 90deg, change this to Math.PI/2 or 0 accordingly.
 const PADDLE_ROTATION_OFFSET = 0 // adjust to Math.PI/2 if needed
 
 interface BufferedState {
-  timestamp: number // Now uses server time, not client time
+  timestamp: number // Uses server time
   balls: Array<{ id: number; x: number; y: number; dx: number; dy: number; radius: number }>
 }
 
-const INTERPOLATION_DELAY = 100 // Reduced to 100ms since server time is more accurate
-const MIN_STATE_SPACING = 12 // ms - minimum time between buffered states
+// IMPROVED CONFIGURATION
+const BASE_INTERPOLATION_DELAY = 150 // Base delay
+const MIN_INTERPOLATION_DELAY = 100 // Minimum delay
+const MAX_INTERPOLATION_DELAY = 300 // Maximum delay
+const MIN_STATE_SPACING = 5 // Reduced to 5ms - let more states through
+const MAX_EXTRAPOLATION_TIME = 100 // Increased to 100ms
+const STALE_STATE_THRESHOLD = 2000 // If no update for 2s, consider connection stalled
 
 // Uses position AND velocity at both endpoints to create a smooth cubic curve
 function hermiteInterpolate(
@@ -58,20 +62,6 @@ function hermiteInterpolate(
 
   // Scale velocities by time delta to get proper tangent magnitudes
   return h00 * p0 + h10 * (v0 * dt) + h01 * p1 + h11 * (v1 * dt)
-}
-
-interface BallPhysicsState {
-  // Last known authoritative position from server
-  serverX: number
-  serverY: number
-  // Velocity for interpolation
-  dx: number
-  dy: number
-  // Current interpolated position (in backend coords)
-  currentX: number
-  currentY: number
-  // Timestamp when we last received server update
-  lastServerUpdate: number
 }
 
 // Create a beach ball texture with classic vertical stripes that wrap around the sphere
@@ -138,6 +128,8 @@ export function getPaddleColorCSS(paddleId: number, darkMode = true): string {
 interface BabylonPongRendererProps {
   gameState: TypeGameStateSchema | null
   darkMode?: boolean
+  localPlayerId?: number  // NEW: ID of the local player
+  useClientPrediction?: boolean  // NEW: Toggle prediction on/off
 }
 
 const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
@@ -145,6 +137,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     gameState,
     darkMode = true,
     paddleRotationOffset = PADDLE_ROTATION_OFFSET,
+    localPlayerId,
+    useClientPrediction = false,
   }: BabylonPongRendererProps & { paddleRotationOffset?: number },
   ref,
 ) {
@@ -178,9 +172,16 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   const stateBufferRef = useRef<BufferedState[]>([])
   const interpolationObserverRef = useRef<Observer<Scene> | null>(null)
   const serverTimeOffsetRef = useRef<number | null>(null) // Track clock offset
+  const adaptiveDelayRef = useRef<number>(BASE_INTERPOLATION_DELAY) // Adaptive interpolation delay
+  const jitterSamplesRef = useRef<number[]>([]) // Track network jitter
   // Track previous interpolated positions for rotation calculation
   const prevBallPositionsRef = useRef<Map<number, { x: number; y: number }>>(new Map())
   const lastRenderedPositionsRef = useRef<Map<number, { x: number; y: number; time: number }>>(new Map())
+
+  // Client prediction refs
+  const predictionManagerRef = useRef<ClientPredictionManager | null>(null)
+  const currentKeysRef = useRef<Set<string>>(new Set())
+  const gameInitializedRef = useRef<boolean>(false)
 
   // Initialize Babylon scene
   useEffect(() => {
@@ -191,6 +192,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       stencil: true,
     })
     engineRef.current = engine
+    try {
+      console.log('[BabylonRenderer] Engine created')
+    } catch (e) {}
 
     const scene = new Scene(engine)
     // Dark mode: deep blue-ish background, Light mode: light gray-white
@@ -200,8 +204,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
     // Create synthetic bounce sounds using Web Audio API - use oscillator for reliable playback
     const createBounceSound = (frequency: number, duration: number, name: string) => {
-      // Instead of pre-generating, we'll play using Web Audio API directly
-      // This is more reliable than trying to create WAV files
       return {
         play: () => {
           try {
@@ -267,70 +269,174 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
+    // CLIENT PREDICTION / ADAPTIVE INTERPOLATION OBSERVER
     interpolationObserverRef.current = scene.onBeforeRenderObservable.add(() => {
       const now = performance.now()
-      const buffer = stateBufferRef.current
-      const dt = (engineRef.current?.getDeltaTime() ?? 16) / 1000 // seconds
+      const dt = (engineRef.current?.getDeltaTime() ?? 16) / 1000
 
-      const offset = serverTimeOffsetRef.current ?? 0
-      const estimatedServerTime = now - offset
-      const renderTime = estimatedServerTime - INTERPOLATION_DELAY
+      // CLIENT PREDICTION MODE
+      if (useClientPrediction && localPlayerId !== undefined) {
+        const manager = predictionManagerRef.current
 
-      // Find two states to interpolate between
-      let before: BufferedState | null = null
-      let after: BufferedState | null = null
-      for (let i = 0; i < buffer.length - 1; i++) {
-        if (buffer[i].timestamp <= renderTime && buffer[i + 1].timestamp >= renderTime) {
-          before = buffer[i]
-          after = buffer[i + 1]
-          break
+        if (!manager?.isInitialized()) return
+
+        // Update local prediction with current inputs
+        const keysArray = Array.from(currentKeysRef.current)
+        manager.update(dt, keysArray)
+
+        // Get predicted state
+        const predictedState = manager.getPredictedState()
+        if (!predictedState) return
+
+        // Render balls from predicted state
+        // Ball format: [x, y, dx, dy, radius, inverseMass, id]
+        for (const ballData of predictedState.balls) {
+          const ballId = ballData[6]
+          const mesh = ballsRef.current.get(ballId)
+          if (!mesh) continue
+
+          const x = ballData[0]
+          const y = ballData[1]
+          const radius = ballData[4]
+
+          updateBallPosition(ballId, x, y, radius)
         }
-      }
 
-      // Get latest state for fallback extrapolation
-      const latestState = buffer.length > 0 ? buffer[buffer.length - 1] : null
+        // Render paddles from predicted state
+        // Paddle format: [x, y, angle, width, height, vx, vy, playerId, speed]
+        for (const paddleData of predictedState.paddles) {
+          const paddleId = paddleData[7] // playerId
+          const mesh = paddlesRef.current.get(paddleId)
+          if (!mesh) continue
 
-      const updateBallPosition = (
-        ballId: number,
-        targetX: number,
-        targetY: number,
-        radius: number,
-        smooth: boolean,
-      ) => {
-        const mesh = ballsRef.current.get(ballId)
-        if (!mesh) return
+          const x = paddleData[0]
+          const y = paddleData[1]
+          const angle = paddleData[2]
 
-        let finalX = targetX
-        let finalY = targetY
+          const { wx, wy, wz } = toWorldNumeric(x, y, 0.25)
+          mesh.position.x = wx
+          mesh.position.y = wy
+          mesh.position.z = wz
+          mesh.rotation.y = -angle + (paddleRotationOffset ?? PADDLE_ROTATION_OFFSET)
+        }
+      } 
+      // INTERPOLATION MODE (fallback or when prediction disabled)
+      else {
+        const buffer = stateBufferRef.current
 
-        if (smooth) {
-          const lastPos = lastRenderedPositionsRef.current.get(ballId)
-          if (lastPos) {
-            const maxMove = 800 * dt // max pixels per frame at 60fps = ~13 pixels
-            const dx = targetX - lastPos.x
-            const dy = targetY - lastPos.y
-            const dist = Math.hypot(dx, dy)
-            if (dist > maxMove) {
-              // Clamp movement to prevent teleporting
-              const scale = maxMove / dist
-              finalX = lastPos.x + dx * scale
-              finalY = lastPos.y + dy * scale
-            }
+        if (buffer.length === 0) return
+
+        const offset = serverTimeOffsetRef.current ?? 0
+        const estimatedServerTime = now - offset
+
+        // Adaptive interpolation delay
+        const adaptiveDelay = adaptiveDelayRef.current
+        const renderTime = estimatedServerTime - adaptiveDelay
+
+        // Check for stale connection
+        const latestState = buffer[buffer.length - 1]
+        const timeSinceLatest = estimatedServerTime - latestState.timestamp
+
+        if (timeSinceLatest > STALE_STATE_THRESHOLD) {
+          console.warn('[Interpolation] No server updates for', timeSinceLatest, 'ms')
+          for (const ball of latestState.balls) {
+            updateBallPosition(ball.id, ball.x, ball.y, ball.radius || 10)
+          }
+          return
+        }
+
+        // Find states to interpolate between
+        let before: BufferedState | null = null
+        let after: BufferedState | null = null
+        for (let i = 0; i < buffer.length - 1; i++) {
+          if (buffer[i].timestamp <= renderTime && buffer[i + 1].timestamp >= renderTime) {
+            before = buffer[i]
+            after = buffer[i + 1]
+            break
           }
         }
 
-        lastRenderedPositionsRef.current.set(ballId, { x: finalX, y: finalY, time: now })
+        // Measure jitter and adapt delay
+        if (before && after) {
+          const timeDiff = after.timestamp - before.timestamp
+          const expectedDiff = 1000 / 120
+          const jitter = Math.abs(timeDiff - expectedDiff)
+          
+          jitterSamplesRef.current.push(jitter)
+          if (jitterSamplesRef.current.length > 60) {
+            jitterSamplesRef.current.shift()
+          }
+          
+          if (jitterSamplesRef.current.length >= 30) {
+            const sorted = [...jitterSamplesRef.current].sort((a, b) => a - b)
+            const p95Index = Math.floor(sorted.length * 0.95)
+            const p95Jitter = sorted[p95Index] || 0
+            const targetDelay = Math.max(MIN_INTERPOLATION_DELAY, Math.min(MAX_INTERPOLATION_DELAY, p95Jitter * 3))
+            adaptiveDelayRef.current = adaptiveDelayRef.current * 0.95 + targetDelay * 0.05
+          }
+        }
 
-        const wx = (finalX - BACKEND_WIDTH / 2) * SCALE_FACTOR
-        const wz = (finalY - BACKEND_HEIGHT / 2) * SCALE_FACTOR
+        // Interpolate or extrapolate
+        if (before && after) {
+          const timeDiff = after.timestamp - before.timestamp
+          if (timeDiff <= 0) return
+          
+          const t = Math.min(1, Math.max(0, (renderTime - before.timestamp) / timeDiff))
+          const dtSeconds = timeDiff / 1000
+
+          for (const ballAfter of after.balls) {
+            const ballBefore = before.balls.find((b) => b.id === ballAfter.id)
+            if (!ballBefore) continue
+
+            const x = hermiteInterpolate(ballBefore.x, ballBefore.dx, ballAfter.x, ballAfter.dx, t, dtSeconds)
+            const y = hermiteInterpolate(ballBefore.y, ballBefore.dy, ballAfter.y, ballAfter.dy, t, dtSeconds)
+
+            updateBallPosition(ballAfter.id, x, y, ballAfter.radius || 10)
+          }
+        } else if (renderTime > latestState.timestamp) {
+          const timeSinceLatest = estimatedServerTime - latestState.timestamp
+
+          if (timeSinceLatest > MAX_EXTRAPOLATION_TIME) {
+            for (const ball of latestState.balls) {
+              updateBallPosition(ball.id, ball.x, ball.y, ball.radius || 10)
+            }
+            return
+          }
+
+          const extrapolationTime = timeSinceLatest / 1000
+          for (const ball of latestState.balls) {
+            const radius = ball.radius || 10
+            let x = ball.x + ball.dx * extrapolationTime
+            let y = ball.y + ball.dy * extrapolationTime
+            x = Math.max(radius, Math.min(BACKEND_WIDTH - radius, x))
+            y = Math.max(radius, Math.min(BACKEND_HEIGHT - radius, y))
+            updateBallPosition(ball.id, x, y, radius)
+          }
+        } else {
+          const oldestState = buffer[0]
+          for (const ball of oldestState.balls) {
+            updateBallPosition(ball.id, ball.x, ball.y, ball.radius || 10)
+          }
+        }
+      }
+
+      // Helper function for ball position updates (define once, used in both modes)
+      function updateBallPosition(ballId: number, targetX: number, targetY: number, radius: number) {
+        const mesh = ballsRef.current.get(ballId)
+        if (!mesh) return
+
+        lastRenderedPositionsRef.current.set(ballId, { x: targetX, y: targetY, time: now })
+
+        const wx = (targetX - BACKEND_WIDTH / 2) * SCALE_FACTOR
+        const wz = (targetY - BACKEND_HEIGHT / 2) * SCALE_FACTOR
         const worldRadius = Math.max(0.05, radius * SCALE_FACTOR)
         const floorY = floorRef.current?.position.y ?? -0.1
 
-        // Update rotation based on movement
+        // Update rotation
         const prevPos = prevBallPositionsRef.current.get(ballId)
         if (prevPos && mesh.rotationQuaternion) {
-          const dxWorld = (finalX - prevPos.x) * SCALE_FACTOR
-          const dzWorld = (finalY - prevPos.y) * SCALE_FACTOR
+          const dxWorld = (targetX - prevPos.x) * SCALE_FACTOR
+          const dzWorld = (targetY - prevPos.y) * SCALE_FACTOR
           const distanceMoved = Math.hypot(dxWorld, dzWorld)
 
           if (distanceMoved > 0.0001) {
@@ -349,46 +455,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             }
           }
         }
-        prevBallPositionsRef.current.set(ballId, { x: finalX, y: finalY })
+        prevBallPositionsRef.current.set(ballId, { x: targetX, y: targetY })
 
         mesh.position.x = wx
         mesh.position.y = floorY + worldRadius
         mesh.position.z = wz
       }
 
-      if (before && after) {
-        const timeDiff = after.timestamp - before.timestamp
-        const t = timeDiff > 0 ? Math.min(1, Math.max(0, (renderTime - before.timestamp) / timeDiff)) : 0
-        const dtSeconds = timeDiff / 1000
-
-        for (const ballAfter of after.balls) {
-          const ballBefore = before.balls.find((b) => b.id === ballAfter.id)
-          if (!ballBefore) continue
-
-          // This creates smooth curves that respect velocity at both endpoints
-          const x = hermiteInterpolate(ballBefore.x, ballBefore.dx, ballAfter.x, ballAfter.dx, t, dtSeconds)
-          const y = hermiteInterpolate(ballBefore.y, ballBefore.dy, ballAfter.y, ballAfter.dy, t, dtSeconds)
-
-          updateBallPosition(ballAfter.id, x, y, ballAfter.radius || 10, false)
-        }
-      } else if (latestState) {
-        const timeSinceLatest = (estimatedServerTime - latestState.timestamp) / 1000
-
-        for (const ball of latestState.balls) {
-          const radius = ball.radius || 10
-          let x = ball.x + ball.dx * timeSinceLatest
-          let y = ball.y + ball.dy * timeSinceLatest
-
-          // Clamp to walls
-          x = Math.max(radius, Math.min(BACKEND_WIDTH - radius, x))
-          y = Math.max(radius, Math.min(BACKEND_HEIGHT - radius, y))
-
-          updateBallPosition(ball.id, x, y, radius, true)
+      function toWorldNumeric(x: number, y: number, yPos = 0) {
+        return {
+          wx: (x - BACKEND_WIDTH / 2) * SCALE_FACTOR,
+          wy: yPos,
+          wz: (y - BACKEND_HEIGHT / 2) * SCALE_FACTOR,
         }
       }
 
       // Rotate powerups
-      const rotSpeed = 0.9 // radians per second
+      const rotSpeed = 0.9
       for (const mesh of powerupsRef.current.values()) {
         mesh.rotation.y += rotSpeed * dt
         mesh.rotation.x += rotSpeed * 0.25 * dt
@@ -396,14 +479,43 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     })
 
     engine.runRenderLoop(() => {
-      scene.render()
+      try {
+        scene.render()
+      } catch (e) {
+        console.error('[BabylonRenderer] Error during scene.render():', e)
+      }
     })
+
+    try {
+      console.log('[BabylonRenderer] Render loop started')
+    } catch (e) {}
 
     const handleResize = () => engine.resize()
     window.addEventListener("resize", handleResize)
 
+    // WebGL context lost/restored handlers to detect black screen causes
+    const canvasEl = canvasRef.current
+    const onContextLost = (ev: Event) => {
+      try {
+        console.error('[BabylonRenderer] WebGL context lost on canvas', ev)
+      } catch (e) {}
+    }
+    const onContextRestored = (ev: Event) => {
+      try {
+        console.log('[BabylonRenderer] WebGL context restored', ev)
+      } catch (e) {}
+    }
+    if (canvasEl) {
+      canvasEl.addEventListener('webglcontextlost', onContextLost)
+      canvasEl.addEventListener('webglcontextrestored', onContextRestored)
+    }
+
     return () => {
       window.removeEventListener("resize", handleResize)
+      if (canvasEl) {
+        canvasEl.removeEventListener('webglcontextlost', onContextLost)
+        canvasEl.removeEventListener('webglcontextrestored', onContextRestored)
+      }
       // Remove the interpolation observer
       if (interpolationObserverRef.current) {
         scene.onBeforeRenderObservable.remove(interpolationObserverRef.current)
@@ -420,13 +532,33 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       previousBallVelocitiesRef.current.clear()
       stateBufferRef.current = []
       prevBallPositionsRef.current.clear()
-      lastRenderedPositionsRef.current.clear() // Clear last rendered positions
-      // Dispose powerup meshes
+      lastRenderedPositionsRef.current.clear()
       powerupsRef.current.forEach((m) => m.dispose())
       powerupsRef.current.clear()
 
       scene.dispose()
       engine.dispose()
+    }
+  }, [darkMode])
+
+  // Keyboard input handling for client prediction
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      currentKeysRef.current.add(key)
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      currentKeysRef.current.delete(key)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
     }
   }, [])
 
@@ -475,9 +607,33 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   }, [darkMode])
 
   // Update game state
-  // Now only syncs authoritative state, interpolation happens in render loop
   useEffect(() => {
-    if (!gameState || !sceneRef.current) return
+    if (!sceneRef.current) return
+    if (!gameState) {
+      // If gameState is null, log and return — black state may be caused by missing state
+      try { console.warn('[BabylonRenderer] No gameState received (null)') } catch (e) {}
+      return
+    }
+
+    try { console.log('[BabylonRenderer] Received gameState', (gameState as any).board_id ?? (gameState as any).boardId ?? '<no-id>') } catch (e) {}
+
+    // Initialize client prediction on first game state
+    if (useClientPrediction && localPlayerId !== undefined && !gameInitializedRef.current) {
+      const gameOptions = (gameState as any).metadata?.gameOptions
+      if (gameOptions) {
+        const players = (gameState as any).metadata?.players || [localPlayerId]
+        const manager = new ClientPredictionManager(localPlayerId)
+        manager.initializeGame(players, gameOptions, gameState)
+        predictionManagerRef.current = manager
+        gameInitializedRef.current = true
+        console.log('[BabylonRenderer] Client prediction initialized')
+      }
+    }
+
+    // Reconcile with server state
+    if (useClientPrediction && predictionManagerRef.current?.isInitialized()) {
+      predictionManagerRef.current.reconcileWithServer(gameState)
+    }
 
     const now = performance.now()
 
@@ -503,7 +659,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       stateBufferRef.current.length > 0 ? stateBufferRef.current[stateBufferRef.current.length - 1] : null
 
     const newState: BufferedState = {
-      timestamp: stateTimestamp, // Use server timestamp
+      timestamp: stateTimestamp,
       balls: gameState.balls.map((b) => ({
         id: b.id,
         x: b.x,
@@ -527,7 +683,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const scene = sceneRef.current
     const shadowGenerator = shadowGeneratorRef.current
 
-    // Helper to map backend coords to 3D as numeric components to avoid allocating Vector3
+    // Helper to map backend coords to 3D
     const toWorldNumeric = (x: number, y: number, yPos = 0) => {
       return {
         wx: (x - BACKEND_WIDTH / 2) * SCALE_FACTOR,
@@ -536,13 +692,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
     }
 
-    // 1. Update Floor and Walls (only if edges change)
+    // 1. Update Floor and Walls
     if (gameState.edges && gameState.edges.length > 0) {
-      // Check if we need to rebuild the floor/walls (e.g. if vertex count changed)
-      // For simplicity, we rebuild if the floor doesn't exist or vertex count differs
-      // In a real game, edges usually don't change often.
-
-      // We can check if we already have the correct number of walls
       if (edgesRef.current.length !== gameState.edges.length) {
         // Dispose old
         edgesRef.current.forEach((m) => m.dispose())
@@ -559,7 +710,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         floor.position.y = -0.1
 
         const floorMat = new StandardMaterial("floorMat", scene)
-        // Dark mode: dark blue-gray, Light mode: light green/white
         floorMat.diffuseColor = darkMode ? new Color3(0.1, 0.1, 0.15) : new Color3(0.85, 0.9, 0.85)
         floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
         floor.material = floorMat
@@ -594,18 +744,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           )
 
           wall.position = center
-          wall.position.y = wallHeight / 2 - 0.1 // Sunk slightly
+          wall.position.y = wallHeight / 2 - 0.1
 
-          // Rotation: align local X with direction
-          // atan2(z, x) gives angle in XZ plane
           const angle = Math.atan2(dir.z, dir.x)
-          wall.rotation.y = -angle // Babylon rotation might need negation depending on coord system
+          wall.rotation.y = -angle
 
           const wallMat = new StandardMaterial("wallMat", scene)
-          // Dark mode: blue-purple, Light mode: light blue-gray
           wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
           wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
-          wallMat.alpha = 0.5 // Semi-transparent walls
+          wallMat.alpha = 0.5
           wall.material = wallMat
 
           edgesRef.current.push(wall)
@@ -616,7 +763,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     // 2. Update Paddles
     const activePaddleIds = new Set<number>()
     gameState.paddles.forEach((p) => {
-      // Defensive handling: incoming payloads may rename fields or include null entries.
       const paddleId = (p as any).paddle_id ?? (p as any).id ?? (p as any).paddleId
       if (paddleId === undefined || paddleId === null) {
         console.warn("[BabylonPongRenderer] Skipping paddle with missing id:", p)
@@ -626,7 +772,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       activePaddleIds.add(paddleId)
       let mesh = paddlesRef.current.get(paddleId)
 
-      // Support multiple possible property names and provide sensible defaults
       const rawW = (p as any).w ?? (p as any).width ?? 10
       const rawL = (p as any).l ?? (p as any).length ?? 50
       const posX = (p as any).x ?? (p as any).posX ?? (p as any).px
@@ -640,17 +785,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         mesh = MeshBuilder.CreateBox(
           `paddle_${paddleId}`,
           {
-            width: length, // Length along the edge
+            width: length,
             height: 0.5,
-            depth: width, // Thickness
+            depth: width,
           },
           scene,
         )
 
         const mat = new StandardMaterial("paddleMat", scene)
-        // Assign color based on owner_id so it matches username color everywhere
         const baseColor = getUserColorBabylon(ownerId)
-        // Dark mode: full brightness, Light mode: darker version
         mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
         mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
         mesh.material = mat
@@ -659,7 +802,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         paddlesRef.current.set(paddleId, mesh)
       }
 
-      // Position - if x/y missing skip positioning and warn
       if (typeof posX !== "number" || typeof posY !== "number") {
         console.warn("[BabylonPongRenderer] Paddle missing x/y, skipping position:", paddleId, p)
       } else {
@@ -669,10 +811,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         mesh.position.z = wz
       }
 
-      // Rotation
-      // p.r is the angle of the paddle's normal (facing center)
-      // The paddle mesh length is along X. We want X to be perpendicular to normal.
-      // Use a configurable offset to handle backend/frontend convention mismatches.
       mesh.rotation.y = -rot + (paddleRotationOffset ?? PADDLE_ROTATION_OFFSET)
     })
 
@@ -691,45 +829,37 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       let mesh = ballsRef.current.get(b.id)
 
       if (!mesh) {
-        // Create sphere with more segments for smoother texture mapping
-        // Use backend radius (in backend units) mapped to world units via SCALE_FACTOR
         const backendRadius = Number((b as any).radius || 10)
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
         const diameter = Math.max(0.05, worldRadius * 2)
         mesh = MeshBuilder.CreateSphere(`ball_${b.id}`, { diameter: diameter, segments: 32 }, scene)
         const mat = new StandardMaterial("ballMat", scene)
 
-        // Create beach ball texture if not already created
         if (!beachBallTextureRef.current) {
           beachBallTextureRef.current = createBeachBallTexture(scene)
         }
 
-        // Apply beach ball texture
         mat.diffuseTexture = beachBallTextureRef.current
-        // Add subtle emissive glow to make it visible in darker scenes
         mat.emissiveColor = darkMode ? new Color3(0.15, 0.15, 0.15) : new Color3(0.1, 0.1, 0.1)
-        mat.specularColor = new Color3(0.3, 0.3, 0.3) // Slight shine like a real beach ball
+        mat.specularColor = new Color3(0.3, 0.3, 0.3)
         mesh.material = mat
 
-        // Initialize rotation tracking for this ball using quaternion
         mesh.rotationQuaternion = Quaternion.Identity()
         ballRotationsRef.current.set(b.id, Quaternion.Identity())
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
 
-        // Light
         const light = new PointLight(`ballLight_${b.id}`, new Vector3(0, 0, 0), scene)
         light.parent = mesh
         light.intensity = 0.5
         light.diffuse = new Color3(1, 0, 0)
         ballLightsRef.current.set(b.id, light)
 
-        // store base diameter so we can scale reliably if backend radius changes later
         ;(mesh as any).metadata = { baseDiameter: diameter }
         ballsRef.current.set(b.id, mesh)
       }
 
-      // Just handle scaling if radius changed
+      // Handle scaling if radius changed
       try {
         const backendRadius = Number((b as any).radius || 10)
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
@@ -737,8 +867,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
         const scale = desiredDiameter / baseDiameter
         mesh.scaling = new Vector3(scale, scale, scale)
-        // After scaling, ensure the bottom sits on the floor by repositioning Y
-        // This must be done after scaling, and also needs to happen in render loop if physics update is slow
         const floorY = floorRef.current?.position.y ?? -0.1
         mesh.position.y = floorY + desiredDiameter / 2
       } catch (e) {
@@ -748,12 +876,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // Detect bounces by checking if velocity direction changed
       const prevVel = previousBallVelocitiesRef.current.get(b.id)
       if (prevVel) {
-        // Check if direction has changed (any component flipped sign or changed significantly)
         const dxChanged = Math.abs(b.dx - prevVel.dx) > 0.01
         const dyChanged = Math.abs(b.dy - prevVel.dy) > 0.01
 
         if (dxChanged || dyChanged) {
-          // Direction changed - find closest paddle and play its sound
           let closestPaddleIndex = 0
           let minDist = Number.POSITIVE_INFINITY
 
@@ -776,12 +902,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         }
       }
 
-      // Store current velocity for next frame
       previousBallVelocitiesRef.current.set(b.id, { dx: b.dx, dy: b.dy })
     })
 
+    // Cleanup missing balls
+    for (const [id, mesh] of ballsRef.current) {
+      if (!activeBallIds.has(id)) {
+        mesh.dispose()
+        ballsRef.current.delete(id)
+        const light = ballLightsRef.current.get(id)
+        if (light) {
+          light.dispose()
+          ballLightsRef.current.delete(id)
+        }
+      }
+    }
+
     // --- Powerups: create/update rotating shape meshes ---
-    // gameState.powerups entries are arrays: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
     const powerups = (gameState as any).powerups ?? []
     const activePowerupKeys = new Set<string>()
     powerups.forEach((pu: any, pidx: number) => {
@@ -830,7 +967,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           // Create shape depending on type
           switch (typeIndex) {
             case 1:
-              // square pyramid
               created = MeshBuilder.CreateCylinder(
                 name,
                 { diameterTop: 0, diameterBottom: size * 2.0, height: size * 2.0, tessellation: 4 },
@@ -838,7 +974,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               )
               break
             case 2:
-              // hexagonal pyramid
               created = MeshBuilder.CreateCylinder(
                 name,
                 { diameterTop: 0, diameterBottom: size * 2.0, height: size * 2.2, tessellation: 6 },
@@ -846,7 +981,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               )
               break
             case 3:
-              // octahedron (polyhedron type 2)
               try {
                 created = MeshBuilder.CreatePolyhedron(name, { type: 2, size: size }, scene)
               } catch (e) {
@@ -854,7 +988,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               }
               break
             case 4:
-              // dodecahedron (polyhedron type 3)
               try {
                 created = MeshBuilder.CreatePolyhedron(name, { type: 3, size: size }, scene)
               } catch (e) {
@@ -862,11 +995,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               }
               break
             case 5:
-              // rectangular prism
               created = MeshBuilder.CreateBox(name, { width: size * 2.5, height: size * 1.2, depth: size * 1.4 }, scene)
               break
             case 6:
-              // icosahedron (polyhedron type 4)
               try {
                 created = MeshBuilder.CreatePolyhedron(name, { type: 4, size: size }, scene)
               } catch (e) {
@@ -875,7 +1006,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               break
             case 0:
             default:
-              // cube for ADD_BALL and default
               created = MeshBuilder.CreateBox(name, { size: size * 1.6 }, scene)
               break
           }
@@ -887,27 +1017,22 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             mat.emissiveColor = color.scale(0.25)
             mat.specularColor = new Color3(0.2, 0.2, 0.2)
             mesh.material = mat
-            // Position powerup so it sits on the floor. Compute half-height from
-            // the mesh bounding box (fallback to `size` when not available).
             const { wx: pwx, wz: pwz } = toWorldNumeric(x, y)
             mesh.position.x = pwx
             const floorY2 = floorRef.current?.position.y ?? -0.1
             const halfHeight = mesh.getBoundingInfo?.()?.boundingBox?.extendSize?.y ?? size * 0.5
             mesh.position.y = floorY2 + halfHeight
             mesh.position.z = pwz
-            // Ensure powerups cast shadows onto the floor
             if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
             powerupsRef.current.set(key, mesh)
           }
         } else {
-          // update position (keep powerups below balls)
           const { wx: upx, wz: upz } = toWorldNumeric(x, y)
           mesh.position.x = upx
           const floorY3 = floorRef.current?.position.y ?? -0.1
           const halfH = mesh.getBoundingInfo?.()?.boundingBox?.extendSize?.y ?? size * 0.5
           mesh.position.y = floorY3 + halfH
           mesh.position.z = upz
-          // Re-add as shadow caster if necessary (idempotent)
           if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
         }
       } catch (e) {
@@ -915,7 +1040,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
     })
 
-    // Remove powerups that no longer exist in game state
+    // Remove powerups that no longer exist
     for (const [k, m] of powerupsRef.current) {
       if (!activePowerupKeys.has(k)) {
         try {
@@ -926,7 +1051,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         powerupsRef.current.delete(k)
       }
     }
-  }, [gameState, darkMode, paddleRotationOffset])
+  }, [gameState, darkMode, paddleRotationOffset, useClientPrediction, localPlayerId])
 
   // Expose imperative API to parent for screenshots
   useImperativeHandle(ref, () => ({

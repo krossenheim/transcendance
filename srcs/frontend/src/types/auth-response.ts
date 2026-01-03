@@ -1,3 +1,8 @@
 // Frontend alias re-export of backend AuthResponseType
-import { AuthResponseType as BackendAuthResponseType } from "../../../../shared/src/api/service/auth/loginResponse";
-export type AuthResponseType = BackendAuthResponseType;
+
+// Frontend alias re-export of backend AuthResponseType (lightweight local type)
+export type AuthResponseType = {
+	token?: string
+	userId?: number
+	error?: string
+}

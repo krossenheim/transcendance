@@ -9,7 +9,7 @@ import type {
   TypePlayerDeclaresReadyForGame,
 } from "./types/pong-interfaces"
 import { useWebSocket } from "./socketComponent"
-import { user_url } from "@app/shared/api/service/common/endpoints"
+import { user_url } from "./endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
@@ -17,7 +17,7 @@ import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
-import user from "@app/shared/api/service/db/user"
+// local: avoid importing server-side db helpers
 
 // =========================
 // Component
@@ -1037,6 +1037,22 @@ export default function PongComponent({
         <>
           <div className="w-full flex-1 min-h-[500px] shadow-lg border border-gray-800 bg-black overflow-hidden relative">
             <BabylonPongRenderer ref={rendererRef} gameState={gameState} darkMode={darkMode} paddleRotationOffset={paddleRotationOffset} />
+            {/* Debug overlay: shows whether gameState is present and small summary */}
+            <div style={{ position: 'absolute', left: 8, top: 8, zIndex: 50 }}>
+              <div style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '8px', borderRadius: 6, fontSize: 12, minWidth: 180 }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Pong Debug</div>
+                <div>- gameState: {gameState ? 'present' : 'null'}</div>
+                <div>- boardId: {gameState?.board_id ?? gameState?.boardId ?? '—'}</div>
+                <div>- balls: {gameState?.balls?.length ?? 0}</div>
+                <div>- paddles: {gameState?.paddles?.length ?? 0}</div>
+                <div style={{ marginTop: 6, maxWidth: 360, wordBreak: 'break-all' }}>
+                  <div style={{ fontWeight: 600 }}>Last normalized (window):</div>
+                  <div style={{ fontSize: 11, opacity: 0.9 }}>{(() => {
+                    try { const s = (window as any).__lastNormalizedPongState; return s ? `b:${s.board_id} balls:${(s.balls||[]).length} pads:${(s.paddles||[]).length}` : 'none' } catch (e) { return 'err' }
+                  })()}</div>
+                </div>
+              </div>
+            </div>
             <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
               <div className="flex space-x-2">
                 <button

@@ -1,7 +1,7 @@
 import DatabaseConstructor, { type Database as BetterSqlite3Database, type RunResult } from 'better-sqlite3';
 import { zodParse } from '@app/shared/api/service/common/zodUtils';
 import { Result } from '@app/shared/api/service/common/result';
-import { z } from 'zod';
+import { z } from '@app/shared/zod';
 import path from 'path';
 import fs from 'fs';
 

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWebSocket } from './socketComponent'
-import { user_url } from '@app/shared/api/service/common/endpoints'
+import { user_url } from './endpoints'
 import { getUserColorCSS } from './userColorUtils'
 
 interface FriendsManagerProps {

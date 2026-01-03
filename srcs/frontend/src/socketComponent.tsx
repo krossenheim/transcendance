@@ -190,6 +190,19 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
             console.log("[v0] WebSocket message:", data.funcId)
           }
 
+          // Verbose: log the full incoming message for debugging routing/handlers
+          try {
+            console.log("[v0] Full incoming WS message:", JSON.stringify(data, null, 2))
+          } catch (e) {
+            console.log("[v0] Full incoming WS message (non-serializable):", data)
+          }
+
+          // If this is a rooms list response, print a trace to help locate the callsite
+          if (typeof data.funcId === 'string' && data.funcId.toLowerCase().includes('listrooms')) {
+            console.trace("[v0] Trace for listRooms message")
+            console.log("[v0] listRooms payload:", data.payload)
+          }
+
           // Check if this is an auth error that requires token refresh
           if (data.code === 401 || data.message?.includes("unauthorized") || data.message?.includes("token expired")) {
             console.warn("[Auth] Received auth error, attempting token refresh")

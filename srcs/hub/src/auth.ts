@@ -3,7 +3,7 @@ import { ErrorResponse } from "@app/shared/api/service/common/error";
 import { pub_url } from "@app/shared/api/service/common/endpoints";
 import { JSONtoZod } from "@app/shared/api/service/common/json";
 import { Result } from "@app/shared/api/service/common/result";
-import { z } from "zod";
+import { z } from "@app/shared/zod";
 
 import containers from "@app/shared/internal_api";
 

@@ -1,6 +1,6 @@
 import { Result } from '@app/shared/api/service/common/result';
 import { Database } from './database.js';
-import { z } from 'zod';
+import { z } from '@app/shared/zod';
 
 export class TokenService {
 	private db: Database;

@@ -14,7 +14,7 @@ import type {
 } from "@app/shared/api/service/chat/db_models";
 import type { TypeRoomSchema } from "@app/shared/api/service/chat/db_models";
 import { userService } from "../main.js";
-import { z } from "zod";
+import { z } from "@app/shared/zod";
 import type { PublicUserDataType } from "@app/shared/api/service/db/user";
 
 export class ChatService {

@@ -1,6 +1,6 @@
 "use client"
 
-import type { TypeUserGameConfigSchema } from "@app/shared/api/service/pong/pong_interfaces"
+import type { TypeUserGameConfigSchema } from "./types/pong-interfaces"
 import { useState } from "react"
 import { getUserColorCSS } from "./userColorUtils"
 

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useWebSocket } from "./socketComponent";
-import { user_url } from "@app/shared/api/service/common/endpoints";
+import { user_url } from "./endpoints";
 
 interface GameResult {
   id: number;

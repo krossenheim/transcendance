@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from "react"
 import { getUserColorCSS } from "./userColorUtils"
 import { useWebSocket } from "./socketComponent"
-import { user_url } from "@app/shared/api/service/common/endpoints"
+import { user_url } from "./endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"
 import { getCurrentUserId } from "./jwtUtils"
 

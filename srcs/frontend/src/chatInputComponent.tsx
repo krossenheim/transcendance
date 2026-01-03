@@ -2,8 +2,8 @@
 
 import type { TypeStoredMessageSchema, TypeRoomSchema } from "./types/chat-models"
 import { useCallback, useEffect, useState, useRef } from "react"
-import { user_url } from "@app/shared/api/service/common/endpoints"
-import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models"
+import { user_url } from "./endpoints"
+import { ChatRoomUserAccessType } from "./types/chat-models"
 import { useWebSocket } from "./socketComponent"
 import ProfileComponent from "./profileComponent"
 import { useFriendshipContext } from "./friendshipContext"
@@ -56,6 +56,13 @@ export default function ChatInputComponent({
   const [pendingDMTargetId, setPendingDMTargetId] = useState<number | null>(null)
   const [currentRoomUsers, setCurrentRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
   const [pendingProfileLookup, setPendingProfileLookup] = useState<string | null>(null)
+  // Track pending invites: username -> roomId we want to invite them to
+  const [pendingInvites, setPendingInvites] = useState<Array<{ username: string; roomId: number }>>([])
+  const pendingInvitesRef = useRef<Array<{ username: string; roomId: number }>>([])
+  // Keep ref in sync with state
+  useEffect(() => {
+    pendingInvitesRef.current = pendingInvites
+  }, [pendingInvites])
   // Track rooms where we have been invited (INVITED state)
   const [pendingRoomInvites, setPendingRoomInvites] = useState<Array<{ roomId: number; roomName: string; inviterId: number; inviterUsername: string }>>([])
   // Track DMs where someone messaged us (we have INVITED state in DM room)
@@ -89,7 +96,18 @@ export default function ChatInputComponent({
       // Determine target container based on funcId if not explicitly provided
       let container = targetContainer
       if (!container) {
-        if (funcId.includes('friendship') || funcId.includes('user_connections') || funcId.includes('confirm_') || funcId.includes('deny_') || funcId.includes('request_') || funcId === 'user_profile' || funcId.includes('block') || funcId.includes('unblock')) {
+        // Check for users service endpoints
+        if (funcId.includes('friendship') || 
+            funcId.includes('user_connections') || 
+            funcId.includes('confirm') || 
+            funcId.includes('deny') || 
+            funcId.includes('request') || 
+            funcId.includes('UserProfile') ||
+            funcId.includes('GameResults') ||
+            funcId === 'user_profile' || 
+            funcId.includes('block') || 
+            funcId.includes('unblock') ||
+            funcId.startsWith('ws.users.')) {
           container = "users"
         } else {
           container = "chat"
@@ -122,10 +140,27 @@ export default function ChatInputComponent({
 
     // Only log chat/user messages, not pong updates
     if (!payloadReceived.funcId?.includes('game_state') && !payloadReceived.source_container?.includes('pong')) {
-      console.log("[Chat] Received:", payloadReceived.funcId)
+      console.log("[Chat] Received (original):", payloadReceived.funcId)
     }
 
-    switch (payloadReceived.funcId) {
+    // Normalize legacy funcId names (older cached clients) to the server '/api/...' form
+    const legacyToApiMap: Record<string, string> = {
+      'ws.chat.listRooms': user_url.ws.chat.listRooms.funcId,
+      'ws.chat.getRoomData': user_url.ws.chat.getRoomData.funcId,
+      'ws.chat.addRoom': user_url.ws.chat.addRoom.funcId,
+      'ws.chat.joinRoom': user_url.ws.chat.joinRoom.funcId,
+      'ws.chat.leaveRoom': user_url.ws.chat.leaveRoom.funcId,
+      'ws.chat.addUserToRoom': user_url.ws.chat.addUserToRoom.funcId,
+      'ws.chat.sendMessage': user_url.ws.chat.sendMessage.funcId,
+      'ws.chat.sendDirectMessage': user_url.ws.chat.sendDirectMessage.funcId,
+    }
+
+    const normalizedFuncId = legacyToApiMap[payloadReceived.funcId || ''] || payloadReceived.funcId
+    if (normalizedFuncId !== payloadReceived.funcId) {
+      console.log('[Chat] Normalized funcId:', payloadReceived.funcId, '->', normalizedFuncId)
+    }
+
+    switch (normalizedFuncId) {
       case user_url.ws.users.fetchUserConnections.funcId:
         console.log("Setting user connections:", payloadReceived.payload)
         // Filter for pending friendship requests where someone requested friendship with us
@@ -236,6 +271,12 @@ export default function ChatInputComponent({
           })
         }
         setRooms(payloadReceived.payload)
+        try {
+          console.log("[v0] setRooms executed, rooms count:", Array.isArray(receivedRooms) ? receivedRooms.length : 'unknown')
+          console.trace("[v0] Trace after setRooms")
+        } catch (e) {
+          console.log("[v0] setRooms trace failed:", e)
+        }
         // If we're waiting to open a DM to a specific user, try to select it now
         if (pendingDMTargetId != null && Array.isArray(receivedRooms)) {
           const dm = receivedRooms.find(r => {
@@ -608,8 +649,10 @@ export default function ChatInputComponent({
         }
         break
 
+      case "user_profile":
       case user_url.ws.users.requestUserProfileData.funcId:
         console.log("[requestUserProfileData] Response received:", payloadReceived)
+        console.log("[requestUserProfileData] Expected funcId:", user_url.ws.users.requestUserProfileData.funcId)
         if (payloadReceived.code === 0 && payloadReceived.payload) {
           const profile = payloadReceived.payload
           if (profile.id && profile.username) {
@@ -622,6 +665,24 @@ export default function ChatInputComponent({
               setProfileUserId(profile.id)
               setShowProfileModal(true)
               setPendingProfileLookup(null)
+            }
+
+            // Check if we have pending invites for this user - handle invite immediately
+            const matchingInvites = pendingInvitesRef.current.filter((inv) => inv.username.toLowerCase() === profile.username.toLowerCase())
+            console.log(`[requestUserProfileData] Checking for pending invites for ${profile.username}, found: ${matchingInvites.length}, pendingInvitesRef:`, pendingInvitesRef.current)
+            if (matchingInvites.length > 0) {
+              matchingInvites.forEach((inv) => {
+                console.log(`[requestUserProfileData] Found pending invite for ${profile.username} to room ${inv.roomId}, sending addUserToRoom`)
+                sendToSocket(user_url.ws.chat.addUserToRoom.funcId, {
+                  roomId: inv.roomId,
+                  user_to_add: profile.id
+                })
+                if (showToast) {
+                  showToast(`Invited ${profile.username}`, 'success')
+                }
+              })
+              // Clear the processed invites
+              setPendingInvites((prev) => prev.filter((inv) => inv.username.toLowerCase() !== profile.username.toLowerCase()))
             }
           }
         } else {
@@ -642,9 +703,8 @@ export default function ChatInputComponent({
           console.log("Unhandled funcId:", payloadReceived.funcId)
         }
     }
-  }, [payloadReceived, sendToSocket])
-  // Note: userMap removed from dependencies to prevent infinite loop
-  // userMap is only read inside the effect, not used as a trigger
+  }, [payloadReceived, sendToSocket, pendingProfileLookup, showToast])
+  // Note: userMap and pendingInvites removed from dependencies - using refs instead
 
   // Helper function to fetch username by userId via WebSocket
   const fetchUsername = useCallback((userId: number) => {
@@ -745,46 +805,14 @@ export default function ChatInputComponent({
                     showToast(`Invited ${usernameOrId}`, 'success')
                   }
                 } else {
-                  // Not in cache - search for the user by username
-                  console.log(`Searching for user: ${usernameOrId}`)
-
-                  // Create a pending invite that will be sent once we get the search response
-                  const handleSearchResponse = (e: MessageEvent) => {
-                    try {
-                      const data = JSON.parse(e.data)
-                      if (data.funcId === user_url.ws.users.requestUserProfileData.funcId) {
-                        socket.current?.removeEventListener('message', handleSearchResponse)
-
-                        if (data.code === 0 && data.payload?.id) {
-                          const foundUserId = data.payload.id
-                          console.log(`Found user ${usernameOrId} with ID ${foundUserId}`)
-                          sendToSocket(user_url.ws.chat.addUserToRoom.funcId, {
-                            roomId: currentRoomId,
-                            user_to_add: foundUserId
-                          })
-                          if (showToast) {
-                            showToast(`Invited ${usernameOrId}`, 'success')
-                          }
-                        } else {
-                          if (showToast) {
-                            showToast(`User "${usernameOrId}" not found.`, 'error')
-                          }
-                        }
-                      }
-                    } catch (err) {
-                      console.error("Error handling search response:", err)
-                    }
-                  }
-
-                  socket.current?.addEventListener('message', handleSearchResponse)
-
+                  // Not in cache - search for the user by username and queue the invite
+                  console.log(`Searching for user: ${usernameOrId}, will invite to room ${currentRoomId}`)
+                  
+                  // Add to pending invites - the invite will be sent when we receive the profile response
+                  setPendingInvites((prev) => [...prev, { username: usernameOrId, roomId: currentRoomId }])
+                  
                   // Send search request
                   sendToSocket(user_url.ws.users.requestUserProfileData.funcId, usernameOrId)
-
-                  // Timeout after 5 seconds
-                  setTimeout(() => {
-                    socket.current?.removeEventListener('message', handleSearchResponse)
-                  }, 5000)
                 }
               }
             }

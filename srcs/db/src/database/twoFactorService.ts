@@ -1,7 +1,7 @@
 import { TOTP, TOTPSecretEncryption } from '@app/shared/totp';
 import { Result } from '@app/shared/api/service/common/result';
 import { Database } from './database.js';
-import { z } from 'zod';
+import { z } from '@app/shared/zod';
 
 // const TwoFactorSecret = z.object({
 //   userId: z.number(),

@@ -4,7 +4,7 @@ import { rawDataToString } from "@app/shared/raw_data_to_string";
 import { isRequestAuthenticated } from "./auth.js";
 import { proxyRequest } from "./proxyRequest.js";
 import { HubCTX } from "./ctx.js";
-import { z } from "zod";
+import { z } from "@app/shared/zod";
 
 import websocketPlugin from "@fastify/websocket";
 import Fastify from "fastify";
@@ -64,8 +64,13 @@ async function main() {
       });
 
       socket.on("message", async (message: WebSocket.RawData) => {
-        console.log("Received message from internal container:", message);
+        console.log("Received message from internal container (raw):", message);
         const decodedMessage = rawDataToString(message);
+        if (decodedMessage) {
+          console.log("Received message from internal container (decoded):", decodedMessage);
+        } else {
+          console.log("Received message from internal container but failed to decode to string");
+        }
         if (!decodedMessage) {
           console.error("Failed to decode message from internal container: " + message);
           return;

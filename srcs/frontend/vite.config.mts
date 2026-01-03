@@ -15,6 +15,7 @@ export default defineConfig({
     minify: "esbuild",
     sourcemap: false,
     rollupOptions: {
+      external: ["zod"],
       output: {
         manualChunks: {
           babylon: ["@babylonjs/core", "earcut"],
