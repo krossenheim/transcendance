@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState, useRef } from "react"
+import ReactDOM from "react-dom"
 import type {
   TypeHandleGameKeysSchema,
   TypeStartNewPongGame,
@@ -9,7 +10,7 @@ import type {
   TypePlayerDeclaresReadyForGame,
 } from "./types/pong-interfaces"
 import { useWebSocket } from "./socketComponent"
-import { user_url } from "@app/shared/api/service/common/endpoints"
+import { user_url } from "./endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
@@ -17,8 +18,7 @@ import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
-import user from "@app/shared/api/service/db/user"
-import { ClientPongSimulation } from "./pong/physics"
+// local: avoid importing server-side db helpers
 
 // =========================
 // Component
@@ -51,10 +51,12 @@ export default function PongComponent({
     if (!raw) return null
 
     // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
-    const balls = (raw.balls || []).map((b: any, idx: number) => {
+    const balls = (raw.balls || []).filter((b: any) => b != null).map((b: any, idx: number) => {
       if (Array.isArray(b)) {
+        // New backend includes stable ball id at index 6. Fallback to index if missing.
+        const stableId = Number.isFinite(Number(b[6])) ? Number(b[6]) : idx
         return {
-          id: idx,
+          id: stableId,
           x: Number(b[0]) || 0,
           y: Number(b[1]) || 0,
           dx: Number(b[2]) || 0,
@@ -62,19 +64,19 @@ export default function PongComponent({
           radius: Number(b[4]) || 10,
         }
       }
-      // already object-shaped
+      // already object-shaped (defensive access)
       return {
-        id: b.id ?? idx,
-        x: b.x ?? 0,
-        y: b.y ?? 0,
-        dx: b.dx ?? 0,
-        dy: b.dy ?? 0,
-        radius: b.radius ?? b.r ?? 10,
+        id: b?.id ?? idx,
+        x: b?.x ?? 0,
+        y: b?.y ?? 0,
+        dx: b?.dx ?? 0,
+        dy: b?.dy ?? 0,
+        radius: b?.radius ?? b?.r ?? 10,
       }
     })
 
-    // paddles: tuple [x,y,angle,width,height,vx,vy,playerId] -> { x,y,r,w,l,vx,vy,owner_id,paddle_id }
-    const paddles = (raw.paddles || []).map((p: any, idx: number) => {
+    // paddles: tuple [x,y,angle,width,height,vx,vy,playerId] -> { x,y,r,w,l,owner_id,paddle_id }
+    const paddles = (raw.paddles || []).filter((p: any) => p != null).map((p: any, idx: number) => {
       if (Array.isArray(p)) {
         const owner = Number(p[7]) ?? idx
         return {
@@ -83,31 +85,27 @@ export default function PongComponent({
           r: Number(p[2]) || 0,
           w: Number(p[3]) || 10,
           l: Number(p[4]) || 50,
-          vx: Number(p[5]) || 0,
-          vy: Number(p[6]) || 0,
           owner_id: owner,
           paddle_id: owner,
         }
       }
       return {
-        x: p.x ?? 0,
-        y: p.y ?? 0,
-        r: p.r ?? p.rotation ?? 0,
-        w: p.w ?? p.width ?? 10,
-        l: p.l ?? p.length ?? 50,
-        vx: p.vx ?? 0,
-        vy: p.vy ?? 0,
-        owner_id: p.owner_id ?? p.ownerId ?? p.player_id ?? p.playerId ?? idx,
-        paddle_id: p.paddle_id ?? p.id ?? idx,
+        x: p?.x ?? 0,
+        y: p?.y ?? 0,
+        r: p?.r ?? p?.rotation ?? 0,
+        w: p?.w ?? p?.width ?? 10,
+        l: p?.l ?? p?.length ?? 50,
+        owner_id: p?.owner_id ?? p?.ownerId ?? p?.player_id ?? p?.playerId ?? idx,
+        paddle_id: p?.paddle_id ?? p?.id ?? idx,
       }
     })
 
     // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
-    const edges = (raw.walls || []).map((w: any) => {
+    const edges = (raw.walls || []).filter((w: any) => w != null).map((w: any) => {
       if (Array.isArray(w)) {
         return { x: Number(w[0]) || 0, y: Number(w[1]) || 0 }
       }
-      return { x: w.x ?? 0, y: w.y ?? 0 }
+      return { x: w?.x ?? 0, y: w?.y ?? 0 }
     })
 
     return {
@@ -118,7 +116,6 @@ export default function PongComponent({
       metadata: raw.metadata ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
       score: raw.score ?? null,
-      serverTimestamp: raw.serverTimestamp ?? null,  // Extract server timestamp for lag compensation
     }
   }
   const { socket, payloadReceived } = useWebSocket()
@@ -134,54 +131,22 @@ export default function PongComponent({
   const rendererRef = useRef<any>(null)
   const [paddleRotationOffset, setPaddleRotationOffset] = useState<number>(0)
 
-  // ====================
-  // CLIENT-SIDE PREDICTION
-  // ====================
-  // The simulation runs locally to provide smooth visuals
-  // Server state is used to correct any drift
-  const clientSimulationRef = useRef<ClientPongSimulation>(new ClientPongSimulation())
-  const lastFrameTimeRef = useRef<number>(performance.now())
-  const animationFrameRef = useRef<number | null>(null)
-  const pressedKeysRef = useRef<Set<string>>(new Set())
-  // State that the renderer actually displays (updated by client simulation)
-  const [displayState, setDisplayState] = useState<TypeGameStateSchema | null>(null)
-  // Track if we've received initial server state
-  const hasReceivedServerStateRef = useRef<boolean>(false)
-  // Toggle for prediction mode
-  const [predictionEnabled, setPredictionEnabled] = useState<boolean>(true)
-  // Frame counter for server-only mode debug logging
-  const serverFrameCountRef = useRef<number>(0)
-  
-  // STATE BUFFER for smooth playback - stores recent server states with timestamps
-  interface BufferedState {
-    timestamp: number;  // When we received this state (performance.now())
-    serverTimestamp?: number;  // Server's timestamp when state was generated
-    balls: Array<{ id: number; x: number; y: number; dx: number; dy: number; radius: number }>;
-    paddles: Array<{ x: number; y: number; r: number; w: number; l: number; vx: number; vy: number; owner_id: number; paddle_id: number }>;
-  }
-  const stateBufferRef = useRef<BufferedState[]>([]);
-  const BUFFER_DELAY_MS = 1; // Absolute minimum - just for micro-jitter
-  
-  // DYNAMIC LAG COMPENSATION
-  // Track estimated one-way latency based on server timestamps
-  const estimatedLatencyRef = useRef<number>(50);  // Start with 50ms estimate
-  const lastServerTimestampRef = useRef<number>(0);
-  
-  // Visual ball positions - what we actually display (smoothly blended)
-  // Now also tracks previous velocity to detect bounces
-  const visualBallsRef = useRef<Array<{ id: number; x: number; y: number; dx: number; dy: number; prevDx: number; prevDy: number }>>([]);
-  
-  // Local paddle position for immediate response (client-side prediction for YOUR paddle)
-  const localPaddleRef = useRef<{ x: number; y: number; r: number } | null>(null);
-  
-  // Ref to access latest gameState in animation loop without causing re-renders
-  const gameStateRef = useRef<TypeGameStateSchema | null>(null);
-  useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
-
   // New state for lobby and tournament
-  const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
+  const [currentViewInternal, setCurrentViewInternal] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
+  
+  // Wrapper to log WHO is changing the view
+  const setCurrentView = (newView: "menu" | "lobby" | "game" | "tournament") => {
+    console.log("[Pong] VIEW CHANGE:", currentViewInternal, "->", newView);
+    console.trace("[Pong] Stack trace for view change:");
+    setCurrentViewInternal(newView);
+  };
+  const currentView = currentViewInternal;
+  
+  // Debug: Log all view changes
+  useEffect(() => {
+    console.log("[Pong] VIEW IS NOW:", currentView);
+  }, [currentView]);
+  
   const [lobby, setLobby] = useState<PongLobbyData | null>(null)
   const [tournament, setTournament] = useState<TournamentData | null>(null)
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null) // Track tournament ID during game
@@ -219,221 +184,6 @@ export default function PongComponent({
       }
     }
   }, [])
-
-  // ====================
-  // CLIENT-SIDE PREDICTION ANIMATION LOOP
-  // ====================
-  // This runs at 60fps and updates the local simulation
-  // Provides smooth visuals independent of network latency
-  useEffect(() => {
-    if (currentView !== "game") {
-      // Not in game, cancel animation loop
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
-      return
-    }
-
-    const runSimulation = () => {
-      const now = performance.now()
-      const deltaTime = (now - lastFrameTimeRef.current) / 1000 // Convert to seconds
-      lastFrameTimeRef.current = now
-      
-      // Use ref to get latest gameState without causing effect re-runs
-      const currentGameState = gameStateRef.current;
-
-      if (predictionEnabled) {
-        // SIMPLIFIED SMOOTH VISUAL MODE
-        // Uses dead reckoning with gentle corrections - no complex bounce detection
-        if (currentGameState && currentGameState.balls) {
-          const canvasWidth = currentGameState.metadata?.gameOptions?.canvasWidth || 1000;
-          const canvasHeight = currentGameState.metadata?.gameOptions?.canvasHeight || 1000;
-          
-          // Initialize visual balls if needed
-          if (visualBallsRef.current.length !== currentGameState.balls.length) {
-            visualBallsRef.current = currentGameState.balls.map(b => ({
-              id: b.id,
-              x: b.x,
-              y: b.y,
-              dx: b.dx,
-              dy: b.dy,
-              prevDx: b.dx,
-              prevDy: b.dy,
-            }));
-          }
-          
-          // DYNAMIC LAG COMPENSATION: Update latency estimate from server timestamp
-          const serverTs = (currentGameState as any).serverTimestamp;
-          if (serverTs && serverTs > lastServerTimestampRef.current) {
-            lastServerTimestampRef.current = serverTs;
-            const clientNow = Date.now();
-            const measuredOneWay = clientNow - serverTs;
-            // Clamp to reasonable range and smooth with exponential average
-            const clampedLatency = Math.max(5, Math.min(150, measuredOneWay));
-            estimatedLatencyRef.current = estimatedLatencyRef.current * 0.9 + clampedLatency * 0.1;
-          }
-          
-          // Paddle extrapolation: show paddles slightly ahead based on latency
-          const leadTimeMs = Math.min(estimatedLatencyRef.current * 0.5, 30); // Cap at 30ms
-          const leadTimeSec = leadTimeMs / 1000;
-          
-          const extrapolatedPaddles = currentGameState.paddles.map(p => {
-            const vx = p.vx || 0;
-            const vy = p.vy || 0;
-            // Only extrapolate if paddle is moving
-            if (Math.abs(vx) > 1 || Math.abs(vy) > 1) {
-              const extrapolatedX = p.x + vx * leadTimeSec;
-              const extrapolatedY = p.y + vy * leadTimeSec;
-              // Clamp to reasonable bounds
-              const clampedX = Math.max(50, Math.min(canvasWidth - 50, extrapolatedX));
-              const clampedY = Math.max(50, Math.min(canvasHeight - 50, extrapolatedY));
-              return { ...p, x: clampedX, y: clampedY };
-            }
-            return { ...p };
-          });
-          
-          // For each ball: simple dead reckoning with snap-on-velocity-change
-          const smoothedBalls = currentGameState.balls.map((serverBall, idx) => {
-            const radius = serverBall.radius || 10;
-            const visual = visualBallsRef.current[idx];
-            
-            if (!visual) {
-              return serverBall;
-            }
-            
-            // Check if server velocity changed significantly (ball bounced)
-            const vxDiff = Math.abs(serverBall.dx - visual.dx);
-            const vyDiff = Math.abs(serverBall.dy - visual.dy);
-            const velocityChanged = vxDiff > 50 || vyDiff > 50;
-            
-            let newX: number;
-            let newY: number;
-            let newDx: number;
-            let newDy: number;
-            
-            if (velocityChanged) {
-              // Velocity changed significantly - snap to server state
-              // This handles bounces cleanly
-              newX = serverBall.x;
-              newY = serverBall.y;
-              newDx = serverBall.dx;
-              newDy = serverBall.dy;
-            } else {
-              // Normal dead reckoning: move visual ball by its velocity
-              newX = visual.x + visual.dx * deltaTime;
-              newY = visual.y + visual.dy * deltaTime;
-              
-              // Blend velocity toward server more quickly to prevent drift
-              newDx = visual.dx * 0.8 + serverBall.dx * 0.2;
-              newDy = visual.dy * 0.8 + serverBall.dy * 0.2;
-              
-              // Calculate error from server position
-              const errorX = serverBall.x - newX;
-              const errorY = serverBall.y - newY;
-              const errorDist = Math.sqrt(errorX * errorX + errorY * errorY);
-              
-              // Apply gentle position correction (larger correction for larger error)
-              if (errorDist > 80) {
-                // Large error: snap to server
-                newX = serverBall.x;
-                newY = serverBall.y;
-                newDx = serverBall.dx;
-                newDy = serverBall.dy;
-              } else if (errorDist > 5) {
-                // Medium error: blend toward server proportionally
-                const correctionStrength = Math.min(0.2, errorDist / 200);
-                newX += errorX * correctionStrength;
-                newY += errorY * correctionStrength;
-              }
-              // Small error (<5): ignore, dead reckoning is close enough
-            }
-            
-            // Clamp to bounds
-            newX = Math.max(radius, Math.min(canvasWidth - radius, newX));
-            newY = Math.max(radius, Math.min(canvasHeight - radius, newY));
-            
-            // Update visual ref
-            visual.prevDx = visual.dx;
-            visual.prevDy = visual.dy;
-            visual.x = newX;
-            visual.y = newY;
-            visual.dx = newDx;
-            visual.dy = newDy;
-            
-            return {
-              id: serverBall.id,
-              x: newX,
-              y: newY,
-              dx: newDx,
-              dy: newDy,
-              radius: radius,
-            };
-          });
-
-          setDisplayState({
-            board_id: currentGameState.board_id,
-            edges: currentGameState.edges,
-            paddles: extrapolatedPaddles,
-            balls: smoothedBalls,
-            metadata: currentGameState.metadata,
-            powerups: currentGameState.powerups || [],
-            score: currentGameState.score || null,
-          });
-        }
-      } else {
-        // SERVER-ONLY MODE: Simple interpolation using ball velocities
-        // This provides smooth animation between server updates
-        if (currentGameState && currentGameState.balls) {
-          const clampedDelta = Math.min(deltaTime, 0.1) // Max 100ms per frame
-          
-          // Debug: log server ball speed (every 60 frames = ~1 second)
-          serverFrameCountRef.current++;
-          if (currentGameState.balls.length > 0 && serverFrameCountRef.current % 60 === 0) {
-            const b = currentGameState.balls[0]!;
-            const speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy);
-            // Store on window for easy inspection
-            (window as any).SERVER_ONLY_SPEED = { speed: speed.toFixed(1), dx: b.dx.toFixed(1), dy: b.dy.toFixed(1), frame: serverFrameCountRef.current };
-            console.error(`🔴 SERVER-ONLY | Speed: ${speed.toFixed(1)} | dx: ${b.dx.toFixed(1)} | dy: ${b.dy.toFixed(1)}`);
-          }
-          
-          // Interpolate ball positions based on their velocities
-          const interpolatedBalls = currentGameState.balls.map(b => ({
-            id: b.id,
-            x: b.x + b.dx * clampedDelta,
-            y: b.y + b.dy * clampedDelta,
-            dx: b.dx,
-            dy: b.dy,
-            radius: b.radius,
-          }))
-
-          setDisplayState({
-            board_id: currentGameState.board_id,
-            edges: currentGameState.edges,
-            paddles: currentGameState.paddles,
-            balls: interpolatedBalls,
-            metadata: currentGameState.metadata,
-            powerups: currentGameState.powerups || [],
-            score: currentGameState.score || null,
-          })
-        }
-      }
-
-      // Continue animation loop
-      animationFrameRef.current = requestAnimationFrame(runSimulation)
-    }
-
-    // Start the animation loop
-    lastFrameTimeRef.current = performance.now()
-    animationFrameRef.current = requestAnimationFrame(runSimulation)
-
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
-    }
-  }, [currentView, predictionEnabled])  // Removed gameState - use ref instead
 
   // =========================
   // Fetch game state on mount
@@ -525,11 +275,7 @@ export default function PongComponent({
             isReady: p.isReady,
             isHost: p.isHost,
           })),
-          settings: {
-            ballCount: payloadReceived.payload.ballCount,
-            maxScore: payloadReceived.payload.maxScore,
-            allowPowerups: payloadReceived.payload.allowPowerups,
-          },
+          gameConfig: payloadReceived.payload.gameConfig,
           status: payloadReceived.payload.status,
         })
 
@@ -592,11 +338,7 @@ export default function PongComponent({
             isReady: p.isReady,
             isHost: p.isHost,
           })),
-          settings: {
-            ballCount: lobbyData.ballCount,
-            maxScore: lobbyData.maxScore,
-            allowPowerups: lobbyData.allowPowerups,
-          },
+          gameConfig: lobbyData.gameConfig,
           status: lobbyData.status,
         })
 
@@ -612,7 +354,7 @@ export default function PongComponent({
       console.log("[Pong] Received start_game_from_lobby! code:", payloadReceived.code, "payload:", payloadReceived.payload)
       if (payloadReceived.code === 0) {
         console.log("[Pong] Game started from lobby! Processing game state")
-        const gameStatePayload = payloadReceived.payload
+        const gameState = payloadReceived.payload
 
         // Preserve tournament ID before clearing lobby
         const tournamentIdToPreserve = activeTournamentId || tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId
@@ -623,33 +365,9 @@ export default function PongComponent({
 
         // Normalize and set up the game for all players
         console.log("[Pong] Setting game state and transitioning to game view")
-        const normalized = normalizeGameState(gameStatePayload)
+        const normalized = normalizeGameState(gameState)
         setPlayerIDsHelper(normalized)
         setGameState(normalized)
-        
-        // ====================
-        // CLIENT-SIDE PREDICTION: Initialize simulation for new game
-        // ====================
-        clientSimulationRef.current = new ClientPongSimulation()
-        hasReceivedServerStateRef.current = false
-        pressedKeysRef.current.clear()
-        clientSimulationRef.current.initFromServerState(gameStatePayload, authResponse?.user?.id || -1)
-        hasReceivedServerStateRef.current = true
-        setDisplayState(normalized)
-        
-        // Initialize state buffer with first state
-        stateBufferRef.current = [{
-          timestamp: performance.now(),
-          balls: normalized.balls.map(b => ({ ...b })),
-          paddles: normalized.paddles.map(p => ({ ...p })),
-        }];
-        
-        // Initialize local paddle position
-        const myPaddle = normalized.paddles.find(p => p.owner_id === authResponse?.user?.id);
-        if (myPaddle) {
-          localPaddleRef.current = { x: myPaddle.x, y: myPaddle.y, r: myPaddle.r };
-        }
-        
         setLobby(null) // Clear lobby state
         setCurrentView("game") // Transition immediately
       } else {
@@ -675,11 +393,7 @@ export default function PongComponent({
           isReady: p.isReady,
           isHost: p.isHost,
         })),
-        settings: {
-          ballCount: storedLobbyData.ballCount,
-          maxScore: storedLobbyData.maxScore,
-          allowPowerups: storedLobbyData.allowPowerups,
-        },
+        gameConfig: storedLobbyData.gameConfig,
         status: storedLobbyData.status,
       })
 
@@ -697,7 +411,7 @@ export default function PongComponent({
   }, [acceptedLobbyId, onLobbyJoined])
 
   const setPlayerIDsHelper = useCallback(
-    (game_data: TypeGameStateSchema | null) => {
+    (game_data: TypeGameStateSchema) => {
       if (!game_data) {
         console.log("[Pong] setPlayerIDsHelper: game_data is null");
         return;
@@ -734,108 +448,66 @@ export default function PongComponent({
     for (const webSocketRoute of Object.values(user_url.ws.pong)) {
       if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
 
-      const responseSchema = Object.values(webSocketRoute.schema.output).find(
-        (r) => r.code === payloadReceived.code
-      );
-
-      if (!responseSchema) {
-        console.error("Unknown code", payloadReceived.code);
-        return;
-      }
-
-      const parsed = responseSchema.payload.safeParse(payloadReceived.payload);
-      if (!parsed.success) {
-        console.warn("[Pong] Invalid payload", parsed.error);
-        return;
-      }
-
-      // Update the appropriate state slice based on funcId
+      // Handle each route type directly without complex schema validation
       switch (payloadReceived.funcId) {
-        case user_url.ws.pong.getGameState.funcId:
-          if (
-            payloadReceived.code !==
-            user_url.ws.pong.getGameState.schema.output.GameUpdate.code
-          ) {
-            console.warn("[Pong] getGameState returned non-GameUpdate code:", payloadReceived.code);
-            console.warn("[Pong] Payload:", payloadReceived.payload);
-            if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.NotInRoom.code) {
-              console.log("[Pong] User not in any game room - this is normal if no game exists");
-            }
-            break;
-          }
-            // Update game state silently (happens frequently)
-            const normalized = normalizeGameState(parsed.data)
-            setGameState(normalized);
-            gameStateReceivedRef.current = true;
-            setPlayerIDsHelper(normalized);
-            
-            // ====================
-            // BUFFER THE SERVER STATE for smooth interpolation
-            // ====================
-            if (predictionEnabled && normalized.balls) {
-              stateBufferRef.current.push({
-                timestamp: performance.now(),
-                balls: normalized.balls.map(b => ({ ...b })),
-                paddles: normalized.paddles.map(p => ({ ...p })),
-              });
-              // Keep buffer size reasonable (max ~30 states = ~1 second at 30Hz)
-              while (stateBufferRef.current.length > 30) {
-                stateBufferRef.current.shift();
-              }
-            }
-
-            // ====================
-            // CLIENT-SIDE PREDICTION: Initialize or Reconcile
-            // ====================
-            const simulation = clientSimulationRef.current
-            if (!hasReceivedServerStateRef.current) {
-              // First server state: initialize the simulation
-              console.log("[Pong] Initializing client simulation from server state")
-              simulation.initFromServerState(parsed.data, authResponse?.user?.id || -1)
-              hasReceivedServerStateRef.current = true
-              // Set display state immediately
-              setDisplayState(normalized)
-            } else {
-              // Subsequent server states: reconcile with prediction
-              // Use lower interpolation factor (0.15) for smoother corrections
-              simulation.reconcileWithServer(parsed.data, 0.15)
-            }
-
-          // If we received valid game state and we're not in game view, switch to it
-          if (currentView !== 'game' && parsed.data?.board_id) {
-            console.log("[Pong] Received game state while not in game view, transitioning to game");
-            setLobby(null);
-            setCurrentView("game");
-          }
-          break;
         case user_url.ws.pong.startGame.funcId:
-          console.log("[Pong] Game started, received game info:", parsed.data);
-          if (parsed.data && typeof parsed.data.board_id === 'number') {
-            setLastCreatedBoardId(parsed.data.board_id)
+          console.log("[Pong] Game started, received game info:", payloadReceived.payload);
+          if (payloadReceived.payload && typeof payloadReceived.payload.board_id === 'number') {
+            setLastCreatedBoardId(payloadReceived.payload.board_id)
           }
           // Game has been created, now request the game state once
           const requestGameStatePayload = {
             funcId: user_url.ws.pong.getGameState.funcId,
             payload: {
-              gameId: parsed.data.board_id,
+              gameId: payloadReceived.payload?.board_id,
             },
             target_container: user_url.ws.pong.getGameState.container,
           };
           if (socket.current?.readyState === WebSocket.OPEN) {
             socket.current.send(JSON.stringify(requestGameStatePayload));
-            console.log("[Pong] Requested game state after game creation (handler will respond)");
+            console.log("[Pong] Requested game state after game creation");
           }
-          break;
-        case user_url.ws.pong.userReportsReady.funcId:
-          console.log("[Pong] Player ready:", parsed.data);
-          setLatestPlayerReadyPayload(parsed.data);
-          break;
-        // Add other funcIds here...
-      }
+          return;
 
-      return; // stop after first match
+        case user_url.ws.pong.handleGameKeys.funcId:
+          // Key handling doesn't need response processing
+          return;
+
+        case user_url.ws.pong.userReportsReady.funcId:
+          console.log("[Pong] Player ready:", payloadReceived.payload);
+          setLatestPlayerReadyPayload(payloadReceived.payload);
+          return;
+
+        case user_url.ws.pong.getGameState.funcId:
+          // Code 0 = GameUpdate (success), Code 1 = NotInRoom
+          if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.GameUpdate.code) {
+            // Update game state silently (happens frequently)
+            const normalized = normalizeGameState(payloadReceived.payload)
+            // Expose last normalized game state to window for quick debugging in the browser
+            try { (window as any).__lastNormalizedPongState = normalized } catch (e) { /* ignore in server env */ }
+            setGameState(normalized);
+            gameStateReceivedRef.current = true;
+            setPlayerIDsHelper(normalized);
+            // If we received valid game state and we're not in game view, switch to it
+            if (currentView !== 'game' && payloadReceived.payload?.board_id) {
+              console.log("[Pong] Received game state while not in game view, transitioning to game");
+              setLobby(null);
+              setCurrentView("game");
+            }
+          } else if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.NotInRoom.code) {
+            console.log("[Pong] User not in any game room - this is normal if no game exists");
+          } else {
+            // Unknown code (like -1) - just log and continue
+            console.log("[Pong] getGameState returned code:", payloadReceived.code, "- ignoring");
+          }
+          return;
+
+        default:
+          console.log("[Pong] Unhandled pong funcId:", payloadReceived.funcId);
+          return;
+      }
     }
-  }, [payloadReceived, setPlayerIDsHelper]);
+  }, [payloadReceived, setPlayerIDsHelper, currentView]);
 
   // useEffect(() => {
   //   if (!payloadReceived) return;
@@ -882,61 +554,34 @@ export default function PongComponent({
   )
 
   // =========================
-  // Keyboard input - Single handler for all paddle controls
+  // Keyboard input (W / S)
   // =========================
   useEffect(() => {
+    const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
-      // Use ref to avoid stale closure - gameState changes every frame
-      const currentGameState = gameStateRef.current
-      
-      // Need game state and at least one paddle assigned
-      if (currentGameState === null) return
-      if (playerOnePaddleID === -1 && playerTwoPaddleID === -1) return
-      if (pressedKeysRef.current.has(e.key.toLowerCase())) return
-      
-      pressedKeysRef.current.add(e.key.toLowerCase())
+      if (gameState === null || playerOnePaddleID === -1) return
+      if (keysPressed.has(e.key)) return
+      keysPressed.add(e.key)
 
-      if (currentGameState.board_id === null) return
-      
-      // ====================
-      // CLIENT-SIDE PREDICTION: Apply input immediately to local simulation
-      // ====================
-      if (predictionEnabled) {
-        clientSimulationRef.current.setPressedKeys(Array.from(pressedKeysRef.current))
-      }
-      
-      // Send to server with timestamp for lag compensation
+      if (gameState.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
-        board_id: currentGameState.board_id,
-        pressed_keys: Array.from(pressedKeysRef.current),
-        clientTimestamp: Date.now(),  // Send client timestamp for server-side lag estimation
+        board_id: gameState.board_id,
+        pressed_keys: Array.from(keysPressed),
       }
+      // console.debug for debugging stuck keys
+      // console.debug('[Pong] KeyDown', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      // Use ref to avoid stale closure - gameState changes every frame
-      const currentGameState = gameStateRef.current
-      
-      // Need game state and at least one paddle assigned
-      if (currentGameState === null) return
-      if (playerOnePaddleID === -1 && playerTwoPaddleID === -1) return
-      
-      pressedKeysRef.current.delete(e.key.toLowerCase())
+      if (gameState === null || playerOnePaddleID === -1) return
+      keysPressed.delete(e.key)
 
-      // ====================
-      // CLIENT-SIDE PREDICTION: Apply input immediately to local simulation
-      // ====================
-      if (predictionEnabled) {
-        clientSimulationRef.current.setPressedKeys(Array.from(pressedKeysRef.current))
-      }
-
-      // Send to server with timestamp for lag compensation
       const payload = {
-        board_id: currentGameState.board_id,
-        pressed_keys: Array.from(pressedKeysRef.current),
-        clientTimestamp: Date.now(),  // Send client timestamp for server-side lag estimation
+        board_id: gameState.board_id,
+        pressed_keys: Array.from(keysPressed),
       }
+      // console.debug('[Pong] KeyUp', e.key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -947,7 +592,47 @@ export default function PongComponent({
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
     }
-  }, [handleUserInput, playerOnePaddleID, playerTwoPaddleID, predictionEnabled])
+  }, [gameState, handleUserInput, playerOnePaddleID])
+
+  // =========================
+  // Keyboard input (O / L)
+  // =========================
+  useEffect(() => {
+    const keysPressed = new Set<string>()
+    function handleKeyDown(e: KeyboardEvent) {
+      if (gameState === null || playerTwoPaddleID === -1) return
+      if (keysPressed.has(e.key)) return
+      keysPressed.add(e.key)
+
+      if (gameState.board_id === null) return
+      const payload: TypeHandleGameKeysSchema = {
+        board_id: gameState.board_id,
+        pressed_keys: Array.from(keysPressed),
+      }
+      // console.debug('[Pong] KeyDown (player2)', e.key, payload.pressed_keys)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
+    }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      if (gameState === null || playerTwoPaddleID === -1) return
+      keysPressed.delete(e.key)
+
+      const payload = {
+        board_id: gameState.board_id,
+        pressed_keys: Array.from(keysPressed),
+      }
+      // console.debug('[Pong] KeyUp (player2)', e.key, payload.pressed_keys)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [gameState, handleUserInput, playerTwoPaddleID])
 
   // =========================
   // 3D Rendering is handled by BabylonPongRenderer component
@@ -1001,11 +686,7 @@ export default function PongComponent({
           isReady: false,
           isHost: id === authResponse?.user?.id,
         })),
-        settings: {
-          ballCount: settings.ballCount,
-          maxScore: settings.maxScore,
-          allowPowerups: settings.allowPowerups,
-        },
+        gameConfig: {},
         status: "waiting",
       }
 
@@ -1025,9 +706,7 @@ export default function PongComponent({
           gameMode: mode,
           playerIds: selectedPlayers,
           playerUsernames: playerUsernames,
-          ballCount: settings.ballCount,
-          maxScore: settings.maxScore,
-          allowPowerups: settings.allowPowerups,
+          gameConfig: settings
         },
         target_container: "pong",
       }
@@ -1200,11 +879,7 @@ export default function PongComponent({
             isReady: p.isReady || false,
             isHost: p.isHost || false,
           })),
-          settings: {
-            ballCount: lobbyData.ballCount,
-            maxScore: lobbyData.maxScore,
-            allowPowerups: lobbyData.allowPowerups,
-          },
+          gameConfig: lobbyData.gameConfig,
           status: lobbyData.status || "waiting",
         }
         setLobby(lobbyState)
@@ -1248,6 +923,121 @@ export default function PongComponent({
     []
   )
 
+  // Manage game overlay via useEffect (DOM injection that works)
+  useEffect(() => {
+    if (currentView === "game") {
+      console.log("[Pong] useEffect: Creating game overlay");
+      
+      let gameContainer = document.getElementById("pong-game-container");
+      if (!gameContainer) {
+        gameContainer = document.createElement("div");
+        gameContainer.id = "pong-game-container";
+        gameContainer.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: #1a1a2e;
+          z-index: 2147483647;
+          display: flex;
+          flex-direction: column;
+        `;
+        document.body.appendChild(gameContainer);
+      }
+      
+      // Inject header and container via innerHTML
+      gameContainer.innerHTML = `
+        <div style="padding: 10px 20px; background: rgba(0,0,0,0.5); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+          <span style="color: white; font-size: 18px;">🏓 Pong Game</span>
+          <button id="pong-back-btn" style="padding: 8px 16px; background: red; color: white; border: none; cursor: pointer; border-radius: 4px;">← Back to Menu</button>
+        </div>
+        <div id="pong-babylon-mount" style="flex: 1; position: relative; overflow: hidden;"></div>
+        <div id="pong-debug-bar" style="padding: 5px 10px; background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; font-family: monospace; flex-shrink: 0;">Loading game...</div>
+      `;
+      
+      // Add back button click handler
+      const backBtn = document.getElementById("pong-back-btn");
+      if (backBtn) {
+        backBtn.onclick = () => {
+          // Unmount babylon renderer first
+          const mountEl = document.getElementById("pong-babylon-mount");
+          if (mountEl && (mountEl as any).__reactRoot) {
+            (mountEl as any).__reactRoot.unmount();
+          }
+          document.getElementById("pong-game-container")?.remove();
+          setCurrentView("menu");
+        };
+      }
+    } else {
+      // Clean up when leaving game view
+      const mountEl = document.getElementById("pong-babylon-mount");
+      if (mountEl && (mountEl as any).__reactRoot) {
+        (mountEl as any).__reactRoot.unmount();
+      }
+      document.getElementById("pong-game-container")?.remove();
+    }
+    
+    return () => {
+      // Cleanup on unmount
+      if (currentView !== "game") {
+        const mountEl = document.getElementById("pong-babylon-mount");
+        if (mountEl && (mountEl as any).__reactRoot) {
+          (mountEl as any).__reactRoot.unmount();
+        }
+        document.getElementById("pong-game-container")?.remove();
+      }
+    };
+  }, [currentView]);
+
+  // Render BabylonPongRenderer into mount point when gameState is available
+  useEffect(() => {
+    if (currentView !== "game" || !gameState) return;
+    
+    const mountEl = document.getElementById("pong-babylon-mount");
+    if (!mountEl) return;
+    
+    console.log("[Pong] Mounting BabylonPongRenderer into pong-babylon-mount");
+    
+    // Create or get React root for the mount element
+    let root = (mountEl as any).__reactRoot;
+    if (!root) {
+      root = ReactDOM.createRoot(mountEl);
+      (mountEl as any).__reactRoot = root;
+    }
+    
+    // Render BabylonPongRenderer with correct props
+    root.render(
+      <BabylonPongRenderer
+        ref={rendererRef}
+        gameState={gameState}
+        darkMode={darkMode}
+        paddleRotationOffset={paddleRotationOffset}
+        localPlayerId={playerOnePaddleID}
+      />
+    );
+  }, [currentView, gameState, playerOnePaddleID, playerTwoPaddleID, darkMode, paddleRotationOffset]);
+
+  // Update debug bar with game state info
+  useEffect(() => {
+    const debugBar = document.getElementById("pong-debug-bar");
+    if (debugBar && currentView === "game") {
+      debugBar.textContent = `balls: ${gameState?.balls?.length ?? 0} | paddles: ${gameState?.paddles?.length ?? 0} | myPaddle: ${playerOnePaddleID}`;
+    }
+  }, [gameState, currentView, playerOnePaddleID]);
+
+  // RENDER LOGIC
+  console.log("[Pong] RENDER called, currentView =", currentView);
+  
+  // If game view, return null (we render via useEffect into injected DOM)
+  if (currentView === "game") {
+    return null;
+  }
+  
+  console.log("[Pong] Rendering NON-GAME view:", currentView);
+  
+  console.log("[Pong] Rendering NON-GAME view:", currentView);
+
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
@@ -1271,17 +1061,44 @@ export default function PongComponent({
                 onClick={() => {
                   // Quick solo play for testing
                   if (authResponse) {
+                    alert("About to set view to GAME");
                     const payload: TypeStartNewPongGame = {
                       player_list: [authResponse.user.id],
                       balls: 1,
                     }
                     handleUserInput(user_url.ws.pong.startGame, payload)
                     setCurrentView("game")
+                    alert("View set to GAME - click OK");
                   }
                 }}
                 className="w-full py-3 bg-green-500 text-white hover:bg-green-600 transition-colors font-semibold"
               >
                 🤖 Quick Play (Solo)
+              </button>
+              <button
+                onClick={() => {
+                  // Debug: 8-player game with multiple balls
+                  if (authResponse) {
+                    const payload: TypeStartNewPongGame = {
+                      player_list: [
+                        authResponse.user.id,
+                        authResponse.user.id + 1000,
+                        authResponse.user.id + 2000,
+                        authResponse.user.id + 3000,
+                        authResponse.user.id + 4000,
+                        authResponse.user.id + 5000,
+                        authResponse.user.id + 6000,
+                        authResponse.user.id + 7000,
+                      ],
+                      balls: 3,
+                    }
+                    handleUserInput(user_url.ws.pong.startGame, payload)
+                    setCurrentView("game")
+                  }
+                }}
+                className="w-full py-3 bg-purple-500 text-white hover:bg-purple-600 transition-colors font-semibold"
+              >
+                🎯 Debug: 8 Players (3 balls)
               </button>
             </div>
           </div>
@@ -1364,30 +1181,72 @@ export default function PongComponent({
       {/* Game View */}
       {currentView === "game" && (
         <>
-          <div className="w-full flex-1 min-h-[500px] shadow-lg border border-gray-800 bg-black overflow-hidden relative">
-            {/* 
-              CLIENT-SIDE PREDICTION: Use displayState (locally predicted) for smooth visuals
-              Falls back to gameState if displayState is not yet available
-            */}
-            <BabylonPongRenderer 
-              ref={rendererRef} 
-              gameState={displayState || gameState} 
-              darkMode={darkMode} 
-              paddleRotationOffset={paddleRotationOffset} 
-            />
-            <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
-              <div className="flex flex-col space-y-2">
-                <div className="flex space-x-2">
-                  {/* Prediction Toggle */}
-                  <button
-                    onClick={() => setPredictionEnabled(!predictionEnabled)}
-                    className={`px-2 py-1 text-sm font-medium rounded ${predictionEnabled ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
-                    title={predictionEnabled ? "Client-side prediction ON (smooth)" : "Client-side prediction OFF (server only)"}
-                  >
-                    {predictionEnabled ? '🎯 Prediction ON' : '📡 Server Only'}
-                  </button>
+          {/* FIXED POSITION TEST - MUST BE VISIBLE */}
+          <div style={{ 
+            position: "fixed", 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            background: "green", 
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column"
+          }}>
+            <h1 style={{ color: "white", fontSize: "48px", fontWeight: "bold" }}>
+              🎮 GAME VIEW IS RENDERING
+            </h1>
+            <p style={{ color: "yellow", fontSize: "24px", marginTop: 20 }}>
+              If you see this GREEN screen, React is working!
+            </p>
+            <p style={{ color: "white", fontSize: "18px", marginTop: 20 }}>
+              gameState: {gameState ? "PRESENT" : "null"} | 
+              balls: {gameState?.balls?.length ?? 0} | 
+              paddles: {gameState?.paddles?.length ?? 0}
+            </p>
+            <button 
+              onClick={() => setCurrentView("menu")}
+              style={{ marginTop: 30, padding: "15px 30px", fontSize: "20px", background: "red", color: "white", border: "none", cursor: "pointer" }}
+            >
+              Go Back to Menu
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* OLD GAME VIEW - COMMENTED OUT
+      {currentView === "game" && (
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "stretch", background: "#111" }}>
+          <div style={{ background: "yellow", color: "black", padding: "20px", fontSize: "24px", fontWeight: "bold", textAlign: "center" }}>
+            🎮 GAME VIEW IS ACTIVE - currentView = "{currentView}"
+          </div>
+          <div style={{ width: "100%", height: "70vh", minHeight: "500px", position: "relative", border: "4px solid lime", background: "blue" }}>
+            <div style={{ color: "white", padding: 20, fontSize: 18 }}>
+              <p>🧪 TEST: BabylonPongRenderer is DISABLED</p>
+              <p>If you see this blue box with text, the game view is working!</p>
+              <p>gameState: {gameState ? "present" : "null"}</p>
+              <p>balls: {gameState?.balls?.length ?? 0}</p>
+              <p>paddles: {gameState?.paddles?.length ?? 0}</p>
+            </div>
+            <div style={{ position: 'absolute', left: 8, top: 8, zIndex: 50 }}>
+              <div style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '8px', borderRadius: 6, fontSize: 12, minWidth: 180 }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Pong Debug</div>
+                <div>- gameState: {gameState ? 'present' : 'null'}</div>
+                <div>- boardId: {gameState?.board_id ?? gameState?.boardId ?? '—'}</div>
+                <div>- balls: {gameState?.balls?.length ?? 0}</div>
+                <div>- paddles: {gameState?.paddles?.length ?? 0}</div>
+                <div style={{ marginTop: 6, maxWidth: 360, wordBreak: 'break-all' }}>
+                  <div style={{ fontWeight: 600 }}>Last normalized (window):</div>
+                  <div style={{ fontSize: 11, opacity: 0.9 }}>{(() => {
+                    try { const s = (window as any).__lastNormalizedPongState; return s ? `b:${s.board_id} balls:${(s.balls||[]).length} pads:${(s.paddles||[]).length}` : 'none' } catch (e) { return 'err' }
+                  })()}</div>
                 </div>
-                <div className="flex space-x-2">
+              </div>
+            </div>
+            <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
+              <div className="flex space-x-2">
                 <button
                   onClick={() => setPaddleRotationOffset(0)}
                   className={`px-2 py-1 text-sm font-medium rounded ${paddleRotationOffset === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
@@ -1418,7 +1277,6 @@ export default function PongComponent({
                 >
                   Screenshot
                 </button>
-                </div>
               </div>
             </div>
           </div>
@@ -1438,12 +1296,6 @@ export default function PongComponent({
                   target_container: "pong",
                 }))
               }
-              // Reset client simulation state
-              clientSimulationRef.current = new ClientPongSimulation()
-              hasReceivedServerStateRef.current = false
-              pressedKeysRef.current.clear()
-              setDisplayState(null)
-              
               setCurrentView("menu")
               setGameState(null)
               setLobby(null)
@@ -1452,7 +1304,7 @@ export default function PongComponent({
           >
             Leave Game
           </button>
-        </>
+        </div>
       )}
 
       {/* Invite Modal */}

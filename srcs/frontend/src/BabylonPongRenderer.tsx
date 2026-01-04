@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, forwardRef, useImperativeHandle } from "react"
+import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react"
 import {
   Engine,
   Scene,
@@ -105,6 +105,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   const sceneRef = useRef<Scene | null>(null)
   const engineRef = useRef<Engine | null>(null)
 
+  // Favicon animation refs
+  const faviconCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const faviconAnimationRef = useRef<number | null>(null)
+  const simulatedBallRef = useRef({ x: 16, y: 16, dx: 1.5, dy: 1 })
+
   // Store references
   const paddlesRef = useRef<Map<number, Mesh>>(new Map())
   const ballsRef = useRef<Map<number, Mesh>>(new Map())
@@ -150,6 +155,204 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
   const lastFrameDeltaRef = useRef<number>(16.667) // Default to 60fps
   const EXPECTED_FRAME_MS = 16.667 // 60fps target
+
+  // Favicon animation during gameplay
+  useEffect(() => {
+    console.log('[BabylonPongRenderer] Starting favicon animation');
+    
+    // Create favicon canvas
+    if (!faviconCanvasRef.current) {
+      faviconCanvasRef.current = document.createElement('canvas');
+      faviconCanvasRef.current.width = 32;
+      faviconCanvasRef.current.height = 32;
+    }
+    
+    const canvas = faviconCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Get or create favicon link
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      link.type = 'image/png';
+      document.head.appendChild(link);
+    }
+    
+    let lastUpdate = 0;
+    const updateInterval = 50; // 20 FPS for favicon
+    
+    const drawFrame = () => {
+      const w = 32, h = 32;
+      
+      // Helper to flip Y coordinate (game Y goes down, but we want up in favicon)
+      const flipY = (y: number) => h - y;
+      
+      // Dark background
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, w, h);
+      
+      // Border
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(1, 1, w - 2, h - 2);
+      
+      // Center dashed line
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(16, 2);
+      ctx.lineTo(16, 30);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw all paddles from game state
+      const paddleColors = ['#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#60a5fa', '#c084fc'];
+      if (gameState?.paddles?.length) {
+        gameState.paddles.forEach((paddle, idx) => {
+          if (!paddle) return;
+          // Map paddle position to favicon coordinates (with Y flip)
+          const px = (paddle.x / BACKEND_WIDTH) * w;
+          const py = flipY((paddle.y / BACKEND_HEIGHT) * h);
+          // Clamp to bounds
+          const clampedX = Math.max(4, Math.min(w - 4, px));
+          const clampedY = Math.max(4, Math.min(h - 4, py));
+          ctx.fillStyle = paddleColors[idx % paddleColors.length];
+          
+          // Use canvas rotation to draw paddle at correct angle (negate rotation for flip)
+          ctx.save();
+          ctx.translate(clampedX, clampedY);
+          ctx.rotate(-(paddle.r || 0) + Math.PI / 2);
+          // Draw paddle centered on origin (length 8, width 2)
+          ctx.fillRect(-4, -1, 8, 2);
+          ctx.restore();
+        });
+      } else {
+        // Fallback: draw static paddles if no game state
+        ctx.fillStyle = '#22d3ee';
+        ctx.fillRect(3, 12, 2, 8);
+        ctx.fillStyle = '#f472b6';
+        ctx.fillRect(w - 5, 12, 2, 8);
+      }
+      
+      // Draw all balls from game state
+      const ballColors = ['#fbbf24', '#f87171', '#4ade80', '#60a5fa', '#c084fc'];
+      const balls = gameState?.balls || [];
+      if (balls.length > 0) {
+        for (let idx = 0; idx < balls.length; idx++) {
+          const ball = balls[idx];
+          if (!ball) continue;
+          let ballX = (ball.x / BACKEND_WIDTH) * w;
+          let ballY = flipY((ball.y / BACKEND_HEIGHT) * h);
+          ballX = Math.max(3, Math.min(w - 3, ballX));
+          ballY = Math.max(3, Math.min(h - 3, ballY));
+          
+          // Scale ball radius - backend default is ~10 for 1000x1000, scale proportionally
+          // Normal ball ~10 radius -> ~2px in favicon, bigger balls should be visibly larger
+          const baseRadius = ball.radius || 10;
+          const scaledRadius = Math.max(1.5, Math.min(5, (baseRadius / 10) * 2));
+          
+          // Draw ball with glow
+          const color = ballColors[idx % ballColors.length];
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(ballX, ballY, scaledRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      } else {
+        // Simulate ball when no game state
+        const sim = simulatedBallRef.current;
+        sim.x += sim.dx;
+        sim.y += sim.dy;
+        if (sim.y <= 4 || sim.y >= h - 4) sim.dy *= -1;
+        if (sim.x <= 6 || sim.x >= w - 6) sim.dx *= -1;
+        sim.x = Math.max(4, Math.min(w - 4, sim.x));
+        sim.y = Math.max(4, Math.min(h - 4, sim.y));
+        
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(sim.x, flipY(sim.y), 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      // Draw powerups as small diamonds - colors match Babylon renderer
+      // Type mapping from Babylon: 0=ADD_BALL(orange), 1=INC_PADDLE_SPEED(red), 2=DEC_PADDLE_SPEED(blue),
+      // 3=SUPER_SPEED(purple), 4=INC_BALL_SIZE(green), 5=DEC_BALL_SIZE(yellow), 6=REVERSE_CONTROLS(pink)
+      const powerupColors: { [key: number]: string } = {
+        0: '#e69919', // ADD_BALL -> orange
+        1: '#e63333', // INCREASE_PADDLE_SPEED -> red
+        2: '#3399e6', // DECREASE_PADDLE_SPEED -> blue
+        3: '#cc4de6', // SUPER_SPEED -> purple
+        4: '#33e64d', // INCREASE_BALL_SIZE -> green
+        5: '#e6e633', // DECREASE_BALL_SIZE -> yellow
+        6: '#e666b3', // REVERSE_CONTROLS -> pink
+      };
+      const powerups = gameState?.powerups || [];
+      if (powerups.length > 0) {
+        for (const powerup of powerups) {
+          if (!powerup) continue;
+          // Powerup array format: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
+          let px: number, py: number, ptype: number;
+          if (Array.isArray(powerup)) {
+            px = Number(powerup[0]) || 0;
+            py = Number(powerup[1]) || 0;
+            // Type is at index 6
+            ptype = Number(powerup[6]) ?? 0;
+          } else {
+            px = (powerup as any).x || 0;
+            py = (powerup as any).y || 0;
+            ptype = (powerup as any).type ?? 0;
+          }
+          
+          const ppx = (px / BACKEND_WIDTH) * w;
+          const ppy = flipY((py / BACKEND_HEIGHT) * h);
+          const clampedPx = Math.max(3, Math.min(w - 3, ppx));
+          const clampedPy = Math.max(3, Math.min(h - 3, ppy));
+          
+          ctx.fillStyle = powerupColors[ptype] || '#ffffff';
+          ctx.globalAlpha = 0.9;
+          // Draw as diamond
+          ctx.beginPath();
+          ctx.moveTo(clampedPx, clampedPy - 3);
+          ctx.lineTo(clampedPx + 3, clampedPy);
+          ctx.lineTo(clampedPx, clampedPy + 3);
+          ctx.lineTo(clampedPx - 3, clampedPy);
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      }
+    };
+    
+    const animate = (timestamp: number) => {
+      if (timestamp - lastUpdate >= updateInterval) {
+        drawFrame();
+        link!.href = canvas.toDataURL('image/png');
+        
+        // Update title with scores
+        lastUpdate = timestamp;
+      }
+      faviconAnimationRef.current = requestAnimationFrame(animate);
+    };
+    
+    faviconAnimationRef.current = requestAnimationFrame(animate);
+    console.log('[BabylonPongRenderer] Favicon animation started');
+    
+    return () => {
+      if (faviconAnimationRef.current) {
+        cancelAnimationFrame(faviconAnimationRef.current);
+      }
+      // Restore static favicon
+      console.log('[BabylonPongRenderer] Favicon animation stopped');
+    };
+  }, [gameState]);
 
   // Initialize Babylon scene
   useEffect(() => {
