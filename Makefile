@@ -134,6 +134,12 @@ clean: down
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
+	# Remove all service containers by name
+	for c in $(NGINX_NAME) $(HUB_NAME) $(CHATROOM_NAME) $(DATABASE_NAME) $(AUTH_NAME) $(PONG_NAME) $(USERS_NAME) hardhat blockchain-explorer; do \
+	    docker rm -f $$c 2>/dev/null || true; \
+	done
+	docker volume prune -f
+	docker image prune -a -f
 	docker volume prune -f
 	docker image prune -a -f
 
