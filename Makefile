@@ -120,11 +120,6 @@ check-deps:
 	@docker compose version >/dev/null 2>&1 || { echo "Missing docker compose plugin. Install with: sudo apt install docker-compose-plugin" >&2; exit 1; }
 	@echo "All required system dependencies present."
 
-# Generate trusted SSL certificates using mkcert (run once to avoid browser warnings)
-mkcert:
-	@chmod +x ./setup_mkcert.sh
-	@./setup_mkcert.sh
-
 print_config: create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
 
@@ -139,10 +134,16 @@ clean: down
 
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
+	# Remove all service containers by name
+	for c in $(NGINX_NAME) $(HUB_NAME) $(CHATROOM_NAME) $(DATABASE_NAME) $(AUTH_NAME) $(PONG_NAME) $(USERS_NAME) hardhat blockchain-explorer; do \
+	    docker rm -f $$c 2>/dev/null || true; \
+	done
+	docker volume prune -f
+	docker image prune -a -f
 	docker volume prune -f
 	docker image prune -a -f
 
 list:
 	docker ps -a
 
-.PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed mkcert
+.PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed
