@@ -150,6 +150,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     targetScaleX: number
     targetScaleY: number
     targetScaleZ: number
+    // Velocity for extrapolation (in world units per second)
+    velocityX: number
+    velocityZ: number
+    lastUpdateTime: number
   }
   const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
@@ -208,7 +212,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       ctx.setLineDash([]);
       
       // Draw all paddles from game state
-      const paddleColors = ['#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#60a5fa', '#c084fc'];
+      const fallbackPaddleColors = ['#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#60a5fa', '#c084fc'];
       if (gameState?.paddles?.length) {
         gameState.paddles.forEach((paddle, idx) => {
           if (!paddle) return;
@@ -218,7 +222,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           // Clamp to bounds
           const clampedX = Math.max(4, Math.min(w - 4, px));
           const clampedY = Math.max(4, Math.min(h - 4, py));
-          ctx.fillStyle = paddleColors[idx % paddleColors.length];
+          // Use owner_id to get consistent color with the 3D game
+          const ownerId = (paddle as any).owner_id ?? (paddle as any).ownerId ?? idx;
+          ctx.fillStyle = getUserColorCSS(ownerId, true) || fallbackPaddleColors[idx % fallbackPaddleColors.length];
           
           // Use canvas rotation to draw paddle at correct angle (negate rotation for flip)
           ctx.save();
@@ -453,14 +459,30 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // dt/expected gives us frame-rate independent smoothing
       const lerpAlpha = Math.min(dt / EXPECTED_FRAME_MS, 1)
       
-      // Lerp balls toward their targets
+      // Lerp balls toward their targets (with capped velocity extrapolation)
+      const now = performance.now()
       ballsRef.current.forEach((mesh, ballId) => {
         const target = ballTargetsRef.current.get(ballId)
         if (target) {
-          // Lerp position
-          mesh.position = Vector3.Lerp(mesh.position, target.targetPos, lerpAlpha)
+          // Calculate time since last state update (in seconds)
+          // Cap extrapolation to prevent over-prediction at high speeds
+          // Server updates ~20-30Hz, so cap at ~50ms (1.5 update intervals) to stay accurate
+          const MAX_EXTRAPOLATION_TIME = 0.05 // 50ms max
+          const rawTimeSinceUpdate = (now - target.lastUpdateTime) / 1000
+          const timeSinceUpdate = Math.min(rawTimeSinceUpdate, MAX_EXTRAPOLATION_TIME)
           
-          // Lerp scale (for squash animation)
+          // Extrapolate position based on velocity (capped)
+          // This predicts where the ball WILL be, not where it WAS
+          const extrapolatedX = target.targetPos.x + target.velocityX * timeSinceUpdate
+          const extrapolatedZ = target.targetPos.z + target.velocityZ * timeSinceUpdate
+          const extrapolatedPos = new Vector3(extrapolatedX, target.targetPos.y, extrapolatedZ)
+          
+          // Use slightly slower lerp for smoother blending when new updates arrive
+          // This reduces "snapping" when server sends new position
+          const smoothLerpAlpha = lerpAlpha * 0.7
+          mesh.position = Vector3.Lerp(mesh.position, extrapolatedPos, smoothLerpAlpha)
+          
+          // Lerp scale (for squash animation) - can use faster alpha
           mesh.scaling = Vector3.Lerp(
             mesh.scaling,
             new Vector3(target.targetScaleX, target.targetScaleY, target.targetScaleZ),
@@ -783,57 +805,53 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const squashState = ballSquashRef.current.get(b.id)
         if (squashState?.active) {
           const elapsed = performance.now() - squashState.startTime
-          const SQUASH_DURATION = 120 // ms for full squash/stretch cycle
+          const SQUASH_DURATION = 150 // ms for full squash/stretch cycle
           
           if (elapsed < SQUASH_DURATION) {
             // Animation progress (0 to 1)
             const t = elapsed / SQUASH_DURATION
             
             // Scale squash intensity based on impact speed
-            // Typical speeds: ~300-800 backend units. Map to intensity 0.15-0.4
             const MIN_SPEED = 200
             const MAX_SPEED = 1000
-            const MIN_INTENSITY = 0.15  // Gentle bounce
-            const MAX_INTENSITY = 0.45  // Hard smash
+            const MIN_INTENSITY = 0.12
+            const MAX_INTENSITY = 0.35
             const speedNorm = Math.min(1, Math.max(0, (squashState.impactSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)))
-            const squashIntensity = MIN_INTENSITY + speedNorm * (MAX_INTENSITY - MIN_INTENSITY)
+            const maxSquash = MIN_INTENSITY + speedNorm * (MAX_INTENSITY - MIN_INTENSITY)
             
-            // Use a sine wave for smooth squash-stretch-return
-            // First half: squash (compress), second half: stretch (elongate)
-            // Then return to normal
-            let squashFactor: number
-            if (t < 0.25) {
-              // Quick squash (0 to 0.25)
-              squashFactor = 1 - squashIntensity * Math.sin(t * 4 * Math.PI / 2)
-            } else if (t < 0.5) {
-              // Stretch past normal (0.25 to 0.5)
-              squashFactor = (1 - squashIntensity) + (squashIntensity * 1.4) * Math.sin((t - 0.25) * 4 * Math.PI / 2)
-            } else {
-              // Settle back to normal with slight overshoot (0.5 to 1)
-              const overshoot = squashIntensity * 0.4
-              squashFactor = 1 + overshoot - overshoot * Math.sin((t - 0.5) * 2 * Math.PI)
-            }
+            // Use a simple damped sine wave for natural bounce feel
+            // Starts at 1, dips down (squash), overshoots up (stretch), settles to 1
+            // Formula: 1 + amplitude * sin(phase) * decay
+            const frequency = 2.5 // Number of oscillations
+            const decay = Math.exp(-4 * t) // Exponential decay
+            const phase = t * frequency * Math.PI * 2
             
-            // Apply squash perpendicular to impact direction
-            // In 2D pong space: impactAngle gives us the direction of impact
-            // Squash along impact axis, stretch perpendicular
-            const stretchFactor = 1 / squashFactor // Volume preservation
+            // Primary deformation along impact direction
+            const deformation = maxSquash * Math.sin(phase) * decay
             
-            // Map the 2D impact angle to 3D axes
-            // impactAngle: 0 = horizontal impact (paddle hit), ±π/2 = vertical (wall hit)
-            const impactX = Math.cos(squashState.impactAngle)
-            const impactZ = Math.sin(squashState.impactAngle)
+            // Get normalized impact direction in world XZ plane
+            // impactAngle is in 2D game space, map to 3D: game X -> world X, game Y -> world Z
+            const impactDirX = Math.cos(squashState.impactAngle)
+            const impactDirZ = Math.sin(squashState.impactAngle)
             
-            // Blend between X and Z based on impact direction
-            // For paddle hits (mostly horizontal): squash X, stretch Z
-            // For wall hits (mostly vertical): squash Z, stretch X
-            const xBlend = Math.abs(impactX)
-            const zBlend = Math.abs(impactZ)
+            // Squash along impact direction, stretch perpendicular (volume preservation)
+            // When deformation > 0: stretch along impact, squash perpendicular (ball elongating after bounce)
+            // When deformation < 0: squash along impact, stretch perpendicular (ball compressing on impact)
+            const alongImpact = 1 + deformation
+            const perpendicular = 1 / Math.sqrt(alongImpact) // Volume preservation: V = x * y * z
             
-            scaleX = baseScale * (squashFactor * xBlend + stretchFactor * zBlend)
-            scaleZ = baseScale * (stretchFactor * xBlend + squashFactor * zBlend)
-            // Y (height) gets a slight squash for volume feel
-            scaleY = baseScale * (1 + (squashFactor - 1) * 0.3)
+            // Blend X and Z based on how aligned they are with impact direction
+            const xAlignment = Math.abs(impactDirX)
+            const zAlignment = Math.abs(impactDirZ)
+            
+            // X gets more "along impact" scaling when impact is horizontal (X-aligned)
+            // Z gets more "along impact" scaling when impact is vertical (Z-aligned)
+            scaleX = baseScale * (alongImpact * xAlignment + perpendicular * zAlignment)
+            scaleZ = baseScale * (alongImpact * zAlignment + perpendicular * xAlignment)
+            
+            // Y (height) bulges out when ball is squashed horizontally - inverse of horizontal compression
+            // This creates the "pancake then tall" effect
+            scaleY = baseScale * perpendicular
           } else {
             // Animation complete
             ballSquashRef.current.set(b.id, { ...squashState, active: false })
@@ -844,15 +862,25 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         actualVisualRadius = (baseDiameter / 2) * baseScale
         
         // Adjust Y position so ball stays on the floor (scale from bottom, not center)
-        adjustedYPos = actualVisualRadius // Ball center should be at its radius height above floor
+        // Floor is at y = -0.1, so ball center should be at -0.1 + radius
+        const FLOOR_Y = -0.1
+        adjustedYPos = FLOOR_Y + actualVisualRadius
         
-        // Set target for lerp-based smoothing (render loop will interpolate)
+        // Convert backend velocity to world units per second
+        // Backend velocity is in backend units per second, scale to world units
+        const worldVelocityX = (b.dx || 0) * SCALE_FACTOR
+        const worldVelocityZ = (b.dy || 0) * SCALE_FACTOR
+        
+        // Set target for lerp-based smoothing with velocity extrapolation
         const targetPos = new Vector3(newPos.x, adjustedYPos, newPos.z)
         ballTargetsRef.current.set(b.id, {
           targetPos,
           targetScaleX: scaleX,
           targetScaleY: scaleY,
-          targetScaleZ: scaleZ
+          targetScaleZ: scaleZ,
+          velocityX: worldVelocityX,
+          velocityZ: worldVelocityZ,
+          lastUpdateTime: performance.now()
         })
         
         // If ball is new, snap to position immediately

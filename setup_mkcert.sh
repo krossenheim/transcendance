@@ -30,11 +30,18 @@ if ! command -v mkcert &> /dev/null; then
         # Try different package managers
         if command -v apt-get &> /dev/null; then
             sudo apt-get update
-            sudo apt-get install -y libnss3-tools
+            # Install NSS tools for Firefox/Chrome AND ca-certificates for system trust
+            sudo apt-get install -y libnss3-tools ca-certificates curl
             # Download mkcert binary
             MKCERT_VERSION="v1.4.4"
             sudo curl -L "https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSION}/mkcert-${MKCERT_VERSION}-linux-amd64" -o /usr/local/bin/mkcert
             sudo chmod +x /usr/local/bin/mkcert
+        elif command -v pacman &> /dev/null; then
+            # Arch Linux
+            sudo pacman -Sy --noconfirm mkcert nss
+        elif command -v dnf &> /dev/null; then
+            # Fedora/RHEL
+            sudo dnf install -y mkcert nss-tools
         elif command -v brew &> /dev/null; then
             brew install mkcert nss
         else
@@ -51,6 +58,20 @@ if ! command -v mkcert &> /dev/null; then
     else
         echo "Unsupported OS. Please install mkcert manually: https://github.com/FiloSottile/mkcert#installation"
         exit 1
+    fi
+else
+    # mkcert exists, but ensure NSS tools are installed for browser integration
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if ! command -v certutil &> /dev/null; then
+            echo "Installing libnss3-tools for browser certificate support..."
+            if command -v apt-get &> /dev/null; then
+                sudo apt-get update && sudo apt-get install -y libnss3-tools
+            elif command -v pacman &> /dev/null; then
+                sudo pacman -Sy --noconfirm nss
+            elif command -v dnf &> /dev/null; then
+                sudo dnf install -y nss-tools
+            fi
+        fi
     fi
 fi
 
@@ -89,6 +110,39 @@ echo "Next steps:"
 echo "  1. Rebuild nginx: docker compose build nginx"
 echo "  2. Restart the stack: docker compose up -d"
 echo ""
-echo "If you're on WSL and using a Windows browser, you may also need to:"
-echo "  1. Copy the root CA to Windows: cp \"\$(mkcert -CAROOT)/rootCA.pem\" /mnt/c/Users/YOUR_USER/"
-echo "  2. Double-click the rootCA.pem in Windows and install it to 'Trusted Root Certification Authorities'"
+
+# Platform-specific instructions
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "=== WSL-specific instructions ==="
+        echo "If you're using a Windows browser, you may also need to:"
+        echo "  1. Copy the root CA to Windows: cp \"\$(mkcert -CAROOT)/rootCA.pem\" /mnt/c/Users/YOUR_USER/"
+        echo "  2. Double-click the rootCA.pem in Windows and install it to 'Trusted Root Certification Authorities'"
+    else
+        echo "=== Native Linux instructions ==="
+        echo ""
+        echo "If your browser still shows certificate warnings, try these steps:"
+        echo ""
+        echo "1. Check where mkcert installed the CA:"
+        echo "   mkcert -CAROOT"
+        echo ""
+        echo "2. For Firefox: The CA should be auto-installed if libnss3-tools was present."
+        echo "   If not, manually import \$(mkcert -CAROOT)/rootCA.pem via:"
+        echo "   Settings -> Privacy & Security -> Certificates -> View Certificates -> Import"
+        echo ""
+        echo "3. For Chrome/Chromium: Usually works automatically with libnss3-tools."
+        echo "   If not, go to: chrome://settings/certificates -> Authorities -> Import"
+        echo "   Import the rootCA.pem file from: \$(mkcert -CAROOT)"
+        echo ""
+        echo "4. You may need to restart your browser after installing the CA."
+        echo ""
+        echo "5. If using a snap-based browser (like Firefox snap on Ubuntu):"
+        echo "   Snap browsers may not see system certificates. Consider using the deb version:"
+        echo "   sudo snap remove firefox"
+        echo "   sudo apt install firefox"
+        echo "   Then re-run: mkcert -install"
+    fi
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "On macOS, the CA should be automatically trusted by Safari and Chrome."
+    echo "Firefox may need manual import via Preferences -> Certificates."
+fi
