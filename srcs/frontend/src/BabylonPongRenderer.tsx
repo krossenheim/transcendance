@@ -154,9 +154,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     velocityX: number
     velocityZ: number
     lastUpdateTime: number
+    // Visual radius for correct rotation calculation
+    visualRadius: number
   }
   const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
+  const smoothedVelocitiesRef = useRef<Map<number, { vx: number; vz: number }>>(new Map())
   const lastFrameDeltaRef = useRef<number>(16.667) // Default to 60fps
   const EXPECTED_FRAME_MS = 16.667 // 60fps target
 
@@ -449,40 +452,81 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Render loop with lerp-based smoothing
-    engine.runRenderLoop(() => {
-      // Track frame delta for lerp calculations
+    // Register ball and paddle movement using onBeforeRenderObservable (like powerups)
+    // This is more integrated with Babylon's render pipeline for smoother results
+    scene.onBeforeRenderObservable.add(() => {
       const dt = engine.getDeltaTime()
       lastFrameDeltaRef.current = dt
+      const dtSeconds = dt / 1000
       
-      // Lerp alpha: how much to interpolate this frame
-      // dt/expected gives us frame-rate independent smoothing
+      // Lerp alpha for smooth transitions (frame-rate independent)
       const lerpAlpha = Math.min(dt / EXPECTED_FRAME_MS, 1)
       
-      // Lerp balls toward their targets (with capped velocity extrapolation)
-      const now = performance.now()
+      // Update ball positions using PURE velocity-based movement (like powerup rotation)
       ballsRef.current.forEach((mesh, ballId) => {
         const target = ballTargetsRef.current.get(ballId)
         if (target) {
-          // Calculate time since last state update (in seconds)
-          // Cap extrapolation to prevent over-prediction at high speeds
-          // Server updates ~20-30Hz, so cap at ~50ms (1.5 update intervals) to stay accurate
-          const MAX_EXTRAPOLATION_TIME = 0.05 // 50ms max
-          const rawTimeSinceUpdate = (now - target.lastUpdateTime) / 1000
-          const timeSinceUpdate = Math.min(rawTimeSinceUpdate, MAX_EXTRAPOLATION_TIME)
+          // Get or initialize smoothed velocity
+          let smoothed = smoothedVelocitiesRef.current.get(ballId)
+          if (!smoothed) {
+            smoothed = { vx: target.velocityX, vz: target.velocityZ }
+            smoothedVelocitiesRef.current.set(ballId, smoothed)
+          }
           
-          // Extrapolate position based on velocity (capped)
-          // This predicts where the ball WILL be, not where it WAS
-          const extrapolatedX = target.targetPos.x + target.velocityX * timeSinceUpdate
-          const extrapolatedZ = target.targetPos.z + target.velocityZ * timeSinceUpdate
-          const extrapolatedPos = new Vector3(extrapolatedX, target.targetPos.y, extrapolatedZ)
+          // Check for major direction change (bounce) - if so, snap velocity immediately
+          const dotProduct = smoothed.vx * target.velocityX + smoothed.vz * target.velocityZ
+          const isBounce = dotProduct < 0 // Velocities pointing in opposite-ish directions
           
-          // Use slightly slower lerp for smoother blending when new updates arrive
-          // This reduces "snapping" when server sends new position
-          const smoothLerpAlpha = lerpAlpha * 0.7
-          mesh.position = Vector3.Lerp(mesh.position, extrapolatedPos, smoothLerpAlpha)
+          if (isBounce) {
+            // Bounce detected: snap velocity and position immediately
+            smoothed.vx = target.velocityX
+            smoothed.vz = target.velocityZ
+            mesh.position.x = target.targetPos.x
+            mesh.position.z = target.targetPos.z
+          } else {
+            // Smoothly blend velocity (prevents micro-jitter from server updates)
+            const velocityBlend = 0.15
+            smoothed.vx += (target.velocityX - smoothed.vx) * velocityBlend
+            smoothed.vz += (target.velocityZ - smoothed.vz) * velocityBlend
+          }
           
-          // Lerp scale (for squash animation) - can use faster alpha
+          // Pure velocity-based movement
+          const frameMovementX = smoothed.vx * dtSeconds
+          const frameMovementZ = smoothed.vz * dtSeconds
+          
+          mesh.position.x += frameMovementX
+          mesh.position.z += frameMovementZ
+          
+          // Only snap on major desync (teleport)
+          const dx = target.targetPos.x - mesh.position.x
+          const dz = target.targetPos.z - mesh.position.z
+          const distanceToServer = Math.sqrt(dx * dx + dz * dz)
+          
+          if (distanceToServer >= 2.0) {
+            mesh.position.x = target.targetPos.x
+            mesh.position.z = target.targetPos.z
+          }
+          
+          // Keep Y position consistent
+          mesh.position.y = target.targetPos.y
+          
+          // Rolling rotation based on movement
+          const moveDist2D = Math.sqrt(frameMovementX * frameMovementX + frameMovementZ * frameMovementZ)
+          if (moveDist2D > 0.0001 && mesh.rotationQuaternion && target.visualRadius > 0) {
+            const rotationAmount = -moveDist2D / target.visualRadius
+            const currentRotation = ballRotationsRef.current.get(ballId) || Quaternion.Identity()
+            const dirX = frameMovementX / moveDist2D
+            const dirZ = frameMovementZ / moveDist2D
+            const axisX = -dirZ
+            const axisZ = dirX
+            const incrementalRotation = Quaternion.RotationAxis(new Vector3(axisX, 0, axisZ), rotationAmount)
+            const newRotation = incrementalRotation.multiply(currentRotation)
+            newRotation.normalize()
+            ballRotationsRef.current.set(ballId, newRotation)
+            mesh.rotationQuaternion = newRotation
+          }
+          
+          // Lerp scale (squash animation)
           mesh.scaling = Vector3.Lerp(
             mesh.scaling,
             new Vector3(target.targetScaleX, target.targetScaleY, target.targetScaleZ),
@@ -491,14 +535,17 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         }
       })
       
-      // Lerp paddles toward their targets
+      // Update paddle positions using smooth lerp
       paddlesRef.current.forEach((mesh, paddleId) => {
         const targetPos = paddleTargetsRef.current.get(paddleId)
         if (targetPos) {
-          mesh.position = Vector3.Lerp(mesh.position, targetPos, lerpAlpha)
+          mesh.position = Vector3.Lerp(mesh.position, targetPos, lerpAlpha * 0.8)
         }
       })
-      
+    })
+
+    // Simplified render loop - just renders, all movement is in onBeforeRenderObservable
+    engine.runRenderLoop(() => {
       scene.render()
     })
 
@@ -880,7 +927,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           targetScaleZ: scaleZ,
           velocityX: worldVelocityX,
           velocityZ: worldVelocityZ,
-          lastUpdateTime: performance.now()
+          lastUpdateTime: performance.now(),
+          visualRadius: actualVisualRadius
         })
         
         // If ball is new, snap to position immediately
@@ -892,44 +940,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         // ignore scaling errors
       }
 
-      // Calculate rolling rotation based on actual distance traveled
-      // Simple physics: arc_length = angle * radius, so angle = arc_length / radius
-      // The ball rolls on the ground, so rotation angle = distance_moved / ball_radius
-      const moveDirX = newPos.x - oldPos.x
-      const moveDirZ = newPos.z - oldPos.z
-      const moveDist2D = Math.sqrt(moveDirX * moveDirX + moveDirZ * moveDirZ)
-
-      // Only apply rotation if there's meaningful movement
-      if (moveDist2D > 0.001 && mesh.rotationQuaternion) {
-        // rotation = distance / radius (simple rolling without slipping)
-        // Negate because of Babylon's rotation direction convention
-        const rotationAmount = -moveDist2D / actualVisualRadius
-
-        // Get current rotation quaternion
-        const currentRotation = ballRotationsRef.current.get(b.id) || Quaternion.Identity()
-
-        // Normalize the movement direction
-        const dirX = moveDirX / moveDist2D
-        const dirZ = moveDirZ / moveDist2D
-
-        // Rotation axis is perpendicular to movement direction (cross product of up and move dir)
-        // axis = up × moveDir = (0,1,0) × (dirX, 0, dirZ) = (-dirZ, 0, dirX)
-        const axisX = -dirZ
-        const axisZ = dirX
-
-        // Create incremental rotation quaternion
-        const incrementalRotation = Quaternion.RotationAxis(
-          new Vector3(axisX, 0, axisZ),
-          rotationAmount
-        )
-
-        // Apply incremental rotation to current rotation
-        const newRotation = incrementalRotation.multiply(currentRotation)
-        newRotation.normalize()
-
-        ballRotationsRef.current.set(b.id, newRotation)
-        mesh.rotationQuaternion = newRotation
-      }
+      // Note: Rolling rotation is now handled in onBeforeRenderObservable for smoother animation
+      // The rotation is calculated based on actual frame-by-frame movement there
 
       // Detect bounces by checking if velocity direction changed
       const prevVel = previousBallVelocitiesRef.current.get(b.id)
@@ -1138,6 +1150,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ballRotationsRef.current.delete(id)
         ballTargetsRef.current.delete(id)
         ballSquashRef.current.delete(id)
+        smoothedVelocitiesRef.current.delete(id)
       }
     }
   }, [gameState, darkMode, paddleRotationOffset])
