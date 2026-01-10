@@ -116,6 +116,8 @@ export default function PongComponent({
       metadata: raw.metadata ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
       score: raw.score ?? null,
+      gameOver: raw.gameOver ?? false,
+      winner: raw.winner ?? null,
     }
   }
   const { socket, payloadReceived } = useWebSocket()
@@ -495,6 +497,15 @@ export default function PongComponent({
           if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.GameUpdate.code) {
             // Update game state silently (happens frequently)
             const normalized = normalizeGameState(payloadReceived.payload)
+            // Log gameOver state for debugging
+            if (payloadReceived.payload?.gameOver) {
+              console.log("[Pong] 🎮 GAME OVER RECEIVED!", { 
+                gameOver: payloadReceived.payload.gameOver, 
+                winner: payloadReceived.payload.winner,
+                score: payloadReceived.payload.score 
+              });
+              alert(`GAME OVER! Winner: Player ${payloadReceived.payload.winner}`);
+            }
             // Expose last normalized game state to window for quick debugging in the browser
             try { (window as any).__lastNormalizedPongState = normalized } catch (e) { /* ignore in server env */ }
             setGameState(normalized);
@@ -1048,6 +1059,68 @@ export default function PongComponent({
     }
   }, [gameState, currentView, playerOnePaddleID]);
 
+  // Handle Game Over overlay injection
+  useEffect(() => {
+    if (currentView !== "game") return;
+    
+    const existingOverlay = document.getElementById("pong-game-over-overlay");
+    
+    if (gameState?.gameOver) {
+      console.log("[Pong] GAME OVER! Winner:", gameState.winner, "Score:", gameState.score);
+      
+      if (!existingOverlay) {
+        const overlay = document.createElement("div");
+        overlay.id = "pong-game-over-overlay";
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.85);
+          z-index: 2147483648;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        `;
+        
+        const scoreDisplay = gameState.score 
+          ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `Player ${p}: ${s}`).join(' | ')
+          : '';
+        
+        overlay.innerHTML = `
+          <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 4px solid #fbbf24; border-radius: 20px; padding: 50px 80px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+            <h1 style="color: #fbbf24; font-size: 64px; margin: 0 0 20px 0; text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);">GAME OVER!</h1>
+            <p style="color: white; font-size: 32px; margin: 0 0 30px 0;">Winner: <span style="color: #22c55e; font-weight: bold;">Player ${gameState.winner}</span></p>
+            <p style="color: #9ca3af; font-size: 24px; margin: 0 0 40px 0;">${scoreDisplay}</p>
+            <button id="pong-game-over-back-btn" style="padding: 15px 50px; font-size: 20px; background: #22c55e; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.2s;">
+              Back to Menu
+            </button>
+          </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        const backBtn = document.getElementById("pong-game-over-back-btn");
+        if (backBtn) {
+          backBtn.onclick = () => {
+            overlay.remove();
+            const mountEl = document.getElementById("pong-babylon-mount");
+            if (mountEl && (mountEl as any).__reactRoot) {
+              (mountEl as any).__reactRoot.unmount();
+            }
+            document.getElementById("pong-game-container")?.remove();
+            setGameState(null);
+            setCurrentView("menu");
+          };
+        }
+      }
+    } else if (existingOverlay) {
+      existingOverlay.remove();
+    }
+  }, [currentView, gameState?.gameOver, gameState?.winner, gameState?.score]);
+
   // RENDER LOGIC
   console.log("[Pong] RENDER called, currentView =", currentView);
   
@@ -1228,6 +1301,46 @@ export default function PongComponent({
               balls: {gameState?.balls?.length ?? 0} | 
               paddles: {gameState?.paddles?.length ?? 0}
             </p>
+            {/* Score Display */}
+            {gameState?.score && (
+              <div style={{ marginTop: 20, background: "rgba(0,0,0,0.5)", padding: "15px 30px", borderRadius: 10 }}>
+                <h2 style={{ color: "white", fontSize: "24px", marginBottom: 10 }}>📊 Scores</h2>
+                <div style={{ display: "flex", gap: 30 }}>
+                  {Object.entries(gameState.score).map(([playerId, score]) => (
+                    <div key={playerId} style={{ color: "white", fontSize: "20px" }}>
+                      Player {playerId}: <span style={{ color: "#fbbf24", fontWeight: "bold" }}>{score}</span>
+                    </div>
+                  ))}
+                </div>
+                {lobby?.settings?.maxScore && (
+                  <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: 10 }}>
+                    First to {lobby.settings.maxScore} wins!
+                  </p>
+                )}
+              </div>
+            )}
+            {/* Game Over Overlay */}
+            {gameState?.gameOver && (
+              <div style={{ 
+                marginTop: 30, 
+                background: "rgba(255,215,0,0.9)", 
+                padding: "30px 50px", 
+                borderRadius: 15,
+                textAlign: "center"
+              }}>
+                <h1 style={{ color: "#000", fontSize: "48px", fontWeight: "bold", margin: 0 }}>
+                  🏆 GAME OVER! 🏆
+                </h1>
+                <p style={{ color: "#000", fontSize: "28px", marginTop: 15 }}>
+                  Winner: Player {gameState.winner}
+                </p>
+                {gameState.score && (
+                  <p style={{ color: "#333", fontSize: "20px", marginTop: 10 }}>
+                    Final Score: {Object.entries(gameState.score).map(([p, s]) => `Player ${p}: ${s}`).join(' | ')}
+                  </p>
+                )}
+              </div>
+            )}
             <button 
               onClick={() => setCurrentView("menu")}
               style={{ marginTop: 30, padding: "15px 30px", fontSize: "20px", background: "red", color: "white", border: "none", cursor: "pointer" }}

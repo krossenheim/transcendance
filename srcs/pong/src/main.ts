@@ -28,6 +28,21 @@ const singletonPong = new PongManager(socket);
 const tournamentManager = new TournamentManager();
 const blockchainService = new BlockchainService();
 
+// Connect tournament manager to pong manager for match completion
+singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winnerId) => {
+  console.log(`[Pong] Recording tournament match winner: tournament=${tournamentId}, match=${matchId}, winner=${winnerId}`);
+  const result = await tournamentManager.recordMatchWinner(tournamentId, matchId, winnerId);
+  if (result.isErr()) {
+    console.error("Failed to record match winner:", result.unwrapErr());
+  } else {
+    const tournament = result.unwrap();
+    console.log(`[Pong] Tournament match recorded. Status: ${tournament.status}, Winner: ${tournament.winnerId}`);
+    if (tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0) {
+      console.log(`[Pong] On-chain tx hashes: ${tournament.onchainTxHashes.join(", ")}`);
+    }
+  }
+});
+
 function createBasicGameOptions(): PongGameOptions {
   return {
     canvasWidth: 1000,
@@ -43,8 +58,9 @@ function createBasicGameOptions(): PongGameOptions {
   };
 }
 
-function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean): PongGameOptions {
-  return {
+function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number): PongGameOptions {
+  console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}`);
+  const options: PongGameOptions = {
     canvasWidth: 1000,
     canvasHeight: 1000,
     ballSpeed: 450,
@@ -57,6 +73,11 @@ function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean): 
     powerupFrequency: allowPowerups ? 10 : 999999,
     gameDuration: 180,
   };
+  if (maxScore !== undefined) {
+    options.maxScore = maxScore;
+  }
+  console.log(`[Pong] Game options: powerupFrequency=${options.powerupFrequency}, maxScore=${options.maxScore}`);
+  return options;
 }
 
 socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) => {
@@ -298,9 +319,38 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     }));
   }
 
-  // Create the actual pong game
+  // Get tournament and match info if this is a tournament game
+  let tournamentId: number | undefined;
+  let matchId: number | undefined;
+  
+  if (lobby.tournamentId) {
+    tournamentId = lobby.tournamentId;
+    const tournament = tournamentManager.getTournament(tournamentId);
+    if (tournament) {
+      // Find the current pending match for these players
+      const playerIds = lobby.players.map((p) => p.userId);
+      const pendingMatch = tournament.matches.find(m => 
+        m.status === "pending" && 
+        m.player1Id !== null && 
+        m.player2Id !== null &&
+        playerIds.includes(m.player1Id) && 
+        playerIds.includes(m.player2Id)
+      );
+      if (pendingMatch) {
+        matchId = pendingMatch.matchId;
+        console.log(`[Pong] Starting tournament match: tournament=${tournamentId}, match=${matchId}`);
+      }
+    }
+  }
+
+  // Create the actual pong game with maxScore
   const playerIds = lobby.players.map((p) => p.userId);
-  const gameResult = singletonPong.startGame(playerIds, createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups));
+  const gameResult = singletonPong.startGame(
+    playerIds, 
+    createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups, lobby.maxScore),
+    tournamentId,
+    matchId
+  );
 
   if (gameResult.isErr()) {
     return Result.Ok(response.select("NotAllReady").reply({
@@ -310,6 +360,14 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
 
   // Get the game_id from the startGame response
   const gameId = gameResult.unwrap();
+
+  // If this is a tournament match, update the match status
+  if (tournamentId && matchId) {
+    const startResult = tournamentManager.startTournamentMatch(tournamentId, matchId, user_id, gameId);
+    if (startResult.isErr()) {
+      console.warn(`[Pong] Failed to start tournament match: ${startResult.unwrapErr().message}`);
+    }
+  }
 
   // Mark lobby as in progress
   lobbyManager.startGame(lobbyId, user_id, gameId);
