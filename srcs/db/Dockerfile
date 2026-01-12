@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm install
 
 COPY shared ./
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
 
 WORKDIR /app/srcs/${SERVICE_NAME}
 
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm install
 
 COPY srcs/${SERVICE_NAME}/src ./src
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
 
 
 # ---- Runner Stage ----

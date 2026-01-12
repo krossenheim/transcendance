@@ -21,6 +21,10 @@ export class Scene {
         this.timeScale = scale;
     }
 
+    public getTimeScale(): number {
+        return this.timeScale;
+    }
+
     public addObject(obj: BaseObject): void {
         this.objects.push(obj);
     }
@@ -123,7 +127,7 @@ export class Scene {
             const bTask = parentB.onCollision(parentA, this.elapsedTime);
 
             const handleMethod = Math.max(aTask, bTask);
-			console.log(`Handling collision between ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name} with method ${CollisionResponse[handleMethod]}`);
+            // Collision logging removed for performance
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
                     collision.objectA.moveByDelta(FAT_EPS);

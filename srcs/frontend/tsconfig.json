@@ -35,6 +35,9 @@
         "paths": {
             "@app/shared/*": [
                 "../../shared/src/*"
+            ],
+            "@shared/*": [
+                "../../shared/src/*"
             ]
         }
     }

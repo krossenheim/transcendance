@@ -22,6 +22,8 @@ services:
     restart: always
     ports:
       - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/mkcert:ro
     networks:
       transcendance_network:
         ipv4_address: ${NGINX_IPV4_ADDRESS}

@@ -2,42 +2,42 @@ import run_bash_command from '@app/shared/run_bash_command';
 
 if (!process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS)
 {
-      throw new Error("Env var COMMON_PORT_ALL_DOCKER_CONTAINERS not set'");
+      throw new Error("Env var COMMON_PORT_ALL_DOCKER_CONTAINERS not set");
 }
 
 if (!process.env.CHATROOM_IPV4_ADDRESS)
 {
-      throw new Error("Env var CHATROOM_IPV4_ADDRESS not set'");
+      throw new Error("Env var CHATROOM_IPV4_ADDRESS not set");
 }
 
 if (!process.env.NGINX_IPV4_ADDRESS)
 {
-      throw new Error("Env var NGINX_IPV4_ADDRESS not set'");
+      throw new Error("Env var NGINX_IPV4_ADDRESS not set");
 }
 
 if (!process.env.DATABASE_IPV4_ADDRESS)
 {
-      throw new Error("Env var DATABASE_IPV4_ADDRESS not set'");
+      throw new Error("Env var DATABASE_IPV4_ADDRESS not set");
 }
 
 if (!process.env.AUTH_IPV4_ADDRESS)
 {
-      throw new Error("Env var AUTH_IPV4_ADDRESS not set'");
+      throw new Error("Env var AUTH_IPV4_ADDRESS not set");
 }
 
 if (!process.env.HUB_IPV4_ADDRESS)
 {
-      throw new Error("Env var HUB_IPV4_ADDRESS not set'");
+      throw new Error("Env var HUB_IPV4_ADDRESS not set");
 }
 
 if (!process.env.PONG_IPV4_ADDRESS)
 {
-      throw new Error("Env var PONG_IPV4_ADDRESS not set'");
+      throw new Error("Env var PONG_IPV4_ADDRESS not set");
 }
 
 if (!process.env.USERS_IPV4_ADDRESS)
 {
-      throw new Error("Env var USERS_IPV4_ADDRESS not set'");
+      throw new Error("Env var USERS_IPV4_ADDRESS not set");
 }
 
 export const containersIpToName = new Map<string | undefined, string | undefined>();

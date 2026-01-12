@@ -9,6 +9,8 @@ import { Wall, PlayerWall } from "./wall.js";
 import { PongPaddle } from "./paddle.js";
 import { PongBall } from "./ball.js";
 
+// Toggle heavy game logging for debugging (set to `true` only when debugging).
+const ENABLE_GAME_LOGS = false;
 export type PongGameOptions = {
     canvasWidth: number;
     canvasHeight: number;
@@ -20,6 +22,7 @@ export type PongGameOptions = {
     amountOfBalls?: number;
     powerupFrequency: number;
     gameDuration: number;
+    maxScore?: number; // If set, game ends when any player reaches this score
 }
 
 export enum PowerupType {
@@ -63,14 +66,14 @@ export class Powerup extends CircleObject {
 		this.game = game;
 		this.spawnTime = game.getScene().getElapsedTime();
 
-		this.setCollisionHandler((other: BaseObject) => {
-			if (other instanceof PongBall) {
-				console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
-				this.game.applyPowerupEffect(this, other);
-			}
+        this.setCollisionHandler((other: BaseObject) => {
+            if (other instanceof PongBall) {
+                if (ENABLE_GAME_LOGS) console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
+                this.game.applyPowerupEffect(this, other);
+            }
 
-			return CollisionResponse.RESET;
-		});
+            return CollisionResponse.RESET;
+        });
 	}
 
 	static generateRandomPowerup(center: Vec2, velocity: Vec2, game: PongGame): Powerup {
@@ -171,10 +174,10 @@ export class PongGame {
         } else {
             const wall = new PlayerWall(pointA, pointB, playerId);
             wall.setCollisionHandler((other: BaseObject): CollisionResponse => {
-                console.log(`Ball collided with player ${playerId}\'s wall.`);
+                if (ENABLE_GAME_LOGS) console.log(`Ball collided with player ${playerId}'s wall.`);
                 if (other instanceof PongBall) {
                     this.score.set(playerId, (this.score.get(playerId) || 0) - 1);
-                    console.log(`Player ${playerId} conceded a point! Current score: ${this.score.get(playerId)}.`);
+                    if (ENABLE_GAME_LOGS) console.log(`Player ${playerId} conceded a point! Current score: ${this.score.get(playerId)}.`);
                 }
                 return CollisionResponse.BOUNCE;
             });
@@ -191,12 +194,26 @@ export class PongGame {
         const halfAngleStep = Math.PI / wallSegments.length;
         const angleStep = (2 * Math.PI) / wallSegments.length;
 
+        // Instrumentation: log geometry generation parameters to help debug intermittent invalid values.
+        try {
+            console.warn(`[PongGame] constructPlayingField: wallSegments.length=${wallSegments.length} angleStep=${angleStep} halfAngleStep=${halfAngleStep}`);
+        } catch (e) {}
+
         for (let i = 0; i < wallSegments.length; i++) {
             const wallStart = center.add(new Vec2(0, -1).rotate(i * angleStep - halfAngleStep).mul(halfSize));
             const wallEnd = center.add(new Vec2(0, -1).rotate(i * angleStep + halfAngleStep).mul(halfSize));
+            try {
+                const segLen = wallEnd.sub(wallStart).len();
+                console.warn(`[PongGame] wall#${i} start=(${wallStart.x.toFixed(2)},${wallStart.y.toFixed(2)}) end=(${wallEnd.x.toFixed(2)},${wallEnd.y.toFixed(2)}) segLen=${segLen.toFixed(2)}`);
+            } catch (e) {}
             const wall = this.createWallSegment(wallStart, wallEnd, wallSegments[i]!);
             this.walls.push(wall);
             this.scene.addObject(wall);
+            try {
+                console.log(`[PongGame] Created wall #${i} player=${wallSegments[i]} start=(${wallStart.x.toFixed(2)},${wallStart.y.toFixed(2)}) end=(${wallEnd.x.toFixed(2)},${wallEnd.y.toFixed(2)})`);
+            } catch (e) {
+                // Swallow logging errors to avoid disrupting game startup
+            }
         }
 
         let powerupBaseRadius = Infinity;
@@ -208,7 +225,9 @@ export class PongGame {
             const bSq = (wallEnd.sub(wallStart).len() / 2) ** 2;
             const aSq = cSq - bSq;
 
-            const closestDistanceWallToCenter =  Math.sqrt(aSq)
+            // Guard against small negative values from floating-point error
+            // which would make Math.sqrt produce NaN and corrupt object positions.
+            const closestDistanceWallToCenter = Math.sqrt(Math.max(0, aSq));
             powerupBaseRadius = Math.min(powerupBaseRadius, closestDistanceWallToCenter);
 
             const playerPaddleSize = (this.gameOptions.paddleWidthFactor || 0.3) * (wallEnd.sub(wallStart).len());
@@ -217,6 +236,11 @@ export class PongGame {
             const paddle = new PongPaddle(paddleCenter, playerPaddleSize, this.gameOptions.paddleHeight, new Vec2(0, -1).rotate(i * angleStep).normalize(), wallEnd.sub(wallStart).len(), this.gameOptions.paddleSpeedFactor, [this.walls[(i-1 + this.walls.length) % this.walls.length]!, this.walls[(i+1) % this.walls.length]!], wallSegments[i]!);
             this.paddles.push(paddle);
             this.scene.addObject(paddle);
+            try {
+                console.log(`[PongGame] Created paddle #${i} player=${wallSegments[i]} center=(${paddleCenter.x.toFixed(2)},${paddleCenter.y.toFixed(2)}) size=${playerPaddleSize.toFixed(2)} offset=${playerPaddleOffset}`);
+            } catch (e) {
+                // Ignore logging failures
+            }
         }
 
         this.powerupSpawnRadius = powerupBaseRadius - (this.gameOptions.paddleHeight / 2 + 160);
@@ -237,18 +261,23 @@ export class PongGame {
         });
 
         ball.inverseMass = inverseMass;
+        try {
+            console.log(`[PongGame] Spawned ball id=${ball.id} pos=(${position.x.toFixed(2)},${position.y.toFixed(2)}) vel=(${velocity.x.toFixed(2)},${velocity.y.toFixed(2)}) radius=${radius}`);
+        } catch (e) {
+            // ignore
+        }
         this.balls.push(ball);
         this.scene.addObject(ball);
     }
 
     private spawnNewPowerup(): void {
-        console.log(this.powerupSpawnRadius);
+        if (ENABLE_GAME_LOGS) console.log(this.powerupSpawnRadius);
         const position = (new Vec2(1, 0).rotate(Math.random() * 2 * Math.PI)).mul(Math.sqrt(Math.random()) * this.powerupSpawnRadius).add(new Vec2(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2));
         const velocity = new Vec2(0, 0);
         const powerup = Powerup.generateRandomPowerup(position, velocity, this);
         this.powerups.push(powerup);
         this.scene.addObject(powerup);
-        console.log(`Spawned new powerup of type ${PowerupType[powerup.getPowerupType()]} at position (${position.x.toFixed(2)}, ${position.y.toFixed(2)}).`);
+        if (ENABLE_GAME_LOGS) console.log(`Spawned new powerup of type ${PowerupType[powerup.getPowerupType()]} at position (${position.x.toFixed(2)}, ${position.y.toFixed(2)}).`);
     }
 
     constructor(players: number[], gameOptions: PongGameOptions) {
@@ -278,12 +307,13 @@ export class PongGame {
     }
 
     public playSimulation(deltaTime: number): void {
-        let timeRemaining = Math.min(this.gameOptions.gameDuration - this.scene.getElapsedTime(), deltaTime);
+        const currentElapsed = this.scene.getElapsedTime();
+        let timeRemaining = Math.min(this.gameOptions.gameDuration - currentElapsed, deltaTime);
         if (timeRemaining <= 0) return;
 
-        this.cleanUpExpiredPowerups();
+        this.cleanUpExpiredPowerups(currentElapsed);
 
-        if (this.scene.getElapsedTime() >= this.nextPowerupSpawnTime) {
+        if (currentElapsed >= this.nextPowerupSpawnTime) {
             this.spawnNewPowerup();
             this.nextPowerupSpawnTime += this.gameOptions.powerupFrequency * (0.8 + Math.random() * 0.4);
         }
@@ -306,7 +336,7 @@ export class PongGame {
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
         switch (powerup.getPowerupType()) {
             case PowerupType.ADD_BALL:
-				console.log(`Spawning new ball due to powerup effect.`);
+			if (ENABLE_GAME_LOGS) console.log(`Spawning new ball due to powerup effect.`);
                 this.spawnNewBall(ball.center.clone(), ball.velocity.clone().rotate(Math.random() * Math.PI / 4 - Math.PI / 8), ball.radius, ball.inverseMass, this.gameOptions);
                 break;
 
@@ -368,12 +398,11 @@ export class PongGame {
         }
     }
 
-    private cleanUpExpiredPowerups(): void {
-        const currentTime = this.scene.getElapsedTime();
+    private cleanUpExpiredPowerups(currentTime: number): void {
         this.powerups = this.powerups.filter(powerup => {
             const couldBeRemoved = !(powerup.isPowerupActive(currentTime) || !powerup.isPowerupTaken());
             if (couldBeRemoved) {
-                console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
+                if (ENABLE_GAME_LOGS) console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
                 this.scene.removeObject(powerup);
                 this.removePowerupEffects(powerup);
             }
@@ -427,10 +456,10 @@ export class PongGame {
 			this.scene.removeObject(wall);
 			
 			const newWall = new Wall(wall.pointA.clone(), wall.pointB.clone());
-			newWall.setCollisionHandler((other: BaseObject): CollisionResponse => {
-				console.log(`Ball collided with a neutral wall.`);
-				return CollisionResponse.BOUNCE;
-			});
+            newWall.setCollisionHandler((other: BaseObject): CollisionResponse => {
+                if (ENABLE_GAME_LOGS) console.log(`Ball collided with a neutral wall.`);
+                return CollisionResponse.BOUNCE;
+            });
 			this.walls.push(newWall);
 			this.scene.addObject(newWall);
 		}
@@ -453,6 +482,9 @@ export class PongGame {
             paddles: this.paddles.map(paddle => paddle.toJSON()),
             powerups: this.powerups.map(powerup => powerup.toJSON()),
             score: Object.fromEntries(this.fetchPlayerScoreMap()),
+            serverTime: Date.now(),
+            gameOver: this.isGameOver(),
+            winner: this.isGameOver() ? this.getWinner() : null,
         }
     }
 
@@ -468,7 +500,47 @@ export class PongGame {
         return Array.from(this.paddles.filter(paddle => paddle.playerId === playerId));
     }
 
+    /**
+     * Handle pressed keys for a specific player's paddles only
+     */
+    public handlePressedKeysForPlayer(keys: string[], playerId: number): void {
+        const playerPaddles = this.getPlayerPaddles(playerId);
+        for (const paddle of playerPaddles) {
+            for (const keyData of paddle.keyData) {
+                keyData.isPressed = keys.includes(keyData.key.toLowerCase());
+            }
+        }
+    }
+
     public isGameOver(): boolean {
-        return this.scene.getElapsedTime() >= this.gameOptions.gameDuration - FAT_EPS;
+        // Check time-based end
+        if (this.scene.getElapsedTime() >= this.gameOptions.gameDuration - FAT_EPS) {
+            return true;
+        }
+        // Check score-based end (if maxScore is configured)
+        if (this.gameOptions.maxScore && this.gameOptions.maxScore > 0) {
+            const scoreMap = this.fetchPlayerScoreMap();
+            for (const score of scoreMap.values()) {
+                if (score >= this.gameOptions.maxScore) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public getWinner(): number | null {
+        const scoreMap = this.fetchPlayerScoreMap();
+        let maxScore = -Infinity;
+        let winnerId: number | null = null;
+        
+        for (const [playerId, score] of scoreMap.entries()) {
+            if (score > maxScore) {
+                maxScore = score;
+                winnerId = playerId;
+            }
+        }
+        
+        return winnerId;
     }
 }

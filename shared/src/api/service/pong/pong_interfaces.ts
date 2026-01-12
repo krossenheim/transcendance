@@ -60,6 +60,7 @@ export const HandleGameKeysSchema = z
   .object({
     board_id: gameIdValue, // board id
     pressed_keys: z.array(z.string()), // pressed keys
+    clientTimestamp: z.number().optional(), // client timestamp for lag compensation
   })
   .strict();
 

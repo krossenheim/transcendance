@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState, useRef } from "react"
+import ReactDOM from "react-dom"
 import type {
   TypeHandleGameKeysSchema,
   TypeStartNewPongGame,
@@ -9,7 +10,7 @@ import type {
   TypePlayerDeclaresReadyForGame,
 } from "./types/pong-interfaces"
 import { useWebSocket } from "./socketComponent"
-import { user_url } from "@app/shared/api/service/common/endpoints"
+import { user_url } from "./endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
@@ -17,7 +18,7 @@ import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
-import user from "@app/shared/api/service/db/user"
+// local: avoid importing server-side db helpers
 
 // =========================
 // Component
@@ -50,10 +51,12 @@ export default function PongComponent({
     if (!raw) return null
 
     // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
-    const balls = (raw.balls || []).map((b: any, idx: number) => {
+    const balls = (raw.balls || []).filter((b: any) => b != null).map((b: any, idx: number) => {
       if (Array.isArray(b)) {
+        // New backend includes stable ball id at index 6. Fallback to index if missing.
+        const stableId = Number.isFinite(Number(b[6])) ? Number(b[6]) : idx
         return {
-          id: idx,
+          id: stableId,
           x: Number(b[0]) || 0,
           y: Number(b[1]) || 0,
           dx: Number(b[2]) || 0,
@@ -61,19 +64,19 @@ export default function PongComponent({
           radius: Number(b[4]) || 10,
         }
       }
-      // already object-shaped
+      // already object-shaped (defensive access)
       return {
-        id: b.id ?? idx,
-        x: b.x ?? 0,
-        y: b.y ?? 0,
-        dx: b.dx ?? 0,
-        dy: b.dy ?? 0,
-        radius: b.radius ?? b.r ?? 10,
+        id: b?.id ?? idx,
+        x: b?.x ?? 0,
+        y: b?.y ?? 0,
+        dx: b?.dx ?? 0,
+        dy: b?.dy ?? 0,
+        radius: b?.radius ?? b?.r ?? 10,
       }
     })
 
     // paddles: tuple [x,y,angle,width,height,vx,vy,playerId] -> { x,y,r,w,l,owner_id,paddle_id }
-    const paddles = (raw.paddles || []).map((p: any, idx: number) => {
+    const paddles = (raw.paddles || []).filter((p: any) => p != null).map((p: any, idx: number) => {
       if (Array.isArray(p)) {
         const owner = Number(p[7]) ?? idx
         return {
@@ -87,22 +90,22 @@ export default function PongComponent({
         }
       }
       return {
-        x: p.x ?? 0,
-        y: p.y ?? 0,
-        r: p.r ?? p.rotation ?? 0,
-        w: p.w ?? p.width ?? 10,
-        l: p.l ?? p.length ?? 50,
-        owner_id: p.owner_id ?? p.ownerId ?? p.player_id ?? p.playerId ?? idx,
-        paddle_id: p.paddle_id ?? p.id ?? idx,
+        x: p?.x ?? 0,
+        y: p?.y ?? 0,
+        r: p?.r ?? p?.rotation ?? 0,
+        w: p?.w ?? p?.width ?? 10,
+        l: p?.l ?? p?.length ?? 50,
+        owner_id: p?.owner_id ?? p?.ownerId ?? p?.player_id ?? p?.playerId ?? idx,
+        paddle_id: p?.paddle_id ?? p?.id ?? idx,
       }
     })
 
     // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
-    const edges = (raw.walls || []).map((w: any) => {
+    const edges = (raw.walls || []).filter((w: any) => w != null).map((w: any) => {
       if (Array.isArray(w)) {
         return { x: Number(w[0]) || 0, y: Number(w[1]) || 0 }
       }
-      return { x: w.x ?? 0, y: w.y ?? 0 }
+      return { x: w?.x ?? 0, y: w?.y ?? 0 }
     })
 
     return {
@@ -113,6 +116,8 @@ export default function PongComponent({
       metadata: raw.metadata ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
       score: raw.score ?? null,
+      gameOver: raw.gameOver ?? false,
+      winner: raw.winner ?? null,
     }
   }
   const { socket, payloadReceived } = useWebSocket()
@@ -129,7 +134,21 @@ export default function PongComponent({
   const [paddleRotationOffset, setPaddleRotationOffset] = useState<number>(0)
 
   // New state for lobby and tournament
-  const [currentView, setCurrentView] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
+  const [currentViewInternal, setCurrentViewInternal] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
+  
+  // Wrapper to log WHO is changing the view
+  const setCurrentView = (newView: "menu" | "lobby" | "game" | "tournament") => {
+    console.log("[Pong] VIEW CHANGE:", currentViewInternal, "->", newView);
+    console.trace("[Pong] Stack trace for view change:");
+    setCurrentViewInternal(newView);
+  };
+  const currentView = currentViewInternal;
+  
+  // Debug: Log all view changes
+  useEffect(() => {
+    console.log("[Pong] VIEW IS NOW:", currentView);
+  }, [currentView]);
+  
   const [lobby, setLobby] = useState<PongLobbyData | null>(null)
   const [tournament, setTournament] = useState<TournamentData | null>(null)
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null) // Track tournament ID during game
@@ -259,9 +278,9 @@ export default function PongComponent({
             isHost: p.isHost,
           })),
           settings: {
-            ballCount: payloadReceived.payload.ballCount,
-            maxScore: payloadReceived.payload.maxScore,
-            allowPowerups: payloadReceived.payload.allowPowerups,
+            ballCount: payloadReceived.payload.ballCount ?? 1,
+            maxScore: payloadReceived.payload.maxScore ?? 5,
+            allowPowerups: payloadReceived.payload.allowPowerups ?? false,
           },
           status: payloadReceived.payload.status,
         })
@@ -326,9 +345,9 @@ export default function PongComponent({
             isHost: p.isHost,
           })),
           settings: {
-            ballCount: lobbyData.ballCount,
-            maxScore: lobbyData.maxScore,
-            allowPowerups: lobbyData.allowPowerups,
+            ballCount: lobbyData.ballCount ?? 1,
+            maxScore: lobbyData.maxScore ?? 5,
+            allowPowerups: lobbyData.allowPowerups ?? false,
           },
           status: lobbyData.status,
         })
@@ -385,9 +404,9 @@ export default function PongComponent({
           isHost: p.isHost,
         })),
         settings: {
-          ballCount: storedLobbyData.ballCount,
-          maxScore: storedLobbyData.maxScore,
-          allowPowerups: storedLobbyData.allowPowerups,
+          ballCount: storedLobbyData.ballCount ?? 1,
+          maxScore: storedLobbyData.maxScore ?? 5,
+          allowPowerups: storedLobbyData.allowPowerups ?? false,
         },
         status: storedLobbyData.status,
       })
@@ -443,75 +462,75 @@ export default function PongComponent({
     for (const webSocketRoute of Object.values(user_url.ws.pong)) {
       if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
 
-      const responseSchema = Object.values(webSocketRoute.schema.output).find(
-        (r) => r.code === payloadReceived.code
-      );
-
-      if (!responseSchema) {
-        console.error("Unknown code", payloadReceived.code);
-        return;
-      }
-
-      const parsed = responseSchema.payload.safeParse(payloadReceived.payload);
-      if (!parsed.success) {
-        console.warn("[Pong] Invalid payload", parsed.error);
-        return;
-      }
-
-      // Update the appropriate state slice based on funcId
+      // Handle each route type directly without complex schema validation
       switch (payloadReceived.funcId) {
-        case user_url.ws.pong.getGameState.funcId:
-          if (
-            payloadReceived.code !==
-            user_url.ws.pong.getGameState.schema.output.GameUpdate.code
-          ) {
-            console.warn("[Pong] getGameState returned non-GameUpdate code:", payloadReceived.code);
-            console.warn("[Pong] Payload:", payloadReceived.payload);
-            if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.NotInRoom.code) {
-              console.log("[Pong] User not in any game room - this is normal if no game exists");
-            }
-            break;
-          }
-            // Update game state silently (happens frequently)
-            const normalized = normalizeGameState(parsed.data)
-            setGameState(normalized);
-            gameStateReceivedRef.current = true;
-            setPlayerIDsHelper(normalized);
-          // If we received valid game state and we're not in game view, switch to it
-          if (currentView !== 'game' && parsed.data?.board_id) {
-            console.log("[Pong] Received game state while not in game view, transitioning to game");
-            setLobby(null);
-            setCurrentView("game");
-          }
-          break;
         case user_url.ws.pong.startGame.funcId:
-          console.log("[Pong] Game started, received game info:", parsed.data);
-          if (parsed.data && typeof parsed.data.board_id === 'number') {
-            setLastCreatedBoardId(parsed.data.board_id)
+          console.log("[Pong] Game started, received game info:", payloadReceived.payload);
+          if (payloadReceived.payload && typeof payloadReceived.payload.board_id === 'number') {
+            setLastCreatedBoardId(payloadReceived.payload.board_id)
           }
           // Game has been created, now request the game state once
           const requestGameStatePayload = {
             funcId: user_url.ws.pong.getGameState.funcId,
             payload: {
-              gameId: parsed.data.board_id,
+              gameId: payloadReceived.payload?.board_id,
             },
             target_container: user_url.ws.pong.getGameState.container,
           };
           if (socket.current?.readyState === WebSocket.OPEN) {
             socket.current.send(JSON.stringify(requestGameStatePayload));
-            console.log("[Pong] Requested game state after game creation (handler will respond)");
+            console.log("[Pong] Requested game state after game creation");
           }
-          break;
-        case user_url.ws.pong.userReportsReady.funcId:
-          console.log("[Pong] Player ready:", parsed.data);
-          setLatestPlayerReadyPayload(parsed.data);
-          break;
-        // Add other funcIds here...
-      }
+          return;
 
-      return; // stop after first match
+        case user_url.ws.pong.handleGameKeys.funcId:
+          // Key handling doesn't need response processing
+          return;
+
+        case user_url.ws.pong.userReportsReady.funcId:
+          console.log("[Pong] Player ready:", payloadReceived.payload);
+          setLatestPlayerReadyPayload(payloadReceived.payload);
+          return;
+
+        case user_url.ws.pong.getGameState.funcId:
+          // Code 0 = GameUpdate (success), Code 1 = NotInRoom
+          if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.GameUpdate.code) {
+            // Update game state silently (happens frequently)
+            const normalized = normalizeGameState(payloadReceived.payload)
+            // Log gameOver state for debugging
+            if (payloadReceived.payload?.gameOver) {
+              console.log("[Pong] 🎮 GAME OVER RECEIVED!", { 
+                gameOver: payloadReceived.payload.gameOver, 
+                winner: payloadReceived.payload.winner,
+                score: payloadReceived.payload.score 
+              });
+              // Note: Game over overlay is handled via useEffect injection
+            }
+            // Expose last normalized game state to window for quick debugging in the browser
+            try { (window as any).__lastNormalizedPongState = normalized } catch (e) { /* ignore in server env */ }
+            setGameState(normalized);
+            gameStateReceivedRef.current = true;
+            setPlayerIDsHelper(normalized);
+            // If we received valid game state and we're not in game view, switch to it
+            if (currentView !== 'game' && payloadReceived.payload?.board_id) {
+              console.log("[Pong] Received game state while not in game view, transitioning to game");
+              setLobby(null);
+              setCurrentView("game");
+            }
+          } else if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.NotInRoom.code) {
+            console.log("[Pong] User not in any game room - this is normal if no game exists");
+          } else {
+            // Unknown code (like -1) - just log and continue
+            console.log("[Pong] getGameState returned code:", payloadReceived.code, "- ignoring");
+          }
+          return;
+
+        default:
+          console.log("[Pong] Unhandled pong funcId:", payloadReceived.funcId);
+          return;
+      }
     }
-  }, [payloadReceived, setPlayerIDsHelper]);
+  }, [payloadReceived, setPlayerIDsHelper, currentView]);
 
   // useEffect(() => {
   //   if (!payloadReceived) return;
@@ -890,9 +909,9 @@ export default function PongComponent({
             isHost: p.isHost || false,
           })),
           settings: {
-            ballCount: lobbyData.ballCount,
-            maxScore: lobbyData.maxScore,
-            allowPowerups: lobbyData.allowPowerups,
+            ballCount: lobbyData.ballCount ?? 1,
+            maxScore: lobbyData.maxScore ?? 5,
+            allowPowerups: lobbyData.allowPowerups ?? false,
           },
           status: lobbyData.status || "waiting",
         }
@@ -937,6 +956,217 @@ export default function PongComponent({
     []
   )
 
+  // Manage game overlay via useEffect (DOM injection that works)
+  useEffect(() => {
+    if (currentView === "game") {
+      console.log("[Pong] useEffect: Creating game overlay");
+      
+      let gameContainer = document.getElementById("pong-game-container");
+      if (!gameContainer) {
+        gameContainer = document.createElement("div");
+        gameContainer.id = "pong-game-container";
+        gameContainer.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: #1a1a2e;
+          z-index: 2147483647;
+          display: flex;
+          flex-direction: column;
+        `;
+        document.body.appendChild(gameContainer);
+      }
+      
+      // Inject header and container via innerHTML
+      gameContainer.innerHTML = `
+        <div style="padding: 10px 20px; background: rgba(0,0,0,0.5); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+          <span style="color: white; font-size: 18px;">🏓 Pong Game</span>
+          <button id="pong-back-btn" style="padding: 8px 16px; background: red; color: white; border: none; cursor: pointer; border-radius: 4px;">← Back to Menu</button>
+        </div>
+        <div id="pong-babylon-mount" style="flex: 1; position: relative; overflow: hidden;"></div>
+        <div id="pong-debug-bar" style="padding: 5px 10px; background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; font-family: monospace; flex-shrink: 0;">Loading game...</div>
+      `;
+      
+      // Add back button click handler
+      const backBtn = document.getElementById("pong-back-btn");
+      if (backBtn) {
+        backBtn.onclick = () => {
+          console.log("[Pong] Back button clicked during game");
+          // Unmount babylon renderer first
+          const mountEl = document.getElementById("pong-babylon-mount");
+          if (mountEl && (mountEl as any).__reactRoot) {
+            try {
+              (mountEl as any).__reactRoot.unmount();
+            } catch (e) {
+              console.warn("[Pong] Error unmounting babylon root:", e);
+            }
+          }
+          document.getElementById("pong-game-container")?.remove();
+          document.getElementById("pong-game-over-overlay")?.remove();
+          // Leave the pong lobby if we have one
+          if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
+            console.log("[Pong] Leaving lobby on back button:", lobbyRef.current.lobbyId);
+            socket.current.send(JSON.stringify({
+              funcId: "leave_pong_lobby",
+              payload: { lobbyId: lobbyRef.current.lobbyId },
+              target_container: "pong",
+            }));
+          }
+          setLobby(null);
+          setTournament(null);
+          setGameState(null);
+          setCurrentView("menu");
+        };
+      }
+    } else {
+      // Clean up when leaving game view
+      const mountEl = document.getElementById("pong-babylon-mount");
+      if (mountEl && (mountEl as any).__reactRoot) {
+        (mountEl as any).__reactRoot.unmount();
+      }
+      document.getElementById("pong-game-container")?.remove();
+    }
+    
+    return () => {
+      // Cleanup on unmount
+      if (currentView !== "game") {
+        const mountEl = document.getElementById("pong-babylon-mount");
+        if (mountEl && (mountEl as any).__reactRoot) {
+          (mountEl as any).__reactRoot.unmount();
+        }
+        document.getElementById("pong-game-container")?.remove();
+      }
+    };
+  }, [currentView]);
+
+  // Render BabylonPongRenderer into mount point when gameState is available
+  useEffect(() => {
+    if (currentView !== "game" || !gameState) return;
+    
+    const mountEl = document.getElementById("pong-babylon-mount");
+    if (!mountEl) return;
+    
+    console.log("[Pong] Mounting BabylonPongRenderer into pong-babylon-mount");
+    
+    // Create or get React root for the mount element
+    let root = (mountEl as any).__reactRoot;
+    if (!root) {
+      root = ReactDOM.createRoot(mountEl);
+      (mountEl as any).__reactRoot = root;
+    }
+    
+    // Render BabylonPongRenderer with correct props
+    root.render(
+      <BabylonPongRenderer
+        ref={rendererRef}
+        gameState={gameState}
+        darkMode={darkMode}
+        paddleRotationOffset={paddleRotationOffset}
+        localPlayerId={playerOnePaddleID}
+      />
+    );
+  }, [currentView, gameState, playerOnePaddleID, playerTwoPaddleID, darkMode, paddleRotationOffset]);
+
+  // Update debug bar with game state info
+  useEffect(() => {
+    const debugBar = document.getElementById("pong-debug-bar");
+    if (debugBar && currentView === "game") {
+      debugBar.textContent = `balls: ${gameState?.balls?.length ?? 0} | paddles: ${gameState?.paddles?.length ?? 0} | myPaddle: ${playerOnePaddleID}`;
+    }
+  }, [gameState, currentView, playerOnePaddleID]);
+
+  // Handle Game Over overlay injection
+  useEffect(() => {
+    if (currentView !== "game") return;
+    
+    const existingOverlay = document.getElementById("pong-game-over-overlay");
+    
+    if (gameState?.gameOver) {
+      console.log("[Pong] GAME OVER! Winner:", gameState.winner, "Score:", gameState.score);
+      
+      if (!existingOverlay) {
+        const overlay = document.createElement("div");
+        overlay.id = "pong-game-over-overlay";
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.85);
+          z-index: 2147483648;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        `;
+        
+        const scoreDisplay = gameState.score 
+          ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `Player ${p}: ${s}`).join(' | ')
+          : '';
+        
+        overlay.innerHTML = `
+          <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 4px solid #fbbf24; border-radius: 20px; padding: 50px 80px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+            <h1 style="color: #fbbf24; font-size: 64px; margin: 0 0 20px 0; text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);">GAME OVER!</h1>
+            <p style="color: white; font-size: 32px; margin: 0 0 30px 0;">Winner: <span style="color: #22c55e; font-weight: bold;">Player ${gameState.winner}</span></p>
+            <p style="color: #9ca3af; font-size: 24px; margin: 0 0 40px 0;">${scoreDisplay}</p>
+            <button id="pong-game-over-back-btn" style="padding: 15px 50px; font-size: 20px; background: #22c55e; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.2s;">
+              Back to Menu
+            </button>
+          </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        const backBtn = document.getElementById("pong-game-over-back-btn");
+        if (backBtn) {
+          backBtn.onclick = () => {
+            console.log("[Pong] Game over back button clicked");
+            overlay.remove();
+            const mountEl = document.getElementById("pong-babylon-mount");
+            if (mountEl && (mountEl as any).__reactRoot) {
+              try {
+                (mountEl as any).__reactRoot.unmount();
+              } catch (e) {
+                console.warn("[Pong] Error unmounting babylon root:", e);
+              }
+            }
+            document.getElementById("pong-game-container")?.remove();
+            // Leave the pong lobby if we have one
+            if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
+              console.log("[Pong] Leaving lobby on game over:", lobbyRef.current.lobbyId);
+              socket.current.send(JSON.stringify({
+                funcId: "leave_pong_lobby",
+                payload: { lobbyId: lobbyRef.current.lobbyId },
+                target_container: "pong",
+              }));
+            }
+            setLobby(null);
+            setTournament(null);
+            setGameState(null);
+            setCurrentView("menu");
+          };
+        }
+      }
+    } else if (existingOverlay) {
+      existingOverlay.remove();
+    }
+  }, [currentView, gameState?.gameOver, gameState?.winner, gameState?.score]);
+
+  // RENDER LOGIC
+  console.log("[Pong] RENDER called, currentView =", currentView);
+  
+  // If game view, return null (we render via useEffect into injected DOM)
+  if (currentView === "game") {
+    return null;
+  }
+  
+  console.log("[Pong] Rendering NON-GAME view:", currentView);
+  
+  console.log("[Pong] Rendering NON-GAME view:", currentView);
+
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
@@ -960,17 +1190,44 @@ export default function PongComponent({
                 onClick={() => {
                   // Quick solo play for testing
                   if (authResponse) {
+                    alert("About to set view to GAME");
                     const payload: TypeStartNewPongGame = {
                       player_list: [authResponse.user.id],
                       balls: 1,
                     }
                     handleUserInput(user_url.ws.pong.startGame, payload)
                     setCurrentView("game")
+                    alert("View set to GAME - click OK");
                   }
                 }}
                 className="w-full py-3 bg-green-500 text-white hover:bg-green-600 transition-colors font-semibold"
               >
                 🤖 Quick Play (Solo)
+              </button>
+              <button
+                onClick={() => {
+                  // Debug: 8-player game with multiple balls
+                  if (authResponse) {
+                    const payload: TypeStartNewPongGame = {
+                      player_list: [
+                        authResponse.user.id,
+                        authResponse.user.id + 1000,
+                        authResponse.user.id + 2000,
+                        authResponse.user.id + 3000,
+                        authResponse.user.id + 4000,
+                        authResponse.user.id + 5000,
+                        authResponse.user.id + 6000,
+                        authResponse.user.id + 7000,
+                      ],
+                      balls: 3,
+                    }
+                    handleUserInput(user_url.ws.pong.startGame, payload)
+                    setCurrentView("game")
+                  }
+                }}
+                className="w-full py-3 bg-purple-500 text-white hover:bg-purple-600 transition-colors font-semibold"
+              >
+                🎯 Debug: 8 Players (3 balls)
               </button>
             </div>
           </div>
@@ -1053,8 +1310,110 @@ export default function PongComponent({
       {/* Game View */}
       {currentView === "game" && (
         <>
-          <div className="w-full flex-1 min-h-[500px] shadow-lg border border-gray-800 bg-black overflow-hidden relative">
-            <BabylonPongRenderer ref={rendererRef} gameState={gameState} darkMode={darkMode} paddleRotationOffset={paddleRotationOffset} />
+          {/* FIXED POSITION TEST - MUST BE VISIBLE */}
+          <div style={{ 
+            position: "fixed", 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            background: "green", 
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column"
+          }}>
+            <h1 style={{ color: "white", fontSize: "48px", fontWeight: "bold" }}>
+              🎮 GAME VIEW IS RENDERING
+            </h1>
+            <p style={{ color: "yellow", fontSize: "24px", marginTop: 20 }}>
+              If you see this GREEN screen, React is working!
+            </p>
+            <p style={{ color: "white", fontSize: "18px", marginTop: 20 }}>
+              gameState: {gameState ? "PRESENT" : "null"} | 
+              balls: {gameState?.balls?.length ?? 0} | 
+              paddles: {gameState?.paddles?.length ?? 0}
+            </p>
+            {/* Score Display */}
+            {gameState?.score && (
+              <div style={{ marginTop: 20, background: "rgba(0,0,0,0.5)", padding: "15px 30px", borderRadius: 10 }}>
+                <h2 style={{ color: "white", fontSize: "24px", marginBottom: 10 }}>📊 Scores</h2>
+                <div style={{ display: "flex", gap: 30 }}>
+                  {Object.entries(gameState.score).map(([playerId, score]) => (
+                    <div key={playerId} style={{ color: "white", fontSize: "20px" }}>
+                      Player {playerId}: <span style={{ color: "#fbbf24", fontWeight: "bold" }}>{score}</span>
+                    </div>
+                  ))}
+                </div>
+                {lobby?.settings?.maxScore && (
+                  <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: 10 }}>
+                    First to {lobby.settings.maxScore} wins!
+                  </p>
+                )}
+              </div>
+            )}
+            {/* Game Over Overlay */}
+            {gameState?.gameOver && (
+              <div style={{ 
+                marginTop: 30, 
+                background: "rgba(255,215,0,0.9)", 
+                padding: "30px 50px", 
+                borderRadius: 15,
+                textAlign: "center"
+              }}>
+                <h1 style={{ color: "#000", fontSize: "48px", fontWeight: "bold", margin: 0 }}>
+                  🏆 GAME OVER! 🏆
+                </h1>
+                <p style={{ color: "#000", fontSize: "28px", marginTop: 15 }}>
+                  Winner: Player {gameState.winner}
+                </p>
+                {gameState.score && (
+                  <p style={{ color: "#333", fontSize: "20px", marginTop: 10 }}>
+                    Final Score: {Object.entries(gameState.score).map(([p, s]) => `Player ${p}: ${s}`).join(' | ')}
+                  </p>
+                )}
+              </div>
+            )}
+            <button 
+              onClick={() => setCurrentView("menu")}
+              style={{ marginTop: 30, padding: "15px 30px", fontSize: "20px", background: "red", color: "white", border: "none", cursor: "pointer" }}
+            >
+              Go Back to Menu
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* OLD GAME VIEW - COMMENTED OUT
+      {currentView === "game" && (
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "stretch", background: "#111" }}>
+          <div style={{ background: "yellow", color: "black", padding: "20px", fontSize: "24px", fontWeight: "bold", textAlign: "center" }}>
+            🎮 GAME VIEW IS ACTIVE - currentView = "{currentView}"
+          </div>
+          <div style={{ width: "100%", height: "70vh", minHeight: "500px", position: "relative", border: "4px solid lime", background: "blue" }}>
+            <div style={{ color: "white", padding: 20, fontSize: 18 }}>
+              <p>🧪 TEST: BabylonPongRenderer is DISABLED</p>
+              <p>If you see this blue box with text, the game view is working!</p>
+              <p>gameState: {gameState ? "present" : "null"}</p>
+              <p>balls: {gameState?.balls?.length ?? 0}</p>
+              <p>paddles: {gameState?.paddles?.length ?? 0}</p>
+            </div>
+            <div style={{ position: 'absolute', left: 8, top: 8, zIndex: 50 }}>
+              <div style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '8px', borderRadius: 6, fontSize: 12, minWidth: 180 }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Pong Debug</div>
+                <div>- gameState: {gameState ? 'present' : 'null'}</div>
+                <div>- boardId: {gameState?.board_id ?? gameState?.boardId ?? '—'}</div>
+                <div>- balls: {gameState?.balls?.length ?? 0}</div>
+                <div>- paddles: {gameState?.paddles?.length ?? 0}</div>
+                <div style={{ marginTop: 6, maxWidth: 360, wordBreak: 'break-all' }}>
+                  <div style={{ fontWeight: 600 }}>Last normalized (window):</div>
+                  <div style={{ fontSize: 11, opacity: 0.9 }}>{(() => {
+                    try { const s = (window as any).__lastNormalizedPongState; return s ? `b:${s.board_id} balls:${(s.balls||[]).length} pads:${(s.paddles||[]).length}` : 'none' } catch (e) { return 'err' }
+                  })()}</div>
+                </div>
+              </div>
+            </div>
             <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
               <div className="flex space-x-2">
                 <button
@@ -1114,7 +1473,7 @@ export default function PongComponent({
           >
             Leave Game
           </button>
-        </>
+        </div>
       )}
 
       {/* Invite Modal */}

@@ -64,6 +64,11 @@ export default function AppRoot() {
     document.documentElement.classList.add('dark');
   }, []);
 
+  // Set the page title
+  useEffect(() => {
+    document.title = 'TRANSCENDENCE';
+  }, []);
+
   // Apply accessibility settings to document
   useEffect(() => {
     const root = document.documentElement;

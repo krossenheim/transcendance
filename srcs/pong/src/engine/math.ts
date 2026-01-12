@@ -1,5 +1,8 @@
 export const EPS = 1e-9;
-export const FAT_EPS = 1e-5;
+// FAT_EPS: Small time delta to advance after collision resolution
+// This prevents objects from immediately re-colliding on the same frame
+// Must be small enough to not cause visible jumps (velocity * FAT_EPS should be tiny)
+export const FAT_EPS = 1e-3;  // 1ms worth of movement
 
 export function isNearly(x: number, n: number): boolean {
     return Math.abs(x - n) < EPS;
