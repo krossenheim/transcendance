@@ -125,7 +125,7 @@
             <h3>📜 Tournament Score Contract</h3>
             <div class="field">
                 <span class="field-label">Address:</span>
-                <span class="field-value" id="contractAddress">0x2D19C996C7F2015ab250280D51b2c9286Bbe475F</span>
+                <span class="field-value" id="contractAddress">0x5FbDB2315678afecb367f032d93F642f64180aa3</span>
             </div>
         </div>
 
@@ -156,7 +156,7 @@
     <script>
         // Use local proxy to avoid CORS issues
         const RPC_URL = '/rpc';
-        const CONTRACT_ADDRESS = '0x2D19C996C7F2015ab250280D51b2c9286Bbe475F';
+        const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
         
         // Event signature for ScoreRecorded(uint256 indexed tournamentId, address indexed player, uint256 score, uint256 timestamp)
         const SCORE_RECORDED_TOPIC = '0x87358b3cc4a72c3fb097f479d5e6289be4bdbbee605caa6576405ede8a4d891f';
@@ -180,26 +180,24 @@
                 const chainId = await rpcCall('eth_chainId');
                 document.getElementById('networkId').textContent = parseInt(chainId, 16);
                 
-                // Get transaction count for the contract
-                const txCount = await rpcCall('eth_getTransactionCount', [CONTRACT_ADDRESS, 'latest']);
-                document.getElementById('txCount').textContent = parseInt(txCount, 16);
-                
-                // Load recent logs from contract
-                await loadRecentEvents();
-            } catch (e) {
-                console.error('Failed to load stats:', e);
-            }
-        }
-
-        async function loadRecentEvents() {
-            try {
+                // Get transaction count by counting ScoreRecorded events
                 const logs = await rpcCall('eth_getLogs', [{
                     address: CONTRACT_ADDRESS,
                     fromBlock: '0x0',
                     toBlock: 'latest',
                     topics: [SCORE_RECORDED_TOPIC]
                 }]);
+                document.getElementById('txCount').textContent = logs.length;
                 
+                // Load recent logs from contract
+                await loadRecentEventsFromLogs(logs);
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        async function loadRecentEventsFromLogs(logs) {
+            try {
                 if (logs.length > 0) {
                     let html = '<div class="card"><h2>📊 Recent Tournament Records</h2>';
                     for (const log of logs.slice(-10).reverse()) {

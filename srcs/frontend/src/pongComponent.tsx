@@ -504,7 +504,7 @@ export default function PongComponent({
                 winner: payloadReceived.payload.winner,
                 score: payloadReceived.payload.score 
               });
-              alert(`GAME OVER! Winner: Player ${payloadReceived.payload.winner}`);
+              // Note: Game over overlay is handled via useEffect injection
             }
             // Expose last normalized game state to window for quick debugging in the browser
             try { (window as any).__lastNormalizedPongState = normalized } catch (e) { /* ignore in server env */ }
@@ -993,12 +993,30 @@ export default function PongComponent({
       const backBtn = document.getElementById("pong-back-btn");
       if (backBtn) {
         backBtn.onclick = () => {
+          console.log("[Pong] Back button clicked during game");
           // Unmount babylon renderer first
           const mountEl = document.getElementById("pong-babylon-mount");
           if (mountEl && (mountEl as any).__reactRoot) {
-            (mountEl as any).__reactRoot.unmount();
+            try {
+              (mountEl as any).__reactRoot.unmount();
+            } catch (e) {
+              console.warn("[Pong] Error unmounting babylon root:", e);
+            }
           }
           document.getElementById("pong-game-container")?.remove();
+          document.getElementById("pong-game-over-overlay")?.remove();
+          // Leave the pong lobby if we have one
+          if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
+            console.log("[Pong] Leaving lobby on back button:", lobbyRef.current.lobbyId);
+            socket.current.send(JSON.stringify({
+              funcId: "leave_pong_lobby",
+              payload: { lobbyId: lobbyRef.current.lobbyId },
+              target_container: "pong",
+            }));
+          }
+          setLobby(null);
+          setTournament(null);
+          setGameState(null);
           setCurrentView("menu");
         };
       }
@@ -1105,12 +1123,28 @@ export default function PongComponent({
         const backBtn = document.getElementById("pong-game-over-back-btn");
         if (backBtn) {
           backBtn.onclick = () => {
+            console.log("[Pong] Game over back button clicked");
             overlay.remove();
             const mountEl = document.getElementById("pong-babylon-mount");
             if (mountEl && (mountEl as any).__reactRoot) {
-              (mountEl as any).__reactRoot.unmount();
+              try {
+                (mountEl as any).__reactRoot.unmount();
+              } catch (e) {
+                console.warn("[Pong] Error unmounting babylon root:", e);
+              }
             }
             document.getElementById("pong-game-container")?.remove();
+            // Leave the pong lobby if we have one
+            if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
+              console.log("[Pong] Leaving lobby on game over:", lobbyRef.current.lobbyId);
+              socket.current.send(JSON.stringify({
+                funcId: "leave_pong_lobby",
+                payload: { lobbyId: lobbyRef.current.lobbyId },
+                target_container: "pong",
+              }));
+            }
+            setLobby(null);
+            setTournament(null);
             setGameState(null);
             setCurrentView("menu");
           };
