@@ -462,7 +462,17 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // Lerp alpha for smooth transitions (frame-rate independent)
       const lerpAlpha = Math.min(dt / EXPECTED_FRAME_MS, 1)
       
-      // Update ball positions using PURE velocity-based movement (like powerup rotation)
+      // Frame-rate independent blend factors
+      // These use exponential decay: blend = 1 - (1 - baseBlend)^(dt/targetDt)
+      const velocityBlendBase = 0.2  // How quickly to adopt new velocity (per 16.67ms)
+      const velocityBlendFactor = 1 - Math.pow(1 - velocityBlendBase, dt / EXPECTED_FRAME_MS)
+      
+      // Position correction settings
+      const CORRECTION_START_DIST = 0.05  // Start correcting at this distance
+      const CORRECTION_SNAP_DIST = 1.5    // Teleport if beyond this distance
+      const CORRECTION_STRENGTH = 3.0     // How aggressively to correct (units per second per unit of error)
+      
+      // Update ball positions using PURE velocity-based movement with gentle position correction
       ballsRef.current.forEach((mesh, ballId) => {
         const target = ballTargetsRef.current.get(ballId)
         if (target) {
@@ -474,8 +484,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           }
           
           // Check for major direction change (bounce) - if so, snap velocity immediately
-          const dotProduct = smoothed.vx * target.velocityX + smoothed.vz * target.velocityZ
-          const isBounce = dotProduct < 0 // Velocities pointing in opposite-ish directions
+          const smoothedSpeed = Math.sqrt(smoothed.vx * smoothed.vx + smoothed.vz * smoothed.vz)
+          const targetSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
+          
+          let isBounce = false
+          if (smoothedSpeed > 0.001 && targetSpeed > 0.001) {
+            const dotProduct = (smoothed.vx * target.velocityX + smoothed.vz * target.velocityZ) / (smoothedSpeed * targetSpeed)
+            isBounce = dotProduct < 0.3 // More generous bounce detection
+          }
           
           if (isBounce) {
             // Bounce detected: snap velocity and position immediately
@@ -484,10 +500,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             mesh.position.x = target.targetPos.x
             mesh.position.z = target.targetPos.z
           } else {
-            // Smoothly blend velocity (prevents micro-jitter from server updates)
-            const velocityBlend = 0.15
-            smoothed.vx += (target.velocityX - smoothed.vx) * velocityBlend
-            smoothed.vz += (target.velocityZ - smoothed.vz) * velocityBlend
+            // Smoothly blend velocity using frame-rate independent factor
+            smoothed.vx += (target.velocityX - smoothed.vx) * velocityBlendFactor
+            smoothed.vz += (target.velocityZ - smoothed.vz) * velocityBlendFactor
           }
           
           // Pure velocity-based movement
@@ -497,14 +512,22 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           mesh.position.x += frameMovementX
           mesh.position.z += frameMovementZ
           
-          // Only snap on major desync (teleport)
+          // Calculate position error from server
           const dx = target.targetPos.x - mesh.position.x
           const dz = target.targetPos.z - mesh.position.z
           const distanceToServer = Math.sqrt(dx * dx + dz * dz)
           
-          if (distanceToServer >= 2.0) {
+          if (distanceToServer >= CORRECTION_SNAP_DIST) {
+            // Major desync - snap immediately
             mesh.position.x = target.targetPos.x
             mesh.position.z = target.targetPos.z
+          } else if (distanceToServer > CORRECTION_START_DIST) {
+            // Gentle correction: add a small force toward server position
+            // This keeps balls from drifting too far while staying smooth
+            const correctionAmount = Math.min(distanceToServer * CORRECTION_STRENGTH * dtSeconds, distanceToServer * 0.5)
+            const correctionFactor = correctionAmount / distanceToServer
+            mesh.position.x += dx * correctionFactor
+            mesh.position.z += dz * correctionFactor
           }
           
           // Keep Y position consistent

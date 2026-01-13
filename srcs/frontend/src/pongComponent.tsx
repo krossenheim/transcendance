@@ -173,6 +173,12 @@ export default function PongComponent({
     lobbyRef.current = lobby
   }, [lobby])
 
+  // Ref for onNavigateToChat to use in event handlers
+  const onNavigateToChatRef = useRef(onNavigateToChat)
+  useEffect(() => {
+    onNavigateToChatRef.current = onNavigateToChat
+  }, [onNavigateToChat])
+
   useEffect(() => {
     // Only run cleanup on actual unmount
     return () => {
@@ -512,7 +518,8 @@ export default function PongComponent({
             gameStateReceivedRef.current = true;
             setPlayerIDsHelper(normalized);
             // If we received valid game state and we're not in game view, switch to it
-            if (currentView !== 'game' && payloadReceived.payload?.board_id) {
+            // BUT don't switch back if the game is already over (user might have clicked back)
+            if (currentView !== 'game' && payloadReceived.payload?.board_id && !normalized.gameOver) {
               console.log("[Pong] Received game state while not in game view, transitioning to game");
               setLobby(null);
               setCurrentView("game");
@@ -1017,7 +1024,12 @@ export default function PongComponent({
           setLobby(null);
           setTournament(null);
           setGameState(null);
-          setCurrentView("menu");
+          // Navigate back to chat if available, otherwise menu
+          if (onNavigateToChatRef.current) {
+            onNavigateToChatRef.current();
+          } else {
+            setCurrentView("menu");
+          }
         };
       }
     } else {
@@ -1146,7 +1158,12 @@ export default function PongComponent({
             setLobby(null);
             setTournament(null);
             setGameState(null);
-            setCurrentView("menu");
+            // Navigate back to chat if available, otherwise menu
+            if (onNavigateToChatRef.current) {
+              onNavigateToChatRef.current();
+            } else {
+              setCurrentView("menu");
+            }
           };
         }
       }
