@@ -288,6 +288,10 @@ export class PongGame {
         this.players = Array.from(players);
         this.gameOptions = gameOptions;
 
+        // Initialize nextPowerupSpawnTime to powerupFrequency so if powerups are disabled
+        // (frequency = 999999), no powerup will spawn at game start
+        this.nextPowerupSpawnTime = gameOptions.powerupFrequency;
+
         this.score = new Map();
         for (const playerId of players) {
             this.score.set(playerId, 0);
