@@ -18,6 +18,7 @@ import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
+import { usePredictedGameState } from "./usePredictedGameState"
 // local: avoid importing server-side db helpers
 
 // =========================
@@ -132,6 +133,15 @@ export default function PongComponent({
   // Renderer controls for tuning paddle rotation and screenshots
   const rendererRef = useRef<any>(null)
   const [paddleRotationOffset, setPaddleRotationOffset] = useState<number>(0)
+  
+  // Track pressed keys for client-side prediction
+  const [pressedKeys, setPressedKeys] = useState<string[]>([])
+  
+  // Get user ID for prediction
+  const myUserId = authResponse?.user?.id ?? -1
+  
+  // Use client-side prediction for smooth rendering
+  const predictedGameState = usePredictedGameState(gameState, myUserId, pressedKeys)
 
   // New state for lobby and tournament
   const [currentViewInternal, setCurrentViewInternal] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
@@ -593,6 +603,9 @@ export default function PongComponent({
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
+      // Update pressed keys for client-side prediction
+      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
+
       if (gameState.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
         board_id: gameState.board_id,
@@ -606,6 +619,9 @@ export default function PongComponent({
     function handleKeyUp(e: KeyboardEvent) {
       if (gameState === null || playerOnePaddleID === -1) return
       keysPressed.delete(e.key)
+
+      // Update pressed keys for client-side prediction
+      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
 
       const payload = {
         board_id: gameState.board_id,
@@ -634,6 +650,9 @@ export default function PongComponent({
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
+      // Update pressed keys for client-side prediction
+      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
+
       if (gameState.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
         board_id: gameState.board_id,
@@ -646,6 +665,9 @@ export default function PongComponent({
     function handleKeyUp(e: KeyboardEvent) {
       if (gameState === null || playerTwoPaddleID === -1) return
       keysPressed.delete(e.key)
+
+      // Update pressed keys for client-side prediction
+      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
 
       const payload = {
         board_id: gameState.board_id,
@@ -1069,17 +1091,19 @@ export default function PongComponent({
       (mountEl as any).__reactRoot = root;
     }
     
-    // Render BabylonPongRenderer with correct props
+    // Render BabylonPongRenderer with predicted state for smoother rendering
+    // Falls back to raw gameState if prediction not available
+    const stateToRender = predictedGameState || gameState;
     root.render(
       <BabylonPongRenderer
         ref={rendererRef}
-        gameState={gameState}
+        gameState={stateToRender}
         darkMode={darkMode}
         paddleRotationOffset={paddleRotationOffset}
         localPlayerId={playerOnePaddleID}
       />
     );
-  }, [currentView, gameState, playerOnePaddleID, playerTwoPaddleID, darkMode, paddleRotationOffset]);
+  }, [currentView, gameState, predictedGameState, playerOnePaddleID, playerTwoPaddleID, darkMode, paddleRotationOffset]);
 
   // Update debug bar with game state info
   useEffect(() => {
