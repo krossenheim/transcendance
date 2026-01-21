@@ -10,7 +10,7 @@ import type {
   TypePlayerDeclaresReadyForGame,
 } from "./types/pong-interfaces"
 import { useWebSocket } from "./socketComponent"
-import { user_url } from "./endpoints"
+import { user_url } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"

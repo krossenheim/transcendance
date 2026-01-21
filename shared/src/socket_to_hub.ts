@@ -1,3 +1,4 @@
+import { HubToServiceMessage, ServiceToHubMessage, ServiceToHubBroadcastMessage, ServiceToHubClientMessage } from "./socket_messages";
 import { InferWSHandlerBody, WSHandlerReturnValue, createResponseBuilder, ResponseBuilder } from "@app/shared/websocketResponse";
 import { zodParse } from "@app/shared/api/service/common/zodUtils";
 import { rawDataToString } from "@app/shared/raw_data_to_string";
@@ -252,30 +253,29 @@ export class OurSocket {
 
   private async _handleHandlerEndpoint(
     handler: any,
-    rawJson: any
+    message: HubToServiceMessage
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
-    const inputSchemaResult = zodParse(
-      handler.metadata.schema.args_wrapper.extend({
-        payload: handler.metadata.schema.args,
-      }),
-      rawJson
-    );
-    if (inputSchemaResult.isErr()) {
+    const payloadSchemaResult = message.getPayloadAsObject(handler.metadata.schema.args);
+    if (payloadSchemaResult.isErr()) {
       console.error(
         "Input schema validation failed:",
-        inputSchemaResult.unwrapErr()
+        payloadSchemaResult.unwrapErr()
       );
       return Result.Err(
         ErrorResponse.parse({
-          message: `Invalid input: ${inputSchemaResult.unwrapErr()}`,
+          message: `Invalid input: ${payloadSchemaResult.unwrapErr()}`,
         })
       );
     }
 
+    const jsonBody = {
+      user_id: message.getUserId(),
+      payload: payloadSchemaResult.unwrap(),
+    };
     const handlerResult = await this._executeHandler(
       handler,
-      inputSchemaResult.unwrap(),
-      createResponseBuilder(handler.metadata, inputSchemaResult.unwrap())
+      jsonBody,
+      createResponseBuilder(handler.metadata, jsonBody)
     );
     if (handlerResult.isErr()) {
       console.error("Handler execution failed:", handlerResult.unwrapErr());
@@ -292,11 +292,11 @@ export class OurSocket {
 
   private async _handleReceiverEndpoint(
     handler: any,
-    rawJson: any
+    message: HubToServiceMessage
   ): Promise<Result<void, ErrorResponseType>> {
     const inputSchemaResult = zodParse(
       handler.metadata.schema.output_wrapper,
-      rawJson
+      message
     );
     if (inputSchemaResult.isErr()) {
       console.error(
@@ -351,32 +351,21 @@ export class OurSocket {
       return Result.Err({ message: "Failed to convert WS data to string" });
     console.log("Received WS message:", str);
 
-    let rawJson;
-    try {
-      rawJson = JSON.parse(str);
-    } catch (error) {
-      console.error("Failed to parse incoming WS payload:", error);
-      return Result.Err({ message: "Failed to parse incoming WS payload" });
-    }
-
-    const parsedData = zodParse(z.object({ funcId: z.string() }), rawJson);
-    if (parsedData.isErr()) {
+    const parsedMessage = HubToServiceMessage.fromRawString(str);
+    if (parsedMessage.isErr()) {
       console.warn(
-        "Schema validation failed for incoming WS payload: " +
-          parsedData.unwrapErr()
+        "Invalid payload to service schema: " + parsedMessage.unwrapErr()
       );
-      return Result.Err({
-        message: "Schema validation failed for incoming WS payload",
-      });
+      return Result.Err({ message: "Invalid payload to service schema" });
     }
 
-    const funcId = parsedData.unwrap().funcId;
-    const receiverCallable = this.receiverCallables[funcId];
+    const message = parsedMessage.unwrap();
+    const receiverCallable = this.receiverCallables[message.getFuncId()];
     if (receiverCallable !== undefined) {
       console.log("Awaiting handler to deal with:" + str);
       const executionResult = await this._handleReceiverEndpoint(
         receiverCallable,
-        rawJson
+        message
       );
       if (executionResult.isErr()) {
         console.warn("Receiver handler error:", executionResult.unwrapErr());
@@ -385,25 +374,25 @@ export class OurSocket {
       return executionResult;
     }
 
-    const handleCallable = this.handlerCallables[funcId];
+    const handleCallable = this.handlerCallables[message.getFuncId()];
     if (handleCallable === undefined) {
-      console.warn(`No handler found for funcId "${funcId}"`);
-      return Result.Err({ message: `No handler found for funcId "${funcId}"` });
+      console.warn(`No handler found for funcId "${message.getFuncId()}"`);
+      return Result.Err({ message: `No handler found for funcId "${message.getFuncId()}"` });
     }
 
     const executionResult = await this._handleHandlerEndpoint(
       handleCallable,
-      rawJson
+      message
     );
     if (executionResult.isErr()) {
       console.warn("Handler error:", executionResult.unwrapErr());
-      const userIdResult = zodParse(z.object({ user_id: z.number() }), rawJson);
+      const userIdResult = zodParse(z.object({ user_id: z.number() }), message);
       if (userIdResult.isErr()) return Result.Err({ message: "Handler error" });
 
       const userId = userIdResult.unwrap().user_id;
       this._sendMessageToHub({
         recipients: [userId],
-        funcId: funcId,
+        funcId: message.getFuncId(),
         code: -1,
         payload: executionResult.unwrapErr(),
       });
@@ -460,21 +449,20 @@ export class OurSocket {
 
     socket.on("close", (code: number, reason: Buffer) => {
       console.error("Connection to hub closed: ", code, reason.toString());
-      
-      // Exponential backoff for reconnection
+
       if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         console.error(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
         return;
       }
-      
+
       const delay = Math.min(
         INITIAL_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
         MAX_RECONNECT_DELAY_MS
       );
-      
+
       this.reconnectAttempts++;
       console.log(`Reconnecting to hub in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-      
+
       setTimeout(() => {
         this.lastReconnectTime = Date.now();
         this.socket = this._connectToHub();
@@ -484,20 +472,17 @@ export class OurSocket {
 
     socket.on("open", () => {
       console.log("WebSocket connection to hub established");
-      // Reset reconnect attempts on successful connection
       this.reconnectAttempts = 0;
-      
-      // Flush queued messages
+
       const messagesToSend = [...this.messageStack];
       this.messageStack = [];
-      
+
       for (const message of messagesToSend) {
         console.log("Sending stacked message to hub:", message);
         try {
           this.socket.send(message);
         } catch (error) {
           console.error("Failed to send queued message:", error);
-          // Re-queue failed messages
           this._queueMessage(message);
         }
       }
