@@ -255,26 +255,23 @@ export class OurSocket {
     handler: any,
     message: HubToServiceMessage
   ): Promise<Result<T_PayloadToUsers | null, ErrorResponseType>> {
-    const payloadSchemaResult = message.getPayloadAsObject(handler.metadata.schema.args);
-    if (payloadSchemaResult.isErr()) {
+    const payloadResult = message.asValidated(handler.metadata);
+    if (payloadResult.isErr()) {
       console.error(
         "Input schema validation failed:",
-        payloadSchemaResult.unwrapErr()
+        payloadResult.unwrapErr()
       );
       return Result.Err(
         ErrorResponse.parse({
-          message: `Invalid input: ${payloadSchemaResult.unwrapErr()}`,
+          message: `Invalid input: ${payloadResult.unwrapErr()}`,
         })
       );
     }
 
-    const jsonBody = {
-      user_id: message.getUserId(),
-      payload: payloadSchemaResult.unwrap(),
-    };
+    const payload = payloadResult.unwrap();
     const handlerResult = await this._executeHandler(
       handler,
-      jsonBody,
+      payloadResult.unwrap()
       createResponseBuilder(handler.metadata, jsonBody)
     );
     if (handlerResult.isErr()) {

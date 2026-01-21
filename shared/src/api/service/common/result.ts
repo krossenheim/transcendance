@@ -29,7 +29,7 @@ export class Result<T, E> {
     throw new Error(`Tried to unwrap Ok with value ${this.inner.value}`);
   }
 
-  unwrapOr(defaultValue: T): T {
+  unwrapOr<D>(defaultValue: D): T | D {
     return this.inner.ok ? this.inner.value : defaultValue;
   }
 

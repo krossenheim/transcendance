@@ -12,12 +12,7 @@ export type WSHandlerReturnValue<
   };
 }[keyof T];
 
-export type InferWSHandlerBody<T extends WebSocketRouteDef> = Omit<
-  z.infer<T["schema"]["args_wrapper"]>,
-  "payload"
-> & {
-  payload: z.infer<T["schema"]["args"]>;
-};
+export type InferWSHandlerBody<T extends WebSocketRouteDef> = z.infer<T["schema"]["args"]>;
 
 export class ResponseBuilder<T extends WebSocketRouteDef> {
   private schemaMap: T;

@@ -1,5 +1,8 @@
+import { extend } from "zod/v4/core/util.cjs";
 import { Result } from "./api/service/common/result";
 import { zodParse } from "./api/service/common/zodUtils";
+import { WebSocketRouteDef, user_url } from "@app/shared/api/service/common/endpoints";
+import { InferWSHandlerBody, WSHandlerReturnValue } from "./websocketResponse";
 import z from "zod";
 
 const SEPARATOR = "%";
@@ -51,6 +54,16 @@ export class ClientToHubMessage {
     }
 }
 
+class HubToServiceMessageScheme<T extends WebSocketRouteDef> {
+    public readonly userId: number;
+    public readonly payload: InferWSHandlerBody<T>;
+
+    constructor(userId: number, payload: InferWSHandlerBody<T>) {
+        this.userId = userId;
+        this.payload = payload;
+    }
+}
+
 // funcId%userId%payload
 export class HubToServiceMessage {
     private funcId: string;
@@ -87,17 +100,12 @@ export class HubToServiceMessage {
         return this.payload;
     }
 
-    getPayloadAsObject<T extends z.ZodTypeAny>(schema: T): Result<z.infer<T>, string> {
-        if (this.cachedPayloadObject[0] !== null && this.cachedPayloadObject[1] === schema) {
-            console.log("Using cached payload object");
-            return Result.Ok(this.cachedPayloadObject[0] as z.infer<T>);
-        }
+    asValidated<T extends WebSocketRouteDef>(route: T): Result<HubToServiceMessageScheme<T>, string> {
+        const payloadResult = zodParse(route.schema.args, this.payload);
+        if (payloadResult.isErr())
+            return Result.Err(payloadResult.unwrapErr());
 
-        const cachedPayloadObjectResult = zodParse(schema, this.payload);
-        if (cachedPayloadObjectResult.isOk())
-            this.cachedPayloadObject = [cachedPayloadObjectResult.unwrap(), schema];
-
-        return cachedPayloadObjectResult;
+        return Result.Ok(new HubToServiceMessageScheme<T>(route, parseInt(this.userId, 10), this.payload as InferWSHandlerBody<T>));
     }
 
     toString(): string {
