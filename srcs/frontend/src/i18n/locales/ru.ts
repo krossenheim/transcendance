@@ -130,6 +130,8 @@ export const ru: TranslationKeys = {
     nl: 'Нидерландский',
     fy: 'Фризский',
     cy: 'Валлийский',
+    tlh: 'Клингонский',
+    sjn: 'Синдарин',
   },
 
   // Friends

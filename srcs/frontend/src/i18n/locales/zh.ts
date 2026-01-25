@@ -130,6 +130,8 @@ export const zh: TranslationKeys = {
     nl: '荷兰语',
     fy: '弗里斯兰语',
     cy: '威尔士语',
+    tlh: '克林贡语',
+    sjn: '辛达林语',
   },
 
   // Friends

@@ -128,6 +128,8 @@ export const nl = {
     nl: 'Nederlands',
     fy: 'Fries',
     cy: 'Welsh',
+    tlh: 'Klingon',
+    sjn: 'Sindarin',
   },
 
   // Friends
