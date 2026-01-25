@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { getUserColorCSS } from "./userColorUtils"
+import { useLanguage } from "./i18n/LanguageContext"
 
 export type GameMode = "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi"
 
@@ -26,6 +27,7 @@ export default function PongInviteModal({
   currentUserId,
   onCreateGame,
 }: PongInviteModalProps) {
+  const { t } = useLanguage()
   const [gameMode, setGameMode] = useState<GameMode>("1v1")
   const [selectedPlayers, setSelectedPlayers] = useState<number[]>([])
   const [ballCount, setBallCount] = useState(1)
@@ -47,22 +49,22 @@ export default function PongInviteModal({
 
     // Validate player count based on game mode
     if (gameMode === "1v1" && players.length !== 2) {
-      alert("1v1 mode requires exactly 2 players (including yourself)")
+      alert(t('pong.alert1v1Players'))
       return
     }
 
     if (gameMode === "tournament_1v1" && players.length < 4) {
-      alert("Tournament 1v1 requires at least 4 players")
+      alert(t('pong.alertTournament1v1Players'))
       return
     }
 
     if (gameMode === "tournament_multi" && players.length < 4) {
-      alert("Multiplayer tournament requires at least 4 players")
+      alert(t('pong.alertTournamentMultiPlayers'))
       return
     }
 
     if (gameMode === "multiplayer" && players.length < 2) {
-      alert("Multiplayer mode requires at least 2 players")
+      alert(t('pong.alertMultiplayerPlayers'))
       return
     }
 
@@ -79,13 +81,13 @@ export default function PongInviteModal({
   const getGameModeDescription = () => {
     switch (gameMode) {
       case "1v1":
-        return "Classic 1 vs 1 Pong - Two players compete directly"
+        return t('pong.desc1v1')
       case "multiplayer":
-        return "Multiplayer Pong - Multiple players compete in a free-for-all match"
+        return t('pong.descMultiplayer')
       case "tournament_1v1":
-        return "1v1 Tournament - Players compete in bracket-style matches"
+        return t('pong.descTournament1v1')
       case "tournament_multi":
-        return "Multiplayer Tournament - Teams compete in bracket-style matches"
+        return t('pong.descTournamentMulti')
     }
   }
 
@@ -110,7 +112,7 @@ export default function PongInviteModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-white">🏓 Create Pong Game</h2>
+            <h2 className="text-2xl font-bold text-white">🏓 {t('pong.createPongGame')}</h2>
             <button
               onClick={onClose}
               className="text-white hover:text-gray-200 transition-colors text-2xl"
@@ -125,7 +127,7 @@ export default function PongInviteModal({
           {/* Game Mode Selection */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-              Select Game Mode
+              {t('pong.selectGameMode')}
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -136,8 +138,8 @@ export default function PongInviteModal({
                   }`}
               >
                 <div className="text-3xl mb-2">🎯</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">1 vs 1</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Classic Pong</div>
+                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.oneVsOne')}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.classicPong')}</div>
               </button>
               <button
                 onClick={() => setGameMode("multiplayer")}
@@ -147,8 +149,8 @@ export default function PongInviteModal({
                   }`}
               >
                 <div className="text-3xl mb-2">👥</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">Multiplayer</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Free-for-all</div>
+                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.multiplayer')}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.freeForAll')}</div>
               </button>
               <button
                 onClick={() => setGameMode("tournament_1v1")}
@@ -158,8 +160,8 @@ export default function PongInviteModal({
                   }`}
               >
                 <div className="text-3xl mb-2">🏆</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">1v1 Tournament</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Bracket style</div>
+                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.tournament1v1')}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.bracketStyle')}</div>
               </button>
               <button
                 onClick={() => setGameMode("tournament_multi")}
@@ -169,8 +171,8 @@ export default function PongInviteModal({
                   }`}
               >
                 <div className="text-3xl mb-2">🎖️</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">Multi Tournament</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Team brackets</div>
+                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.multiTournament')}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.teamBrackets')}</div>
               </button>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{getGameModeDescription()}</p>
@@ -179,7 +181,7 @@ export default function PongInviteModal({
           {/* Player Selection */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-              Select Players (Min: {getMinPlayers()})
+              {t('pong.selectPlayers')} ({t('pong.minPlayers')}: {getMinPlayers()})
             </h3>
             <div className="bg-gray-50/40 dark:bg-gray-900/70 p-4 max-h-48 overflow-y-auto">
               {/* Current User - Always Selected */}
@@ -187,10 +189,10 @@ export default function PongInviteModal({
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    You (Host)
+                    {t('pong.youHost')}
                   </span>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Auto-selected</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.autoSelected')}</div>
               </div>
 
               {/* Other Players */}
@@ -223,24 +225,24 @@ export default function PongInviteModal({
                 ))
               ) : (
                 <div className="text-sm text-gray-500 text-center py-4">
-                  No other players available in this room
+                  {t('pong.noPlayersAvailable')}
                 </div>
               )}
             </div>
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Selected: {selectedPlayers.length + 1} player(s)
+              {t('pong.selectedPlayers')}: {selectedPlayers.length + 1} {t('pong.players')}
             </div>
           </div>
 
           {/* Game Settings */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-              Game Settings
+              {t('pong.gameSettings')}
             </h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Number of Balls: {ballCount}
+                  {t('pong.numberOfBalls')}: {ballCount}
                 </label>
                 <input
                   type="range"
@@ -253,7 +255,7 @@ export default function PongInviteModal({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Max Score: {maxScore}
+                  {t('pong.maxScore')}: {maxScore}
                 </label>
                 <input
                   type="range"
@@ -273,7 +275,7 @@ export default function PongInviteModal({
                   className="rounded"
                 />
                 <label htmlFor="powerups" className="text-sm text-gray-700 dark:text-gray-300">
-                  Enable Power-ups (experimental)
+                  {t('pong.enablePowerups')}
                 </label>
               </div>
             </div>
@@ -286,13 +288,13 @@ export default function PongInviteModal({
             onClick={onClose}
             className="px-4 py-2 bg-gray-200 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600/80 transition-colors"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleCreateGame}
             className="px-6 py-2 bg-blue-500 text-white hover:bg-blue-600 transition-colors font-semibold"
           >
-            Create Game
+            {t('pong.createGame')}
           </button>
         </div>
       </div>

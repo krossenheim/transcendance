@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ProfileComponent from "./profileComponent";
 import { getUserColorCSS } from "./userColorUtils";
+import { useLanguage } from "./i18n";
 
 interface UserMenuProps {
   username: string;
@@ -12,6 +13,7 @@ interface UserMenuProps {
 }
 
 export default function UserMenu({ username, userId, avatarUrl, onLogout, isLoggingOut, onFriendsClick }: UserMenuProps) {
+  const { t, isRTL } = useLanguage();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -73,11 +75,11 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
         {/* Dropdown menu */}
         {isDropdownOpen && (
           // FIX #2 — Increase menu z-index to 10000 so it sits above AppRoot card
-          <div className="absolute right-0 mt-2 w-56 glass-light-sm dark:glass-dark-sm glass-border shadow-lg dark:shadow-dark-700 py-2 z-[10000]">
+          <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-56 glass-light-sm dark:glass-dark-sm glass-border shadow-lg dark:shadow-dark-700 py-2 z-[10000]`}>
             {/* User info header */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-dark-700">
               <p className="text-sm font-bold" style={{ color: userColor }}>{username}</p>
-              <p className="text-xs text-gray-900 mt-1">User ID: {userId}</p>
+              <p className="text-xs text-gray-900 mt-1">{t('userMenu.userId')}: {userId}</p>
             </div>
 
             {/* Menu items */}
@@ -92,7 +94,7 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                View my profile
+                {t('userMenu.viewProfile')}
               </button>
 
               <button
@@ -105,7 +107,7 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                Manage friends
+                {t('userMenu.manageFriends')}
               </button>
             </div>
 
@@ -125,7 +127,7 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                {isLoggingOut ? "Logging out..." : "Logout"}
+                {isLoggingOut ? t('userMenu.loggingOut') : t('userMenu.logout')}
               </button>
             </div>
           </div>

@@ -1,8 +1,9 @@
 // Engine imports
 import { BaseObject, CircleObject } from "../engine/baseObjects.js";
 import { CollisionResponse } from "../engine/collision.js";
-import { Vec2, EPS, FAT_EPS } from "../engine/math.js";
+import { Vec2 } from "../engine/math.js";
 import { Scene } from "../engine/scene.js";
+import { SeededRandom } from "../engine/random.js";
 
 // Game imports
 import { Wall, PlayerWall } from "./wall.js";
@@ -11,6 +12,11 @@ import { PongBall } from "./ball.js";
 
 // Toggle heavy game logging for debugging (set to `true` only when debugging).
 const ENABLE_GAME_LOGS = false;
+
+// Deterministic simulation constants
+export const TICK_RATE = 120; // Simulation ticks per second
+export const TICK_DURATION = 1 / TICK_RATE; // Duration of one tick in seconds
+
 export type PongGameOptions = {
     canvasWidth: number;
     canvasHeight: number;
@@ -23,6 +29,7 @@ export type PongGameOptions = {
     powerupFrequency: number;
     gameDuration: number;
     maxScore?: number; // If set, game ends when any player reaches this score
+    seed?: number; // Seed for deterministic RNG (if not provided, uses random seed)
 }
 
 export enum PowerupType {
@@ -40,31 +47,34 @@ export enum PowerupType {
 type PowerupData = {
 	type: PowerupType;
 	chance: number;
-	duration: number | null;
+	durationTicks: number | null; // Duration in ticks (null = instant/permanent)
 }
 
+// Powerup durations in ticks (10 seconds * 120 ticks/sec = 1200 ticks)
+const POWERUP_DURATION_TICKS = 10 * TICK_RATE;
+
 const powerupData: PowerupData[] = [
-	{ type: PowerupType.ADD_BALL, chance: 40, duration: null },
-	{ type: PowerupType.INCREASE_BALL_SIZE, chance: 40, duration: null },
-	{ type: PowerupType.INCREASE_PADDLE_SPEED, chance: 25, duration: 10 },
-	{ type: PowerupType.DECREASE_PADDLE_SPEED, chance: 25, duration: 10 },
-	{ type: PowerupType.DECREASE_BALL_SIZE, chance: 20, duration: null },
-	{ type: PowerupType.SUPER_SPEED, chance: 15, duration: 10 },
-	{ type: PowerupType.REVERSE_CONTROLS, chance: 15, duration: 10 },
+	{ type: PowerupType.ADD_BALL, chance: 40, durationTicks: null },
+	{ type: PowerupType.INCREASE_BALL_SIZE, chance: 40, durationTicks: null },
+	{ type: PowerupType.INCREASE_PADDLE_SPEED, chance: 25, durationTicks: POWERUP_DURATION_TICKS },
+	{ type: PowerupType.DECREASE_PADDLE_SPEED, chance: 25, durationTicks: POWERUP_DURATION_TICKS },
+	{ type: PowerupType.DECREASE_BALL_SIZE, chance: 20, durationTicks: null },
+	{ type: PowerupType.SUPER_SPEED, chance: 15, durationTicks: POWERUP_DURATION_TICKS },
+	{ type: PowerupType.REVERSE_CONTROLS, chance: 15, durationTicks: POWERUP_DURATION_TICKS },
 ];
 const totalPowerupChance = powerupData.reduce((sum, p) => sum + p.chance, 0);
 
 export class Powerup extends CircleObject {
-	private activationStartTime: number | null = null;
+	private activationTick: number | null = null;
 	private metadata: PowerupData;
-	private spawnTime: number;
+	private spawnTick: number;
 	private game: PongGame;
 
 	constructor(center: Vec2, radius: number, velocity: Vec2, powerup: PowerupData, game: PongGame) {
 		super(center, radius, velocity, 0.5, 1.0);
 		this.metadata = powerup;
 		this.game = game;
-		this.spawnTime = game.getScene().getElapsedTime();
+		this.spawnTick = game.getCurrentTick();
 
         this.setCollisionHandler((other: BaseObject) => {
             if (other instanceof PongBall) {
@@ -77,7 +87,7 @@ export class Powerup extends CircleObject {
 	}
 
 	static generateRandomPowerup(center: Vec2, velocity: Vec2, game: PongGame): Powerup {
-		let randomPowerupIndex = Math.random() * totalPowerupChance;
+		let randomPowerupIndex = game.getRng().next() * totalPowerupChance;
 		let newPowerup: PowerupData | undefined = undefined;
 		for (const powerup of powerupData) {
 			if (randomPowerupIndex < powerup.chance) {
@@ -98,28 +108,28 @@ export class Powerup extends CircleObject {
 		return this.metadata.type;
 	}
 
-	public activate(currentTime: number): void {
-		this.activationStartTime = currentTime;
+	public activate(currentTick: number): void {
+		this.activationTick = currentTick;
 	}
 
-	public isPowerupActive(currentTime: number): boolean {
-		if (this.activationStartTime === null || this.metadata.duration === null) return false;
-		return (currentTime - this.activationStartTime + EPS) < this.metadata.duration;
+	public isPowerupActive(currentTick: number): boolean {
+		if (this.activationTick === null || this.metadata.durationTicks === null) return false;
+		return (currentTick - this.activationTick) < this.metadata.durationTicks;
 	}
 
 	public isPowerupTaken(): boolean {
-		return this.activationStartTime !== null;
+		return this.activationTick !== null;
 	}
 
 	public isTimeBased(): boolean {
-		return this.metadata.duration !== null;
+		return this.metadata.durationTicks !== null;
 	}
 
-	public getRemainingPowerupTime(currentTime: number): number {
-		if (this.activationStartTime === null) return 0;
-		if (this.metadata.duration === null) return Infinity;
-		const elapsed = currentTime - this.activationStartTime;
-		return Math.max(0, this.metadata.duration - elapsed);
+	public getRemainingPowerupTicks(currentTick: number): number {
+		if (this.activationTick === null) return 0;
+		if (this.metadata.durationTicks === null) return Infinity;
+		const elapsed = currentTick - this.activationTick;
+		return Math.max(0, this.metadata.durationTicks - elapsed);
 	}
 
 	public toJSON(): any {
@@ -129,10 +139,10 @@ export class Powerup extends CircleObject {
 			this.velocity.x,
 			this.velocity.y,
 			this.radius,
-			this.spawnTime,
+			this.spawnTick,
 			this.metadata.type,
-			this.metadata.duration,
-			this.activationStartTime,
+			this.metadata.durationTicks,
+			this.activationTick,
 		]
 	}
 }
@@ -149,9 +159,14 @@ export class PongGame {
     private score: Map<number, number> = new Map();
 
     private gameOptions: PongGameOptions;
-    private nextPowerupSpawnTime: number = 0;
+    private nextPowerupSpawnTick: number = 0; // Tick-based powerup spawn
     private powerupSpawnRadius: number = 0;
     private players: number[];
+    
+    // Deterministic simulation state
+    private currentTick: number = 0;
+    private rng: SeededRandom;
+    private timeAccumulator: number = 0; // Accumulates fractional time between ticks
 
     private fetchWallSegments(): number[] {
         if (this.players.length === 0)
@@ -253,7 +268,7 @@ export class PongGame {
                 const wall = this.walls.find(w => w === other);
                 if (wall) {
                     ball.center = new Vec2(gameOptions.canvasWidth / 2, gameOptions.canvasHeight / 2);
-                    ball.velocity = new Vec2(0, -1).rotate(Math.random() * 2 * Math.PI).mul(gameOptions.ballSpeed);
+                    ball.velocity = new Vec2(0, -1).rotate(this.rng.nextAngle()).mul(gameOptions.ballSpeed);
                     return CollisionResponse.IGNORE;
                 }
             }
@@ -272,7 +287,9 @@ export class PongGame {
 
     private spawnNewPowerup(): void {
         if (ENABLE_GAME_LOGS) console.log(this.powerupSpawnRadius);
-        const position = (new Vec2(1, 0).rotate(Math.random() * 2 * Math.PI)).mul(Math.sqrt(Math.random()) * this.powerupSpawnRadius).add(new Vec2(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2));
+        const angle = this.rng.nextAngle();
+        const distance = Math.sqrt(this.rng.next()) * this.powerupSpawnRadius;
+        const position = (new Vec2(1, 0).rotate(angle)).mul(distance).add(new Vec2(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2));
         const velocity = new Vec2(0, 0);
         const powerup = Powerup.generateRandomPowerup(position, velocity, this);
         this.powerups.push(powerup);
@@ -287,10 +304,18 @@ export class PongGame {
         this.powerups = [];
         this.players = Array.from(players);
         this.gameOptions = gameOptions;
+        
+        // Initialize deterministic RNG with provided seed or random seed
+        this.rng = gameOptions.seed !== undefined 
+            ? new SeededRandom(gameOptions.seed) 
+            : SeededRandom.withRandomSeed();
+        
+        // Initialize tick counter
+        this.currentTick = 0;
 
-        // Initialize nextPowerupSpawnTime to powerupFrequency so if powerups are disabled
-        // (frequency = 999999), no powerup will spawn at game start
-        this.nextPowerupSpawnTime = gameOptions.powerupFrequency;
+        // Initialize nextPowerupSpawnTick (convert frequency from seconds to ticks)
+        // If powerups are disabled (frequency = 999999), no powerup will spawn at game start
+        this.nextPowerupSpawnTick = Math.floor(gameOptions.powerupFrequency * TICK_RATE);
 
         this.score = new Map();
         for (const playerId of players) {
@@ -301,7 +326,7 @@ export class PongGame {
 
         const amountOfBalls = Math.max(1, gameOptions.amountOfBalls || 1);
         for (let i = 0; i < amountOfBalls; i++) {
-            const ballDirection = new Vec2(0, -1).rotate(Math.random() * 2 * Math.PI);
+            const ballDirection = new Vec2(0, -1).rotate(this.rng.nextAngle());
             this.spawnNewBall(new Vec2(gameOptions.canvasWidth / 2, gameOptions.canvasHeight / 2), ballDirection.mul(gameOptions.ballSpeed), 10, 1.0, gameOptions);
         }
     }
@@ -310,38 +335,64 @@ export class PongGame {
         return this.scene;
     }
 
+    /**
+     * Run simulation for the given deltaTime using fixed tick-based updates.
+     * This ensures deterministic behavior regardless of frame rate.
+     * Uses an accumulator to preserve fractional time between calls.
+     */
     public playSimulation(deltaTime: number): void {
-        const currentElapsed = this.scene.getElapsedTime();
-        let timeRemaining = Math.min(this.gameOptions.gameDuration - currentElapsed, deltaTime);
-        if (timeRemaining <= 0) return;
+        const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);
+        
+        // Accumulate time (preserves fractional ticks)
+        this.timeAccumulator += deltaTime;
+        
+        // Run as many ticks as we've accumulated time for
+        while (this.timeAccumulator >= TICK_DURATION && this.currentTick < gameDurationTicks) {
+            this.simulateTick();
+            this.timeAccumulator -= TICK_DURATION;
+        }
+        
+        // Cap accumulator to prevent spiral of death if simulation falls behind
+        if (this.timeAccumulator > TICK_DURATION * 10) {
+            this.timeAccumulator = TICK_DURATION;
+        }
+    }
+    
+    /**
+     * Simulate exactly one tick (1/120th of a second).
+     * All game logic happens in discrete ticks for determinism.
+     */
+    private simulateTick(): void {
+        // Clean up expired powerups at start of tick
+        this.cleanUpExpiredPowerups(this.currentTick);
 
-        this.cleanUpExpiredPowerups(currentElapsed);
-
-        if (currentElapsed >= this.nextPowerupSpawnTime) {
+        // Check for powerup spawn (tick-based)
+        if (this.currentTick >= this.nextPowerupSpawnTick) {
             this.spawnNewPowerup();
-            this.nextPowerupSpawnTime += this.gameOptions.powerupFrequency * (0.8 + Math.random() * 0.4);
+            // Next spawn: frequency ± 20% randomness (deterministic via seeded RNG)
+            const baseFrequencyTicks = Math.floor(this.gameOptions.powerupFrequency * TICK_RATE);
+            const jitterFactor = 0.8 + this.rng.next() * 0.4;
+            this.nextPowerupSpawnTick = this.currentTick + Math.floor(baseFrequencyTicks * jitterFactor);
         }
 
-        while (timeRemaining > EPS) {
-            let minPaddleTime = Infinity;
-            for (const paddle of this.paddles) {
-                const paddleTime = paddle.updatePaddleVelocity();
-                if (paddleTime < minPaddleTime) {
-                    minPaddleTime = paddleTime;
-                }
-            }
-
-            const stepTime = Math.min(timeRemaining, minPaddleTime);
-            this.scene.playSimulation(stepTime, this.balls);
-            timeRemaining -= stepTime;
+        // Update paddle velocities
+        for (const paddle of this.paddles) {
+            paddle.updatePaddleVelocity();
         }
+
+        // Run physics for exactly one tick duration
+        this.scene.playSimulation(TICK_DURATION, this.balls);
+        
+        this.currentTick++;
     }
 
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
         switch (powerup.getPowerupType()) {
             case PowerupType.ADD_BALL:
 			if (ENABLE_GAME_LOGS) console.log(`Spawning new ball due to powerup effect.`);
-                this.spawnNewBall(ball.center.clone(), ball.velocity.clone().rotate(Math.random() * Math.PI / 4 - Math.PI / 8), ball.radius, ball.inverseMass, this.gameOptions);
+                // Use seeded RNG for deterministic ball direction offset
+                const angleOffset = this.rng.nextFloat(-Math.PI / 8, Math.PI / 8);
+                this.spawnNewBall(ball.center.clone(), ball.velocity.clone().rotate(angleOffset), ball.radius, ball.inverseMass, this.gameOptions);
                 break;
 
             case PowerupType.INCREASE_PADDLE_SPEED:
@@ -373,7 +424,7 @@ export class PongGame {
                 break;
         }
 
-        powerup.activate(this.scene.getElapsedTime());
+        powerup.activate(this.currentTick);
     }
 
     public removePowerupEffects(powerup: Powerup): void {
@@ -402,9 +453,9 @@ export class PongGame {
         }
     }
 
-    private cleanUpExpiredPowerups(currentTime: number): void {
+    private cleanUpExpiredPowerups(currentTick: number): void {
         this.powerups = this.powerups.filter(powerup => {
-            const couldBeRemoved = !(powerup.isPowerupActive(currentTime) || !powerup.isPowerupTaken());
+            const couldBeRemoved = !(powerup.isPowerupActive(currentTick) || !powerup.isPowerupTaken());
             if (couldBeRemoved) {
                 if (ENABLE_GAME_LOGS) console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
                 this.scene.removeObject(powerup);
@@ -477,7 +528,9 @@ export class PongGame {
             boardId: this.id,
             metadata: {
                 gameOptions: this.gameOptions,
-                elapsedTime: this.scene.getElapsedTime(),
+                elapsedTime: this.getElapsedTime(), // Now derived from ticks
+                currentTick: this.currentTick,
+                seed: this.rng.getSeed(),
                 players: this.players,
                 id: this.id,
             },
@@ -517,8 +570,9 @@ export class PongGame {
     }
 
     public isGameOver(): boolean {
-        // Check time-based end
-        if (this.scene.getElapsedTime() >= this.gameOptions.gameDuration - FAT_EPS) {
+        // Check time-based end (tick-based for determinism)
+        const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);
+        if (this.currentTick >= gameDurationTicks) {
             return true;
         }
         // Check score-based end (if maxScore is configured)
@@ -546,5 +600,36 @@ export class PongGame {
         }
         
         return winnerId;
+    }
+
+    /**
+     * Get the current simulation tick.
+     * Useful for deterministic replay and rollback netcode.
+     */
+    public getCurrentTick(): number {
+        return this.currentTick;
+    }
+
+    /**
+     * Get the seeded RNG instance.
+     * Use this for any random values to maintain determinism.
+     */
+    public getRng(): SeededRandom {
+        return this.rng;
+    }
+
+    /**
+     * Get elapsed time in seconds (derived from ticks for consistency).
+     */
+    public getElapsedTime(): number {
+        return this.currentTick * TICK_DURATION;
+    }
+
+    /**
+     * Get the seed used for this game's RNG.
+     * Share this with clients for deterministic replay.
+     */
+    public getSeed(): number {
+        return this.rng.getSeed();
     }
 }

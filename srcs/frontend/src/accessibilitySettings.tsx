@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { useLanguage } from "./i18n"
 
 interface AccessibilitySettingsProps {
   isOpen: boolean
@@ -20,6 +21,8 @@ export default function AccessibilitySettings({
   settings,
   onUpdateSettings,
 }: AccessibilitySettingsProps) {
+  const { t } = useLanguage()
+  
   if (!isOpen) return null
 
   const toggleSetting = (key: keyof typeof settings) => {
@@ -42,12 +45,12 @@ export default function AccessibilitySettings({
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-blue-500/90">
           <div className="flex justify-between items-center">
             <h2 id="accessibility-title" className="text-2xl font-bold text-white">
-              ♿ Accessibility Settings
+              ♿ {t('accessibility.title')}
             </h2>
             <button
               onClick={onClose}
               className="text-white hover:text-gray-200 transition-colors text-2xl"
-              aria-label="Close accessibility settings"
+              aria-label={t('common.close')}
             >
               ×
             </button>
@@ -57,17 +60,17 @@ export default function AccessibilitySettings({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Customize the interface to meet your accessibility needs
+            {t('accessibility.subtitle')}
           </p>
 
           {/* High Contrast Mode */}
           <div className="flex items-center justify-between p-4 bg-gray-50/40 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
             <div className="flex-1">
               <label htmlFor="high-contrast" className="font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">
-                High Contrast Mode
+                {t('accessibility.highContrast')}
               </label>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Increases contrast for better visibility
+                {t('accessibility.highContrastDesc')}
               </p>
             </div>
             <button
@@ -77,7 +80,7 @@ export default function AccessibilitySettings({
                 }`}
               role="switch"
               aria-checked={settings.highContrast}
-              aria-label="Toggle high contrast mode"
+              aria-label={t('accessibility.highContrast')}
             >
               <span
                 className={`absolute top-1 left-1 w-5 h-5 bg-white transition-transform ${settings.highContrast ? "translate-x-7" : ""
@@ -90,10 +93,10 @@ export default function AccessibilitySettings({
           <div className="flex items-center justify-between p-4 bg-gray-50/40 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
             <div className="flex-1">
               <label htmlFor="large-text" className="font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">
-                Large Text
+                {t('accessibility.largeText')}
               </label>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Increases font size across the app
+                {t('accessibility.largeTextDesc')}
               </p>
             </div>
             <button
@@ -103,7 +106,7 @@ export default function AccessibilitySettings({
                 }`}
               role="switch"
               aria-checked={settings.largeText}
-              aria-label="Toggle large text"
+              aria-label={t('accessibility.largeText')}
             >
               <span
                 className={`absolute top-1 left-1 w-5 h-5 bg-white transition-transform ${settings.largeText ? "translate-x-7" : ""
@@ -116,10 +119,10 @@ export default function AccessibilitySettings({
           <div className="flex items-center justify-between p-4 bg-gray-50/40 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
             <div className="flex-1">
               <label htmlFor="reduced-motion" className="font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">
-                Reduced Motion
+                {t('accessibility.reducedMotion')}
               </label>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Minimizes animations and transitions
+                {t('accessibility.reducedMotionDesc')}
               </p>
             </div>
             <button
@@ -129,7 +132,7 @@ export default function AccessibilitySettings({
                 }`}
               role="switch"
               aria-checked={settings.reducedMotion}
-              aria-label="Toggle reduced motion"
+              aria-label={t('accessibility.reducedMotion')}
             >
               <span
                 className={`absolute top-1 left-1 w-5 h-5 bg-white transition-transform ${settings.reducedMotion ? "translate-x-7" : ""
@@ -142,10 +145,10 @@ export default function AccessibilitySettings({
           <div className="flex items-center justify-between p-4 bg-gray-50/40 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
             <div className="flex-1">
               <label htmlFor="screen-reader" className="font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">
-                Screen Reader Mode
+                {t('accessibility.screenReaderMode')}
               </label>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Optimizes interface for screen readers
+                {t('accessibility.screenReaderModeDesc')}
               </p>
             </div>
             <button
@@ -155,7 +158,7 @@ export default function AccessibilitySettings({
                 }`}
               role="switch"
               aria-checked={settings.screenReaderMode}
-              aria-label="Toggle screen reader mode"
+              aria-label={t('accessibility.screenReaderMode')}
             >
               <span
                 className={`absolute top-1 left-1 w-5 h-5 bg-white transition-transform ${settings.screenReaderMode ? "translate-x-7" : ""
@@ -167,13 +170,13 @@ export default function AccessibilitySettings({
           {/* Keyboard Shortcuts Info */}
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              ⌨️ Keyboard Shortcuts
+              ⌨️ {t('accessibility.keyboardShortcuts')}
             </h3>
             <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Tab</kbd> - Navigate between elements</li>
-              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Enter</kbd> - Activate buttons/links</li>
-              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Esc</kbd> - Close modals/dialogs</li>
-              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Ctrl + /</kbd> - Show command help</li>
+              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Tab</kbd> - {t('accessibility.tabNavigate')}</li>
+              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Enter</kbd> - {t('accessibility.enterActivate')}</li>
+              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Esc</kbd> - {t('accessibility.escClose')}</li>
+              <li><kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700/50 text-xs">Ctrl + /</kbd> - {t('accessibility.ctrlSlashHelp')}</li>
             </ul>
           </div>
         </div>
@@ -184,7 +187,7 @@ export default function AccessibilitySettings({
             onClick={onClose}
             className="px-6 py-2 bg-blue-500 text-white hover:bg-blue-600 transition-colors font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            Done
+            {t('common.done')}
           </button>
         </div>
       </div>

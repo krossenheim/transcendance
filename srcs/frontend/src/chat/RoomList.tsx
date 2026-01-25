@@ -3,6 +3,7 @@
 import type { TypeRoomSchema } from "@/types/chat-models"
 import type React from "react"
 import { useState, useCallback } from "react"
+import { useLanguage } from "../i18n/LanguageContext"
 
 interface RoomListProps {
   rooms: TypeRoomSchema[]
@@ -27,6 +28,7 @@ const RoomList: React.FC<RoomListProps> = ({
   selfUserId,
   userMap,
 }) => {
+  const { t } = useLanguage()
   const [newRoomName, setNewRoomName] = useState("")
   const [showCreateForm, setShowCreateForm] = useState(false)
   
@@ -61,7 +63,7 @@ const RoomList: React.FC<RoomListProps> = ({
   return (
     <div className="glass-light-sm dark:glass-dark-sm glass-border h-[600px] flex flex-col overflow-hidden" role="navigation" aria-label="Chat rooms list">
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500/70 to-pink-500/70">
-        <h2 className="text-lg font-semibold text-white" id="room-list-title">Chat Rooms</h2>
+        <h2 className="text-lg font-semibold text-white" id="room-list-title">{t('chat.rooms')}</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -96,7 +98,7 @@ const RoomList: React.FC<RoomListProps> = ({
             </div>
           ))
         ) : (
-          <p className="text-gray-400 dark:text-gray-500 text-center text-sm italic py-8">No rooms available. Create one!</p>
+          <p className="text-gray-400 dark:text-gray-500 text-center text-sm italic py-8">{t('chat.noRooms')}</p>
         )}
       </div>
 
@@ -105,7 +107,7 @@ const RoomList: React.FC<RoomListProps> = ({
           <div className="space-y-2">
             <input
               type="text"
-              placeholder="Room name..."
+              placeholder={t('chat.roomNamePlaceholder')}
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
@@ -119,7 +121,7 @@ const RoomList: React.FC<RoomListProps> = ({
                 className="flex-1 bg-purple-500 text-white px-3 py-2 hover:bg-purple-600 text-sm"
                 aria-label="Create new room"
               >
-                Create
+                {t('chat.create')}
               </button>
               <button
                 onClick={() => {
@@ -129,7 +131,7 @@ const RoomList: React.FC<RoomListProps> = ({
                 className="flex-1 bg-gray-200 text-gray-700 px-3 py-2 hover:bg-gray-300 text-sm"
                 aria-label="Cancel room creation"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -140,24 +142,24 @@ const RoomList: React.FC<RoomListProps> = ({
               className="w-full bg-purple-500 text-white px-4 py-2 hover:bg-purple-600 transition-all"
               aria-label="Show create room form"
             >
-              + Create Room
+              {t('chat.createRoom')}
             </button>
             <button
               onClick={onRefreshRooms}
               className="w-full bg-gray-100 text-gray-700 px-4 py-2 hover:bg-gray-200 transition-all"
               aria-label="Refresh rooms list"
             >
-              🔄 Refresh Rooms
+            🔄 {t('chat.refreshRooms')}
             </button>
             <button
               onClick={() => {
-                const usernameOrId = prompt("Enter username or user ID to start DM:")
+                const usernameOrId = prompt(t('chat.enterUsernameOrId'))
                 if (usernameOrId) onStartDM(usernameOrId)
               }}
               className="w-full bg-blue-500 text-white px-4 py-2 hover:bg-blue-600 transition-all"
               aria-label="Start direct message"
             >
-              💬 Direct Message
+              💬 {t('chat.directMessage')}
             </button>
           </>
         )}

@@ -19,10 +19,13 @@ import PongInvitationHandler from "./pongInvitationHandler";
 import AccessibilitySettings from "./accessibilitySettings";
 import CookieBanner from "./CookieBanner";
 import StarfieldBackground from "./StarfieldBackground";
+import { useLanguage } from "./i18n";
+import LanguageSwitcher from "./components/LanguageSwitcher";
 
 export default function AppRoot() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, isRTL } = useLanguage();
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
   const getInitialPage = () => {
     const path = location.pathname;
@@ -445,21 +448,23 @@ export default function AppRoot() {
               <div className="flex flex-col h-screen">
                 <header className="bg-gray-100/95 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
                   <div className="max-w-5xl mx-auto px-4 py-4">
-                    <div className="flex justify-between items-center">
-                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Transcendence</h1>
-                      <div className="flex items-center space-x-4">
-                        <nav className="flex space-x-4">
+                    <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('app.title')}</h1>
+                      <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
+                        <nav className={`flex ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
                           <button
                             onClick={() => navigate('/chat')}
                             className={`px-4 py-2 ${currentPage === 'chat' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
-                          >Chat</button>
+                          >{t('nav.chat')}</button>
                           <button
                             onClick={() => navigate('/pong')}
                             className={`px-4 py-2 ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
-                          >Pong</button>
+                          >{t('nav.pong')}</button>
                         </nav>
 
-                        <button onClick={() => setShowAccessibilitySettings(true)} className="p-2" aria-label="Open accessibility settings">
+                        <LanguageSwitcher />
+
+                        <button onClick={() => setShowAccessibilitySettings(true)} className="p-2" aria-label={t('accessibility.openSettings')}>
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                           </svg>
@@ -552,15 +557,18 @@ export default function AppRoot() {
         ) : (
           <div className="min-h-screen flex items-center justify-center py-12 px-4">
             {isAutoLoggingIn ? (
-              <div>Restoring session…</div>
+              <div>{t('app.restoringSession')}</div>
             ) : (
               <div className="max-w-4xl w-full space-y-8">
                 <div className="text-center">
-                  <h2 className="text-3xl font-bold text-white">Welcome to Transcendence</h2>
+                  <h2 className="text-3xl font-bold text-white">{t('app.welcome')}</h2>
+                  <div className="mt-4 flex justify-center">
+                    <LanguageSwitcher />
+                  </div>
                 </div>
 
                 <div className="mt-8 py-8 px-4">
-                  <div className="grid grid-cols-2 gap-8">
+                  <div className={`grid grid-cols-2 gap-8 ${isRTL ? 'direction-rtl' : ''}`}>
                     <div>
                       <LoginComponent onLoginSuccess={logInOrRegistered} />
                     </div>
@@ -573,7 +581,7 @@ export default function AppRoot() {
                     <button
                       onClick={handleGuestLogin}
                       className="bg-gray-100 dark:bg-gray-700/80 px-6 py-2 hover:bg-gray-200 dark:hover:bg-gray-600/80 transition-colors"
-                    >Continue as Guest</button>
+                    >{t('app.continueAsGuest')}</button>
                   </div>
                 </div>
               </div>
