@@ -128,6 +128,8 @@ export const zh: TranslationKeys = {
     he: '希伯来语',
     es: '西班牙语',
     nl: '荷兰语',
+    fy: '弗里斯兰语',
+    cy: '威尔士语',
   },
 
   // Friends
@@ -142,6 +144,18 @@ export const zh: TranslationKeys = {
     online: '在线',
     offline: '离线',
     inGame: '游戏中',
+    friendsAndPrivacy: '好友与隐私',
+    requests: '请求',
+    blocked: '已屏蔽',
+    noFriendsYet: '暂无好友',
+    noPendingRequests: '没有待处理的请求',
+    noBlockedUsers: '没有被屏蔽的用户',
+    pending: '等待中',
+    cancel: '取消',
+    unfriend: '删除好友',
+    block: '屏蔽',
+    unblock: '取消屏蔽',
+    deny: '拒绝',
   },
 
   // Chat

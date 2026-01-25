@@ -128,6 +128,8 @@ export const he: TranslationKeys = {
     he: 'עברית',
     es: 'ספרדית',
     nl: 'הולנדית',
+    fy: 'פריזית',
+    cy: 'וולשית',
   },
 
   // Friends
@@ -142,6 +144,18 @@ export const he: TranslationKeys = {
     online: 'מחובר',
     offline: 'מנותק',
     inGame: 'במשחק',
+    friendsAndPrivacy: 'חברים ופרטיות',
+    requests: 'בקשות',
+    blocked: 'חסומים',
+    noFriendsYet: 'עדיין אין חברים',
+    noPendingRequests: 'אין בקשות ממתינות',
+    noBlockedUsers: 'אין משתמשים חסומים',
+    pending: 'ממתין',
+    cancel: 'ביטול',
+    unfriend: 'הסר מחברים',
+    block: 'חסום',
+    unblock: 'בטל חסימה',
+    deny: 'דחה',
   },
 
   // Chat

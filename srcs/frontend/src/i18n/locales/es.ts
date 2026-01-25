@@ -126,6 +126,8 @@ export const es = {
     he: 'Hebreo',
     es: 'Español',
     nl: 'Holandés',
+    fy: 'Frisón',
+    cy: 'Galés',
   },
 
   // Friends
@@ -140,6 +142,18 @@ export const es = {
     online: 'En línea',
     offline: 'Desconectado',
     inGame: 'En partida',
+    friendsAndPrivacy: 'Amigos y Privacidad',
+    requests: 'Solicitudes',
+    blocked: 'Bloqueados',
+    noFriendsYet: 'Aún no hay amigos',
+    noPendingRequests: 'No hay solicitudes pendientes',
+    noBlockedUsers: 'No hay usuarios bloqueados',
+    pending: 'Pendiente',
+    cancel: 'Cancelar',
+    unfriend: 'Eliminar amistad',
+    block: 'Bloquear',
+    unblock: 'Desbloquear',
+    deny: 'Rechazar',
   },
 
   // Chat

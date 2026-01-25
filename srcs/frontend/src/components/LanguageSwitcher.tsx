@@ -1,14 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage, languageNames, languageFlags } from '../i18n';
 
-type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl';
+type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy';
+
+// Languages that use image flags instead of emoji
+const imageFlags: Partial<Record<SupportedLanguage, string>> = {
+  fy: '/static/react_dist/flags/fy.png',
+};
+
+function FlagDisplay({ lang, className }: { lang: SupportedLanguage; className?: string }) {
+  if (imageFlags[lang]) {
+    return <img src={imageFlags[lang]} alt="" className={`w-5 h-4 object-cover rounded-sm ${className || ''}`} />;
+  }
+  return <span className={`text-lg ${className || ''}`} aria-hidden="true">{languageFlags[lang]}</span>;
+}
 
 export default function LanguageSwitcher() {
   const { language, setLanguage, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he', 'es', 'nl'];
+  const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he', 'es', 'nl', 'fy', 'cy'];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -38,7 +50,7 @@ export default function LanguageSwitcher() {
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <span className="text-lg" aria-hidden="true">{languageFlags[currentLang]}</span>
+        <FlagDisplay lang={currentLang} />
         <span className="text-sm font-medium hidden sm:inline">{languageNames[currentLang]}</span>
         <svg
           className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -75,7 +87,7 @@ export default function LanguageSwitcher() {
               role="option"
               aria-selected={currentLang === lang}
             >
-              <span className="text-lg" aria-hidden="true">{languageFlags[lang]}</span>
+              <FlagDisplay lang={lang} />
               <span>{languageNames[lang]}</span>
               {currentLang === lang && (
                 <svg className="w-4 h-4 ml-auto text-blue-500" fill="currentColor" viewBox="0 0 20 20">
