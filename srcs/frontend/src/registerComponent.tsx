@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import type { AuthResponseType } from "./types/auth-response"
+import { useLanguage } from "./i18n"
 
 interface RegisterComponentProps {
   whenCompletedSuccesfully: (data: any) => void
@@ -15,6 +16,7 @@ interface ValidationErrors {
 }
 
 export default function RegisterComponent({ whenCompletedSuccesfully }: RegisterComponentProps) {
+  const { t } = useLanguage()
   const [registerUsername, setRegisterUsername] = useState<string>("")
   const [registerEmail, setRegisterEmail] = useState<string>("")
   const [registerPassword, setRegisterPassword] = useState<string>("")
@@ -32,29 +34,29 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 8) {
-      return "Password must be at least 8 characters"
+      return t('register.passwordMinLength')
     }
     if (!/[A-Z]/.test(password)) {
-      return "Password must contain at least one uppercase letter"
+      return t('register.passwordUppercase')
     }
     if (!/[a-z]/.test(password)) {
-      return "Password must contain at least one lowercase letter"
+      return t('register.passwordLowercase')
     }
     if (!/[0-9]/.test(password)) {
-      return "Password must contain at least one number"
+      return t('register.passwordNumber')
     }
     return null
   }
 
   const validateUsername = (username: string): string | null => {
     if (username.length < 3) {
-      return "Username must be at least 3 characters"
+      return t('register.usernameMinLength')
     }
     if (username.length > 20) {
-      return "Username must be less than 20 characters"
+      return t('register.usernameMaxLength')
     }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return "Username can only contain letters, numbers, and underscores"
+      return t('register.usernameInvalid')
     }
     return null
   }
@@ -87,16 +89,16 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
     if (usernameError) errors.registerUsername = usernameError
 
     if (!registerEmail) {
-      errors.registerEmail = "Email is required"
+      errors.registerEmail = t('register.emailRequired')
     } else if (!validateEmail(registerEmail)) {
-      errors.registerEmail = "Please enter a valid email"
+      errors.registerEmail = t('register.emailInvalid')
     }
 
     const passwordError = validatePassword(registerPassword)
     if (passwordError) errors.registerPassword = passwordError
 
     if (registerPassword !== registerConfirmPassword) {
-      errors.registerConfirmPassword = "Passwords do not match"
+      errors.registerConfirmPassword = t('register.passwordsNoMatch')
     }
 
     if (Object.keys(errors).length > 0) {
@@ -112,7 +114,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
       if (err instanceof Error) {
         setError(err.message)
       } else {
-        setError("Registration failed")
+        setError(t('register.registrationFailed'))
       }
     } finally {
       setIsLoading(false)
@@ -122,8 +124,8 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
   return (
     <div className="flex items-start justify-center px-4 py-4">
       <div className="w-full max-w-md shadow-lg glass-light-sm dark:glass-dark-sm glass-border p-4 md:p-6 mt-4 md:mt-6">
-        <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Create Account</h1>
-        <p className="text-center mb-4 text-gray-500 dark:text-gray-300">Fill in your details to register</p>
+        <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">{t('register.title')}</h1>
+        <p className="text-center mb-4 text-gray-500 dark:text-gray-300">{t('register.subtitle')}</p>
 
         {error && (
           <div className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 p-2 mb-4 text-center">⚠️ {error}</div>
@@ -133,7 +135,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
           {/* Username */}
           <div>
             <label htmlFor="register-username" className="block font-semibold text-gray-700 dark:text-gray-200">
-              Username
+              {t('register.username')}
             </label>
             <input
               id="register-username"
@@ -153,7 +155,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
           {/* Email */}
           <div>
             <label htmlFor="register-email" className="block font-semibold text-gray-700 dark:text-gray-200">
-              Email
+              {t('register.email')}
             </label>
             <input
               id="register-email"
@@ -173,12 +175,12 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
           {/* Password */}
           <div>
             <label htmlFor="register-password" className="block font-semibold text-gray-700 dark:text-gray-200">
-              Password
+              {t('register.password')}
             </label>
             <input
               id="register-password"
               type={showRegisterPassword ? "text" : "password"}
-              placeholder="••••••••"
+              placeholder={t('register.passwordPlaceholder')}
               value={registerPassword}
               onChange={(e) => setRegisterPassword(e.target.value)}
               className={`border p-2 w-full border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.registerPassword ? "border-red-500 dark:border-red-400" : ""
@@ -190,7 +192,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               onClick={() => setShowRegisterPassword(!showRegisterPassword)}
               className="text-sm text-gray-600 dark:text-gray-300 mt-1"
             >
-              {showRegisterPassword ? "Hide" : "Show"} Password
+              {showRegisterPassword ? t('register.hidePassword') : t('register.showPassword')}
             </button>
             {validationErrors.registerPassword && (
               <p className="text-sm text-red-500 dark:text-red-300">{validationErrors.registerPassword}</p>
@@ -200,12 +202,12 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
           {/* Confirm Password */}
           <div>
             <label htmlFor="register-confirm-password" className="block font-semibold text-gray-700 dark:text-gray-200">
-              Confirm Password
+              {t('register.confirmPassword')}
             </label>
             <input
               id="register-confirm-password"
               type={showConfirmPassword ? "text" : "password"}
-              placeholder="••••••••"
+              placeholder={t('register.confirmPasswordPlaceholder')}
               value={registerConfirmPassword}
               onChange={(e) => setRegisterConfirmPassword(e.target.value)}
               className={`border p-2 w-full border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.registerConfirmPassword ? "border-red-500 dark:border-red-400" : ""
@@ -217,7 +219,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="text-sm text-gray-600 dark:text-gray-300 mt-1"
             >
-              {showConfirmPassword ? "Hide" : "Show"} Password
+              {showConfirmPassword ? t('register.hidePassword') : t('register.showPassword')}
             </button>
             {validationErrors.registerConfirmPassword && (
               <p className="text-sm text-red-500 dark:text-red-300">{validationErrors.registerConfirmPassword}</p>
@@ -230,7 +232,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
             className="w-full bg-blue-600 dark:bg-blue-600 text-white py-2 hover:bg-blue-700 dark:hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
-            {isLoading ? "Creating account..." : "Create Account"}
+            {isLoading ? t('register.registering') : t('register.registerButton')}
           </button>
         </div>
       </div>

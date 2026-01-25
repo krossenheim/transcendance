@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLanguage } from './i18n';
 
 function setCookie(name: string, value: string, days = 365) {
   const d = new Date(); d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
@@ -10,6 +11,7 @@ function getCookie(name: string) {
 }
 
 export default function CookieBanner() {
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -44,10 +46,10 @@ export default function CookieBanner() {
       }} />
       {/* Cookie banner */}
       <div style={{ position: 'fixed', bottom: 12, left: 12, right: 12, background: '#111', color: '#fff', padding: 12, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 9999 }}>
-        <div style={{ maxWidth: '70%' }}>We use cookies to improve your experience. You may accept or reject non-essential cookies.</div>
+        <div style={{ maxWidth: '70%' }}>{t('cookies.message')}</div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={accept} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer' }}>Accept</button>
-          <button onClick={reject} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer' }}>Reject</button>
+          <button onClick={accept} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer' }}>{t('cookies.accept')}</button>
+          <button onClick={reject} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer' }}>{t('cookies.decline')}</button>
         </div>
       </div>
     </>

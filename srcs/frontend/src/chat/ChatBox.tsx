@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { getUserColorCSS } from "../userColorUtils"
 import type { ChatMessage, RoomUser, SlashCommand } from "./types"
+import { useLanguage } from "../i18n/LanguageContext"
 
 interface ChatBoxProps {
   messages: ChatMessage[]
@@ -42,6 +43,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   roomUsers,
   selfUserId,
 }) => {
+  const { t } = useLanguage()
   const [input, setInput] = useState("")
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -140,7 +142,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-500/70 to-purple-500/70">
         <h2 className="text-lg font-semibold text-white" id="chat-room-title">
-          {currentRoomName ? `#${currentRoomName}` : "Select a Room"}
+          {currentRoomName ? `#${currentRoomName}` : t('chat.selectRoom')}
         </h2>
         {currentRoom && (
           isJoined ? (
@@ -149,7 +151,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               className="px-3 py-1 text-sm bg-pink-500 text-white hover:bg-pink-600 transition-all"
               aria-label="Invite users to pong game"
             >
-              🏓 Invite to Pong
+              🏓 {t('chat.inviteToPong')}
             </button>
           ) : (
             <button
@@ -157,7 +159,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 transition-all"
               aria-label="Join this room"
             >
-              ➕ Join Room
+              ➕ {t('chat.joinRoom')}
             </button>
           )
         )}
@@ -189,7 +191,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                           onClick={() => onBlockUser(msg.userId!)}
                           className="text-xs text-red-500 hover:underline"
                         >
-                          {isBlocked ? "Unblock" : "Block"}
+                          {isBlocked ? t('chat.unblock') : t('chat.block')}
                         </button>
                       )}
                     </div>
@@ -206,7 +208,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-400 text-center text-sm italic">
-              {currentRoom ? "No messages yet. Start the conversation!" : "Join a room to start chatting"}
+              {currentRoom ? t('chat.startConversation') : t('chat.joinRoomToChat')}
             </p>
           </div>
         )}
@@ -217,7 +219,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         {currentRoom && (
           <div className="w-48 glass-light-xs dark:glass-dark-xs glass-border overflow-y-auto" role="complementary" aria-label="Online users list">
             <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-900">Users ({roomUsers.length})</h3>
+              <h3 className="text-sm font-semibold text-gray-900">{t('chat.users')} ({roomUsers.length})</h3>
             </div>
             <div className="p-2 space-y-1">
               {roomUsers.map((user) => {
@@ -241,7 +243,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                 )
               })}
               {roomUsers.length === 0 && (
-                <div className="text-xs text-gray-400 text-center py-4">No users</div>
+                <div className="text-xs text-gray-400 text-center py-4">{t('chat.noUsers')}</div>
               )}
             </div>
           </div>
@@ -254,7 +256,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder={currentRoom ? "Type a message..." : "Select a room first..."}
+              placeholder={currentRoom ? t('chat.typePlaceholder') : t('chat.selectRoomFirst')}
               className={`w-full border rounded-full px-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 glass-light-xs dark:glass-dark-xs ${
                 isCommand
                   ? "border-purple-500 text-purple-700 focus:ring-purple-400"
@@ -304,7 +306,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                 : 'bg-gray-200 text-gray-700 cursor-not-allowed'
             }`}
           >
-            Send
+            {t('chat.send')}
           </button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWebSocket } from './socketComponent'
 import { user_url } from '@app/shared/api/service/common/endpoints'
 import { getUserColorCSS } from './userColorUtils'
+import { useLanguage } from './i18n'
 
 interface FriendsManagerProps {
   isOpen: boolean
@@ -19,13 +20,12 @@ interface ConnectionItem {
   onlineStatus?: number
 }
 
-const TABS = ["Friends", "Requests", "Blocked"] as const
-
-type Tab = typeof TABS[number]
+type Tab = 'friends' | 'requests' | 'blocked'
 
 export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps) {
+  const { t } = useLanguage()
   const { sendMessage, payloadReceived } = useWebSocket()
-  const [activeTab, setActiveTab] = useState<Tab>('Friends')
+  const [activeTab, setActiveTab] = useState<Tab>('friends')
   const [connections, setConnections] = useState<ConnectionItem[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -97,23 +97,23 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
                   onClick={() => sendToSocket(user_url.ws.users.confirmFriendship.funcId, item.id)}
                   className="px-3 py-1 text-xs font-medium bg-green-500 text-white hover:bg-green-600"
                 >
-                  Accept
+                  {t('friends.accept')}
                 </button>
                 <button
                   onClick={() => sendToSocket(user_url.ws.users.denyFriendship.funcId, item.id)}
                   className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
                 >
-                  Deny
+                  {t('friends.deny')}
                 </button>
               </>
             ) : (
               <>
-                <span className="px-3 py-1 text-xs font-medium bg-yellow-400 text-white">Pending</span>
+                <span className="px-3 py-1 text-xs font-medium bg-yellow-400 text-white">{t('friends.pending')}</span>
                 <button
                   onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
                   className="px-3 py-1 text-xs font-medium bg-gray-500 text-white hover:bg-gray-600"
                 >
-                  Cancel
+                  {t('friends.cancel')}
                 </button>
               </>
             )}
@@ -125,14 +125,14 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
               onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
               className="px-3 py-1 text-xs font-medium bg-gray-500 text-white hover:bg-gray-600"
             >
-              Unfriend
+              {t('friends.unfriend')}
             </button>
             <button
               onClick={() => sendToSocket(user_url.ws.users.blockUser.funcId, item.friendId)}
               className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
               disabled={item.friendId === selfUserId || item.friendId === 1}
             >
-              Block
+              {t('friends.block')}
             </button>
           </>
         )}
@@ -141,7 +141,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
             onClick={() => sendToSocket(user_url.ws.users.unblockUser.funcId, item.friendId)}
             className="px-3 py-1 text-xs font-medium bg-gray-100/40 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50/40 dark:hover:bg-dark-600"
           >
-            Unblock
+            {t('friends.unblock')}
           </button>
         )}
       </div>
@@ -160,7 +160,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
     >
       <div className="w-full max-w-2xl glass-light-sm dark:glass-dark-sm glass-border shadow-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Friends & Privacy</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('friends.friendsAndPrivacy')}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100/40 dark:hover:bg-dark-700">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -168,24 +168,33 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
 
         <div className="px-4 pt-3">
           <div className="flex gap-2 mb-3">
-            {TABS.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 text-sm ${activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-100/40 dark:bg-dark-700 text-gray-700 dark:text-gray-200'}`}
-              >
-                {tab}
-              </button>
-            ))}
+            <button
+              onClick={() => setActiveTab('friends')}
+              className={`px-3 py-1.5 text-sm ${activeTab === 'friends' ? 'bg-blue-600 text-white' : 'bg-gray-100/40 dark:bg-dark-700 text-gray-700 dark:text-gray-200'}`}
+            >
+              {t('friends.title')}
+            </button>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`px-3 py-1.5 text-sm ${activeTab === 'requests' ? 'bg-blue-600 text-white' : 'bg-gray-100/40 dark:bg-dark-700 text-gray-700 dark:text-gray-200'}`}
+            >
+              {t('friends.requests')}
+            </button>
+            <button
+              onClick={() => setActiveTab('blocked')}
+              className={`px-3 py-1.5 text-sm ${activeTab === 'blocked' ? 'bg-blue-600 text-white' : 'bg-gray-100/40 dark:bg-dark-700 text-gray-700 dark:text-gray-200'}`}
+            >
+              {t('friends.blocked')}
+            </button>
           </div>
         </div>
 
         <div className="px-4 pb-4 max-h-[60vh] overflow-y-auto">
           {loading ? (
-            <div className="p-6 text-center text-gray-500 dark:text-gray-400">Loading...</div>
+            <div className="p-6 text-center text-gray-500 dark:text-gray-400">{t('common.loading')}</div>
           ) : (
             <div className="space-y-2">
-              {(activeTab === 'Friends' ? friends : activeTab === 'Blocked' ? blocked : pending).map((item) => {
+              {(activeTab === 'friends' ? friends : activeTab === 'blocked' ? blocked : pending).map((item) => {
                 // Determine the correct user ID for coloring: use id if friendId matches self, otherwise use friendId
                 const displayUserId = (selfUserId !== null && item.friendId === selfUserId) ? item.id : item.friendId
                 return (
@@ -198,14 +207,14 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
                   </div>
                 )
               })}
-              {(activeTab === 'Friends' && friends.length === 0) && (
-                <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No friends yet</div>
+              {(activeTab === 'friends' && friends.length === 0) && (
+                <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">{t('friends.noFriendsYet')}</div>
               )}
-              {(activeTab === 'Requests' && pending.length === 0) && (
-                <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No pending requests</div>
+              {(activeTab === 'requests' && pending.length === 0) && (
+                <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">{t('friends.noPendingRequests')}</div>
               )}
-              {(activeTab === 'Blocked' && blocked.length === 0) && (
-                <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No blocked users</div>
+              {(activeTab === 'blocked' && blocked.length === 0) && (
+                <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">{t('friends.noBlockedUsers')}</div>
               )}
             </div>
           )}

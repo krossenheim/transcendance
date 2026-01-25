@@ -2,6 +2,7 @@
 
 import type { GameMode } from "./pongInviteModal"
 import { getUserColorCSS } from "./userColorUtils"
+import { useLanguage } from "./i18n/LanguageContext"
 
 export interface LobbyPlayer {
   id: number
@@ -37,6 +38,8 @@ export default function PongLobby({
   onStartGame,
   onLeaveLobby,
 }: PongLobbyProps) {
+  const { t } = useLanguage()
+  
   if (!lobby) return null
 
   const currentPlayer = lobby.players.find((p) => p.id === currentUserId)
@@ -47,13 +50,13 @@ export default function PongLobby({
   const getGameModeLabel = () => {
     switch (lobby.gameMode) {
       case "1v1":
-        return "1 vs 1"
+        return t('pong.oneVsOne')
       case "multiplayer":
-        return "Multiplayer"
+        return t('pong.multiplayer')
       case "tournament_1v1":
-        return "1v1 Tournament"
+        return t('pong.tournament1v1')
       case "tournament_multi":
-        return "Multi Tournament"
+        return t('pong.multiTournament')
     }
   }
 
@@ -63,42 +66,42 @@ export default function PongLobby({
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-            🏓 Game Lobby
+            🏓 {t('pong.gameLobby')}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {getGameModeLabel()} • Lobby #{lobby.lobbyId}
+            {getGameModeLabel()} • {t('pong.lobby')} #{lobby.lobbyId}
           </p>
         </div>
         <button
           onClick={onLeaveLobby}
           className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 transition-colors"
         >
-          Leave
+          {t('pong.leave')}
         </button>
       </div>
 
       {/* Game Settings */}
       <div className="mb-6 p-4 bg-gray-50/40 dark:bg-gray-900/70">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          Game Settings
+          {t('pong.gameSettings')}
         </h3>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <span className="text-gray-600 dark:text-gray-400">Balls:</span>{" "}
+            <span className="text-gray-600 dark:text-gray-400">{t('pong.balls')}:</span>{" "}
             <span className="font-semibold text-gray-800 dark:text-gray-200">
               {lobby.settings.ballCount}
             </span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">Max Score:</span>{" "}
+            <span className="text-gray-600 dark:text-gray-400">{t('pong.maxScore')}:</span>{" "}
             <span className="font-semibold text-gray-800 dark:text-gray-200">
               {lobby.settings.maxScore}
             </span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">Power-ups:</span>{" "}
+            <span className="text-gray-600 dark:text-gray-400">{t('pong.powerups')}:</span>{" "}
             <span className="font-semibold text-gray-800 dark:text-gray-200">
-              {lobby.settings.allowPowerups ? "Yes" : "No"}
+              {lobby.settings.allowPowerups ? t('common.yes') : t('common.no')}
             </span>
           </div>
         </div>
@@ -107,7 +110,7 @@ export default function PongLobby({
       {/* Players List */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-          Players ({lobby.players.length})
+          {t('pong.players')} ({lobby.players.length})
         </h3>
         <div className="space-y-2">
           {lobby.players.map((player) => {
@@ -131,19 +134,19 @@ export default function PongLobby({
                     {player.username}
                     {player.isHost && (
                       <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5">
-                        HOST
+                        {t('pong.host')}
                       </span>
                     )}
                     {player.id === currentUserId && (
-                      <span className="ml-2 text-xs text-gray-600 dark:text-gray-400">(You)</span>
+                      <span className="ml-2 text-xs text-gray-600 dark:text-gray-400">{t('pong.you')}</span>
                     )}
                   </span>
                 </div>
                 <div className="text-sm font-semibold">
                   {player.isReady ? (
-                    <span className="text-green-600 dark:text-green-400">✓ Ready</span>
+                    <span className="text-green-600 dark:text-green-400">✓ {t('pong.ready')}</span>
                   ) : (
-                    <span className="text-gray-500 dark:text-gray-400">Waiting...</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('pong.waiting')}</span>
                   )}
                 </div>
               </div>
@@ -156,7 +159,7 @@ export default function PongLobby({
       {lobby.status === "starting" && (
         <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-500 text-center">
           <p className="text-blue-700 dark:text-blue-300 font-semibold">
-            🎮 Game starting...
+            🎮 {t('pong.gameStarting')}
           </p>
         </div>
       )}
@@ -164,7 +167,7 @@ export default function PongLobby({
       {!allReady && lobby.status === "waiting" && (
         <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-500 text-center">
           <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-            ⏳ Waiting for all players to be ready...
+            ⏳ {t('pong.waitingAllReady')}
           </p>
         </div>
       )}
@@ -179,7 +182,7 @@ export default function PongLobby({
                 : "bg-green-500 text-white hover:bg-green-600"
               }`}
           >
-            {currentPlayer?.isReady ? "Cancel Ready" : "I'm Ready!"}
+            {currentPlayer?.isReady ? t('pong.cancelReady') : t('pong.imReady')}
           </button>
         )}
         {isHost && (
@@ -191,7 +194,7 @@ export default function PongLobby({
                   : "bg-green-500 text-white hover:bg-green-600"
                 }`}
             >
-              {currentPlayer?.isReady ? "Cancel Ready" : "I'm Ready!"}
+              {currentPlayer?.isReady ? t('pong.cancelReady') : t('pong.imReady')}
             </button>
             <button
               onClick={onStartGame}
@@ -201,7 +204,7 @@ export default function PongLobby({
                   : "bg-gray-300 dark:bg-gray-700/50 text-gray-500 dark:text-gray-500 cursor-not-allowed"
                 }`}
             >
-              Start Game
+              {t('pong.startGame')}
             </button>
           </>
         )}
@@ -210,8 +213,8 @@ export default function PongLobby({
       {isHost && !canStart && (
         <p className="mt-3 text-xs text-center text-gray-500 dark:text-gray-400">
           {!allReady
-            ? "All players must be ready before starting"
-            : "Need at least 2 players to start"}
+            ? t('pong.allReadyRequired')
+            : t('pong.needMinPlayers')}
         </p>
       )}
     </div>

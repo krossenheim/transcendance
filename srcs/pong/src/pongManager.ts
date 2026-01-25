@@ -21,6 +21,9 @@ type gameDataType = {
   playerInputHistory: Map<number, TimestampedInput[]>;
   // Estimated RTT per player (rolling average)
   playerRTT: Map<number, number>;
+  // Tournament tracking (if this game is part of a tournament)
+  tournamentId?: number;
+  matchId?: number;
 };
 
 const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
@@ -28,10 +31,14 @@ const GAME_CLEANUP_DELAY_MS = 30000; // Clean up game 30 seconds after it ends
 const INPUT_HISTORY_MAX_AGE_MS = 500; // Keep inputs for 500ms for lag compensation
 const DEFAULT_RTT_MS = 50; // Default assumed RTT
 
+// Callback type for tournament match completion
+type TournamentMatchEndCallback = (tournamentId: number, matchId: number, winnerId: number) => Promise<void>;
+
 export class PongManager {
   private static instance: PongManager | null = null;
   public games: Map<number, gameDataType>;
   private playerToGame: Map<number, number>; // userId -> gameId for O(1) lookup
+  private tournamentMatchEndCallback?: TournamentMatchEndCallback;
 
   private hubSocket: OurSocket;
 
@@ -50,13 +57,27 @@ export class PongManager {
     return this;
   }
 
+  public setTournamentMatchEndCallback(callback: TournamentMatchEndCallback): void {
+    this.tournamentMatchEndCallback = callback;
+  }
+
   private handleGameFrames() {
     const now = Date.now();
-    for (const gameData of this.games.values()) {
+    for (const [gameId, gameData] of this.games.entries()) {
       if (gameData.game.isGameOver()) {
         if (gameData.didGameEnd === false) {
           gameData.didGameEnd = true;
-          this.onGameEnd(gameData.game);
+          
+          // Send one final game state with gameOver: true to clients
+          const finalGameState = gameData.game.fetchBoardJSON();
+          finalGameState.serverTimestamp = now;
+          this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
+            recipients: Array.from(gameData.game.getUniquePlayerIds()),
+            code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
+            payload: finalGameState,
+          });
+          
+          this.onGameEnd(gameId, gameData);
         }
         continue;
       }
@@ -79,7 +100,9 @@ export class PongManager {
 
   public startGame(
     players: number[],
-    options: PongGameOptions
+    options: PongGameOptions,
+    tournamentId?: number,
+    matchId?: number
   ): Result<number, null> {
     let game = new PongGame(players, options);
     
@@ -91,7 +114,7 @@ export class PongManager {
       playerRTT.set(playerId, DEFAULT_RTT_MS);
     }
     
-    this.games.set(game.id, {
+    const gameData: gameDataType = {
       disconnected_players: [],
       ready_players: [],
       game: game,
@@ -99,7 +122,17 @@ export class PongManager {
       didGameEnd: false,
       playerInputHistory,
       playerRTT,
-    });
+    };
+    
+    // Only set tournament info if provided
+    if (tournamentId !== undefined) {
+      gameData.tournamentId = tournamentId;
+    }
+    if (matchId !== undefined) {
+      gameData.matchId = matchId;
+    }
+    
+    this.games.set(game.id, gameData);
 
     // Register players for O(1) lookup
     for (const playerId of players) {
@@ -190,8 +223,8 @@ export class PongManager {
     this.playerToGame.delete(userId);
   }
 
-  public async onGameEnd(game: PongGame): Promise<void> {
-    const gameId = game.id;
+  public async onGameEnd(gameId: number, gameData: gameDataType): Promise<void> {
+    const game = gameData.game;
     const playerScores = game.fetchPlayerScoreMap();
     const rankings = Array.from(playerScores.entries())
       .sort((a, b) => b[1] - a[1])
@@ -209,6 +242,21 @@ export class PongManager {
       console.log("Game results stored successfully.");
     }
     console.log("Game ended. Final rankings:", rankings);
+
+    // If this was a tournament match, record the winner
+    const winnerId = game.getWinner();
+    if (gameData.tournamentId !== undefined && gameData.matchId !== undefined && winnerId !== null) {
+      console.log(`[PongManager] Tournament match ended. Tournament: ${gameData.tournamentId}, Match: ${gameData.matchId}, Winner: ${winnerId}`);
+      // Emit event for tournament manager to handle
+      // This will be handled by the tournament callback if set
+      if (this.tournamentMatchEndCallback) {
+        try {
+          await this.tournamentMatchEndCallback(gameData.tournamentId, gameData.matchId, winnerId);
+        } catch (err) {
+          console.error("Failed to record tournament match winner:", err);
+        }
+      }
+    }
 
     // Schedule cleanup after delay to allow clients to fetch final state
     setTimeout(() => {

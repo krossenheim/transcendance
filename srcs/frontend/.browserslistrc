@@ -1,0 +1,28 @@
+# Browsers supported by this project
+# https://github.com/browserslist/browserslist
+
+# Production targets - modern browsers with good ES6+ and WebGL support
+# Supports ~95% of global users
+
+# Desktop browsers
+last 2 Chrome versions
+last 2 Firefox versions
+last 2 Safari versions
+last 2 Edge versions
+
+# Mobile browsers
+last 2 ChromeAndroid versions
+last 2 FirefoxAndroid versions
+last 2 iOS versions
+
+# Exclude legacy browsers that don't support modern features
+not dead
+not IE 11
+not op_mini all
+
+# Minimum versions for critical features (WebGL 2.0, ES2020, WebSocket)
+Chrome >= 80
+Firefox >= 78
+Safari >= 14
+Edge >= 80
+iOS >= 14

@@ -6,6 +6,7 @@ import { useWebSocket } from "./socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"
 import { getCurrentUserId } from "./jwtUtils"
+import { useLanguage } from "./i18n/LanguageContext"
 
 interface UserProfile {
   userId: number
@@ -35,6 +36,7 @@ interface ProfileComponentProps {
 }
 
 export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, showToast }: ProfileComponentProps) {
+  const { t } = useLanguage()
   const { socket, payloadReceived, isConnected, sendMessage } = useWebSocket()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -98,7 +100,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
       // ✅ Set a new timeout
       timeoutRef.current = setTimeout(() => {
         setLoading(false)
-        setError("Request timed out. The profile endpoint may not be implemented or is not responding.")
+        setError(t('profile.requestTimeout'))
         console.error("[v0] Profile request timed out after 5 seconds")
       }, 5000)
     }
@@ -368,12 +370,12 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="ml-3 text-gray-600 dark:text-gray-400">Loading profile...</p>
+            <p className="ml-3 text-gray-600 dark:text-gray-400">{t('profile.loadingProfile')}</p>
           </div>
         ) : error ? (
           <>
             <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Error</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('common.error')}</h2>
               <button
                 onClick={onClose}
                 className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none"
@@ -385,13 +387,13 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
               <div className="text-red-600 mb-4 text-4xl">⚠️</div>
               <p className="text-gray-700 dark:text-gray-300 mb-2">{error}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Check the console for more details. The backend may need to implement the profile endpoint.
+                {t('profile.checkConsole')}
               </p>
               <button
                 onClick={onClose}
                 className="mt-4 px-4 py-2 bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors"
               >
-                Close
+                {t('common.close')}
               </button>
             </div>
           </>
@@ -399,7 +401,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
           <>
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">User Profile</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('profile.userProfile')}</h2>
               <button
                 onClick={onClose}
                 className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none"
@@ -450,7 +452,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                             onClick={() => fileInputRef.current?.click()}
                             className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs py-1 text-center"
                           >
-                            Change Avatar
+                            {t('profile.changeAvatar')}
                           </button>
                         </>
                       )}
@@ -484,7 +486,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                   {/* Email */}
                   {isOwnProfile && (
                     <div>
-                      <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Email</h4>
+                      <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.email')}</h4>
                       {editing ? (
                         <input
                           type="email"
@@ -500,19 +502,19 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
 
                   {/* Bio */}
                   <div>
-                    <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Bio</h4>
+                    <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.bio')}</h4>
                     {editing ? (
                       <div className="space-y-2">
                         <textarea
                           value={editedBio}
                           onChange={(e) => setEditedBio(e.target.value)}
-                          placeholder="Tell us about yourself..."
+                          placeholder={t('profile.tellAboutYourself')}
                           className="w-full min-h-[100px] px-3 py-2 border border-gray-300 dark:border-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50 dark:bg-dark-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                         />
                       </div>
                     ) : (
                       <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{profile.bio || "No bio yet"}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{profile.bio || t('profile.noBioYet')}</p>
                       </div>
                     )}
                   </div>
@@ -526,7 +528,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                             onClick={handleSaveProfile}
                             className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm"
                           >
-                            Save Changes
+                            {t('profile.saveChanges')}
                           </button>
                           <button
                             onClick={() => {
@@ -538,7 +540,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                             }}
                             className="px-4 py-2 bg-gray-200 dark:bg-dark-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-dark-600 transition-colors text-sm"
                           >
-                            Cancel
+                            {t('common.cancel')}
                           </button>
                         </>
                       ) : (
@@ -546,7 +548,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                           onClick={() => setEditing(true)}
                           className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm"
                         >
-                          Edit Profile
+                          {t('profile.editProfile')}
                         </button>
                       )}
                     </div>
@@ -555,7 +557,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                   {/* Two-Factor Authentication Settings - only for non-guest users */}
                   {isOwnProfile && !editing && currentUserId && !profile.isGuest && (
                     <div className="mt-6 pt-6 border-t border-gray-200 dark:border-dark-700">
-                      <h4 className="text-sm font-semibold mb-3 text-gray-900 dark:text-white">Security Settings</h4>
+                      <h4 className="text-sm font-semibold mb-3 text-gray-900 dark:text-white">{t('profile.securitySettings')}</h4>
                       <TwoFactorSettings
                         userId={currentUserId}
                         username={profile.username}
@@ -574,7 +576,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                           }}
                           className="px-3 py-2 mt-2 bg-gray-100 dark:bg-dark-700 text-sm hover:bg-gray-200 dark:hover:bg-dark-600 rounded"
                         >
-                          Manage My Data (GDPR)
+                          {t('profile.manageData')}
                         </button>
                       </div>
                     </div>
@@ -583,35 +585,35 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                   {/* Stats */}
                   {profile.stats && (
                     <div>
-                      <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">Stats</h4>
+                      <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.statistics')}</h4>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                           <div className="text-2xl font-bold text-gray-900 dark:text-white">{profile.stats.gamesPlayed}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Games Played</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{t('profile.gamesPlayed')}</div>
                         </div>
                         <div>
                           <div className="text-2xl font-bold text-green-600 dark:text-green-400">{profile.stats.wins}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Wins</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{t('profile.wins')}</div>
                         </div>
                         <div>
                           <div className="text-2xl font-bold text-red-600 dark:text-red-400">{profile.stats.losses}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Losses</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{t('profile.losses')}</div>
                         </div>
                       </div>
                       <div className="mt-3 flex justify-center">
-                        <button onClick={requestHistory} className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">View Match History</button>
+                        <button onClick={requestHistory} className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">{t('profile.viewMatchHistory')}</button>
                       </div>
                       {showHistory && (
                         <div className="mt-4 space-y-2">
-                          <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Recent Matches</h5>
+                          <h5 className="text-xs font-semibold text-gray-700 dark:text-gray-300">{t('profile.recentMatches')}</h5>
                           {gameResults.slice(0, 5).map(r => (
                             <div key={r.id} className="flex justify-between text-[11px] bg-gray-50/40 dark:bg-gray-900/70 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
-                              <span>#{r.id} • Score {r.score}</span>
-                              <span className={r.rank === 1 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{r.rank === 1 ? "Win" : "Loss"}</span>
+                              <span>#{r.id} • {t('pong.score')} {r.score}</span>
+                              <span className={r.rank === 1 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{r.rank === 1 ? t('profile.win') : t('profile.loss')}</span>
                             </div>
                           ))}
                           {gameResults.length > 5 && (
-                            <div className="text-center text-[10px] text-gray-500 dark:text-gray-400">Showing 5 of {gameResults.length}</div>
+                            <div className="text-center text-[10px] text-gray-500 dark:text-gray-400">{`5 / ${gameResults.length}`}</div>
                           )}
                         </div>
                       )}
@@ -625,7 +627,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                         onClick={handleAddFriend}
                         className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                       >
-                        Add Friend
+                        {t('profile.addFriend')}
                       </button>
                       <button
                         onClick={() => {
@@ -636,7 +638,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
                         }}
                         className="flex-1 px-4 py-2 bg-white/50 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50/40 dark:hover:bg-dark-600 transition-colors"
                       >
-                        Send Message
+                        {t('profile.sendMessage')}
                       </button>
                     </div>
                   )}
@@ -645,7 +647,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
             </div>
           </>
         ) : (
-          <div className="py-8 px-6 text-center text-gray-500 dark:text-gray-400">Profile not found</div>
+          <div className="py-8 px-6 text-center text-gray-500 dark:text-gray-400">{t('profile.profileNotFound')}</div>
         )}
       </div>
     </div>

@@ -150,9 +150,16 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     targetScaleX: number
     targetScaleY: number
     targetScaleZ: number
+    // Velocity for extrapolation (in world units per second)
+    velocityX: number
+    velocityZ: number
+    lastUpdateTime: number
+    // Visual radius for correct rotation calculation
+    visualRadius: number
   }
   const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
+  const smoothedVelocitiesRef = useRef<Map<number, { vx: number; vz: number }>>(new Map())
   const lastFrameDeltaRef = useRef<number>(16.667) // Default to 60fps
   const EXPECTED_FRAME_MS = 16.667 // 60fps target
 
@@ -208,7 +215,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       ctx.setLineDash([]);
       
       // Draw all paddles from game state
-      const paddleColors = ['#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#60a5fa', '#c084fc'];
+      const fallbackPaddleColors = ['#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#60a5fa', '#c084fc'];
       if (gameState?.paddles?.length) {
         gameState.paddles.forEach((paddle, idx) => {
           if (!paddle) return;
@@ -218,7 +225,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           // Clamp to bounds
           const clampedX = Math.max(4, Math.min(w - 4, px));
           const clampedY = Math.max(4, Math.min(h - 4, py));
-          ctx.fillStyle = paddleColors[idx % paddleColors.length];
+          // Use owner_id to get consistent color with the 3D game
+          const ownerId = (paddle as any).owner_id ?? (paddle as any).ownerId ?? idx;
+          ctx.fillStyle = getUserColorCSS(ownerId, true) || fallbackPaddleColors[idx % fallbackPaddleColors.length];
           
           // Use canvas rotation to draw paddle at correct angle (negate rotation for flip)
           ctx.save();
@@ -358,11 +367,50 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const engine = new Engine(canvasRef.current, true, {
+    // Detect Safari for WebGL compatibility workarounds
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+    // Safari/iOS-specific WebGL options for better compatibility
+    // - useHighPrecisionFloats: Safari has issues with highp in some shaders
+    // - disableWebGL2Support: Some Safari versions have buggy WebGL2 implementations
+    // - powerPreference: "high-performance" helps on MacBooks with discrete GPUs
+    const engineOptions: any = {
       preserveDrawingBuffer: true,
       stencil: true,
-    })
+      // Safari on older iOS may have WebGL2 issues
+      disableWebGL2Support: isIOS && !('gpu' in navigator),
+      // Use high precision floats only on capable devices
+      useHighPrecisionFloats: !isSafari,
+      // Request high performance GPU on devices with multiple GPUs
+      powerPreference: "high-performance",
+      // Prevent context loss on iOS Safari background/foreground transitions
+      failIfMajorPerformanceCaveat: false,
+      // Alpha blending for transparent canvas (needed on some Safari versions)
+      alpha: true,
+      // Antialias with fallback for lower-end devices
+      antialias: !(isIOS && window.devicePixelRatio > 2),
+    }
+
+    if (isSafari || isIOS) {
+      console.log('[BabylonPongRenderer] Safari/iOS detected - using WebGL compatibility mode')
+    }
+
+    const engine = new Engine(canvasRef.current, true, engineOptions)
     engineRef.current = engine
+
+    // Handle WebGL context loss/restore (common on iOS Safari)
+    canvasRef.current.addEventListener('webglcontextlost', (e) => {
+      console.warn('[BabylonPongRenderer] WebGL context lost - preventing default')
+      e.preventDefault()
+    })
+
+    canvasRef.current.addEventListener('webglcontextrestored', () => {
+      console.log('[BabylonPongRenderer] WebGL context restored - reinitializing engine')
+      // Force scene to re-render on context restore
+      engine.resize()
+    })
 
     const scene = new Scene(engine)
     // Dark mode: deep blue-ish background, Light mode: light gray-white
@@ -443,24 +491,104 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Render loop with lerp-based smoothing
-    engine.runRenderLoop(() => {
-      // Track frame delta for lerp calculations
+    // Register ball and paddle movement using onBeforeRenderObservable (like powerups)
+    // This is more integrated with Babylon's render pipeline for smoother results
+    scene.onBeforeRenderObservable.add(() => {
       const dt = engine.getDeltaTime()
       lastFrameDeltaRef.current = dt
+      const dtSeconds = dt / 1000
       
-      // Lerp alpha: how much to interpolate this frame
-      // dt/expected gives us frame-rate independent smoothing
+      // Lerp alpha for smooth transitions (frame-rate independent)
       const lerpAlpha = Math.min(dt / EXPECTED_FRAME_MS, 1)
       
-      // Lerp balls toward their targets
+      // Frame-rate independent blend factors
+      // These use exponential decay: blend = 1 - (1 - baseBlend)^(dt/targetDt)
+      const velocityBlendBase = 0.2  // How quickly to adopt new velocity (per 16.67ms)
+      const velocityBlendFactor = 1 - Math.pow(1 - velocityBlendBase, dt / EXPECTED_FRAME_MS)
+      
+      // Position correction settings
+      const CORRECTION_START_DIST = 0.05  // Start correcting at this distance
+      const CORRECTION_SNAP_DIST = 1.5    // Teleport if beyond this distance
+      const CORRECTION_STRENGTH = 3.0     // How aggressively to correct (units per second per unit of error)
+      
+      // Update ball positions using PURE velocity-based movement with gentle position correction
       ballsRef.current.forEach((mesh, ballId) => {
         const target = ballTargetsRef.current.get(ballId)
         if (target) {
-          // Lerp position
-          mesh.position = Vector3.Lerp(mesh.position, target.targetPos, lerpAlpha)
+          // Get or initialize smoothed velocity
+          let smoothed = smoothedVelocitiesRef.current.get(ballId)
+          if (!smoothed) {
+            smoothed = { vx: target.velocityX, vz: target.velocityZ }
+            smoothedVelocitiesRef.current.set(ballId, smoothed)
+          }
           
-          // Lerp scale (for squash animation)
+          // Check for major direction change (bounce) - if so, snap velocity immediately
+          const smoothedSpeed = Math.sqrt(smoothed.vx * smoothed.vx + smoothed.vz * smoothed.vz)
+          const targetSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
+          
+          let isBounce = false
+          if (smoothedSpeed > 0.001 && targetSpeed > 0.001) {
+            const dotProduct = (smoothed.vx * target.velocityX + smoothed.vz * target.velocityZ) / (smoothedSpeed * targetSpeed)
+            isBounce = dotProduct < 0.3 // More generous bounce detection
+          }
+          
+          if (isBounce) {
+            // Bounce detected: snap velocity and position immediately
+            smoothed.vx = target.velocityX
+            smoothed.vz = target.velocityZ
+            mesh.position.x = target.targetPos.x
+            mesh.position.z = target.targetPos.z
+          } else {
+            // Smoothly blend velocity using frame-rate independent factor
+            smoothed.vx += (target.velocityX - smoothed.vx) * velocityBlendFactor
+            smoothed.vz += (target.velocityZ - smoothed.vz) * velocityBlendFactor
+          }
+          
+          // Pure velocity-based movement
+          const frameMovementX = smoothed.vx * dtSeconds
+          const frameMovementZ = smoothed.vz * dtSeconds
+          
+          mesh.position.x += frameMovementX
+          mesh.position.z += frameMovementZ
+          
+          // Calculate position error from server
+          const dx = target.targetPos.x - mesh.position.x
+          const dz = target.targetPos.z - mesh.position.z
+          const distanceToServer = Math.sqrt(dx * dx + dz * dz)
+          
+          if (distanceToServer >= CORRECTION_SNAP_DIST) {
+            // Major desync - snap immediately
+            mesh.position.x = target.targetPos.x
+            mesh.position.z = target.targetPos.z
+          } else if (distanceToServer > CORRECTION_START_DIST) {
+            // Gentle correction: add a small force toward server position
+            // This keeps balls from drifting too far while staying smooth
+            const correctionAmount = Math.min(distanceToServer * CORRECTION_STRENGTH * dtSeconds, distanceToServer * 0.5)
+            const correctionFactor = correctionAmount / distanceToServer
+            mesh.position.x += dx * correctionFactor
+            mesh.position.z += dz * correctionFactor
+          }
+          
+          // Keep Y position consistent
+          mesh.position.y = target.targetPos.y
+          
+          // Rolling rotation based on movement
+          const moveDist2D = Math.sqrt(frameMovementX * frameMovementX + frameMovementZ * frameMovementZ)
+          if (moveDist2D > 0.0001 && mesh.rotationQuaternion && target.visualRadius > 0) {
+            const rotationAmount = -moveDist2D / target.visualRadius
+            const currentRotation = ballRotationsRef.current.get(ballId) || Quaternion.Identity()
+            const dirX = frameMovementX / moveDist2D
+            const dirZ = frameMovementZ / moveDist2D
+            const axisX = -dirZ
+            const axisZ = dirX
+            const incrementalRotation = Quaternion.RotationAxis(new Vector3(axisX, 0, axisZ), rotationAmount)
+            const newRotation = incrementalRotation.multiply(currentRotation)
+            newRotation.normalize()
+            ballRotationsRef.current.set(ballId, newRotation)
+            mesh.rotationQuaternion = newRotation
+          }
+          
+          // Lerp scale (squash animation)
           mesh.scaling = Vector3.Lerp(
             mesh.scaling,
             new Vector3(target.targetScaleX, target.targetScaleY, target.targetScaleZ),
@@ -469,22 +597,58 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         }
       })
       
-      // Lerp paddles toward their targets
+      // Update paddle positions using smooth lerp
       paddlesRef.current.forEach((mesh, paddleId) => {
         const targetPos = paddleTargetsRef.current.get(paddleId)
         if (targetPos) {
-          mesh.position = Vector3.Lerp(mesh.position, targetPos, lerpAlpha)
+          mesh.position = Vector3.Lerp(mesh.position, targetPos, lerpAlpha * 0.8)
         }
       })
-      
+    })
+
+    // Simplified render loop - just renders, all movement is in onBeforeRenderObservable
+    engine.runRenderLoop(() => {
       scene.render()
     })
 
-    const handleResize = () => engine.resize()
+    // Handle resize and orientation changes (important for mobile Safari)
+    const handleResize = () => {
+      engine.resize()
+      // On iOS, also update canvas dimensions to match device pixels
+      if (canvasRef.current) {
+        const dpr = Math.min(window.devicePixelRatio, 2) // Cap at 2x for performance
+        const displayWidth = canvasRef.current.clientWidth
+        const displayHeight = canvasRef.current.clientHeight
+        if (canvasRef.current.width !== displayWidth * dpr || 
+            canvasRef.current.height !== displayHeight * dpr) {
+          engine.resize()
+        }
+      }
+    }
     window.addEventListener("resize", handleResize)
+    
+    // Handle orientation change specifically (iOS Safari sometimes misses resize)
+    window.addEventListener("orientationchange", () => {
+      // Delay resize to ensure new dimensions are available
+      setTimeout(handleResize, 100)
+    })
+
+    // Handle page visibility (pause rendering when tab is hidden - saves battery on mobile)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        engine.stopRenderLoop()
+      } else {
+        engine.runRenderLoop(() => scene.render())
+        // Force resize in case viewport changed while hidden
+        handleResize()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
       window.removeEventListener("resize", handleResize)
+      window.removeEventListener("orientationchange", handleResize)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       paddleSoundsRef.current.forEach(sound => sound.dispose())
       paddleSoundsRef.current.clear()
 
@@ -783,57 +947,53 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const squashState = ballSquashRef.current.get(b.id)
         if (squashState?.active) {
           const elapsed = performance.now() - squashState.startTime
-          const SQUASH_DURATION = 120 // ms for full squash/stretch cycle
+          const SQUASH_DURATION = 150 // ms for full squash/stretch cycle
           
           if (elapsed < SQUASH_DURATION) {
             // Animation progress (0 to 1)
             const t = elapsed / SQUASH_DURATION
             
             // Scale squash intensity based on impact speed
-            // Typical speeds: ~300-800 backend units. Map to intensity 0.15-0.4
             const MIN_SPEED = 200
             const MAX_SPEED = 1000
-            const MIN_INTENSITY = 0.15  // Gentle bounce
-            const MAX_INTENSITY = 0.45  // Hard smash
+            const MIN_INTENSITY = 0.12
+            const MAX_INTENSITY = 0.35
             const speedNorm = Math.min(1, Math.max(0, (squashState.impactSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)))
-            const squashIntensity = MIN_INTENSITY + speedNorm * (MAX_INTENSITY - MIN_INTENSITY)
+            const maxSquash = MIN_INTENSITY + speedNorm * (MAX_INTENSITY - MIN_INTENSITY)
             
-            // Use a sine wave for smooth squash-stretch-return
-            // First half: squash (compress), second half: stretch (elongate)
-            // Then return to normal
-            let squashFactor: number
-            if (t < 0.25) {
-              // Quick squash (0 to 0.25)
-              squashFactor = 1 - squashIntensity * Math.sin(t * 4 * Math.PI / 2)
-            } else if (t < 0.5) {
-              // Stretch past normal (0.25 to 0.5)
-              squashFactor = (1 - squashIntensity) + (squashIntensity * 1.4) * Math.sin((t - 0.25) * 4 * Math.PI / 2)
-            } else {
-              // Settle back to normal with slight overshoot (0.5 to 1)
-              const overshoot = squashIntensity * 0.4
-              squashFactor = 1 + overshoot - overshoot * Math.sin((t - 0.5) * 2 * Math.PI)
-            }
+            // Use a simple damped sine wave for natural bounce feel
+            // Starts at 1, dips down (squash), overshoots up (stretch), settles to 1
+            // Formula: 1 + amplitude * sin(phase) * decay
+            const frequency = 2.5 // Number of oscillations
+            const decay = Math.exp(-4 * t) // Exponential decay
+            const phase = t * frequency * Math.PI * 2
             
-            // Apply squash perpendicular to impact direction
-            // In 2D pong space: impactAngle gives us the direction of impact
-            // Squash along impact axis, stretch perpendicular
-            const stretchFactor = 1 / squashFactor // Volume preservation
+            // Primary deformation along impact direction
+            const deformation = maxSquash * Math.sin(phase) * decay
             
-            // Map the 2D impact angle to 3D axes
-            // impactAngle: 0 = horizontal impact (paddle hit), ±π/2 = vertical (wall hit)
-            const impactX = Math.cos(squashState.impactAngle)
-            const impactZ = Math.sin(squashState.impactAngle)
+            // Get normalized impact direction in world XZ plane
+            // impactAngle is in 2D game space, map to 3D: game X -> world X, game Y -> world Z
+            const impactDirX = Math.cos(squashState.impactAngle)
+            const impactDirZ = Math.sin(squashState.impactAngle)
             
-            // Blend between X and Z based on impact direction
-            // For paddle hits (mostly horizontal): squash X, stretch Z
-            // For wall hits (mostly vertical): squash Z, stretch X
-            const xBlend = Math.abs(impactX)
-            const zBlend = Math.abs(impactZ)
+            // Squash along impact direction, stretch perpendicular (volume preservation)
+            // When deformation > 0: stretch along impact, squash perpendicular (ball elongating after bounce)
+            // When deformation < 0: squash along impact, stretch perpendicular (ball compressing on impact)
+            const alongImpact = 1 + deformation
+            const perpendicular = 1 / Math.sqrt(alongImpact) // Volume preservation: V = x * y * z
             
-            scaleX = baseScale * (squashFactor * xBlend + stretchFactor * zBlend)
-            scaleZ = baseScale * (stretchFactor * xBlend + squashFactor * zBlend)
-            // Y (height) gets a slight squash for volume feel
-            scaleY = baseScale * (1 + (squashFactor - 1) * 0.3)
+            // Blend X and Z based on how aligned they are with impact direction
+            const xAlignment = Math.abs(impactDirX)
+            const zAlignment = Math.abs(impactDirZ)
+            
+            // X gets more "along impact" scaling when impact is horizontal (X-aligned)
+            // Z gets more "along impact" scaling when impact is vertical (Z-aligned)
+            scaleX = baseScale * (alongImpact * xAlignment + perpendicular * zAlignment)
+            scaleZ = baseScale * (alongImpact * zAlignment + perpendicular * xAlignment)
+            
+            // Y (height) bulges out when ball is squashed horizontally - inverse of horizontal compression
+            // This creates the "pancake then tall" effect
+            scaleY = baseScale * perpendicular
           } else {
             // Animation complete
             ballSquashRef.current.set(b.id, { ...squashState, active: false })
@@ -844,15 +1004,26 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         actualVisualRadius = (baseDiameter / 2) * baseScale
         
         // Adjust Y position so ball stays on the floor (scale from bottom, not center)
-        adjustedYPos = actualVisualRadius // Ball center should be at its radius height above floor
+        // Floor is at y = -0.1, so ball center should be at -0.1 + radius
+        const FLOOR_Y = -0.1
+        adjustedYPos = FLOOR_Y + actualVisualRadius
         
-        // Set target for lerp-based smoothing (render loop will interpolate)
+        // Convert backend velocity to world units per second
+        // Backend velocity is in backend units per second, scale to world units
+        const worldVelocityX = (b.dx || 0) * SCALE_FACTOR
+        const worldVelocityZ = (b.dy || 0) * SCALE_FACTOR
+        
+        // Set target for lerp-based smoothing with velocity extrapolation
         const targetPos = new Vector3(newPos.x, adjustedYPos, newPos.z)
         ballTargetsRef.current.set(b.id, {
           targetPos,
           targetScaleX: scaleX,
           targetScaleY: scaleY,
-          targetScaleZ: scaleZ
+          targetScaleZ: scaleZ,
+          velocityX: worldVelocityX,
+          velocityZ: worldVelocityZ,
+          lastUpdateTime: performance.now(),
+          visualRadius: actualVisualRadius
         })
         
         // If ball is new, snap to position immediately
@@ -864,44 +1035,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         // ignore scaling errors
       }
 
-      // Calculate rolling rotation based on actual distance traveled
-      // Simple physics: arc_length = angle * radius, so angle = arc_length / radius
-      // The ball rolls on the ground, so rotation angle = distance_moved / ball_radius
-      const moveDirX = newPos.x - oldPos.x
-      const moveDirZ = newPos.z - oldPos.z
-      const moveDist2D = Math.sqrt(moveDirX * moveDirX + moveDirZ * moveDirZ)
-
-      // Only apply rotation if there's meaningful movement
-      if (moveDist2D > 0.001 && mesh.rotationQuaternion) {
-        // rotation = distance / radius (simple rolling without slipping)
-        // Negate because of Babylon's rotation direction convention
-        const rotationAmount = -moveDist2D / actualVisualRadius
-
-        // Get current rotation quaternion
-        const currentRotation = ballRotationsRef.current.get(b.id) || Quaternion.Identity()
-
-        // Normalize the movement direction
-        const dirX = moveDirX / moveDist2D
-        const dirZ = moveDirZ / moveDist2D
-
-        // Rotation axis is perpendicular to movement direction (cross product of up and move dir)
-        // axis = up × moveDir = (0,1,0) × (dirX, 0, dirZ) = (-dirZ, 0, dirX)
-        const axisX = -dirZ
-        const axisZ = dirX
-
-        // Create incremental rotation quaternion
-        const incrementalRotation = Quaternion.RotationAxis(
-          new Vector3(axisX, 0, axisZ),
-          rotationAmount
-        )
-
-        // Apply incremental rotation to current rotation
-        const newRotation = incrementalRotation.multiply(currentRotation)
-        newRotation.normalize()
-
-        ballRotationsRef.current.set(b.id, newRotation)
-        mesh.rotationQuaternion = newRotation
-      }
+      // Note: Rolling rotation is now handled in onBeforeRenderObservable for smoother animation
+      // The rotation is calculated based on actual frame-by-frame movement there
 
       // Detect bounces by checking if velocity direction changed
       const prevVel = previousBallVelocitiesRef.current.get(b.id)
@@ -1110,6 +1245,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ballRotationsRef.current.delete(id)
         ballTargetsRef.current.delete(id)
         ballSquashRef.current.delete(id)
+        smoothedVelocitiesRef.current.delete(id)
       }
     }
   }, [gameState, darkMode, paddleRotationOffset])

@@ -15,4 +15,6 @@ export interface TypeGameStateSchema {
   metadata?: { elapsedTime?: number; gameOptions?: any } | null;
   powerups?: TypePowerupState[];
   score?: { [key: number]: number } | null;
+  gameOver?: boolean;
+  winner?: number | null;
 }
