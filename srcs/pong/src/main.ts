@@ -61,7 +61,7 @@ function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean): 
 
 socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) => {
   singletonPong.handleUserInput(
-    body.user_id,
+    body.userId,
     body.payload.pressed_keys,
     body.payload.clientTimestamp,  // Pass client timestamp for lag compensation
   );
@@ -92,7 +92,7 @@ socket.registerHandler(user_url.ws.pong.startGame, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => {
-  const userId = body.user_id;
+  const userId = body.userId;
   const gameId = body.payload.gameId;
   const gameDataResult = singletonPong.getGameState(userId, gameId);
   if (gameDataResult.isErr()) {
@@ -107,7 +107,7 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => 
 
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = body.payload;
 
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
@@ -177,7 +177,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { lobbyId } = body.payload;
 
   const toggleResult = lobbyManager.togglePlayerReady(lobbyId, user_id);
@@ -209,7 +209,7 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
 });
 
 socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { lobbyId } = body.payload;
 
   const lobby = lobbyManager.getLobby(lobbyId);
@@ -273,7 +273,7 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { lobbyId } = body.payload;
 
   const lobby = lobbyManager.getLobby(lobbyId);

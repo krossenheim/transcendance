@@ -1,5 +1,4 @@
 import type { WebSocketRouteDef, WSResponseType } from "@app/shared/api/service/common/endpoints";
-import { HubToServiceMessage } from "./socket_messages";
 import z from "zod";
 
 export type WSHandlerReturnValue<
@@ -18,9 +17,9 @@ export class ResponseBuilder<T extends WebSocketRouteDef> {
   private schemaMap: T;
   private userId: number;
 
-  constructor(schemaMap: T, payload: InferWSHandlerBody<T> & { user_id: number }) {
+  constructor(schemaMap: T, userId: number) {
     this.schemaMap = schemaMap;
-    this.userId = payload.user_id;
+    this.userId = userId;
   }
 
   public select<K extends keyof T["schema"]["output"]>(key: K) {
@@ -46,6 +45,6 @@ export class ResponseBuilder<T extends WebSocketRouteDef> {
   }
 }
 
-export function createResponseBuilder<T extends WebSocketRouteDef>(schema: T, requestBody: InferWSHandlerBody<T> & { user_id: number }) {
-  return new ResponseBuilder(schema, requestBody);
+export function createResponseBuilder<T extends WebSocketRouteDef>(schema: T, user_id: number) {
+  return new ResponseBuilder(schema, user_id);
 }

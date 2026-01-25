@@ -5,20 +5,18 @@ import { OurSocket } from "@app/shared/socket_to_hub";
 
 import containers from "@app/shared/internal_api";
 
-import type { FullUserType } from "@app/shared/api/service/db/user";
-import type { ErrorResponseType } from "@app/shared/api/service/common/error";
-
 // {"funcId":"user_profile","payload":2,"target_container":"users"}
 export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number>) {
 	socket.registerHandler(
 		user_url.ws.users.requestUserProfileData,
 		async (body, response) => {
-			let targetUser: Result<FullUserType, ErrorResponseType> = Result.Err({message: "Invalid user identifier"});
-			if (typeof body.payload !== 'number') {
+			let targetUser;
+			if (typeof body.payload !== 'number')
 				targetUser = await containers.db.fetchUserByUsername(body.payload, true);
-			} else {
+			else
 				targetUser = await containers.db.fetchUserData(body.payload, true);
-			}
+
+			await socket.invokeHandler(user_url.ws.chat.listRooms, body.userId, {});
 
 			if (targetUser.isErr()) {
 				console.error("Error fetching user data:", targetUser.unwrapErr());

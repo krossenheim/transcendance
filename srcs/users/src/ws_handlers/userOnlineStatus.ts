@@ -45,7 +45,7 @@ export function wsUserOnlineStatusHandler(socket: OurSocket, onlineUsers: Set<nu
 	socket.registerHandler(
 		user_url.ws.users.userOnlineStatusUpdate,
 		async (body, response) => {
-      const allowedViewers = await fetchAllowedOnlineStatusViewers(body.user_id);
+      const allowedViewers = await fetchAllowedOnlineStatusViewers(body.userId);
       return Result.Ok(response.select("GetOnlineUsers").reply(
         Array.from(allowedViewers).filter((uid) => onlineUsers.has(uid))
       ));

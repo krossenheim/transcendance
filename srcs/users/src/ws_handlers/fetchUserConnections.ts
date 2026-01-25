@@ -11,7 +11,7 @@ export function wsFetchUserConnectionsHandlers(socket: OurSocket, onlineUsers: S
     async (body, response) => {
       const connectionsResult = await containers.db.get(
         int_url.http.db.fetchUserConnections,
-        { userId: body.user_id }
+        { userId: body.userId }
       );
 
       if (connectionsResult.isErr()) {

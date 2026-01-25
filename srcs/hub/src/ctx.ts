@@ -1,13 +1,10 @@
-import { PayloadToUsersSchema, UserToHubSchema, InvokeWSFunctionSchema } from "@app/shared/api/service/hub/hub_interfaces";
-import { ClientToHubMessage, HubToServiceMessage, ServiceToHubMessage, ServiceToHubClientMessage, ServiceToHubBroadcastMessage, HubToClientMessage } from "@app/shared/socket_messages";
+import { ClientToHubMessage, HubToServiceMessage, ServiceToHubMessage, ServiceToHubClientMessage, ServiceToHubBroadcastMessage, HubToClientMessage, HubToServiceReceiverMessage } from "@app/shared/socket_messages";
 import { int_url } from "@app/shared/api/service/common/endpoints";
-import { JSONtoZod } from "@app/shared/api/service/common/json";
 import { Result } from "@app/shared/api/service/common/result";
 import { isWSAuthenticated } from "./auth.js";
 import WebSocket from "ws";
 
-import type { TypePayloadHubToUsersSchema, T_ForwardToContainer } from "@app/shared/api/service/hub/hub_interfaces";
-import type { GetUserType } from "@app/shared/api/service/db/user";
+import type { TypePayloadHubToUsersSchema } from "@app/shared/api/service/hub/hub_interfaces";
 
 export class HubCTX {
   private userSockets: Map<number, UserSocket>;
@@ -26,17 +23,16 @@ export class HubCTX {
 
   private _notifyContainersOfConnectionStateChange(user_id: number, connected: boolean) {
     for (const [socket, socket_obj] of this.internalContainerSocketBySocket.entries()) {
-      const payload: GetUserType = { userId: user_id };
-      const wrapper: TypePayloadHubToUsersSchema = {
-        source_container: "hub",
-        funcId: connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
-        code: 0,
-        payload: payload,
-      };
+      const message = new HubToServiceReceiverMessage(
+        "hub",
+        connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
+        0,
+        `{"userId":${user_id}}`
+      )
       if (socket.readyState > 1)
         console.error("Socket to container not open, cannot send.");
       else {
-        socket.send(JSON.stringify(wrapper));
+        socket.send(message.toString());
         console.log(`Informed container ${socket_obj.getContainerName()} of user ${connected ? 'connection' : 'dis-connection'}: ${user_id}`);
       }
     }

@@ -50,13 +50,13 @@ export function wsUnblockUserHandlers(socket: OurSocket) {
     user_url.ws.users.unblockUser,
     async (body, response) => {
       const usersMapResult = await getUsersById([
-        body.user_id,
+        body.userId,
         body.payload
       ]);
 
       if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
-      const me = usersMapResult.unwrap()[body.user_id];
+      const me = usersMapResult.unwrap()[body.userId];
       const other = usersMapResult.unwrap()[body.payload];
       if (me === undefined || other === undefined) {
         return Result.Ok(response.select("UserDoesNotExist").reply({

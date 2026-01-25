@@ -17,7 +17,7 @@ chatEndpoints(fastify, singletonChatRooms, socket);
 
 socket.registerHandler(user_url.ws.chat.sendMessage, async (body, response) => {
   const room = singletonChatRooms.getRoom(body.payload.roomId);
-  const user_id = body.user_id;
+  const user_id = body.userId;
   if (!room) {
     console.warn(`Client ${user_id} to NOENT roomId:${body.payload.roomId}`);
     return Result.Ok(response.select("NotInRoom").reply({
@@ -30,7 +30,7 @@ socket.registerHandler(user_url.ws.chat.sendMessage, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (body, response) => {
-  const users = await containers.db.fetchMultipleUsers([body.user_id, body.payload.targetUserId]);
+  const users = await containers.db.fetchMultipleUsers([body.userId, body.payload.targetUserId]);
   if (users.isErr()) {
     console.error("Failed to fetch users for DM:", users.unwrapErr());
     return Result.Ok(response.select("UserNotFound").reply({
@@ -38,7 +38,7 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (body, response
     }));
   }
 
-  const requester = users.unwrap().find(u => u.id === body.user_id);
+  const requester = users.unwrap().find(u => u.id === body.userId);
   const target = users.unwrap().find(u => u.id === body.payload.targetUserId);
 
   if (!requester || !target || requester.accountType === 0 || target.accountType === 0) {
@@ -74,7 +74,7 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (body, response
 socket.registerHandler(user_url.ws.chat.addUserToRoom, async (body, response) => {
   const room_id_requested = body.payload.roomId;
   const room = singletonChatRooms.getRoom(room_id_requested);
-  const user_id = body.user_id;
+  const user_id = body.userId;
   if (!room) {
     console.warn(`Bad user request, no such room.`);
     return Result.Ok(response.select("NoSuchRoom").reply({
@@ -104,7 +104,7 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (body, response) =>
 
 socket.registerHandler(user_url.ws.chat.addRoom, async (body, response) => {
   const room_name_requested = body.payload.roomName;
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const room = await singletonChatRooms.addRoom(room_name_requested, user_id);
   if (!room) {
     console.error("Mega warning, could not add a room.");
@@ -117,7 +117,7 @@ socket.registerHandler(user_url.ws.chat.addRoom, async (body, response) => {
 
 socket.registerHandler(user_url.ws.chat.getRoomData, async (body, response) => {
   const room_id_requested = body.payload.roomId;
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const roomInfoResult = await singletonChatRooms.fetchRoomById(room_id_requested, user_id);
   if (roomInfoResult.isErr()) {
     console.error("Mega warning, could not get room data for room:", room_id_requested);
@@ -130,7 +130,7 @@ socket.registerHandler(user_url.ws.chat.getRoomData, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.chat.listRooms, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const roomList = await singletonChatRooms.listRooms(user_id);
   if (roomList.isErr()) {
     console.error("Mega warning, could not list rooms for an user:", user_id);
@@ -143,13 +143,13 @@ socket.registerHandler(user_url.ws.chat.listRooms, async (body, response) => {
 
 socket.registerHandler(user_url.ws.chat.joinRoom, async (body) => {
   const room_id_requested = body.payload.roomId;
-  const user_id = body.user_id;
+  const user_id = body.userId;
   return await singletonChatRooms.userJoinRoom(room_id_requested, user_id, socket);
 });
 
 socket.registerHandler(user_url.ws.chat.leaveRoom, async (body) => {
   const room_id_requested = body.payload.roomId;
-  const user_id = body.user_id;
+  const user_id = body.userId;
   return await singletonChatRooms.userLeaveRoom(room_id_requested, user_id, socket);
 });
 
