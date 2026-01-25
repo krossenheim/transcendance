@@ -50,7 +50,12 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
 
   // Safe send function that queues messages when disconnected
   const sendMessage = useCallback((message: string | object): boolean => {
-    const messageStr = typeof message === 'string' ? message : JSON.stringify(message)
+    let messageStr = typeof message === 'string' ? message : JSON.stringify(message)
+    console.log('[v0] Sending message via WebSocket:', messageStr)
+
+    const parsed = JSON.parse(messageStr)
+    messageStr = `${parsed.target_container}%${parsed.funcId}%${JSON.stringify(parsed.payload)}`
+    console.log('[v0] Sending message via WebSocket:', messageStr)
 
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(messageStr)
@@ -184,7 +189,21 @@ export default function SocketComponent({ children, AuthResponseObject, showToas
 
       socket.current.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data)
+          const parts = event.data.split('%')
+          if (parts.length < 4) throw new Error("Invalid message format")
+
+          const [source_container, funcId, codeStr, ...payloadParts] = parts
+          const code = Number(codeStr)
+          const payloadStr = payloadParts.join('%') // In case payload contains '%'
+          const payload = JSON.parse(payloadStr)
+
+          const data = {
+            source_container,
+            funcId,
+            code,
+            payload,
+          }
+
           // Only log non-game-state messages to reduce spam
           if (data.funcId !== 'get_game_state') {
             console.log("[v0] WebSocket message:", data.funcId)
