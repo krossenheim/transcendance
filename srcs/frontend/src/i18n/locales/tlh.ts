@@ -66,7 +66,7 @@ export const tlh: TranslationKeys = {
     username: "pong",
     usernamePlaceholder: "qeng",
     email: "QIn nav",
-    emailPlaceholder: "SoH@pIqaD.tlh",
+    emailPlaceholder: "QIn_nav_example",
     password: "ngoDwI'",
     passwordPlaceholder: "--------",
     confirmPassword: "ngoDwI' yIchov",
