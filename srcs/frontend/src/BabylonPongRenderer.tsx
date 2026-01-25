@@ -367,11 +367,50 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const engine = new Engine(canvasRef.current, true, {
+    // Detect Safari for WebGL compatibility workarounds
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+    // Safari/iOS-specific WebGL options for better compatibility
+    // - useHighPrecisionFloats: Safari has issues with highp in some shaders
+    // - disableWebGL2Support: Some Safari versions have buggy WebGL2 implementations
+    // - powerPreference: "high-performance" helps on MacBooks with discrete GPUs
+    const engineOptions: any = {
       preserveDrawingBuffer: true,
       stencil: true,
-    })
+      // Safari on older iOS may have WebGL2 issues
+      disableWebGL2Support: isIOS && !('gpu' in navigator),
+      // Use high precision floats only on capable devices
+      useHighPrecisionFloats: !isSafari,
+      // Request high performance GPU on devices with multiple GPUs
+      powerPreference: "high-performance",
+      // Prevent context loss on iOS Safari background/foreground transitions
+      failIfMajorPerformanceCaveat: false,
+      // Alpha blending for transparent canvas (needed on some Safari versions)
+      alpha: true,
+      // Antialias with fallback for lower-end devices
+      antialias: !(isIOS && window.devicePixelRatio > 2),
+    }
+
+    if (isSafari || isIOS) {
+      console.log('[BabylonPongRenderer] Safari/iOS detected - using WebGL compatibility mode')
+    }
+
+    const engine = new Engine(canvasRef.current, true, engineOptions)
     engineRef.current = engine
+
+    // Handle WebGL context loss/restore (common on iOS Safari)
+    canvasRef.current.addEventListener('webglcontextlost', (e) => {
+      console.warn('[BabylonPongRenderer] WebGL context lost - preventing default')
+      e.preventDefault()
+    })
+
+    canvasRef.current.addEventListener('webglcontextrestored', () => {
+      console.log('[BabylonPongRenderer] WebGL context restored - reinitializing engine')
+      // Force scene to re-render on context restore
+      engine.resize()
+    })
 
     const scene = new Scene(engine)
     // Dark mode: deep blue-ish background, Light mode: light gray-white
@@ -572,11 +611,44 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       scene.render()
     })
 
-    const handleResize = () => engine.resize()
+    // Handle resize and orientation changes (important for mobile Safari)
+    const handleResize = () => {
+      engine.resize()
+      // On iOS, also update canvas dimensions to match device pixels
+      if (canvasRef.current) {
+        const dpr = Math.min(window.devicePixelRatio, 2) // Cap at 2x for performance
+        const displayWidth = canvasRef.current.clientWidth
+        const displayHeight = canvasRef.current.clientHeight
+        if (canvasRef.current.width !== displayWidth * dpr || 
+            canvasRef.current.height !== displayHeight * dpr) {
+          engine.resize()
+        }
+      }
+    }
     window.addEventListener("resize", handleResize)
+    
+    // Handle orientation change specifically (iOS Safari sometimes misses resize)
+    window.addEventListener("orientationchange", () => {
+      // Delay resize to ensure new dimensions are available
+      setTimeout(handleResize, 100)
+    })
+
+    // Handle page visibility (pause rendering when tab is hidden - saves battery on mobile)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        engine.stopRenderLoop()
+      } else {
+        engine.runRenderLoop(() => scene.render())
+        // Force resize in case viewport changed while hidden
+        handleResize()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
       window.removeEventListener("resize", handleResize)
+      window.removeEventListener("orientationchange", handleResize)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       paddleSoundsRef.current.forEach(sound => sound.dispose())
       paddleSoundsRef.current.clear()
 
