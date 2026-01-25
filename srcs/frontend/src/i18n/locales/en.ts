@@ -126,6 +126,8 @@ export const en = {
     he: 'Hebrew',
     es: 'Spanish',
     nl: 'Dutch',
+    fy: 'Frisian',
+    cy: 'Welsh',
   },
 
   // Friends
@@ -140,6 +142,18 @@ export const en = {
     online: 'Online',
     offline: 'Offline',
     inGame: 'In Game',
+    friendsAndPrivacy: 'Friends & Privacy',
+    requests: 'Requests',
+    blocked: 'Blocked',
+    noFriendsYet: 'No friends yet',
+    noPendingRequests: 'No pending requests',
+    noBlockedUsers: 'No blocked users',
+    pending: 'Pending',
+    cancel: 'Cancel',
+    unfriend: 'Unfriend',
+    block: 'Block',
+    unblock: 'Unblock',
+    deny: 'Deny',
   },
 
   // Chat

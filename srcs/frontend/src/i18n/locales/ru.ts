@@ -128,6 +128,8 @@ export const ru: TranslationKeys = {
     he: 'Иврит',
     es: 'Испанский',
     nl: 'Нидерландский',
+    fy: 'Фризский',
+    cy: 'Валлийский',
   },
 
   // Friends
@@ -142,6 +144,18 @@ export const ru: TranslationKeys = {
     online: 'В сети',
     offline: 'Не в сети',
     inGame: 'В игре',
+    friendsAndPrivacy: 'Друзья и конфиденциальность',
+    requests: 'Запросы',
+    blocked: 'Заблокированные',
+    noFriendsYet: 'Друзей пока нет',
+    noPendingRequests: 'Нет ожидающих запросов',
+    noBlockedUsers: 'Нет заблокированных пользователей',
+    pending: 'Ожидание',
+    cancel: 'Отмена',
+    unfriend: 'Удалить из друзей',
+    block: 'Заблокировать',
+    unblock: 'Разблокировать',
+    deny: 'Отклонить',
   },
 
   // Chat

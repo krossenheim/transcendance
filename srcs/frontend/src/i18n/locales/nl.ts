@@ -126,6 +126,8 @@ export const nl = {
     he: 'Hebreeuws',
     es: 'Spaans',
     nl: 'Nederlands',
+    fy: 'Fries',
+    cy: 'Welsh',
   },
 
   // Friends
@@ -140,6 +142,18 @@ export const nl = {
     online: 'Online',
     offline: 'Offline',
     inGame: 'In spel',
+    friendsAndPrivacy: 'Vrienden & Privacy',
+    requests: 'Verzoeken',
+    blocked: 'Geblokkeerd',
+    noFriendsYet: 'Nog geen vrienden',
+    noPendingRequests: 'Geen wachtende verzoeken',
+    noBlockedUsers: 'Geen geblokkeerde gebruikers',
+    pending: 'Wachtend',
+    cancel: 'Annuleren',
+    unfriend: 'Ontvrienden',
+    block: 'Blokkeren',
+    unblock: 'Deblokkeren',
+    deny: 'Weigeren',
   },
 
   // Chat
