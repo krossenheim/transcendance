@@ -236,3 +236,93 @@
 .dark .glass-border {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* ========== RTL (Right-to-Left) LANGUAGE SUPPORT ========== */
+
+/* Base RTL support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+/* Fix flex direction for RTL */
+[dir="rtl"] .direction-rtl {
+  direction: rtl;
+}
+
+/* Ensure icons don't flip unnecessarily in RTL */
+[dir="rtl"] svg {
+  /* Most icons should not be flipped */
+}
+
+/* Flip directional icons in RTL */
+[dir="rtl"] .flip-rtl {
+  transform: scaleX(-1);
+}
+
+/* Fix spacing utilities for RTL */
+[dir="rtl"] .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+[dir="rtl"] .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+/* RTL-aware text alignment */
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+/* RTL-aware margin and padding */
+[dir="rtl"] .ml-auto {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .mr-auto {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+/* RTL-aware absolute positioning for dropdowns */
+[dir="rtl"] .right-0 {
+  right: auto;
+  left: 0;
+}
+
+[dir="rtl"] .left-0 {
+  left: auto;
+  right: 0;
+}
+
+/* RTL transitions for toggle switches */
+[dir="rtl"] .translate-x-7 {
+  --tw-translate-x: -1.75rem;
+}
+
+/* Ensure form inputs work correctly in RTL */
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  text-align: inherit;
+}
+
+/* RTL support for flex items with gaps */
+[dir="rtl"] .gap-2,
+[dir="rtl"] .gap-3,
+[dir="rtl"] .gap-4 {
+  /* Gaps work correctly in RTL by default */
+}
+
+/* Fix button icon alignment in RTL */
+[dir="rtl"] .flex.items-center.gap-2 svg:first-child {
+  order: 1;
+}
+
+[dir="rtl"] .flex.items-center.gap-2 span:last-child {
+  order: 0;
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { TwoFactorSetup, TwoFactorDisable } from "./twoFactorComponent";
+import { useLanguage } from "./i18n/LanguageContext";
 
 interface TwoFactorSettingsProps {
   userId: number;
@@ -11,6 +12,7 @@ interface TwoFactorSettingsProps {
 }
 
 export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, onActiveStateChange, startWithSetup }: TwoFactorSettingsProps) {
+  const { t } = useLanguage();
   const [is2FAEnabled, setIs2FAEnabled] = useState<boolean | null>(initialEnabled ?? null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(startWithSetup ?? false);
@@ -135,12 +137,12 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
       <div className="flex items-center justify-between mb-2">
         <div>
           <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Two-Factor Authentication
+            {t('twoFactor.title')}
           </h4>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
             {is2FAEnabled
-              ? "Your account is protected with 2FA"
-              : "Add an extra layer of security to your account"}
+              ? t('twoFactor.accountProtected')
+              : t('twoFactor.addExtraLayer')}
           </p>
         </div>
         <div className="flex items-center">
@@ -157,11 +159,11 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
                   clipRule="evenodd"
                 />
               </svg>
-              Enabled
+              {t('twoFactor.enabled')}
             </span>
           ) : (
             <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-700/50 text-gray-800 dark:text-gray-300">
-              Disabled
+              {t('twoFactor.disabled')}
             </span>
           )}
         </div>
@@ -170,7 +172,7 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
       <div className="mt-3">
         {isGuest ? (
           <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-            Two-factor authentication is not available for guest accounts.
+            {t('twoFactor.notAvailableGuest')}
           </p>
         ) : is2FAEnabled ? (
           <button
@@ -180,7 +182,7 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
             }}
             className="text-sm px-4 py-2 bg-red-600 hover:bg-red-700 text-white transition-colors"
           >
-            Disable 2FA
+            {t('twoFactor.disable2FA')}
           </button>
         ) : (
           <button
@@ -190,7 +192,7 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
             }}
             className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           >
-            Enable 2FA
+            {t('twoFactor.enable2FA')}
           </button>
         )}
       </div>

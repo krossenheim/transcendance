@@ -19,6 +19,7 @@ import TournamentBracket, { type TournamentData } from "./tournamentBracket"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
 import { usePredictedGameState } from "./usePredictedGameState"
+import { useLanguage } from "./i18n/LanguageContext"
 // local: avoid importing server-side db helpers
 
 // =========================
@@ -1199,6 +1200,8 @@ export default function PongComponent({
   // RENDER LOGIC
   console.log("[Pong] RENDER called, currentView =", currentView);
   
+  const { t } = useLanguage();
+  
   // If game view, return null (we render via useEffect into injected DOM)
   if (currentView === "game") {
     return null;
@@ -1216,16 +1219,16 @@ export default function PongComponent({
       {currentView === "menu" && (
         <div className="w-full max-w-2xl space-y-4">
           <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">🏓 Pong</h1>
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">🏓 {t('pong.title')}</h1>
             <p className="text-gray-600 dark:text-gray-400 mb-8">
-              Play classic Pong against other players in various game modes
+              {t('pong.subtitle')}
             </p>
             <div className="space-y-3">
               <button
                 onClick={() => setShowInviteModalLocal(true)}
                 className="w-full py-3 bg-blue-500 text-white hover:bg-blue-600 transition-colors font-semibold"
               >
-                🎮 Create Game
+                {t('pong.createGameButton')}
               </button>
               <button
                 onClick={() => {
@@ -1243,7 +1246,7 @@ export default function PongComponent({
                 }}
                 className="w-full py-3 bg-green-500 text-white hover:bg-green-600 transition-colors font-semibold"
               >
-                🤖 Quick Play (Solo)
+                {t('pong.quickPlay')}
               </button>
               <button
                 onClick={() => {
@@ -1268,7 +1271,7 @@ export default function PongComponent({
                 }}
                 className="w-full py-3 bg-purple-500 text-white hover:bg-purple-600 transition-colors font-semibold"
               >
-                🎯 Debug: 8 Players (3 balls)
+                {t('pong.debugMode')}
               </button>
             </div>
           </div>
