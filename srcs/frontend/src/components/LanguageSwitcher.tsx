@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage, languageNames, languageFlags } from '../i18n';
 
-type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he';
+type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl';
 
 export default function LanguageSwitcher() {
   const { language, setLanguage, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he'];
+  const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he', 'es', 'nl'];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function LanguageSwitcher() {
           role="listbox"
           aria-label={t('language.select')}
         >
-          <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+          <div className="px-3 py-2 text-xs font-semibold text-gray-800 dark:text-gray-200 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
             {t('language.title')}
           </div>
           {languages.map((lang) => (
@@ -69,8 +69,8 @@ export default function LanguageSwitcher() {
               }}
               className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 transition-colors ${
                 currentLang === lang
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/40 dark:hover:bg-dark-700'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold'
+                  : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100/40 dark:hover:bg-dark-700'
               }`}
               role="option"
               aria-selected={currentLang === lang}

@@ -126,6 +126,8 @@ export const ru: TranslationKeys = {
     ru: 'Русский',
     zh: 'Китайский',
     he: 'Иврит',
+    es: 'Испанский',
+    nl: 'Нидерландский',
   },
 
   // Friends
