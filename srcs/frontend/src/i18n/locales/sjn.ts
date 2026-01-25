@@ -66,7 +66,7 @@ export const sjn: TranslationKeys = {
     username: "Eneth",
     usernamePlaceholder: "mellon",
     email: "Gwanod",
-    emailPlaceholder: "le@edhel.sjn",
+    emailPlaceholder: "gwanod_example",
     password: "Angor",
     passwordPlaceholder: "--------",
     confirmPassword: "Tangado angor",
