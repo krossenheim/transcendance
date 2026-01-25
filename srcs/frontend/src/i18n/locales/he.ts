@@ -130,6 +130,8 @@ export const he: TranslationKeys = {
     nl: 'הולנדית',
     fy: 'פריזית',
     cy: 'וולשית',
+    tlh: 'קלינגונית',
+    sjn: 'סינדרין',
   },
 
   // Friends

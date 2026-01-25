@@ -128,6 +128,8 @@ export const es = {
     nl: 'Holandés',
     fy: 'Frisón',
     cy: 'Galés',
+    tlh: 'Klingon',
+    sjn: 'Sindarin',
   },
 
   // Friends

@@ -128,6 +128,8 @@ export const cy = {
     nl: 'Iseldireg',
     fy: 'Ffrisieg',
     cy: 'Cymraeg',
+    tlh: 'Klingon',
+    sjn: 'Sindarin',
   },
 
   // Friends

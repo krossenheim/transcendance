@@ -8,8 +8,10 @@ import { es } from './locales/es';
 import { nl } from './locales/nl';
 import { fy } from './locales/fy';
 import { cy } from './locales/cy';
+import { tlh } from './locales/tlh';
+import { sjn } from './locales/sjn';
 
-export type Language = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy';
+export type Language = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn';
 
 export const translations: Record<Language, TranslationKeys> = {
   en,
@@ -20,6 +22,8 @@ export const translations: Record<Language, TranslationKeys> = {
   nl,
   fy,
   cy,
+  tlh,
+  sjn,
 };
 
 export const languageNames: { [key in Language]: string } = {
@@ -31,6 +35,8 @@ export const languageNames: { [key in Language]: string } = {
   nl: 'Belgian',
   fy: 'Frysk',
   cy: 'Cymraeg',
+  tlh: 'tlhIngan',
+  sjn: 'Sindarin',
 };
 
 export const languageFlags: { [key in Language]: string } = {
@@ -42,6 +48,8 @@ export const languageFlags: { [key in Language]: string } = {
   nl: '\u{1F1E7}\u{1F1EA}',
   fy: '\u{1F1F3}\u{1F1F1}',
   cy: '\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}',
+  tlh: '',
+  sjn: '',
 };
 
 export type { TranslationKeys };
