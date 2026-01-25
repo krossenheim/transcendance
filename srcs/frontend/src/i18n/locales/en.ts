@@ -124,6 +124,8 @@ export const en = {
     ru: 'Russian',
     zh: 'Chinese',
     he: 'Hebrew',
+    es: 'Spanish',
+    nl: 'Dutch',
   },
 
   // Friends
