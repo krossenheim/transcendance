@@ -74,10 +74,10 @@ export class ChatService {
 
   getRoomMessages(roomId: number, limit: number): Result<TypeStoredMessageSchema[], string> {
     return this.db.all(
-      `SELECT messageId, roomId, messageString, messageDate, userId FROM chat_messages WHERE roomId = ? ORDER BY messageDate ASC LIMIT ?`,
+      `SELECT messageId, roomId, messageString, messageDate, userId FROM chat_messages WHERE roomId = ? ORDER BY messageDate DESC LIMIT ?`,
       StoredMessageSchema,
       [roomId, limit]
-    );
+    ).map((rows) => rows.reverse());
   }
 
   getRoomUserConnections(roomId: number): Result<TypeRoomUserConnectionSchema[], string> {

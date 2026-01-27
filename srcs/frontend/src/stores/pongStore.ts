@@ -12,44 +12,44 @@ interface PongState {
     playerTwoPaddleID: number;
     lastCreatedBoardId: number | null;
     pressedKeys: string[];
-    
+
     // View and UI state
     currentView: PongView;
-    
+
     // Lobby state
     lobby: PongLobbyData | null;
-    
+
     // Tournament state
     tournament: TournamentData | null;
     activeTournamentId: number | null;
     showTournamentStats: boolean;
-    
+
     // Modals
     showInviteModalLocal: boolean;
-    
+
     // Actions - Game state
     setGameState: (state: TypeGameStateSchema | null) => void;
     setPlayerOnePaddleID: (id: number) => void;
     setPlayerTwoPaddleID: (id: number) => void;
     setLastCreatedBoardId: (id: number | null) => void;
     setPressedKeys: (keys: string[]) => void;
-    
+
     // Actions - View
     setCurrentView: (view: PongView) => void;
-    
+
     // Actions - Lobby
     setLobby: (lobby: PongLobbyData | null) => void;
     updateLobbyFromPayload: (payload: any, authUserId?: number) => void;
-    
+
     // Actions - Tournament
     setTournament: (tournament: TournamentData | null) => void;
     setActiveTournamentId: (id: number | null) => void;
     setShowTournamentStats: (show: boolean) => void;
     updateTournamentPlayerAlias: (userId: number, alias: string) => void;
-    
+
     // Actions - Modals
     setShowInviteModalLocal: (show: boolean) => void;
-    
+
     // Actions - Compound
     resetGameState: () => void;
     handleGameOver: () => void;
@@ -68,38 +68,38 @@ export const usePongStore = create<PongState>((set, get) => ({
     activeTournamentId: null,
     showTournamentStats: false,
     showInviteModalLocal: false,
-    
+
     // Actions - Game state
     setGameState: (gameState) => {
         set({ gameState });
         // Expose to window for debugging
         try { (window as any).__lastNormalizedPongState = gameState } catch (e) { /* ignore */ }
     },
-    
+
     setPlayerOnePaddleID: (playerOnePaddleID) => set({ playerOnePaddleID }),
     setPlayerTwoPaddleID: (playerTwoPaddleID) => set({ playerTwoPaddleID }),
     setLastCreatedBoardId: (lastCreatedBoardId) => set({ lastCreatedBoardId }),
     setPressedKeys: (pressedKeys) => set({ pressedKeys }),
-    
+
     // Actions - View
     setCurrentView: (currentView) => {
         console.log("[PongStore] VIEW CHANGE:", get().currentView, "->", currentView);
         set({ currentView });
     },
-    
+
     // Actions - Lobby
     setLobby: (lobby) => set({ lobby }),
-    
+
     updateLobbyFromPayload: (payload, authUserId) => {
         const lobbyData = payload;
-        
+
         // Check if user is in this lobby
-        const isInLobby = !authUserId || lobbyData.players.some((p: any) => 
+        const isInLobby = !authUserId || lobbyData.players.some((p: any) =>
             p.userId === authUserId || p.id === authUserId
         );
-        
+
         if (!isInLobby) return;
-        
+
         const newLobby: PongLobbyData = {
             lobbyId: lobbyData.lobbyId,
             gameMode: lobbyData.gameMode,
@@ -116,24 +116,24 @@ export const usePongStore = create<PongState>((set, get) => ({
             },
             status: lobbyData.status,
         };
-        
+
         set({ lobby: newLobby });
-        
+
         // If we're in menu view and receive lobby update, switch to lobby
         if (get().currentView === "menu") {
             set({ currentView: "lobby" });
         }
     },
-    
+
     // Actions - Tournament
     setTournament: (tournament) => set({ tournament }),
     setActiveTournamentId: (activeTournamentId) => set({ activeTournamentId }),
     setShowTournamentStats: (showTournamentStats) => set({ showTournamentStats }),
-    
+
     updateTournamentPlayerAlias: (userId, alias) => {
         const tournament = get().tournament;
         if (!tournament) return;
-        
+
         set({
             tournament: {
                 ...tournament,
@@ -143,10 +143,10 @@ export const usePongStore = create<PongState>((set, get) => ({
             },
         });
     },
-    
+
     // Actions - Modals
     setShowInviteModalLocal: (showInviteModalLocal) => set({ showInviteModalLocal }),
-    
+
     // Actions - Compound
     resetGameState: () => set({
         gameState: null,
@@ -156,7 +156,7 @@ export const usePongStore = create<PongState>((set, get) => ({
         playerTwoPaddleID: -2,
         currentView: "menu",
     }),
-    
+
     handleGameOver: () => {
         // Called when game ends - can be used to transition back
         console.log("[PongStore] Game over handled");

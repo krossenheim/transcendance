@@ -143,7 +143,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
             <UserMenu
               username={authResponse.user.username}
               userId={authResponse.user.id}
-              avatarUrl={authResponse.user.avatar || ''}
+              avatarUrl={authResponse.user.avatarUrl || ''}
               onLogout={onLogout}
               isLoggingOut={false}
               onFriendsClick={() => setShowFriendsManager(true)}

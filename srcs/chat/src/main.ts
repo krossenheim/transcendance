@@ -48,6 +48,13 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (body, response
     }));
   }
 
+  if (requester.id === target.id) {
+    console.error("User attempted to DM themselves.");
+    return Result.Ok(response.select("CannotDMYourself").reply({
+      message: `Cannot send direct messages to yourself.`,
+    }));
+  }
+
   const message_string = body.payload.messageString;
   const dmResult = await singletonChatRooms.getOrCreateDMRoom(requester.id, target.id);
   if (dmResult.isErr()) {

@@ -945,6 +945,10 @@ export const user_url = defineRoutes({
               code: 4,
               payload: ErrorResponse,
             },
+            CannotDMYourself: {
+              code: 5,
+              payload: ErrorResponse,
+            },
           },
         },
       },

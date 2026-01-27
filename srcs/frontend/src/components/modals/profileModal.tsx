@@ -91,7 +91,7 @@ export default function ProfileComponent() {
   if (typeof document === 'undefined') return null
 
   const isOwnProfile = currentUserId === targetUserId
-  const isUserOnline = onlineUsers.has(targetUserId!);
+  const isUserOnline = profile?.onlineStatus === 1 || onlineUsers.has(targetUserId!);
 
   const displayName = profile?.alias || profile?.username || "Unknown";
 
