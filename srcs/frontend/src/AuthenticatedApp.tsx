@@ -74,6 +74,9 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
     const [showFriendsManager, setShowFriendsManager] = useState(false);
   const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
   const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
+  const [showPongInviteModal, setShowPongInviteModal] = useState(false);
+  const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
+  const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
   const [accessibilitySettings, setAccessibilitySettings] = useState({
     highContrast: false,
     largeText: false,
@@ -151,14 +154,26 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
                   <Route path="/chat" element={
                     <ChatInputComponent 
                        selfUserId={authResponse.user.id} 
-                       onOpenPongInvite={() => navigate('/pong')}
+                       onOpenPongInvite={(roomUsers) => {
+                         setPongInviteRoomUsers(roomUsers);
+                         setShowPongInviteModal(true);
+                         navigate('/pong');
+                       }}
                     />
                   } />
                   <Route path="/pong" element={
                     <PongComponent
                       authResponse={authResponse}
+                      showInviteModal={showPongInviteModal}
+                      inviteRoomUsers={pongInviteRoomUsers}
+                      onCloseInviteModal={() => {
+                        setShowPongInviteModal(false);
+                        setPongInviteRoomUsers([]);
+                      }}
                       pongInvitations={pongInvitations}
                       setPongInvitations={setPongInvitations}
+                      acceptedLobbyId={acceptedLobbyId}
+                      onLobbyJoined={() => setAcceptedLobbyId(null)}
                       onNavigateToChat={() => navigate('/chat')}
                     />
                   } />

@@ -73,6 +73,7 @@ export default function ChatInputComponent({
   
   const userChatRooms = useChatStore(state => state.userChatRooms);
   const userChatRoomsUIData = useChatStore(state => state.roomUIData);
+  const storeCurrentRoomId = useChatStore(state => state.currentRoomId);
 
   const setCurrentRoomData = useChatStore(state => state.setCurrentRoomData);
   const setUserChatRooms = useChatStore(state => state.setUserChatRooms);
@@ -940,14 +941,14 @@ export default function ChatInputComponent({
   }, [rooms, currentRoomId, computeRoomDisplayName])
 
   const handleInvitePong = useCallback((roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>) => {
-    if (!currentRoomId) return
-    console.log("Inviting to pong in room:", currentRoomId)
+    if (!storeCurrentRoomId) return
+    console.log("Inviting to pong in room:", storeCurrentRoomId)
     if (onOpenPongInvite) {
       onOpenPongInvite(roomUsers)
     } else if (showToast) {
       showToast("Pong invitation feature not yet implemented", 'error')
     }
-  }, [currentRoomId, showToast, onOpenPongInvite])
+  }, [storeCurrentRoomId, showToast, onOpenPongInvite])
 
   const handleAcceptFriendship = useCallback(
     (userId: number) => {
@@ -1182,7 +1183,7 @@ export default function ChatInputComponent({
 
           <div className="md:col-span-2">
             <ChatBox
-              isJoined={rooms.some(r => r.roomId === currentRoomId)}
+              isJoined={storeCurrentRoomId !== null && userChatRooms.has(storeCurrentRoomId)}
               onJoinRoom={handleJoinSelectedRoom}
               onInvitePong={handleInvitePong}
               onBlockUser={handleBlockUser}
