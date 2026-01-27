@@ -10,6 +10,7 @@ import { useChatStore } from "../stores/chatStore"
 import { useGlobalStore } from "../stores/globalStore"
 import { useWebSocket } from "../socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
+import { useProfileModalStore } from "../stores/uiStore"
 
 interface ChatBoxProps {
   isJoined?: boolean
@@ -147,6 +148,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     }
   }
 
+  const handleOpenProfile = (userId: number) => {
+    const { openProfileModal } = useProfileModalStore.getState();
+    openProfileModal(userId);
+  }
+
   return (
     <div className="glass-light-sm dark:glass-dark-sm glass-border h-[600px] flex flex-col overflow-hidden" role="main" aria-label="Chat interface">
       {/* Header */}
@@ -192,7 +198,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                   <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-900" role="article" aria-label={`Message from ${visibleUsername}`}> 
                     <div className="flex justify-between items-center">
                       <span
-                        onClick={() => onOpenProfile(userData ? userData.username : `User ${msg.userId}`)}
+                        onClick={() => handleOpenProfile(msg.userId)}
                         className="block text-xs font-bold mb-1 hover:underline cursor-pointer"
                         style={{ color: userColor }}
                       >
@@ -247,7 +253,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                   return (
                     <div
                       key={user.userId}
-                      onClick={() => onOpenProfile(visibleUsername)}
+                      onClick={() => handleOpenProfile(user.userId)}
                       className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/40 cursor-pointer transition-colors rounded-md mx-1"
                       role="button"
                       tabIndex={0}

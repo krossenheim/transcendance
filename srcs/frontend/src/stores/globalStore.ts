@@ -1,20 +1,28 @@
 import { PublicUserDataType } from "@app/shared/api/service/db/user";
 import { create } from "zustand";
 
+import type { FriendType } from "@app/shared/api/service/db/user";
+
 interface GlobalState {
     jwt: string | null;
     onlineUsers: Set<number>;
+    currentUserId: number;
+    userRelationships: Map<number, FriendType>;
     publicUserDataCache: Map<number, PublicUserDataType>;
 
     setJWT: (jwt: string | null) => void;
     addOnlineUsers: (users: number[]) => void;
+    setCurrentUserId: (userId: number) => void;
     removeOnlineUsers: (users: number[]) => void;
+    setUserRelationships: (connections: FriendType[]) => void;
     cachePublicUserData: (userData: PublicUserDataType | PublicUserDataType[]) => void;
 }
 
 export const useGlobalStore = create<GlobalState>((set, get) => ({
     jwt: null,
+    currentUserId: -1,
     onlineUsers: new Set<number>(),
+    userRelationships: new Map<number, FriendType>(),
     publicUserDataCache: new Map<number, PublicUserDataType>(),
 
     setJWT: (jwt: string | null) => {
@@ -27,10 +35,22 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
         set(() => ({ onlineUsers: currentOnline }));
     },
 
+    setCurrentUserId: (userId: number) => {
+        set(() => ({ currentUserId: userId }));
+    },
+
     removeOnlineUsers: (users: number[]) => {
         const currentOnline = new Set(get().onlineUsers);
         users.forEach((userId) => currentOnline.delete(userId));
         set(() => ({ onlineUsers: currentOnline }));
+    },
+
+    setUserRelationships: (connections: FriendType[]) => {
+        const relationshipMap = new Map<number, FriendType>();
+        connections.forEach((conn) => {
+            relationshipMap.set(conn.friendId, conn);
+        });
+        set(() => ({ userRelationships: relationshipMap }));
     },
 
     cachePublicUserData: (userData: PublicUserDataType | PublicUserDataType[]) => {

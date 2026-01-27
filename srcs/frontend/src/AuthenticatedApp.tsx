@@ -19,6 +19,7 @@ import { useWebSocket } from "./socketComponent";
 import { user_url } from "@app/shared/api/service/common/endpoints";
 import { HandlerResult } from "./socketComponent";
 import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
+import ProfileModal from "./components/modals/profileModal";
 
 interface AuthenticatedAppProps {
   authResponse: AuthResponseType;
@@ -66,6 +67,11 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
         };
     }, [subscribe, addOnlineUsers, removeOnlineUsers, cachePublicUserData]);
 
+    const { setCurrentUserId } = useGlobalStore();
+
+    useEffect(() => {
+        setCurrentUserId(authResponse.user.id);
+    }, [authResponse.user.id, setCurrentUserId]);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -103,6 +109,8 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
          onAccept={() => navigate('/pong')} 
          onDecline={(id) => setPongInvitations(prev => prev.filter(i => i.inviteId !== id))}
       />
+
+      <ProfileModal />
 
       {/* Main Layout Header */}
       <header className="flex-none bg-slate-800/90 border-b border-slate-700 shadow-md z-20">
