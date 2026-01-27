@@ -1435,6 +1435,17 @@ export const int_url = defineRoutes({
         },
       },
 
+      getAllRooms: {
+        endpoint: "/internal_api/chat/rooms/all",
+        method: "GET",
+        schema: {
+          response: {
+            200: z.array(FullRoomInfoSchema), // Retrieved list of all rooms
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
       fetchDMRoomInfo: {
         endpoint: "/internal_api/chat/rooms/dm_info/:userId1/:userId2",
         method: "GET",

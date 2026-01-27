@@ -26,12 +26,7 @@ export default function MatchHistoryComponent({ userId, isOpen, onClose }: Match
     if (!isOpen) return;
     setLoading(true);
     setError(null);
-    const toSend = {
-      funcId: user_url.ws.users.fetchUserGameResults.funcId,
-      payload: userId,
-      target_container: "users",
-    };
-    sendMessage(toSend);
+    sendMessage(user_url.ws.users.fetchUserGameResults, userId);
   }, [isOpen, userId, sendMessage]);
 
   useEffect(() => {

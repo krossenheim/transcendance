@@ -31,6 +31,15 @@ export async function chatRoutes(fastify: FastifyInstance) {
         else return reply.status(200).send(roomInfoResult.unwrap());
     });
 
+    registerRoute(fastify, int_url.http.db.getAllRooms, async (request, reply) => {
+        const allRoomsResult = chatService.getAllRooms();
+        if (allRoomsResult.isErr()) {
+            console.error("Error fetching all rooms:", allRoomsResult.unwrapErr());
+            return reply.status(500).send({ message: allRoomsResult.unwrapErr() });
+        }
+        else return reply.status(200).send(allRoomsResult.unwrap());
+    });
+
     registerRoute(fastify, int_url.http.db.getUserRooms, async (request, reply) => {
         const userRoomsResult = chatService.getUserRooms(request.params.userId);
         if (userRoomsResult.isErr())

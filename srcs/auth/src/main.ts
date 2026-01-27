@@ -1,6 +1,6 @@
 'use strict'
+import { registerRoute, createFastify, type FastifyInstance } from '@app/shared/api/service/common/fastify';
 import { StoreTokenPayload, VerifyTokenPayload } from '@app/shared/api/service/db/token';
-import { registerRoute, createFastify } from '@app/shared/api/service/common/fastify';
 import { int_url, pub_url, user_url } from '@app/shared/api/service/common/endpoints';
 import { TokenPayload } from '@app/shared/api/service/auth/tokenData';
 import { ErrorResponse } from '@app/shared/api/service/common/error';
@@ -11,7 +11,6 @@ import containers from '@app/shared/internal_api'
 import type { ErrorResponseType } from '@app/shared/api/service/common/error';
 import type { TokenDataType } from '@app/shared/api/service/auth/tokenData';
 import type { FullUserType } from '@app/shared/api/service/db/user';
-import type { FastifyInstance } from 'fastify';
 
 import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -329,7 +328,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 
 		const tokens = await generateToken(newUser.id);
 		if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
-		
+
 		// Use URL fragment (hash) instead of query params to prevent tokens from being logged
 		const tokenData = tokens.unwrap();
 		const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
@@ -517,10 +516,10 @@ registerRoute(fastify, pub_url.http.auth.setup2FA, async (request, reply) => {
 
 	const response = responseResult.unwrap();
 	switch (response.status) {
-	case 200:
-		return reply.status(200).send(response.data);
-	default:
-		return reply.status(500).send({ message: 'Failed to generate 2FA secret' });
+		case 200:
+			return reply.status(200).send(response.data);
+		default:
+			return reply.status(500).send({ message: 'Failed to generate 2FA secret' });
 	}
 });
 
@@ -597,7 +596,7 @@ registerRoute(fastify, pub_url.http.auth.verify2FALogin, async (request, reply) 
 
 	// Fetch user data
 	const userFetchResult = await containers.db.fetchUserData(pendingLogin.userId);
-	
+
 	if (userFetchResult.isErr()) {
 		return reply.status(500).send({ message: 'Failed to fetch user data' });
 	}

@@ -16,8 +16,6 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 			else
 				targetUser = await containers.db.fetchUserData(body.payload, true);
 
-			await socket.invokeHandler(user_url.ws.chat.listRooms, body.userId, {});
-
 			if (targetUser.isErr()) {
 				console.error("Error fetching user data:", targetUser.unwrapErr());
 				return Result.Ok(response.select("UserDoesNotExist").reply({

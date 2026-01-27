@@ -1,12 +1,10 @@
-import { createFastify, registerRoute } from "@app/shared/api/service/common/fastify";
+import { createFastify, registerRoute, type FastifyInstance } from "@app/shared/api/service/common/fastify";
 import { fetchAllowedOnlineStatusViewers } from "./ws_handlers/userOnlineStatus.js";
 import { user_url, int_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import { OurSocket } from "@app/shared/socket_to_hub";
 
 import containers from "@app/shared/internal_api";
-
-import type { FastifyInstance } from "fastify";
 
 const fastify: FastifyInstance = createFastify();
 const socketToHub = new OurSocket("users");

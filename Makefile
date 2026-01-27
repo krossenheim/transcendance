@@ -67,11 +67,12 @@ YELLOW := \033[1;33m
 NC := \033[0m  # No Color (reset)
 
 debug:
-	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
-	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
-	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
-	rm -rf $(VOLUMES_DIR)database/users.db
-	rm -rf $(VOLUMES_DIR)database/pfps
+	@echo -e "=============================="
+# 	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
+# 	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
+# 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
+# 	rm -rf $(VOLUMES_DIR)database/users.db
+# 	rm -rf $(VOLUMES_DIR)database/pfps
 
 # Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
 HARDHAT_IMAGE_TAG := hardhat:local
@@ -142,6 +143,9 @@ fclean: clean
 	docker image prune -a -f
 	docker volume prune -f
 	docker image prune -a -f
+
+re-front:
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --build --no-deps nginx
 
 list:
 	docker ps -a

@@ -95,7 +95,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
       // Send request
-      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
+      sendMessage(user_url.ws.users.requestUserProfileData, userId)
 
       // ✅ Set a new timeout
       timeoutRef.current = setTimeout(() => {
@@ -287,7 +287,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
         }
         : undefined
 
-      sendToSocket(user_url.ws.users.updateProfile.funcId, {
+      sendMessage(user_url.ws.users.updateProfile, {
         alias: editedUsername,
         email: editedEmail,
         bio: editedBio,
@@ -343,7 +343,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
   const handleAddFriend = () => {
     if (!userId) return
     console.log("[ProfileComponent] Sending friend request to userId:", userId)
-    sendToSocket(user_url.ws.users.requestFriendship.funcId, userId)
+    sendMessage(user_url.ws.users.requestFriendship, userId)
   }
 
   const requestHistory = () => {

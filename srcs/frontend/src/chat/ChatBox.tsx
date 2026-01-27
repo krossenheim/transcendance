@@ -6,11 +6,12 @@ import { getUserColorCSS } from "../userColorUtils"
 import type { ChatMessage, RoomUser, SlashCommand } from "./types"
 import { useLanguage } from "../i18n/LanguageContext"
 
+import { useChatStore } from "../stores/chatStore"
+import { useGlobalStore } from "../stores/globalStore"
+import { useWebSocket } from "../socketComponent"
+import { user_url } from "@app/shared/api/service/common/endpoints"
+
 interface ChatBoxProps {
-  messages: ChatMessage[]
-  onSendMessage: (content: string) => void
-  currentRoom: number | null
-  currentRoomName: string | null
   isJoined?: boolean
   onJoinRoom?: (roomId: number) => void
   onInvitePong: (roomUsers: RoomUser[]) => void
@@ -30,10 +31,6 @@ const commands: SlashCommand[] = [
 ]
 
 const ChatBox: React.FC<ChatBoxProps> = ({
-  messages,
-  onSendMessage,
-  currentRoom,
-  currentRoomName,
   isJoined = false,
   onJoinRoom,
   onInvitePong,
@@ -50,6 +47,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
+
+  const { sendMessage } = useWebSocket();
+
+  const messages = useChatStore(state => state.currentRoomMessages);
+  const roomData = useChatStore(state => {
+    return state.currentRoomId ? state.userChatRooms.get(state.currentRoomId) : undefined;
+  });
+  const onlineUsers = useGlobalStore(state => state.onlineUsers);
+  const publicUserDataCache = useGlobalStore(state => state.publicUserDataCache);
+  const currentRoomUserConnections = useChatStore(state => state.currentRoomUserConnections);
 
   // Check if input is a slash command
   const isCommand = input.startsWith("/")
@@ -80,7 +87,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       setCommandHistory((prev) => [input, ...prev.slice(0, 49)]) // Keep last 50
       setHistoryIndex(-1)
     }
-    onSendMessage(input)
+    sendMessage(user_url.ws.chat.sendMessage, {
+      roomId: roomData!.roomId,
+      messageString: input,
+    })
     setInput("")
     setShowSuggestions(false)
   }
@@ -142,9 +152,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-500/70 to-purple-500/70">
         <h2 className="text-lg font-semibold text-white" id="chat-room-title">
-          {currentRoomName ? `#${currentRoomName}` : t('chat.selectRoom')}
+          {roomData ? `#${roomData.roomName}` : t('chat.selectRoom')}
         </h2>
-        {currentRoom && (
+        {roomData && (
           isJoined ? (
             <button
               onClick={() => onInvitePong(roomUsers)}
@@ -155,7 +165,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             </button>
           ) : (
             <button
-              onClick={() => currentRoom && onJoinRoom && onJoinRoom(currentRoom)}
+              onClick={() => roomData && onJoinRoom && onJoinRoom(roomData.roomId)}
               className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 transition-all"
               aria-label="Join this room"
             >
@@ -175,16 +185,18 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             .map((msg, i) => {
               const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
               const isBlocked = msg.userId !== undefined && blockedUserIds.includes(msg.userId)
+              const userData = publicUserDataCache.get(msg.userId);
+              const visibleUsername = userData ? userData.alias || userData.username : `User ${msg.userId}`;
               return (
                 <div key={i} className="flex justify-start">
-                  <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-900" role="article" aria-label={`Message from ${msg.user}`}> 
+                  <div className="px-4 py-2 max-w-[70%] shadow-sm glass-light-xs dark:glass-dark-xs glass-border text-gray-900" role="article" aria-label={`Message from ${visibleUsername}`}> 
                     <div className="flex justify-between items-center">
                       <span
-                        onClick={() => onOpenProfile(msg.user)}
+                        onClick={() => onOpenProfile(userData ? userData.username : `User ${msg.userId}`)}
                         className="block text-xs font-bold mb-1 hover:underline cursor-pointer"
                         style={{ color: userColor }}
                       >
-                        {msg.user}
+                        {visibleUsername}
                       </span>
                       {msg.userId !== undefined && msg.userId !== selfUserId && msg.userId !== 1 && (
                         <button
@@ -195,10 +207,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
                         </button>
                       )}
                     </div>
-                    <p className="text-sm">{msg.content}</p>
-                    {msg.timestamp && (
+                    <p className="text-sm">{msg.messageString}</p>
+                    {msg.messageDate && (
                       <span className="block text-xs text-gray-400 mt-1">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
+                        {new Date(msg.messageDate).toLocaleTimeString()}
                       </span>
                     )}
                   </div>
@@ -208,7 +220,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-400 text-center text-sm italic">
-              {currentRoom ? t('chat.startConversation') : t('chat.joinRoomToChat')}
+              {roomData ? t('chat.startConversation') : t('chat.joinRoomToChat')}
             </p>
           </div>
         )}
@@ -216,32 +228,41 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </div>
 
         {/* Users List Sidebar */}
-        {currentRoom && (
+        {currentRoomUserConnections && (
           <div className="w-48 glass-light-xs dark:glass-dark-xs glass-border overflow-y-auto" role="complementary" aria-label="Online users list">
             <div className="p-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-900">{t('chat.users')} ({roomUsers.length})</h3>
             </div>
             <div className="p-2 space-y-1">
-              {roomUsers.map((user) => {
-                const userColor = getUserColorCSS(user.id, true)
-                return (
-                  <div
-                    key={user.id}
-                    onClick={() => onOpenProfile(user.username)}
-                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/40 cursor-pointer transition-colors"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`View ${user.username}'s profile, ${user.onlineStatus === 1 ? 'online' : 'offline'}`}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${
-                      user.onlineStatus === 1 ? 'bg-green-500' : 'bg-gray-400'
-                    }`} />
-                    <span className="text-sm font-bold truncate" style={{ color: userColor }}>
-                      {user.username}
-                    </span>
-                  </div>
-                )
-              })}
+              {[...currentRoomUserConnections]
+                .sort((a, b) => {
+                  const statusA = onlineUsers.has(a.userId) ? 1 : 0
+                  const statusB = onlineUsers.has(b.userId) ? 1 : 0
+                  return statusB - statusA
+                })
+                .map((user) => {
+                  const userData = publicUserDataCache.get(user.userId);
+                  const visibleUsername = userData ? userData.alias || userData.username : `User ${user.userId}`;
+                  const userColor = getUserColorCSS(user.userId, true)
+                  return (
+                    <div
+                      key={user.userId}
+                      onClick={() => onOpenProfile(visibleUsername)}
+                      className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/40 cursor-pointer transition-colors rounded-md mx-1"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View ${visibleUsername}'s profile, ${onlineUsers.has(user.userId) ? 'online' : 'offline'}`}
+                    >
+                      <div className={`w-2.5 h-2.5 rounded-full ${
+                        onlineUsers.has(user.userId) ? 'bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.6)]' : 'bg-gray-400/60'
+                      }`} />
+                      <span className="text-sm font-bold truncate select-none" style={{ color: userColor }}>
+                        {visibleUsername}
+                      </span>
+                    </div>
+                  )
+                }
+              )}
               {roomUsers.length === 0 && (
                 <div className="text-xs text-gray-400 text-center py-4">{t('chat.noUsers')}</div>
               )}
@@ -256,7 +277,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder={currentRoom ? t('chat.typePlaceholder') : t('chat.selectRoomFirst')}
+              placeholder={roomData ? t('chat.typePlaceholder') : t('chat.selectRoomFirst')}
               className={`w-full border rounded-full px-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 glass-light-xs dark:glass-dark-xs ${
                 isCommand
                   ? "border-purple-500 text-purple-700 focus:ring-purple-400"
@@ -267,7 +288,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
               onKeyDown={handleKeyDown}
               aria-label="Message input"
               aria-describedby="chat-room-title"
-              disabled={!currentRoom}
+              disabled={!roomData}
             />
             {showSuggestions && isCommand && filteredCommands.length > 0 && (
               <div className="absolute left-0 right-0 bottom-full mb-2 glass-light-sm dark:glass-dark-sm glass-border shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto" role="listbox" aria-label="Command suggestions">
@@ -299,9 +320,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           </div>
           <button
             onClick={handleSend}
-            disabled={!currentRoom}
+            disabled={!roomData}
             className={`px-6 py-2 rounded-full active:scale-95 transition-all ${
-              currentRoom
+              roomData
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-200 text-gray-700 cursor-not-allowed'
             }`}

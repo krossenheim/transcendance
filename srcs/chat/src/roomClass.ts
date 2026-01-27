@@ -213,12 +213,23 @@ class ChatRooms {
   public static instance: ChatRooms;
 
   constructor() {
-    this.rooms = new Map();
-
     if (ChatRooms.instance) {
+      this.rooms = ChatRooms.instance.rooms;
       return ChatRooms.instance;
     }
+
+    this.rooms = new Map();
     ChatRooms.instance = this;
+
+    containers.db.get(int_url.http.db.getAllRooms).then((allRoomsResult) => {
+      if (allRoomsResult.isOk() && allRoomsResult.unwrap().status === 200) {
+        const rooms = allRoomsResult.unwrap().data as Array<TypeFullRoomInfoSchema>;
+        for (const roomInfo of rooms) {
+          this.rooms.set(roomInfo.room.roomId, new Room(roomInfo.room, roomInfo.userConnections.map(uc => [uc.userId, uc.userState])));
+          console.log("Loaded room from DB on startup:", roomInfo.room.roomId);
+        }
+      }
+    });
 
     return this;
   }
@@ -258,6 +269,7 @@ class ChatRooms {
     const userConnections: Array<[number, number]> = roomInfo.userConnections.map(uc => [uc.userId, uc.userState]);
     const newRoom = new Room(roomInfo.room, userConnections);
     this.rooms.set(newRoom.roomId, newRoom);
+    console.log("Loaded room from DB:", newRoom);
     return Result.Ok(newRoom);
   }
 

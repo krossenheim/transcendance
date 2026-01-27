@@ -11,7 +11,10 @@ export async function chatEndpoints(fastify: FastifyInstance, singletonChatRooms
         const userId = Number(request.params.userId);
         const result: Set<number> = new Set();
 
+        console.log("Chatrooms available:", singletonChatRooms.rooms);
         for (const room of singletonChatRooms.rooms.values()) {
+            console.log("Checking room", room.getId(), "for user", userId);
+            console.log("Room users:", room.users);
             if (room.users.find((id) => id === userId)) {
                 for (const uid of room.users) {
                     result.add(uid);

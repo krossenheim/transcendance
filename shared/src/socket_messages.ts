@@ -327,6 +327,15 @@ export class ServiceToHubBroadcastMessage extends ServiceToHubMessage {
     }
 }
 
+export type HubToClientMessageScheme<T extends WebSocketRouteDef> = {
+    [K in keyof T["schema"]["output"]]: {
+        sourceContainer: string;
+        funcId: string;
+        code: T["schema"]["output"][K]["code"];
+        payload: z.infer<T["schema"]["output"][K]["payload"]>;
+    };
+}[keyof T["schema"]["output"]];
+
 // sourceContainer%funcId%payload
 export class HubToClientMessage {
     private sourceContainer: string;
@@ -341,14 +350,14 @@ export class HubToClientMessage {
         this.payload = payload;
     }
 
-    static fromRawString(sourceContainer: string, rawString: string): Result<HubToClientMessage, string> {
+    static fromRawString(rawString: string): Result<HubToClientMessage, string> {
         const parts = splitHeaderData(rawString);
-        if (parts.length < 3)
+        if (parts.length < 4)
             return Result.Err("Invalid message format");
 
-        const [funcId, code, ...json] = parts;
+        const [sourceContainer, funcId, code, ...json] = parts;
         const payload = json.join(SEPARATOR);
-        return Result.Ok(new HubToClientMessage(sourceContainer, funcId!, parseInt(code!, 10), payload));
+        return Result.Ok(new HubToClientMessage(sourceContainer!, funcId!, parseInt(code!, 10), payload));
     }
 
     getFuncId(): string {
@@ -361,5 +370,24 @@ export class HubToClientMessage {
 
     toString(): string {
         return [this.sourceContainer, this.funcId, this.code.toString(), this.payload].join(SEPARATOR);
+    }
+
+    asValidated<T extends WebSocketRouteDef>(route: T): Result<HubToClientMessageScheme<T>, string> {
+        const outputSchemas = route.schema.output;
+        const matchingSchema = Object.values(outputSchemas).find(schema => schema.code === this.code);
+        if (!matchingSchema) {
+            return Result.Err("No matching output schema for code " + this.code);
+        }
+
+        const payloadResult = zodParse(matchingSchema.payload, this.payload);
+        if (payloadResult.isErr())
+            return Result.Err(payloadResult.unwrapErr());
+
+        return Result.Ok({
+            sourceContainer: this.sourceContainer,
+            funcId: this.funcId,
+            code: this.code,
+            payload: payloadResult.unwrap() as z.infer<T["schema"]["output"][string]["payload"]>
+        });
     }
 }
