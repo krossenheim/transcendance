@@ -5,7 +5,7 @@ import { useLanguage } from "./i18n";
 // Components
 import UserMenu from "./userMenu";
 import ChatInputComponent from "./chatInputComponent";
-// import PongPage from "./features/pong/PongPage";
+import PongComponent from "./pongComponent";
 import GDPRPage from "./GDPRPage";
 import FriendshipNotifications from "./friendshipNotifications";
 import FriendsManager from "./friendsManager";
@@ -154,7 +154,14 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
                        onOpenPongInvite={() => navigate('/pong')}
                     />
                   } />
-                  {/* <Route path="/pong" element={<PongPage authResponse={authResponse} />} /> */}
+                  <Route path="/pong" element={
+                    <PongComponent
+                      authResponse={authResponse}
+                      pongInvitations={pongInvitations}
+                      setPongInvitations={setPongInvitations}
+                      onNavigateToChat={() => navigate('/chat')}
+                    />
+                  } />
                   <Route path="/gdpr" element={<GDPRPage showToast={() => {}} onNavigateBack={() => navigate('/')} />} />
                 </Routes>
               </div>
