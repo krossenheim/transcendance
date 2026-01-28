@@ -11,6 +11,7 @@ import { HandlerResult } from "./socketComponent"
 
 import { useGlobalStore } from "./stores/globalStore"
 import { useChatStore } from "./stores/chatStore"
+import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models"
 
 /* -------------------- Main Chat Component -------------------- */
 export default function ChatInputComponent({
@@ -69,6 +70,7 @@ export default function ChatInputComponent({
 
   const setCurrentRoomData = useChatStore(state => state.setCurrentRoomData);
   const setUserChatRooms = useChatStore(state => state.setUserChatRooms);
+  const updateUserRoomState = useChatStore(state => state.updateUserRoomState);
   const setSingleUserChatRoom = useChatStore(state => state.setSingleUserChatRoom);
 
   const incrementUnreadCount = useChatStore(state => state.incrementUnreadCount);
@@ -168,6 +170,32 @@ export default function ChatInputComponent({
           return HandlerResult.NotHandled;
       }
     }));
+
+    unsubs.push(subscribe(user_url.ws.chat.joinRoom, (message, schema) => {
+      switch (message.code) {
+        case schema.output.RoomJoined.code:
+          const currentRoomId = useChatStore.getState().currentRoomId;
+          if (currentRoomId === message.payload.roomId)
+            updateUserRoomState(message.payload.user, ChatRoomUserAccessType.JOINED);
+          return HandlerResult.Handled;
+
+        default:
+          return HandlerResult.NotHandled;
+      }
+    }));
+
+    unsubs.push(subscribe(user_url.ws.chat.addUserToRoom, (message, schema) => {
+      switch (message.code) {
+        case schema.output.UserAdded.code:
+          const currentRoomId = useChatStore.getState().currentRoomId;
+          if (currentRoomId === message.payload.roomId)
+            updateUserRoomState(message.payload.user, ChatRoomUserAccessType.INVITED);
+          return HandlerResult.Handled;
+
+        default:
+          return HandlerResult.NotHandled;
+      }
+    }))
 
     return () => {
       unsubs.forEach((unsub) => unsub());
@@ -610,8 +638,6 @@ export default function ChatInputComponent({
 
           <div className="md:col-span-2">
             <ChatBox
-              isJoined={storeCurrentRoomId !== null && userChatRooms.has(storeCurrentRoomId)}
-              onJoinRoom={handleJoinSelectedRoom}
               onInvitePong={handleInvitePong}
               onBlockUser={handleBlockUser}
               blockedUserIds={blockedUserIds}

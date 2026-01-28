@@ -455,6 +455,21 @@ class ChatRooms {
 
       room.users.push(user_id);
       console.log(`User ${user_id} joined room ${room.roomId}.`);
+
+      const userDataResult = await containers.db.fetchUserData(user_id, true);
+      console.log("Fetched user data for join message:", userDataResult);
+      if (userDataResult.isOk()) {
+        const result = await containers.chat.post(int_url.http.chat.sendSystemMessage, {
+          roomId: room.roomId,
+          messageString: `${userDataResult.unwrap().username} has joined the room!`,
+        }).catch((err) => {
+          console.error('Failed to send system message for new room:', err);
+        });
+        console.log("Sent join system message result:", result);
+      } else {
+        console.error(`Failed to fetch user data for user ${user_id} to send join message.`);
+      }
+
       internal_socket.invokeHandler(
         user_url.ws.users.userOnlineStatusUpdate,
         room.users,

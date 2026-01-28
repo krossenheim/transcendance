@@ -1,4 +1,4 @@
-import type { TypeRoomUserConnectionSchema, TypeStoredMessageSchema, TypeFullRoomInfoSchema } from '@app/shared/api/service/chat/db_models';
+import { TypeRoomUserConnectionSchema, TypeStoredMessageSchema, TypeFullRoomInfoSchema, ChatRoomUserAccessType } from '@app/shared/api/service/chat/db_models';
 import type { TypeRoomSchema } from '@app/shared/api/service/chat/db_models';
 import { create } from 'zustand';
 
@@ -19,13 +19,14 @@ interface ChatState {
     setSingleUserChatRoom: (room: TypeRoomSchema) => void;
     setCurrentRoomData: (data: TypeFullRoomInfoSchema) => void;
     leaveRoom: (roomId: number) => void;
+    updateUserRoomState: (userId: number, access_state: ChatRoomUserAccessType) => void;
 
     incrementUnreadCount: (roomId: number) => void;
     resetUnreadCount: (roomId: number) => void;
     addRoomMessage: (message: TypeStoredMessageSchema) => void;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>()((set, get) => ({
     userChatRooms: new Map<number, TypeRoomSchema>(),
     roomUIData: new Map<number, RoomUIData>(),
 
@@ -80,6 +81,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set(() => ({
             userChatRooms: updatedRooms,
             roomUIData: updatedUIData,
+        }));
+    },
+
+    updateUserRoomState: (userId: number, access_state: ChatRoomUserAccessType) => {
+        const updatedConnections = [...get().currentRoomUserConnections];
+        let userIndex = updatedConnections.findIndex(conn => conn.userId === userId);
+
+        if (userIndex !== -1)
+            updatedConnections[userIndex]!.userState = access_state;
+        else
+            updatedConnections.push({ userId, userState: access_state })
+
+        set(() => ({
+            currentRoomUserConnections: updatedConnections,
         }));
     },
 
