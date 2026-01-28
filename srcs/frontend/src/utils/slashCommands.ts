@@ -164,9 +164,15 @@ registerSlashCommand(
             }
         ],
         execute: async ([username], { sendMessage }) => {
+            const currentRoomId = useChatStore.getState().currentRoomId;
+            if (currentRoomId === null) {
+                console.error("No current room selected for inviting users.");
+                return;
+            }
+
             sendMessage(user_url.ws.chat.addUserToRoom, {
-                roomId: 4,
-                user_to_add: 6,
+                roomId: currentRoomId,
+                user_to_add: username,
             })
         },
     })

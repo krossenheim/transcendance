@@ -77,11 +77,6 @@ socketToHub.registerReceiver(
         data.payload.userId,
         null
       );
-      socketToHub.invokeHandler(
-        user_url.ws.users.requestUserProfileData,
-        data.payload.userId,
-        1
-      )
     }
 
     if (data.code === schema.output.Failure.code) {

@@ -399,9 +399,14 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           {messages.filter(msg => msg.userId === undefined || !blockedUserIds.includes(msg.userId)).map((msg, i) => {
               const userColor = msg.userId !== undefined ? getUserColorCSS(msg.userId, true) : undefined
               const userData = publicUserDataCache.get(msg.userId!);
+
+              if (userData === undefined) {
+                sendMessage(user_url.ws.users.requestUserProfileData, msg.userId);
+              }
+
               const visibleUsername = userData ? userData.alias || userData.username : msg.user || `User ${msg.userId}`;
               const timestamp = msg.messageDate ? new Date(msg.messageDate * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-              
+
               const isSelf = msg.userId === selfUserId;
 
               return (

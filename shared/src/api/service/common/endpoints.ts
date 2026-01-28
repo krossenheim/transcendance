@@ -984,6 +984,10 @@ export const user_url = defineRoutes({
               code: 5,
               payload: ErrorResponse,
             },
+            UnknownUser: {
+              code: 6,
+              payload: ErrorResponse,
+            }
           },
         },
       },
@@ -1498,7 +1502,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/chat/rooms/add_user",
         method: "POST",
         schema: {
-          body: AddToRoomPayloadSchema.extend({ type: z.number() }),
+          body: AddToRoomPayloadSchema.extend({ type: z.number(), user_to_add: userIdValue }),
           response: {
             200: z.null(), // User added successfully
             500: ErrorResponse, // Internal server error

@@ -58,6 +58,7 @@ const RoomList: React.FC = () => {
     if (roomData === undefined) return ;
 
     sendMessage(user_url.ws.chat.getRoomData, { roomId });
+    sendMessage(user_url.ws.chat.joinRoom, { roomId });
   }, [userChatRooms, sendMessage]);
 
   const handleRefreshRooms = useCallback(() => {

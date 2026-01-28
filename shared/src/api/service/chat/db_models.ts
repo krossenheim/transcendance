@@ -31,6 +31,7 @@ export const RoomSchema = z
     roomName: room_name_rule,
     roomId: room_id_rule,
     roomType: z.enum(ChatRoomType),
+    userState: z.enum(ChatRoomUserAccessType),
   })
   .strict();
 export type TypeRoomSchema = z.infer<typeof RoomSchema>;

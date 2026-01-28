@@ -228,6 +228,8 @@ class ChatRooms {
           this.rooms.set(roomInfo.room.roomId, new Room(roomInfo.room, roomInfo.userConnections.map(uc => [uc.userId, uc.userState])));
           console.log("Loaded room from DB on startup:", roomInfo.room.roomId);
         }
+      } else {
+        console.error("Failed to load rooms from DB on startup.", allRoomsResult.isErr() ? allRoomsResult.unwrapErr() : allRoomsResult.unwrap());
       }
     });
 
@@ -296,6 +298,18 @@ class ChatRooms {
     }
 
     const roomInfo = roomInfoResult.unwrap().data as TypeFullRoomInfoSchema;
+    const isUserMemberOfRoom = roomInfo.userConnections.some(uc => uc.userId === userId && uc.userState === ChatRoomUserAccessType.JOINED);
+    if (!isUserMemberOfRoom) {
+      console.warn(`User ${userId} tried to access room ${roomId} without being a member.`);
+      return Result.Ok({
+        recipients: [userId],
+        code: user_url.ws.chat.getRoomData.schema.output.NoSuchRoom.code,
+        payload: {
+          message: `No such room (ID: ${roomId}) or you are not in it.`,
+        },
+      });
+    }
+
     return Result.Ok({
       recipients: [userId],
       code: user_url.ws.chat.getRoomData.schema.output.RoomDataProvided.code,

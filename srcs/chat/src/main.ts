@@ -81,7 +81,7 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (body, response
 socket.registerHandler(user_url.ws.chat.addUserToRoom, async (body, response) => {
   const room_id_requested = body.payload.roomId;
   const room = singletonChatRooms.getRoom(room_id_requested);
-  const user_id = body.userId;
+  const userId = body.userId;
   if (!room) {
     console.warn(`Bad user request, no such room.`);
     return Result.Ok(response.select("NoSuchRoom").reply({
@@ -95,14 +95,28 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (body, response) =>
     }));
   }
 
-  const user_to_add = body.payload.user_to_add;
-  const result = await room.addToRoom(user_id, user_to_add);
+  let userResult;
+  if (typeof body.payload.user_to_add === 'string') {
+    userResult = await containers.db.fetchUserByUsername(body.payload.user_to_add);
+  } else {
+    userResult = await containers.db.fetchUserData(body.payload.user_to_add);
+  }
+
+  if (userResult.isErr()) {
+    console.warn(`Bad user request, no such user to add.`);
+    return Result.Ok(response.select("UnknownUser").reply({
+      message: `No such user to add.`,
+    }));
+  }
+
+  const user = userResult.unwrap();
+  const result = await room.addToRoom(userId, user.id);
 
   if (result.isOk()) {
     const response = result.unwrap();
     if (response.code === user_url.ws.chat.addUserToRoom.schema.output.UserAdded.code) {
-      console.log(`[addUserToRoom] User ${user_to_add} added successfully, sending room list update`);
-      await socket.invokeHandler(user_url.ws.chat.listRooms, user_to_add, {});
+      console.log(`[addUserToRoom] User ${user.id} added successfully, sending room list update`);
+      await socket.invokeHandler(user_url.ws.chat.listRooms, user.id, {});
     }
   }
 
