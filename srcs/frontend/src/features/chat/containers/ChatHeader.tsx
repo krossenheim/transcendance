@@ -2,9 +2,9 @@
 
 import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models"
 import { user_url } from "@app/shared/api/service/common/endpoints"
-import { useLanguage } from "../i18n/LanguageContext"
-import { useChatStore } from "../stores/chatStore"
-import { useWebSocket } from "../socketComponent"
+import { useLanguage } from "../../../i18n/LanguageContext"
+import { useChatStore } from "../store/chatStore"
+import { useWebSocket } from "../../../socketComponent"
 
 import type React from "react"
 
@@ -13,7 +13,8 @@ export const ChatHeader: React.FC = () => {
 
   const { sendMessage } = useWebSocket();
 
-  const { currentRoomId, userChatRooms } = useChatStore();
+  const currentRoomId = useChatStore(state => state.rooms.data.currentRoomId);
+  const userChatRooms = useChatStore(state => state.rooms.data.userChatRooms);
 
   const roomData = currentRoomId ? userChatRooms.get(currentRoomId) : undefined;
 

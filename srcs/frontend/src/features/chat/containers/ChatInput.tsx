@@ -2,13 +2,14 @@
 
 import type React from "react"
 import { useState, useRef, useEffect, useMemo } from "react"
-import { useLanguage } from "../i18n/LanguageContext"
-import { useWebSocket } from "../socketComponent"
+import { useLanguage } from "../../../i18n/LanguageContext"
+import { useWebSocket } from "../../../socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
+import { RoomData } from "@app/shared/api/service/chat/chat_interfaces"
 import { 
   getPossibleSlashCommands, 
   SlashCommand, 
-} from "../utils/slashCommands"
+} from "../../../utils/slashCommands"
 import type { ChatRoomType } from "@app/shared/api/service/chat/chat_interfaces"
 
 type ExtendedArgDef = {
@@ -19,11 +20,10 @@ type ExtendedArgDef = {
 }
 
 interface ChatInputProps {
-  roomData?: ChatRoomType
-  selfUserId: number
+  roomData?: RoomData;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ roomData, selfUserId }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   const { t } = useLanguage()
   const { sendMessage } = useWebSocket()
   
@@ -181,7 +181,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData, selfUserId }) =>
     }
 
     try {
-      await activeCommand.execute(parsedArgs as any, { sendMessage, selfUserId })
+      await activeCommand.execute(parsedArgs as any)
       const reconstruct = `/${activeCommand.name} ${commandArgValues.join(' ')}`
       setCommandHistory(prev => [reconstruct, ...prev.slice(0, 49)])
       exitCommandMode()

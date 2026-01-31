@@ -14,7 +14,7 @@ import PongInviteNotifications, { PongInvitation } from "./pongInviteNotificatio
 import AccessibilitySettings from "./accessibilitySettings";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 
-import { useGlobalStore } from "./stores/globalStore";
+import { useGlobalStore } from "./features/global/store/globalStore";
 import { useWebSocket } from "./socketComponent";
 import { user_url } from "@app/shared/api/service/common/endpoints";
 import { HandlerResult } from "./socketComponent";
@@ -27,47 +27,8 @@ interface AuthenticatedAppProps {
 }
 
 export default function AuthenticatedApp({ authResponse, onLogout }: AuthenticatedAppProps) {
-    const { subscribe } = useWebSocket();
-    
-    const addOnlineUsers = useGlobalStore((state) => state.addOnlineUsers);
-    const removeOnlineUsers = useGlobalStore((state) => state.removeOnlineUsers);
-    const cachePublicUserData = useGlobalStore((state) => state.cachePublicUserData);
 
-    useEffect(() => {
-        const unsubscribers: (() => void)[] = [];
-
-        unsubscribers.push(subscribe(user_url.ws.users.userOnlineStatusUpdate, (payload, schema) => {
-            switch (payload.code) {
-            case schema.output.GetOnlineUsers.code:
-                addOnlineUsers(payload.payload);
-                return HandlerResult.Handled;
-
-            case schema.output.GetOfflineUsers.code:
-                removeOnlineUsers(payload.payload);
-                return HandlerResult.Handled;
-
-            default:
-                return HandlerResult.NotHandled;
-            }
-        }));
-
-        unsubscribers.push(subscribe(user_url.ws.users.requestUserProfileData, (payload, schema) => {
-            switch (payload.code) {
-            case schema.output.Success.code:
-                cachePublicUserData(payload.payload);
-                return HandlerResult.Handled;
-
-            default:
-                return HandlerResult.NotHandled;
-            }
-        }));
-
-        return () => {
-            unsubscribers.forEach((unsub) => unsub());
-        };
-    }, [subscribe, addOnlineUsers, removeOnlineUsers, cachePublicUserData]);
-
-    const { setCurrentUserId } = useGlobalStore();
+    const setCurrentUserId = useGlobalStore((state) => state.me.state.setCurrentUserId);
 
     useEffect(() => {
         setCurrentUserId(authResponse.user.id);

@@ -60,7 +60,7 @@ export type HTTPRouteDef = {
     body?: z.ZodType;
     query?: any;
     params?: any;
-    response: Record<number, z.ZodType | null>;
+    response: Record<number, z.ZodType>;
   };
 };
 

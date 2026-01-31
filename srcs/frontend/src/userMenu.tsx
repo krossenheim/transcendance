@@ -33,18 +33,17 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
         document.removeEventListener("mousedown", handleClickOutside);
       };
     }
+
+    return;
   }, [isDropdownOpen]);
 
   return (
     <>
-      {/* FIX #1 — add z-[9999] so the entire menu lives above everything */}
       <div className="relative z-[9999]" ref={dropdownRef}>
-        {/* Username button with avatar */}
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100/40 dark:hover:bg-dark-700 transition-colors"
         >
-          {/* Avatar */}
           <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700 flex items-center justify-center">
             {avatarUrl ? (
               <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
@@ -55,7 +54,6 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
             )}
           </div>
 
-          {/* Username */}
           <span className="text-sm font-bold" style={{ color: userColor }}>
             {username}
           </span>

@@ -2,12 +2,13 @@
 
 import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models"
 import { user_url } from "@app/shared/api/service/common/endpoints"
-import { useProfileModalStore } from "../stores/uiStore"
-import { useGlobalStore } from "../stores/globalStore"
-import { useLanguage } from "../i18n/LanguageContext"
-import { getUserColorCSS } from "../userColorUtils"
-import { useChatStore } from "../stores/chatStore"
-import { useWebSocket } from "../socketComponent"
+import { useProfileModalStore } from "../../../stores/uiStore"
+import { useGlobalStore } from "../../global/store/globalStore"
+import { useLanguage } from "../../../i18n/LanguageContext"
+import { UserListItem } from "@features/chat/components/UserListItem"
+
+import { useChatStore } from "@features/chat/store/chatStore"
+import { useWebSocket } from "../../../socketComponent"
 
 import type React from "react"
 
@@ -16,8 +17,9 @@ export const ChatUserSidebar: React.FC = () => {
   const { openProfileModal } = useProfileModalStore.getState();
 
   const { sendMessage } = useWebSocket();
-  const { currentRoomUserConnections } = useChatStore();
-  const { onlineUsers, publicUserDataCache } = useGlobalStore();
+  const currentRoomUserConnections = useChatStore(state => state.rooms.data.currentRoomUserConnections);
+  const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
+  const publicUserDataCache = useGlobalStore(state => state.users.data.userCache);
 
   const requestUserData = (userId: number) => {
     sendMessage(user_url.ws.users.requestUserProfileData, userId);
@@ -49,23 +51,14 @@ export const ChatUserSidebar: React.FC = () => {
 
             const visibleUsername = userData ? userData.alias || userData.username : `User ${user.userId}`
             const isOnline = onlineUsers.has(user.userId)
-            const userColor = getUserColorCSS(user.userId, true)
             
             return (
-              <div
-                key={user.userId}
-                onClick={() => openProfileModal(user.userId)}
-                className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-200 dark:hover:bg-gray-700/60 cursor-pointer rounded-md transition-colors group"
-              >
-                <div className="relative">
-                  <div className={`w-2.5 h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-transparent transition-colors ${
-                    isOnline ? 'bg-green-500 ring-green-500/20' : 'bg-gray-400 ring-gray-400/20'
-                  }`} />
-                </div>
-                <span className="text-xs font-medium truncate group-hover:opacity-100 opacity-90 transition-opacity" style={{ color: userColor }}>
-                  {visibleUsername}
-                </span>
-              </div>
+              <UserListItem
+                userId={user.userId}
+                username={visibleUsername}
+                isOnline={isOnline}
+                onClick={(userId) => openProfileModal(userId)}
+              />
             )
           }
         )}

@@ -1,9 +1,8 @@
 import { WebSocketRouteDef } from "@app/shared/api/service/common/endpoints";
-import { Result } from "@app/shared/api/service/common/result";
-import { useWebSocket } from "../socketComponent";
 import { user_url } from "@app/shared/api/service/common/endpoints";
-import { useChatStore } from "../stores/chatStore";
-import { useGlobalStore } from "../stores/globalStore";
+import { useChatStore } from "../features/chat/store/chatStore";
+import { Result } from "@app/shared/api/service/common/result";
+import { useGlobalStore } from "../features/global/store/globalStore";
 import { z } from "zod";
 
 interface BaseSlashCommandArgs<T> {
@@ -37,15 +36,11 @@ type ExtractArgsTypes<T extends readonly SlashCommandArg[]> = {
     : never;
 };
 
-export type SlashCommandContext = {
-    sendMessage: <T extends WebSocketRouteDef>(route: T, payload: z.infer<T["schema"]["args"]>) => void;
-}
-
 export type SlashCommand<T extends readonly SlashCommandArg[]> = {
     name: string;
     description: string;
     args: T;
-    execute: (args: ExtractArgsTypes<T>, context: SlashCommandContext) => void | Promise<void>;
+    execute: (args: ExtractArgsTypes<T>) => void | Promise<void>;
 }
 
 const createSlashCommand = <const T extends readonly SlashCommandArg[]>(command: SlashCommand<T>) => command;
@@ -95,60 +90,74 @@ registerSlashCommand(
     })
 );
 
-registerSlashCommand(
-    createSlashCommand({
-        name: 'msg',
-        description: 'Send a direct message to a user',
-        args: [
-            {
-                description: 'The username of the recipient',
-                type: 'text',
-                validator: (input: string) => {
-                    return Result.Ok(input);
-                },
-                autocomplete: (input: string) => {
-                    const userCache = useGlobalStore.getState().publicUserDataCache;
-                    const currentRoomUsers = useChatStore.getState().currentRoomUserConnections;
+// registerSlashCommand(
+//     createSlashCommand({
+//         name: 'msg',
+//         description: 'Send a direct message to a user',
+//         args: [
+//             {
+//                 description: 'The username of the recipient',
+//                 type: 'text',
+//                 validator: (input: string) => {
+//                     return Result.Ok(input);
+//                 },
+// autocomplete: (input: string) => {
+//     const userCache = useGlobalStore.getState().publicUserDataCache;
+//     const currentRoomUsers = useChatStore.getState().rooms.data.currentRoomUserConnections;
 
-                    const possibleUsernames = currentRoomUsers
-                        ? Array.from(currentRoomUsers)
-                            .map(item => userCache.get(item.userId))
-                            .filter(userData => userData !== undefined)
-                            .map(userData => userData!.username)
-                        : [];
+//     const possibleUsernames = currentRoomUsers
+//         ? Array.from(currentRoomUsers)
+//             .map(item => userCache.get(item.userId))
+//             .filter(userData => userData !== undefined)
+//             .map(userData => userData!.username)
+//         : [];
 
-                    return possibleUsernames.filter(name => name.toLowerCase().startsWith(input.toLowerCase()));
-                }
-            },
-            {
-                description: 'The message content',
-                type: 'text',
-                validator: (input: string) => {
-                    const trimmed = input.trim();
-                    if (trimmed.length === 0) return Result.Err("Message cannot be empty");
-                    if (trimmed.length > 500) return Result.Err("Message cannot exceed 500 characters");
-                    return Result.Ok(trimmed);
-                }
-            }
-        ],
-        execute: async ([username, message], { sendMessage }) => {
-            console.log(`Sending message to ${username}: ${message}`);
-            const userCache = useGlobalStore.getState().publicUserDataCache;
-            console.log("User Cache:", userCache);
-            const recipient = Array.from(userCache.values()).find(user => user.username === username);
-            console.log("Recipient found:", recipient);
-            if (!recipient) {
-                console.error(`User ${username} not found in cache.`);
-                return;
-            }
+//     return possibleUsernames.filter(name => name.toLowerCase().startsWith(input.toLowerCase()));
+// }
+//             },
+//             {
+//                 description: 'The message content',
+//                 type: 'text',
+//                 validator: (input: string) => {
+//                     const trimmed = input.trim();
+//                     if (trimmed.length === 0) return Result.Err("Message cannot be empty");
+//                     if (trimmed.length > 500) return Result.Err("Message cannot exceed 500 characters");
+//                     return Result.Ok(trimmed);
+//                 }
+//             }
+//         ],
+//         execute: async ([username, message], { sendMessage }) => {
+//             console.log(`Sending message to ${username}: ${message}`);
+//             const userCache = useGlobalStore.getState().publicUserDataCache;
+//             console.log("User Cache:", userCache);
+//             const recipient = Array.from(userCache.values()).find(user => user.username === username);
+//             console.log("Recipient found:", recipient);
+//             if (!recipient) {
+//                 console.error(`User ${username} not found in cache.`);
+//                 return;
+//             }
 
-            sendMessage(user_url.ws.chat.sendDirectMessage, {
-                targetUserId: recipient.id,
-                messageString: message,
-            });
-        },
-    })
-)
+//             sendMessage(user_url.ws.chat.sendDirectMessage, {
+//                 targetUserId: recipient.id,
+//                 messageString: message,
+//             });
+//         },
+//     })
+// )
+
+function autocompleteCurrentRoomUsers(input: string): string[] {
+    const userCache = useGlobalStore.getState().users.data.userCache;
+    const currentRoomUsers = useChatStore.getState().rooms.data.currentRoomUserConnections;
+
+    const possibleUsernames = currentRoomUsers
+        ? Array.from(currentRoomUsers)
+            .map(item => userCache.get(item.userId))
+            .filter(userData => userData !== undefined)
+            .map(userData => userData!.username)
+        : [];
+
+    return possibleUsernames.filter(name => name.toLowerCase().startsWith(input.toLowerCase()));
+}
 
 registerSlashCommand(
     createSlashCommand({
@@ -163,20 +172,47 @@ registerSlashCommand(
                 }
             }
         ],
-        execute: async ([username], { sendMessage }) => {
-            const currentRoomId = useChatStore.getState().currentRoomId;
+        execute: async ([username]) => {
+            const chatState = useChatStore.getState();
+            const currentRoomId = chatState.rooms.data.currentRoomId;
             if (currentRoomId === null) {
                 console.error("No current room selected for inviting users.");
                 return;
             }
 
-            sendMessage(user_url.ws.chat.addUserToRoom, {
-                roomId: currentRoomId,
-                user_to_add: username,
-            })
+            chatState.rooms.actions.inviteUserToRoom(currentRoomId, username);
         },
     })
 );
+
+registerSlashCommand(
+    createSlashCommand({
+        name: 'block',
+        description: 'Block a user',
+        args: [
+            {
+                description: 'The username of the person to block',
+                type: 'text',
+                validator: (input: string) => {
+                    return Result.Ok(input);
+                },
+                autocomplete: autocompleteCurrentRoomUsers,
+            }
+        ],
+        execute: async ([username]) => {
+            console.log(`Blocking user: ${username}`);
+            const globalState = useGlobalStore.getState();
+            const userCache = globalState.users.data.userCache;
+            const targetUser = Array.from(userCache.values()).find(user => user.username === username);
+            if (!targetUser) {
+                console.error(`User ${username} not found in cache.`);
+                return;
+            }
+
+            globalState.users.actions.blockUser(targetUser.id);
+        }
+    })
+)
 
 export const getAllSlashCommands = () => {
     return allSlashCommands;
