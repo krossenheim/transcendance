@@ -26,17 +26,17 @@ function addHealthcheckRoute(fastify: FastifyInstance) {
 }
 
 export function createFastify(options = {
-  logger: {
-    level: "info", // or 'debug' for more verbosity
-    transport: {
-      target: "pino-pretty", // pretty-print logs in development
-      options: {
-        colorize: true,
-        translateTime: "HH:MM:ss Z",
-        ignore: "pid,hostname",
-      },
-    },
-  },
+	logger: {
+		level: "info", // or 'debug' for more verbosity
+		transport: {
+			target: "pino-pretty", // pretty-print logs in development
+			options: {
+				colorize: true,
+				translateTime: "HH:MM:ss Z",
+				ignore: "pid,hostname",
+			},
+		},
+	},
 }): FastifyInstance {
 	const server = Fastify(options);
 	server.setValidatorCompiler(validatorCompiler);
@@ -46,29 +46,29 @@ export function createFastify(options = {
 }
 
 export type ReplyOf<T extends HTTPRouteDef> = Omit<FastifyReply, "status"> & {
-  status<Code extends keyof T["schema"]["response"] & number>(
-    code: Code
-  ): Omit<FastifyReply, "send"> & {
-    send(payload: z.infer<T["schema"]["response"][Code]>): void;
-  };
+	status<Code extends keyof T["schema"]["response"] & number>(
+		code: Code
+	): Omit<FastifyReply, "send"> & {
+		send(payload: z.infer<T["schema"]["response"][Code]>): void;
+	};
 };
 
 export type RouteBody<T extends HTTPRouteDef> =
 	T["wrapper"] extends z.ZodTypeAny
-		? Omit<z.infer<T["wrapper"]>, "payload"> & { payload: z.infer<T["schema"]["body"]> }
-		: T["schema"] extends { body: z.ZodTypeAny }
-			? z.infer<T["schema"]["body"]>
-			: never;
+	? Omit<z.infer<T["wrapper"]>, "payload"> & { payload: z.infer<T["schema"]["body"]> }
+	: T["schema"] extends { body: z.ZodTypeAny }
+	? z.infer<T["schema"]["body"]>
+	: never;
 
 export type RouteQuery<T extends HTTPRouteDef> =
 	T["schema"] extends { query: z.ZodTypeAny }
-		? z.infer<T["schema"]["query"]>
-		: never;
+	? z.infer<T["schema"]["query"]>
+	: never;
 
 export type RouteParams<T extends HTTPRouteDef> =
 	T["schema"] extends { params: z.ZodTypeAny }
-		? z.infer<T["schema"]["params"]>
-		: never;
+	? z.infer<T["schema"]["params"]>
+	: never;
 
 export function registerRoute<T extends HTTPRouteDef>(
 	fastify: FastifyInstance,
@@ -84,14 +84,14 @@ export function registerRoute<T extends HTTPRouteDef>(
 		reply: ReplyOf<T>
 	) => Promise<void>
 ) {
-  const method = (route.method ?? "POST").toLowerCase() as
-    | "get"
-    | "post"
-    | "put"
-    | "delete";
+	const method = (route.method ?? "POST").toLowerCase() as
+		| "get"
+		| "post"
+		| "put"
+		| "delete";
 
 	if (route.wrapper) {
-		fastify[method](route.endpoint, { schema: route.wrapper.extend({payload: route.schema.body}) }, async (req, reply) => {
+		fastify[method](route.endpoint, { schema: route.wrapper.extend({ payload: route.schema.body }) }, async (req, reply) => {
 			await handler(req as any, reply as any);
 		});
 	} else {
@@ -100,5 +100,7 @@ export function registerRoute<T extends HTTPRouteDef>(
 		});
 	}
 }
+
+export type { FastifyInstance };
 
 export default { createFastify, registerRoute };

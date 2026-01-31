@@ -1,0 +1,22 @@
+# GitGuardian configuration
+# https://docs.gitguardian.com/ggshield-docs/reference/gitguardian-yaml
+
+# Paths to ignore - these are i18n translation files containing
+# UI labels like "password", "email", etc. - NOT actual secrets
+paths-ignore:
+  - "srcs/frontend/src/i18n/locales/*.ts"
+  - "srcs/frontend/src/i18n/locales/*.js"
+  - "**/i18n/**"
+  - "**/locales/**"
+
+secret:
+  # Ignore specific detected incidents by their GitGuardian IDs
+  ignored-matches:
+    - name: "fy.ts - Frisian i18n translation labels"
+      match: "26410096"
+    - name: "sjn.ts - Sindarin i18n translation labels"
+      match: "26410348"
+    - name: "tlh.ts - Klingon i18n translation labels"
+      match: "26414746"
+    - name: "es.ts - Spanish i18n translation labels"
+      match: "26409276"

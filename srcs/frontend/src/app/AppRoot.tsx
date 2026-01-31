@@ -1,0 +1,472 @@
+// Full updated AppRoot.tsx with border fix and chat-only scrolling
+// (Insert your import statements here exactly as before)
+
+import SocketComponent, { closeGlobalSocket } from "./providers/SocketProvider";
+import LoginComponent from "../features/auth/loginComponent";
+import PongComponent from "../features/pong/components/pongComponent";
+import ChatInputComponent from "../features/chat/chatInputComponent";
+import RegisterComponent from "../features/auth/registerComponent";
+import React, { useState, useEffect } from "react";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import GDPRPage from "../features/settings/GDPRPage";
+import { FriendshipProvider } from "./providers/FriendshipProvider";
+import FriendshipNotifications from "../features/friends/friendshipNotifications";
+import FriendsManager from "../features/friends/friendsManager";
+import UserMenu from "../features/profile/userMenu";
+import PongInviteNotifications, { type PongInvitation } from "../features/pong/components/pongInviteNotifications";
+import PongInvitationHandler from "../features/pong/components/pongInvitationHandler";
+import AccessibilitySettings from "../features/settings/accessibilitySettings";
+import CookieBanner from "../features/settings/CookieBanner";
+import StarfieldBackground from "../components/StarfieldBackground";
+import { useLanguage } from "../i18n";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import AuthenticatedApp from "./AuthenticatedApp";
+
+import { useGlobalStore } from "../stores/globalStore";
+import { useWebSocket } from "./providers/SocketProvider";
+import { user_url } from "@app/shared/api/service/common/endpoints";
+import { HandlerResult } from "./providers/SocketProvider";
+import { Cookie } from "lucide-react";
+
+export default function AppRoot() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { t, isRTL } = useLanguage();
+  const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
+  const getInitialPage = () => {
+    const path = location.pathname;
+    if (path === '/chat' || path === '/pong' || path === '/gdpr') return path.substring(1) as 'chat' | 'pong' | 'gdpr';
+    return 'chat';
+  };
+
+  const [currentPage, setCurrentPage] = useState<'chat' | 'pong' | 'gdpr'>(getInitialPage());
+
+  // Sync currentPage with location
+  useEffect(() => {
+    const path = location.pathname;
+    const page = path === '/chat' ? 'chat' : path === '/pong' ? 'pong' : path === '/gdpr' ? 'gdpr' : 'chat';
+    if (page !== currentPage) {
+      setCurrentPage(page);
+    }
+  }, [location.pathname, currentPage]);
+  // Always use dark mode
+  const darkMode = true;
+  const [showPongInviteModal, setShowPongInviteModal] = useState(false);
+  const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
+  const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
+  const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
+  const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
+  const [accessibilitySettings, setAccessibilitySettings] = useState({
+    highContrast: false,
+    largeText: false,
+    reducedMotion: false,
+    screenReaderMode: false,
+  });
+
+  // Debug: Log invitation state changes
+  useEffect(() => {
+    console.log("[AppRoot] pongInvitations updated:", pongInvitations);
+  }, [pongInvitations]);
+
+  // Ensure dark mode is always enabled
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
+
+  // Set the page title
+  useEffect(() => {
+    document.title = 'TRANSCENDENCE';
+  }, []);
+
+  // Apply accessibility settings to document
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+
+    // High contrast - applies strong contrast and borders
+    if (accessibilitySettings.highContrast) {
+      root.classList.add('high-contrast');
+      console.log('[Accessibility] High contrast mode enabled');
+    } else {
+      root.classList.remove('high-contrast');
+    }
+
+    // Large text - increases base font size
+    if (accessibilitySettings.largeText) {
+      root.style.fontSize = '18px';
+      body.style.fontSize = '18px';
+      console.log('[Accessibility] Large text mode enabled');
+    } else {
+      root.style.fontSize = '';
+      body.style.fontSize = '';
+    }
+
+    // Reduced motion - disables all animations and transitions
+    if (accessibilitySettings.reducedMotion) {
+      root.classList.add('reduce-motion');
+      // Also add preference to CSS
+      const style = document.createElement('style');
+      style.id = 'reduce-motion-override';
+      style.textContent = `
+        * {
+          animation-play-state: paused !important;
+          transition: none !important;
+        }
+      `;
+      if (!document.getElementById('reduce-motion-override')) {
+        document.head.appendChild(style);
+      }
+      console.log('[Accessibility] Reduced motion mode enabled');
+    } else {
+      root.classList.remove('reduce-motion');
+      const existingStyle = document.getElementById('reduce-motion-override');
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    }
+
+    // Screen reader mode - enhanced focus indicators and spacing
+    if (accessibilitySettings.screenReaderMode) {
+      root.classList.add('screen-reader-mode');
+      console.log('[Accessibility] Screen reader mode enabled');
+    } else {
+      root.classList.remove('screen-reader-mode');
+    }
+  }, [accessibilitySettings]);
+
+  function logInOrRegistered(varTypeAuthResponse: AuthResponseType) {
+    setAuthResponse(varTypeAuthResponse);
+    if (varTypeAuthResponse?.user) {
+      try {
+        localStorage.setItem('userData', JSON.stringify(varTypeAuthResponse.user));
+      } catch (e) {
+        console.warn("Could not persist user data:", e);
+      }
+    }
+  }
+
+  // Fetch user avatar when authResponse changes
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      // Get the latest user data from localStorage
+      const userData = localStorage.getItem('userData');
+      const user = userData ? JSON.parse(userData) : authResponse?.user;
+
+      // Check for avatarUrl (the correct field name from the API)
+      const avatarFileName = user?.avatarUrl || user?.avatar;
+
+      if (user?.id && avatarFileName) {
+        try {
+          const response = await fetch(`/api/users/pfp`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ file: avatarFileName })
+          });
+          if (response.ok) {
+            const base64 = await response.text();
+            setUserAvatarUrl(`data:image/png;base64,${base64}`);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch user avatar:', err);
+        }
+      }
+    };
+
+    fetchAvatar();
+
+    // Listen for storage events to refresh avatar when profile is updated
+    const handleStorageChange = () => {
+      fetchAvatar();
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also listen for custom event when profile is updated in the same tab
+    const handleProfileUpdate = () => {
+      fetchAvatar();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, [authResponse?.user?.id, authResponse?.user?.avatarUrl]);
+
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
+  const [isGuestLoading, setIsGuestLoading] = useState<boolean>(false);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [showFriendsManager, setShowFriendsManager] = useState<boolean>(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | undefined>(undefined);
+
+  function persistAuthTokens(data: any) {
+    try {
+      if (data?.tokens?.jwt) localStorage.setItem("jwt", data.tokens.jwt);
+      if (data?.tokens?.refresh) localStorage.setItem("refreshToken", data.tokens.refresh);
+    } catch (e) {
+      console.warn("Could not persist tokens:", e);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function tryAutoLogin() {
+      setIsAutoLoggingIn(true);
+      if (authResponse) {
+        setIsAutoLoggingIn(false);
+        return;
+      }
+
+      // Check for OAuth tokens in URL hash (more secure than query params)
+      // Format: /#jwt=...&refresh=...
+      const hash = window.location.hash;
+      let jwtFromUrl: string | null = null;
+      let refreshFromUrl: string | null = null;
+
+      if (hash && hash.length > 1) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        jwtFromUrl = hashParams.get('jwt');
+        refreshFromUrl = hashParams.get('refresh');
+      }
+
+      // Fallback to query parameters for backwards compatibility
+      if (!jwtFromUrl) {
+        const urlParams = new URLSearchParams(window.location.search);
+        jwtFromUrl = urlParams.get('jwt');
+        refreshFromUrl = urlParams.get('refresh');
+      }
+
+      if (jwtFromUrl && refreshFromUrl) {
+        try {
+          // Store tokens from OAuth callback
+          localStorage.setItem("jwt", jwtFromUrl);
+          localStorage.setItem("refreshToken", refreshFromUrl);
+
+          // Validate the JWT by fetching user data
+          const validateRes = await fetch("/public_api/auth/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: refreshFromUrl })
+          });
+
+          if (validateRes.ok) {
+            const data = await validateRes.json();
+            if (!cancelled) {
+              persistAuthTokens(data);
+              if (data?.user) localStorage.setItem('userData', JSON.stringify(data.user));
+              setAuthResponse(data);
+            }
+
+            // Clean up URL by removing hash and query parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setIsAutoLoggingIn(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("OAuth token validation failed:", e);
+        }
+      }
+
+      const localRefresh = localStorage.getItem("refreshToken");
+      try {
+        if (localRefresh) {
+          const res = await fetch("/public_api/auth/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ token: localRefresh })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (!cancelled) {
+              persistAuthTokens(data);
+              if (data?.user) localStorage.setItem('userData', JSON.stringify(data.user));
+              setAuthResponse(data);
+            }
+            setIsAutoLoggingIn(false);
+            return;
+          } else {
+            localStorage.removeItem("refreshToken");
+          }
+        }
+
+        const res2 = await fetch("/public_api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+
+        if (res2.ok) {
+          const data2 = await res2.json();
+          if (!cancelled) {
+            persistAuthTokens(data2);
+            if (data2?.user) localStorage.setItem('userData', JSON.stringify(data2.user));
+            setAuthResponse(data2);
+          }
+          setIsAutoLoggingIn(false);
+          return;
+        }
+      } catch (err) {
+        console.warn("Auto-login failed:", err);
+      }
+
+      if (!cancelled) setIsAutoLoggingIn(false);
+    }
+
+    tryAutoLogin();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Listen for simple global navigation events (e.g. from modals)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const ev = e as CustomEvent<string>;
+        if (ev?.detail === 'gdpr') navigate('/gdpr');
+      } catch (err) {
+        // ignore
+      }
+    };
+    window.addEventListener('navigate', handler as EventListener);
+    return () => window.removeEventListener('navigate', handler as EventListener);
+  }, []);
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setTimeout(() => {
+      setToastMessage(null);
+      setToastType(null);
+    }, 5000);
+  };
+
+  async function handleGuestLogin() {
+    setIsGuestLoading(true);
+    try {
+      const res = await fetch("/public_api/auth/create/guest", { method: "GET" });
+      if (!res.ok) throw new Error("Guest creation failed");
+      const data = await res.json();
+      persistAuthTokens(data);
+      setAuthResponse(data);
+    } catch (err: any) {
+      showToast("Guest login failed: " + (err?.message || "unknown"), 'error');
+    } finally {
+      setIsGuestLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+
+    try { closeGlobalSocket(); } catch { }
+
+    try {
+      let backendOk = false;
+      const jwt = localStorage.getItem('jwt');
+
+      if (authResponse?.user?.id && jwt) {
+        try {
+          const res = await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwt}`
+            },
+            body: JSON.stringify({ userId: authResponse.user.id })
+          });
+          if (res.ok) backendOk = true;
+        } catch { }
+      }
+
+      localStorage.removeItem('jwt');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userData');
+      sessionStorage.removeItem('jwt');
+
+      setAuthResponse(null);
+
+      showToast(
+        backendOk ? 'Logged out successfully' : 'Logged out locally (server revoke may have failed)',
+        backendOk ? 'success' : 'error'
+      );
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
+  return (
+    <div
+      className="min-h-screen bg-cover bg-center bg-fixed"
+      style={{ backgroundColor: 'transparent' }}
+    >
+      {/* Starfield animation background - behind everything */}
+      <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />
+
+      <div className="relative">
+        <CookieBanner />
+        {toastMessage && (
+          <div className={`fixed top-6 right-6 z-50 px-4 py-2 rounded shadow-md ${toastType === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
+            {toastMessage}
+          </div>
+        )}
+
+        {authResponse ? (
+          <FriendshipProvider>
+            <SocketComponent AuthResponseObject={authResponse} showToast={showToast}>
+              <StarfieldBackground starCount={300} />
+              <CookieBanner />
+
+              <AuthenticatedApp
+                authResponse={authResponse}
+                onLogout={handleLogout}
+              />
+            </SocketComponent>
+          </FriendshipProvider>
+        ) : (
+          <div className="min-h-screen flex items-center justify-center py-12 px-4">
+            {isAutoLoggingIn ? (
+              <div>{t('app.restoringSession')}</div>
+            ) : (
+              <div className="max-w-4xl w-full space-y-8">
+                <div className="text-center">
+                  <h2 className="text-3xl font-bold text-white">{t('app.welcome')}</h2>
+                  <div className="mt-4 flex justify-center">
+                    <LanguageSwitcher />
+                  </div>
+                </div>
+
+                <div className="mt-8 py-8 px-4">
+                  <div className={`grid grid-cols-2 gap-8 ${isRTL ? 'direction-rtl' : ''}`}>
+                    <div>
+                      <LoginComponent onLoginSuccess={logInOrRegistered} />
+                    </div>
+                    <div>
+                      <RegisterComponent whenCompletedSuccesfully={logInOrRegistered} />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      onClick={handleGuestLogin}
+                      className="bg-gray-100 dark:bg-gray-700/80 px-6 py-2 hover:bg-gray-200 dark:hover:bg-gray-600/80 transition-colors"
+                    >{t('app.continueAsGuest')}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import { idValue } from "@app/shared/api/service/common/zodRules";
+import { idValue, userIdentifierValue } from "@app/shared/api/service/common/zodRules";
 import { z } from "zod";
 
 const whitelistedPattern = /^[\p{L}\p{N}\p{Emoji}\p{Emoji_Component} .,!@#\$%&*()_\-+=\[\]{};:'"<>\/?`~]+$/u;
@@ -67,7 +67,7 @@ export const AddToRoomPayloadSchema = z
   .object({
     // Payload sent by client "add person to room"
     roomId: room_id_rule,
-    user_to_add: idValue,
+    user_to_add: userIdentifierValue,
   })
   .strict();
 

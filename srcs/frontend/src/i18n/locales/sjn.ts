@@ -60,6 +60,7 @@ export const sjn: TranslationKeys = {
   },
 
   // Register
+  // ggignore:start - These are UI translation labels, not real credentials
   register: {
     title: "Panna eneth",
     subtitle: "Teithio i dîr lín",
@@ -88,6 +89,7 @@ export const sjn: TranslationKeys = {
     passwordsNoMatch: "Engyr law veleg",
     registrationFailed: "Panna awarth",
   },
+  // ggignore:end
 
   // User Menu
   userMenu: {

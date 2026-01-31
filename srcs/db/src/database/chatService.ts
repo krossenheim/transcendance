@@ -52,7 +52,7 @@ export class ChatService {
     const roomCreationResult = this.db.run(
       `INSERT INTO chat_rooms (roomType, roomName) VALUES (?, ?)`,
       [roomType, roomName]
-    ).map((info) => ({ roomId: Number(info.lastInsertRowid), roomName, roomType }));
+    ).map((info) => ({ roomId: Number(info.lastInsertRowid), roomName, roomType, userState: ChatRoomUserAccessType.JOINED }));
 
     if (roomCreationResult.isErr())
       return roomCreationResult;
@@ -67,17 +67,17 @@ export class ChatService {
   getRawRoomInfo(roomId: number): Result<TypeRoomSchema, string> {
     return this.db.get(
       `SELECT roomId, roomType, roomName FROM chat_rooms WHERE roomId = ?`,
-      RoomSchema,
+      RoomSchema.omit({ userState: true }),
       [roomId]
-    );
+    ).map((room) => ({ ...room, userState: ChatRoomUserAccessType.JOINED }) );
   }
 
   getRoomMessages(roomId: number, limit: number): Result<TypeStoredMessageSchema[], string> {
     return this.db.all(
-      `SELECT messageId, roomId, messageString, messageDate, userId FROM chat_messages WHERE roomId = ? ORDER BY messageDate ASC LIMIT ?`,
+      `SELECT messageId, roomId, messageString, messageDate, userId FROM chat_messages WHERE roomId = ? ORDER BY messageDate DESC LIMIT ?`,
       StoredMessageSchema,
       [roomId, limit]
-    );
+    ).map((rows) => rows.reverse());
   }
 
   getRoomUserConnections(roomId: number): Result<TypeRoomUserConnectionSchema[], string> {
@@ -95,7 +95,7 @@ export class ChatService {
 
   getUserRooms(userId: number): Result<TypeRoomSchema[], string> {
     return this.db.all(
-      `SELECT r.roomId, r.roomType, r.roomName
+      `SELECT r.roomId, r.roomType, r.roomName, rc.userState
        FROM chat_rooms r
        JOIN users_room_relationships rc ON r.roomId = rc.roomId
        WHERE rc.userId = ?`,
@@ -108,7 +108,7 @@ export class ChatService {
     try {
       const userConnections = this.getRoomUserConnections(roomId).unwrap();
       return Result.Ok({
-        room: this.getRawRoomInfo(roomId).unwrap(),
+        room: { ...this.getRawRoomInfo(roomId).unwrap(), userState: ChatRoomUserAccessType.JOINED },
         messages: this.getRoomMessages(roomId, 100).unwrap(),
         userConnections,
         users: this.getRoomUsers(userConnections).unwrap(),
@@ -116,6 +116,32 @@ export class ChatService {
     } catch (e) {
       return Result.Err((e as Error).message);
     }
+  }
+
+  getAllRooms(): Result<TypeFullRoomInfoSchema[], string> {
+    const all_ids = this.db.all(
+      `SELECT roomId FROM chat_rooms`,
+      z.object({ roomId: z.number().int() }),
+      []
+    );
+
+    console.log("Fetched all room IDs:", all_ids);
+    if (all_ids.isErr() || all_ids.unwrap().length === 0) {
+      return Result.Err("Could not fetch room IDs.");
+    }
+
+    const roomResults = all_ids.unwrap().map((data) => this.fetchRoomById(data.roomId));
+    console.log("Fetched all room details:", roomResults);
+    return roomResults.reduce((acc, res) => {
+      if (res.isErr()) {
+        return Result.Err(res.unwrapErr());
+      }
+      if (acc.isErr()) {
+        return acc;
+      }
+      acc.unwrap().push(res.unwrap());
+      return acc;
+    }, Result.Ok([] as TypeFullRoomInfoSchema[]) as Result<TypeFullRoomInfoSchema[], string>);
   }
 
   fetchDMRoom(userA: number, userB: number): Result<{ room: TypeFullRoomInfoSchema, created: boolean }, string> {
@@ -141,7 +167,7 @@ export class ChatService {
     if (this.addUserToRoom(userTwoId, room.roomId).isErr()) {
       return Result.Err("Could not add second user to newly created DM room.");
     }
-  
+
     const mappingCreationResult = this.db.run(
       `INSERT INTO dm_chat_rooms_mapping (userOneId, userTwoId, roomId) VALUES (?, ?, ?)`,
       [userOneId, userTwoId, room.roomId]

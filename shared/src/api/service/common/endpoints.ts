@@ -945,6 +945,10 @@ export const user_url = defineRoutes({
               code: 4,
               payload: ErrorResponse,
             },
+            CannotDMYourself: {
+              code: 5,
+              payload: ErrorResponse,
+            },
           },
         },
       },
@@ -980,6 +984,10 @@ export const user_url = defineRoutes({
               code: 5,
               payload: ErrorResponse,
             },
+            UnknownUser: {
+              code: 6,
+              payload: ErrorResponse,
+            }
           },
         },
       },
@@ -1435,6 +1443,17 @@ export const int_url = defineRoutes({
         },
       },
 
+      getAllRooms: {
+        endpoint: "/internal_api/chat/rooms/all",
+        method: "GET",
+        schema: {
+          response: {
+            200: z.array(FullRoomInfoSchema), // Retrieved list of all rooms
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
       fetchDMRoomInfo: {
         endpoint: "/internal_api/chat/rooms/dm_info/:userId1/:userId2",
         method: "GET",
@@ -1483,7 +1502,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/chat/rooms/add_user",
         method: "POST",
         schema: {
-          body: AddToRoomPayloadSchema.extend({ type: z.number() }),
+          body: AddToRoomPayloadSchema.extend({ type: z.number(), user_to_add: userIdValue }),
           response: {
             200: z.null(), // User added successfully
             500: ErrorResponse, // Internal server error

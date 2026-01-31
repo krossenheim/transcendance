@@ -13,7 +13,7 @@ export function updateProfile(socket: OurSocket) {
 		async (body, response) => {
 			const updateResult = await containers.db.post(
                 int_url.http.db.updateUserData,
-                { ...body.payload, userId: body.user_id }
+                { ...body.payload, userId: body.userId }
             );
 
             if (updateResult.isErr()) {

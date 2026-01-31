@@ -58,6 +58,7 @@ export const fy = {
   },
 
   // Register
+  // ggignore:start - These are UI translation labels, not real credentials
   register: {
     title: 'Account oanmeitsje',
     subtitle: 'Folje jo gegevens yn om te registrearjen',
@@ -86,6 +87,7 @@ export const fy = {
     passwordsNoMatch: 'Wachtwurden komme net oerien',
     registrationFailed: 'Registraasje mislearre',
   },
+  // ggignore:end
 
   // User Menu
   userMenu: {

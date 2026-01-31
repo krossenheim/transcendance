@@ -60,6 +60,7 @@ export const tlh: TranslationKeys = {
   },
 
   // Register
+  // ggignore:start - These are UI translation labels, not real credentials
   register: {
     title: "chu' pong chenmoH",
     subtitle: "De' yIteb yIqon",
@@ -88,6 +89,7 @@ export const tlh: TranslationKeys = {
     passwordsNoMatch: "ngoDwI'mey pIm",
     registrationFailed: "qon Qagh",
   },
+  // ggignore:end
 
   // User Menu
   userMenu: {

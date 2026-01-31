@@ -1,0 +1,10 @@
+Parent lookup/object iteration caching
+Reduced Vec2 allocations (in-place ops)
+
+Collision detection with quadtree spatial partitioning
+Simulation loop batching/filtering
+Composite movement batch updates/typed arrays
+Efficient JSON serialization (typed arrays, change detection)
+Fast math function approximations
+Object pooling for CircleObject/LineObject
+Optimized array operations and flat cache updates

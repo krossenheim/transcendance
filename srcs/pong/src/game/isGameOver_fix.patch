@@ -1,0 +1,38 @@
+--- game.ts.orig
++++ game.ts
+@@ -476,6 +476,33 @@
+     }
+
+     public isGameOver(): boolean {
+-        return this.scene.getElapsedTime() >= this.gameOptions.gameDuration - FAT_EPS;
++        // Check time-based end
++        if (this.scene.getElapsedTime() >= this.gameOptions.gameDuration - FAT_EPS) {
++            return true;
++        }
++        // Check score-based end (if maxScore is configured)
++        if (this.gameOptions.maxScore && this.gameOptions.maxScore > 0) {
++            const scoreMap = this.fetchPlayerScoreMap();
++            for (const score of scoreMap.values()) {
++                if (score >= this.gameOptions.maxScore) {
++                    return true;
++                }
++            }
++        }
++        return false;
++    }
++
++    public getWinner(): number | null {
++        const scoreMap = this.fetchPlayerScoreMap();
++        let maxScore = -Infinity;
++        let winnerId: number | null = null;
++        
++        for (const [playerId, score] of scoreMap.entries()) {
++            if (score > maxScore) {
++                maxScore = score;
++                winnerId = playerId;
++            }
++        }
++        
++        return winnerId;
+     }
+ }

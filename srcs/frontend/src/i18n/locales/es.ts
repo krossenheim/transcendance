@@ -58,6 +58,7 @@ export const es = {
   },
 
   // Register
+  // ggignore:start - These are UI translation labels, not real credentials
   register: {
     title: 'Crear cuenta',
     subtitle: 'Completa tus datos para registrarte',
@@ -86,6 +87,7 @@ export const es = {
     passwordsNoMatch: 'Las contraseñas no coinciden',
     registrationFailed: 'Error en el registro',
   },
+  // ggignore:end
 
   // User Menu
   userMenu: {
