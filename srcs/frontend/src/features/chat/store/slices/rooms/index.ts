@@ -83,7 +83,13 @@ export const createRoomsSlice: StateCreator<ChatStoreState, [["zustand/immer", n
                     roomId,
                     user_to_add: userData,
                 });
-            }
+            },
+
+            fetchRoomData: (roomId: number) => {
+                getSocketSenderRef()(user_url.ws.chat.getRoomData, {
+                    roomId,
+                });
+            },
         },
     },
 });

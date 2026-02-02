@@ -1,9 +1,10 @@
-import { UserNotifications, type UserNotificationsType, PendingFriendshipRequest, type PendingFriendshipRequestType } from '@app/shared/api/service/db/notification.js';
+import { type UserNotificationsType, type PendingFriendshipRequestType } from '@app/shared/api/service/db/notification.js';
 import type { FullUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
+import type { GameResultsWidgetType, GameResultType } from '@app/shared/api/service/db/gameResult';
+import { ChatRoomUserAccessType, TypeRoomSchema } from '@app/shared/api/service/chat/db_models';
 import { User, Friend, UserAuthData, UserAccountType } from '@app/shared/api/service/db/user';
 import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship';
 import { generatePublicUserData } from '@app/shared/api/service/db/user';
-import type { GameResultsWidgetType, GameResultType } from '@app/shared/api/service/db/gameResult';
 import { GameResult } from '@app/shared/api/service/db/gameResult';
 import { Result } from '@app/shared/api/service/common/result';
 import { Database } from './database.js';
@@ -11,6 +12,7 @@ import { Resvg } from '@resvg/resvg-js';
 import fs from 'fs/promises';
 import path from 'path';
 import axios from 'axios';
+import { z } from 'zod';
 
 function createGuestUsername(): string {
 	const randomStr = Math.random().toString(36).substring(2, 10);
@@ -46,25 +48,11 @@ async function createDefaultAvatar(userId: number): Promise<Result<string, strin
 
 export class UserService {
 	private db: Database;
+	private chatService: any;
 
-	constructor(db: Database) {
+	constructor(db: Database, chatService: any) {
 		this.db = db;
-	}
-
-	fetchUserPendingFriendRequests(userId: number): Result<FriendType[], string> {
-		const result = this.db.all(
-			`SELECT u.id as friendId, u.username, u.alias, u.avatarUrl, u.bio, uf.userId as id, uf.status, uf.createdAt
-			FROM user_friendships uf
-			JOIN users u ON u.id = uf.friendId
-			WHERE uf.friendId = ? AND uf.status = ?`,
-			Friend,
-			[userId, UserFriendshipStatusEnum.Pending]
-		);
-		if (result.isErr()) {
-			console.log('Error fetching pending friend requests for userId', userId, ':', result.unwrapErr());
-			return Result.Err(result.unwrapErr());
-		}
-		return result;
+		this.chatService = chatService;
 	}
 
 	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
@@ -81,17 +69,7 @@ export class UserService {
 			return Result.Err(result.unwrapErr());
 		}
 
-		const invitesResult = this.fetchUserPendingFriendRequests(userId);
-		if (invitesResult.isErr()) {
-			console.log('Error fetching pending friend requests for userId', userId, ':', invitesResult.unwrapErr());
-			return Result.Err(invitesResult.unwrapErr());
-		}
-
-		const friends = result.unwrap();
-		const invites = invitesResult.unwrap();
-
-		const combinedList = [...friends, ...invites];
-		return Result.Ok(combinedList);
+		return Result.Ok(result.unwrap());
 	}
 
 	fetchAllUsers(): Result<FullUserType[], string> {
@@ -179,15 +157,64 @@ export class UserService {
 		}));
 	}
 
-	// fetchUserFriendshipRequests(userId: number): Result<PendingFriendshipRequestType[], string> {
-	// 	return this.db.all(
+	fetchUserFriendshipRequests(userId: number): Result<PendingFriendshipRequestType[], string> {
+		const result = this.db.all(
+			`SELECT u.userId, u.createdAt
+			 FROM user_friendships u
+			 WHERE u.friendId = ? AND u.status = ?`,
+			z.object({
+				userId: z.number(),
+				createdAt: z.number(),
+			}),
+			[userId, UserFriendshipStatusEnum.Pending.valueOf()]
+		)
 
-	// 	)
-	// }
+		if (result.isErr())
+			return Result.Err(result.unwrapErr());
 
-	// fetchUserNotifications(id: number): Result<UserNotificationsType, string> {
+		const allUsers = Array.from(result.unwrap().map(r => r.userId));
+		const userFriendData = this.fetchPublicUsersByIds(allUsers);
+		if (userFriendData.isErr())
+			return Result.Err(userFriendData.unwrapErr());
 
-	// }
+		const allUserData = userFriendData.unwrap();
+		return Result.Ok(Array.from(result.unwrap().map(data => {
+			const userData = allUserData.find(u => u.id === data.userId)!;
+			return {
+				fromUserId: data.userId,
+				timestamp: data.createdAt,
+				user: {
+					id: userData.id,
+					friendId: userId,
+					username: userData.username,
+					alias: userData.alias,
+					bio: userData.bio,
+					avatarUrl: userData.avatarUrl,
+					status: UserFriendshipStatusEnum.Pending,
+					createdAt: userData.createdAt
+				}
+			}
+		})));
+	}
+
+	fetchUserRoomInvites(userId: number): Result<TypeRoomSchema[], string> {
+		return this.chatService.getUserRooms(userId, ChatRoomUserAccessType.INVITED);
+	}
+
+	fetchUserNotifications(id: number): Result<UserNotificationsType, string> {
+		const pendingFriendshipRequests = this.fetchUserFriendshipRequests(id);
+		if (pendingFriendshipRequests.isErr())
+			return Result.Err(pendingFriendshipRequests.unwrapErr());
+
+		const pendingRoomInvites = this.fetchUserRoomInvites(id);
+		if (pendingRoomInvites.isErr())
+			return Result.Err(pendingRoomInvites.unwrapErr());
+
+		return Result.Ok({
+			pendingFriendRequests: pendingFriendshipRequests.unwrap(),
+			pendingRoomInvites: pendingRoomInvites.unwrap()
+		});
+	}
 
 	async createNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Promise<Result<FullUserType, string>> {
 		console.log('Creating user in database:', username, email, accountType);

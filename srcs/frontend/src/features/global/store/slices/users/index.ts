@@ -1,4 +1,6 @@
+import type { PendingFriendshipRequestType, UserNotificationsType } from "@app/shared/api/service/db/notification";
 import { PublicUserDataType, FriendType } from "@app/shared/api/service/db/user";
+import type { TypeRoomSchema } from "@app/shared/api/service/chat/db_models";
 import { user_url } from "@app/shared/api/service/common/endpoints";
 import { getSocketSenderRef } from "@utils/socketRef";
 import { GlobalStoreState } from "../../types"
@@ -14,6 +16,10 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
             friends: new Set<number>(),
             blockedUsers: new Set<number>(),
             userRelationships: new Map<number, FriendType>(),
+            notifications: {
+                pendingFriendRequests: [],
+                pendingRoomInvites: [],
+            }
         },
 
         actions: {
@@ -34,10 +40,32 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
 
             acceptFriendRequest: (userId: number) => {
                 getSocketSenderRef()(user_url.ws.users.confirmFriendship, userId);
+
+                set((state) => {
+                    state.users.data.notifications.pendingFriendRequests = state.users.data.notifications.pendingFriendRequests.filter(
+                        (req: PendingFriendshipRequestType) => req.fromUserId !== userId
+                    );
+                });
             },
 
             denyFriendRequest: (userId: number) => {
                 getSocketSenderRef()(user_url.ws.users.denyFriendship, userId);
+
+                set((state) => {
+                    state.users.data.notifications.pendingFriendRequests = state.users.data.notifications.pendingFriendRequests.filter(
+                        (req: PendingFriendshipRequestType) => req.fromUserId !== userId
+                    );
+                });
+            },
+
+            acceptRoomInvite: (roomId: number) => {
+                getSocketSenderRef()(user_url.ws.chat.joinRoom, { roomId });
+
+                set((state) => {
+                    state.users.data.notifications.pendingRoomInvites = state.users.data.notifications.pendingRoomInvites.filter(
+                        (invite: TypeRoomSchema) => invite.roomId !== roomId
+                    );
+                })
             },
         },
 
@@ -82,7 +110,13 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                 set((state) => {
                     state.users.data.blockedUsers = logic.addToSet(state.users.data.blockedUsers, [userId]);
                 });
-            }
+            },
+
+            updateUserNotifications: (notifications: UserNotificationsType) => {
+                set((state) => {
+                    state.users.data.notifications = notifications;
+                });
+            },
         },
     },
 });

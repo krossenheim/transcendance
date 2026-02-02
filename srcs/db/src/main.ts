@@ -9,7 +9,8 @@ import type { FastifyInstance } from "fastify";
 // Setup database
 const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
-const userService = new UserService(db);
+const chatService = new ChatService(db);
+const userService = new UserService(db, chatService);
 // debug!!
 // debug!!
 // debug!!
@@ -22,7 +23,6 @@ makedebugusers(userService).catch((err) => {
 // debug!!
 // debug!!
 
-const chatService = new ChatService(db);
 
 import { TwoFactorService } from "./database/twoFactorService.js";
 const twoFactorService = new TwoFactorService(db);

@@ -18,25 +18,15 @@ export const ChatHeader: React.FC = () => {
 
   const roomData = currentRoomId ? userChatRooms.get(currentRoomId) : undefined;
 
-  const handleJoinRoom = (roomId: number) => {
-    sendMessage(user_url.ws.chat.joinRoom, { roomId });
-  }
-
   return (
     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-500/70 to-purple-500/70 flex-none">
       <h2 className="text-lg font-semibold text-white">
         {roomData ? `#${roomData.roomName}` : t('chat.selectRoom')}
       </h2>
       {roomData && (
-        roomData.userState === ChatRoomUserAccessType.JOINED ? (
-          <button className="px-3 py-1 text-sm bg-pink-500 text-white hover:bg-pink-600 transition-all shadow-md rounded-md">
-            🏓 {t('chat.inviteToPong')}
-          </button>
-        ) : (
-          <button onClick={() => roomData && handleJoinRoom(roomData.roomId)} className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 transition-all shadow-md rounded-md">
-            ➕ {t('chat.joinRoom')}
-          </button>
-        )
+        <button className="px-3 py-1 text-sm bg-pink-500 text-white hover:bg-pink-600 transition-all shadow-md rounded-md">
+          🏓 {t('chat.inviteToPong')}
+        </button>
       )}
     </div>
   )

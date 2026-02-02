@@ -175,7 +175,7 @@ export class PongGame {
     // Deterministic simulation state
     private currentTick: number = 0;
     private rng: SeededRandom;
-    private timeAccumulator: number = 0; // Accumulates fractional time between ticks
+    // private timeAccumulator: number = 0; // Accumulates fractional time between ticks
 
     private fetchWallSegments(): number[] {
         if (this.players.length === 0)
@@ -391,29 +391,29 @@ export class PongGame {
      * Simulate exactly one tick (1/120th of a second).
      * All game logic happens in discrete ticks for determinism.
      */
-    private simulateTick(): void {
-        // Clean up expired powerups at start of tick
-        this.cleanUpExpiredPowerups(this.currentTick);
+    // private simulateTick(): void {
+    //     // Clean up expired powerups at start of tick
+    //     this.cleanUpExpiredPowerups(this.currentTick);
 
-        // Check for powerup spawn (tick-based)
-        if (this.currentTick >= this.nextPowerupSpawnTick) {
-            this.spawnNewPowerup();
-            // Next spawn: frequency ± 20% randomness (deterministic via seeded RNG)
-            const baseFrequencyTicks = Math.floor(this.gameOptions.powerupFrequency * TICK_RATE);
-            const jitterFactor = 0.8 + this.rng.next() * 0.4;
-            this.nextPowerupSpawnTick = this.currentTick + Math.floor(baseFrequencyTicks * jitterFactor);
-        }
+    //     // Check for powerup spawn (tick-based)
+    //     if (this.currentTick >= this.nextPowerupSpawnTick) {
+    //         this.spawnNewPowerup();
+    //         // Next spawn: frequency ± 20% randomness (deterministic via seeded RNG)
+    //         const baseFrequencyTicks = Math.floor(this.gameOptions.powerupFrequency * TICK_RATE);
+    //         const jitterFactor = 0.8 + this.rng.next() * 0.4;
+    //         this.nextPowerupSpawnTick = this.currentTick + Math.floor(baseFrequencyTicks * jitterFactor);
+    //     }
 
-        // Update paddle velocities
-        for (const paddle of this.paddles) {
-            paddle.updatePaddleVelocity();
-        }
+    //     // Update paddle velocities
+    //     for (const paddle of this.paddles) {
+    //         paddle.updatePaddleVelocity();
+    //     }
 
-        // Run physics for exactly one tick duration
-        this.scene.playSimulation(TICK_DURATION, this.balls);
+    //     // Run physics for exactly one tick duration
+    //     this.scene.playSimulation(TICK_DURATION, this.balls);
 
-        this.currentTick++;
-    }
+    //     this.currentTick++;
+    // }
 
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
         switch (powerup.getPowerupType()) {

@@ -92,11 +92,8 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
           }));
       }
 
-      socket.invokeHandler(
-        user_url.ws.users.fetchUserConnections,
-        [me.id, friend.id],
-        null
-      );
+      socket.invokeHandler(user_url.ws.users.fetchUserConnections, me.id, null);
+      socket.invokeHandler(user_url.ws.users.fetchUserNotifications, friend.id, null);
 
       return Result.Ok(response.select("ConnectionUpdated").reply(null));
     }

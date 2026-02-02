@@ -57,6 +57,19 @@ const BaseSocketListeners = () => {
             }
         }));
 
+        unsubscribers.push(subscribe(user_url.ws.users.fetchUserNotifications, (payload, schema) => {
+            switch (payload.code) {
+                case schema.output.Success.code: {
+                    const globalUserState = useGlobalStore.getState().users.state;
+                    globalUserState.updateUserNotifications(payload.payload);
+                    return HandlerResult.Handled;
+                }
+
+                default:
+                    return HandlerResult.NotHandled;
+            }
+        }));
+
         return () => {
             unsubscribers.forEach((unsub) => unsub());
         };

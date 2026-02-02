@@ -1,26 +1,10 @@
 "use client"
 
-import React, { FC, useState, useCallback, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { getUserColorCSS } from './userColorUtils'
-import { useFriendshipContext } from './friendshipContext'
-import { useChatStore } from './features/chat/store/chatStore'
 import { useGlobalStore } from './features/global/store/globalStore'
-import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship'
+import React, { FC, useState, useEffect, useRef } from 'react'
+import { getUserColorCSS } from './userColorUtils'
+import { createPortal } from 'react-dom'
 
-// Notification types
-type NotificationType = 'friend_request' | 'chat_invite' | 'dm_invite'
-
-interface Notification {
-  id: string
-  type: NotificationType
-  userId: number
-  username: string
-  alias?: string
-  roomId?: number
-  roomName?: string
-  timestamp: number
-}
 
 interface FriendshipNotificationsProps {
   isLoading?: boolean
@@ -29,33 +13,16 @@ interface FriendshipNotificationsProps {
 const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({ 
   isLoading = false,
 }) => {
-  const { 
-    pendingRequests, 
-    handleAcceptFriendship, 
-    handleDenyFriendship, 
-    roomInvites,
-    handleAcceptRoomInvite,
-    handleDeclineRoomInvite,
-    dmInvites,
-    handleAcceptDmInvite,
-    handleDeclineDmInvite
-  } = useFriendshipContext()
-  const selfIdRef = React.useRef<number | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [processingId, setProcessingId] = useState<string | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 })
 
-  const selfUserId = useGlobalStore((state) => state.me.data.currentUserId);
-  const relationships = useGlobalStore((state) => state.users.data.userRelationships);
+  const pendingFriendshipRequests = useGlobalStore((state) => state.users.data.notifications.pendingFriendRequests);
+  const pendingRoomInvites = useGlobalStore((state) => state.users.data.notifications.pendingRoomInvites);
 
-  const pendingFriendshipRequests = Array.from(relationships.values())
-    .filter((conn) => conn.status === UserFriendshipStatusEnum.Pending && conn.id !== selfUserId);
-
-  // Calculate total notification count
-  const totalNotifications = pendingFriendshipRequests.length + roomInvites.length + dmInvites.length
+  const totalNotifications = pendingFriendshipRequests.length + pendingRoomInvites.length;
 
   React.useEffect(() => {
     if (isDropdownOpen && buttonRef.current) {
@@ -86,6 +53,8 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
 
   const acceptFriendshipFunction = useGlobalStore((state) => state.users.actions.acceptFriendRequest);
   const denyFriendshipFunction = useGlobalStore((state) => state.users.actions.denyFriendRequest);
+
+  const acceptRoomInviteFunction = useGlobalStore((state) => state.users.actions.acceptRoomInvite);
 
   return (
     <div className="relative">
@@ -133,34 +102,34 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                     </div>
                     {pendingFriendshipRequests.map((req) => (
                       <div
-                        key={`friend_${req.id}`}
+                        key={`friend_${req.fromUserId}`}
                         className="flex items-center justify-between p-3 bg-gray-50/40 dark:bg-gray-700/80 rounded-lg hover:bg-gray-100/40 dark:hover:bg-gray-600/80 transition"
                       >
                         <div className="flex-1 min-w-0 pr-3">
                           <p
                             className="text-sm font-bold truncate"
-                            style={{ color: getUserColorCSS(req.id, true) }}
+                            style={{ color: getUserColorCSS(req.fromUserId, true) }}
                           >
-                            {req.username}
+                            {req.user.username}
                           </p>
-                          {req.alias && (
+                          {req.user.alias && (
                             <p className="text-xs text-gray-600 truncate">
-                              {req.alias}
+                              {req.user.alias}
                             </p>
                           )}
                         </div>
 
                         <div className="flex gap-2">
                           <button
-                            onClick={() => acceptFriendshipFunction(req.id)}
-                            disabled={processingId === `friend_${req.id}` || isLoading}
+                            onClick={() => acceptFriendshipFunction(req.fromUserId)}
+                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Accept
                           </button>
                           <button
-                            onClick={() => denyFriendshipFunction(req.id)}
-                            disabled={processingId === `friend_${req.id}` || isLoading}
+                            onClick={() => denyFriendshipFunction(req.fromUserId)}
+                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Deny
@@ -172,12 +141,12 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                 )}
 
                 {/* Chat Room Invites Section */}
-                {roomInvites.length > 0 && (
+                {pendingRoomInvites.length > 0 && (
                   <>
                     <div className="px-2 py-1 text-xs font-semibold text-gray-900 uppercase tracking-wide mt-2">
                       💬 Chat Room Invites
                     </div>
-                    {roomInvites.map((invite) => (
+                    {pendingRoomInvites.map((invite) => (
                       <div
                         key={`chat_${invite.roomId}`}
                         className="flex items-center justify-between p-3 bg-blue-50/40 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100/40 dark:hover:bg-blue-800/40 transition"
@@ -186,81 +155,27 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                           <p className="text-sm font-bold text-gray-900 truncate">
                             {invite.roomName}
                           </p>
-                          <p className="text-xs text-gray-600 truncate">
-                            Invited by {invite.inviterUsername}
-                          </p>
                         </div>
 
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
-                              handleAcceptRoomInvite(invite.roomId, invite.roomName)
+                              acceptRoomInviteFunction(invite.roomId)
                               setIsDropdownOpen(false)
                             }}
-                            disabled={processingId === `chat_${invite.roomId}` || isLoading}
+                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Join
                           </button>
                           <button
                             onClick={() => {
-                              handleDeclineRoomInvite(invite.roomId)
-                              setIsDropdownOpen(false)
+                              console.error("Jokes on you, decline not implemented yet!")
                             }}
-                            disabled={processingId === `chat_${invite.roomId}` || isLoading}
+                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Decline
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {/* Direct Message Invites Section */}
-                {dmInvites.length > 0 && (
-                  <>
-                    <div className="px-2 py-1 text-xs font-semibold text-gray-900 uppercase tracking-wide mt-2">
-                      ✉️ Direct Messages
-                    </div>
-                    {dmInvites.map((invite) => (
-                      <div
-                        key={`dm_${invite.roomId}`}
-                        className="flex items-center justify-between p-3 bg-purple-50/40 dark:bg-purple-900/30 rounded-lg hover:bg-purple-100/40 dark:hover:bg-purple-800/40 transition"
-                      >
-                        <div className="flex-1 min-w-0 pr-3">
-                          <p
-                            className="text-sm font-bold truncate"
-                            style={{ color: getUserColorCSS(invite.oderId, true) }}
-                          >
-                            {invite.username}
-                          </p>
-                          <p className="text-xs text-gray-600 truncate">
-                            wants to message you
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              handleAcceptDmInvite(invite.roomId)
-                              setIsDropdownOpen(false)
-                            }}
-                            disabled={processingId === `dm_${invite.roomId}` || isLoading}
-                            className="px-3 py-1 text-xs font-medium bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                          >
-                            Open
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleDeclineDmInvite(invite.roomId)
-                              setIsDropdownOpen(false)
-                            }}
-                            disabled={processingId === `dm_${invite.roomId}` || isLoading}
-                            className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                          >
-                            Dismiss
                           </button>
                         </div>
                       </div>

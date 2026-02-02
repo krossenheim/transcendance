@@ -88,6 +88,8 @@ export const ChatSocketListeners = () => {
           if (chatStore.rooms.data.currentRoomId === message.payload.roomId)
             chatStore.rooms.state.updateUserRoomState(message.payload.user, ChatRoomUserAccessType.JOINED)
 
+          chatStore.rooms.actions.fetchRoomData(message.payload.roomId)
+
           return HandlerResult.Handled
         }
         return HandlerResult.NotHandled

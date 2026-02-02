@@ -93,12 +93,14 @@ export class OurSocket {
     }
 
     const handler = this.handlerCallables[handlerEndpoint.funcId];
-    if (handler === undefined)
+    if (handler === undefined) {
+      console.warn(`No handler found for funcId "${handlerEndpoint.funcId}"`);
       return Promise.resolve(
         Result.Err({
           message: `No handler found for funcId "${handlerEndpoint.funcId}"`,
         })
       );
+    }
 
     const parsedMessage = new HubToServiceHandlerMessage(
       handlerEndpoint.funcId,

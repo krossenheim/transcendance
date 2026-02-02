@@ -52,7 +52,7 @@ export class ChatService {
     const roomCreationResult = this.db.run(
       `INSERT INTO chat_rooms (roomType, roomName) VALUES (?, ?)`,
       [roomType, roomName]
-    ).map((info) => ({ roomId: Number(info.lastInsertRowid), roomName, roomType, userState: ChatRoomUserAccessType.JOINED }));
+    ).map((info) => ({ roomId: Number(info.lastInsertRowid), roomName, roomType }));
 
     if (roomCreationResult.isErr())
       return roomCreationResult;
@@ -67,9 +67,9 @@ export class ChatService {
   getRawRoomInfo(roomId: number): Result<TypeRoomSchema, string> {
     return this.db.get(
       `SELECT roomId, roomType, roomName FROM chat_rooms WHERE roomId = ?`,
-      RoomSchema.omit({ userState: true }),
+      RoomSchema,
       [roomId]
-    ).map((room) => ({ ...room, userState: ChatRoomUserAccessType.JOINED }) );
+    );
   }
 
   getRoomMessages(roomId: number, limit: number): Result<TypeStoredMessageSchema[], string> {
@@ -93,14 +93,14 @@ export class ChatService {
     return userService.fetchPublicUsersByIds(userIds);
   }
 
-  getUserRooms(userId: number): Result<TypeRoomSchema[], string> {
+  getUserRooms(userId: number, connection: ChatRoomUserAccessType): Result<TypeRoomSchema[], string> {
     return this.db.all(
-      `SELECT r.roomId, r.roomType, r.roomName, rc.userState
+      `SELECT r.roomId, r.roomType, r.roomName
        FROM chat_rooms r
        JOIN users_room_relationships rc ON r.roomId = rc.roomId
-       WHERE rc.userId = ?`,
+       WHERE rc.userId = ? AND rc.userState = ?`,
       RoomSchema,
-      [userId]
+      [userId, connection]
     );
   }
 
@@ -108,7 +108,7 @@ export class ChatService {
     try {
       const userConnections = this.getRoomUserConnections(roomId).unwrap();
       return Result.Ok({
-        room: { ...this.getRawRoomInfo(roomId).unwrap(), userState: ChatRoomUserAccessType.JOINED },
+        room: this.getRawRoomInfo(roomId).unwrap(),
         messages: this.getRoomMessages(roomId, 100).unwrap(),
         userConnections,
         users: this.getRoomUsers(userConnections).unwrap(),

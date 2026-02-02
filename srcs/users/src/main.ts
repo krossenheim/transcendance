@@ -43,6 +43,9 @@ updateProfile(socketToHub);
 import { wsUserOnlineStatusHandler } from "./ws_handlers/userOnlineStatus.js";
 wsUserOnlineStatusHandler(socketToHub, onlineUsers);
 
+import { wsFetchUserNotifications } from "./ws_handlers/fetchUserNotifications.js";
+wsFetchUserNotifications(socketToHub, onlineUsers);
+
 async function handleUserConnectionUpdateNotification(userId: number, isOnline: boolean) {
   let users_to_notify = await fetchAllowedOnlineStatusViewers(userId);
   let status_code = isOnline ?
@@ -74,6 +77,12 @@ socketToHub.registerReceiver(
 
       socketToHub.invokeHandler(
         user_url.ws.users.userOnlineStatusUpdate,
+        data.payload.userId,
+        null
+      );
+
+      socketToHub.invokeHandler(
+        user_url.ws.users.fetchUserNotifications,
         data.payload.userId,
         null
       );

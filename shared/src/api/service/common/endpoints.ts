@@ -574,6 +574,27 @@ export const user_url = defineRoutes({
           },
         },
       },
+
+      fetchUserNotifications: {
+        funcId: "fetch_user_notifications",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.null(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: UserNotifications,
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       fetchUserGameResults: {
         funcId: "fetch_user_game_results",
         container: "users",

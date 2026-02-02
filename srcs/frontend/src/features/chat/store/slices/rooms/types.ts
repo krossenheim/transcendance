@@ -14,10 +14,8 @@ export interface RoomData {
 }
 
 export interface RoomActions {
-    // joinRoom: (roomId: number) => void;
-    // leaveRoom: (roomId: number) => void;
-    // switchToRoom: (roomId: number) => void;
     inviteUserToRoom: (roomId: number, userData: TypeUserIdentifier) => void;
+    fetchRoomData: (roomId: number) => void;
 }
 
 export interface RoomStates {

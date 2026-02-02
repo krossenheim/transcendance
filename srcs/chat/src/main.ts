@@ -116,7 +116,7 @@ socket.registerHandler(user_url.ws.chat.addUserToRoom, async (body, response) =>
     const response = result.unwrap();
     if (response.code === user_url.ws.chat.addUserToRoom.schema.output.UserAdded.code) {
       console.log(`[addUserToRoom] User ${user.id} added successfully, sending room list update`);
-      await socket.invokeHandler(user_url.ws.chat.listRooms, user.id, {});
+      await socket.invokeHandler(user_url.ws.users.fetchUserNotifications, user.id, null);
     }
   }
 

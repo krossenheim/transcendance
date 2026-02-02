@@ -178,7 +178,7 @@ export class PongPaddle extends MultiObject {
 
 		let maxTravelDistance = 0;
 		const center = this.getCenter();
-		const tempVec = new Vec2(0, 0);
+		// const tempVec = new Vec2(0, 0);
 		if (moveDirection > 0) {
 			maxTravelDistance = center.distanceTo(this.bounds.max) - this.paddleWidth / 2;
 			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
