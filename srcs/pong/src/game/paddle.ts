@@ -1,6 +1,6 @@
 import { MultiObject, LineObject, CircleObject } from "../engine/baseObjects.js";
 import { getWallCollisionTime } from "../engine/collision.js";
-import { Vec2 } from "../engine/math.js";
+import { Vec2, EPS } from "../engine/math.js";
 
 type PongPaddleKeyData = {
 	key: string;
@@ -122,11 +122,13 @@ export class PongPaddle extends MultiObject {
 			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
 			protectedWallWidth / 2,
 		) - halfWidth - 1;
+		console.log("Max travel distance:", maxTravelDistance);
 
 		this.bounds = {
 			min: copyCenter.set(center.x, center.y).sub(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
 			max: copyCenter.set(center.x, center.y).add(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
 		};
+		console.log("Paddle bounds:", this.bounds, this.getCenter());
 
 		const isTopHalf = (new Vec2(0, -1).dot(paddleDirection) > 0);
 		this.keyData = [
@@ -174,15 +176,32 @@ export class PongPaddle extends MultiObject {
 			return Infinity;
 		}
 
-		scaledDesiredVelocity.copy(this.clockwiseBaseVelocity).normalize().mul(moveDirection * this.boardPaddleSpeed);
-		const maxTravelDistance = moveDirection > 0 ? this.bounds.max.sub(this.getCenter()).len() : this.getCenter().sub(this.bounds.min).len();
+		let maxTravelDistance = 0;
+		const center = this.getCenter();
+		const tempVec = new Vec2(0, 0);
+		if (moveDirection > 0) {
+			maxTravelDistance = center.distanceTo(this.bounds.max) - this.paddleWidth / 2;
+			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
+			const otherSideDist = center.distanceTo(this.bounds.min) + this.paddleWidth / 2;
+			if (otherSideDist > totalLength)
+				maxTravelDistance = 0;
+		} else {
+			maxTravelDistance = center.distanceTo(this.bounds.min) - this.paddleWidth / 2;
+			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
+			const otherSideDist = center.distanceTo(this.bounds.max) + this.paddleWidth / 2;
+			if (otherSideDist > totalLength)
+				maxTravelDistance = 0;
+		}
 
-		if (maxTravelDistance < 1) {
+		scaledDesiredVelocity.copy(this.clockwiseBaseVelocity).normalize().mul(moveDirection * this.boardPaddleSpeed);
+		const maxTravelTime = maxTravelDistance / scaledDesiredVelocity.len();
+
+		if (maxTravelTime < EPS) {
+			console.log("Paddle cannot move further in this direction");
 			this.velocity.set(0, 0);
 			return Infinity;
 		}
 
-		const maxTravelTime = maxTravelDistance / scaledDesiredVelocity.len();
 		this.velocity.set(scaledDesiredVelocity.x, scaledDesiredVelocity.y);
 		return maxTravelTime;
 	}

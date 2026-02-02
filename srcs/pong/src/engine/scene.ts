@@ -88,6 +88,10 @@ export class Scene {
                                 objectB: objB,
                             };
                         }
+
+                        if (tHit !== null && tHit < 0) {
+                            console.warn(`Negative collision time detected between ${objA.constructor.name} and ${objB.constructor.name}: tHit=${tHit}`);
+                        }
                     }
                 }
             }
