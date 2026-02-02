@@ -2,6 +2,9 @@ import { MultiObject, LineObject, CircleObject } from "../engine/baseObjects.js"
 import { getWallCollisionTime } from "../engine/collision.js";
 import { Vec2, EPS } from "../engine/math.js";
 
+// Toggle heavy paddle logging for debugging (set to `true` only when debugging).
+const ENABLE_PADDLE_LOGS = false;
+
 type PongPaddleKeyData = {
 	key: string;
 	isPressed: boolean;
@@ -122,13 +125,13 @@ export class PongPaddle extends MultiObject {
 			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
 			protectedWallWidth / 2,
 		) - halfWidth - 1;
-		console.log("Max travel distance:", maxTravelDistance);
+		if (ENABLE_PADDLE_LOGS) console.log("Max travel distance:", maxTravelDistance);
 
 		this.bounds = {
 			min: copyCenter.set(center.x, center.y).sub(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
 			max: copyCenter.set(center.x, center.y).add(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
 		};
-		console.log("Paddle bounds:", this.bounds, this.getCenter());
+		if (ENABLE_PADDLE_LOGS) console.log("Paddle bounds:", this.bounds, this.getCenter());
 
 		const isTopHalf = (new Vec2(0, -1).dot(paddleDirection) > 0);
 		this.keyData = [
@@ -196,7 +199,7 @@ export class PongPaddle extends MultiObject {
 		const maxTravelTime = maxTravelDistance / scaledDesiredVelocity.len();
 
 		if (maxTravelTime < EPS) {
-			console.log("Paddle cannot move further in this direction");
+			if (ENABLE_PADDLE_LOGS) console.log("Paddle cannot move further in this direction");
 			this.velocity.set(0, 0);
 			return Infinity;
 		}
