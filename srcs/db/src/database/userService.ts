@@ -1,3 +1,4 @@
+import { UserNotifications, type UserNotificationsType, PendingFriendshipRequest, type PendingFriendshipRequestType } from '@app/shared/api/service/db/notification.js';
 import type { FullUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
 import { User, Friend, UserAuthData, UserAccountType } from '@app/shared/api/service/db/user';
 import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship';
@@ -177,6 +178,16 @@ export class UserService {
 			gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
 		}));
 	}
+
+	// fetchUserFriendshipRequests(userId: number): Result<PendingFriendshipRequestType[], string> {
+	// 	return this.db.all(
+
+	// 	)
+	// }
+
+	// fetchUserNotifications(id: number): Result<UserNotificationsType, string> {
+
+	// }
 
 	async createNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Promise<Result<FullUserType, string>> {
 		console.log('Creating user in database:', username, email, accountType);

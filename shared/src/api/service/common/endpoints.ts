@@ -45,6 +45,7 @@ import {
   JoinTournamentMatchSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
 import { GameResult } from "@app/shared/api/service/db/gameResult";
+import { UserNotifications } from "@app/shared/api/service/db/notification";
 
 export const defaultResponses: Record<number, z.ZodType | null> = {
   400: ErrorResponse,
@@ -1224,6 +1225,18 @@ export const int_url = defineRoutes({
           response: {
             200: FullUser, // Found user
             404: ErrorResponse, // User not found
+          },
+        },
+      },
+
+      getUserNotifications: {
+        endpoint: "/internal_api/db/users/notifications/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: UserNotifications, // Retrieved notifications
+            500: ErrorResponse, // Internal server error
           },
         },
       },
