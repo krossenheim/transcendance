@@ -24,12 +24,15 @@ interface AuthenticatedAppProps {
 }
 
 export default function AuthenticatedApp({ authResponse, onLogout }: AuthenticatedAppProps) {
+  const setCurrentUserId = useGlobalStore((state) => state.me.state.setCurrentUserId);
 
-    const setCurrentUserId = useGlobalStore((state) => state.me.state.setCurrentUserId);
+  useEffect(() => {
+    setCurrentUserId(authResponse.user.id);
+  }, [authResponse.user.id, setCurrentUserId]);
 
-    useEffect(() => {
-        setCurrentUserId(authResponse.user.id);
-    }, [authResponse.user.id, setCurrentUserId]);
+  useEffect(() => {
+    useGlobalStore.getState().users.state.cachePublicUserData({ ...authResponse.user, onlineStatus: null });
+  }, [authResponse.user])
 
     const navigate = useNavigate();
     const location = useLocation();

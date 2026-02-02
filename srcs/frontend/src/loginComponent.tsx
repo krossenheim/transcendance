@@ -1,7 +1,7 @@
 import { pub_url } from "@app/shared/api/service/common/endpoints";
+import { apiCall, ApiFailureCode } from "@utils/useApi";
 import { TwoFactorVerify } from "./twoFactorComponent";
 import React, { useId, useState } from "react";
-import { apiCall } from "@utils/useApi";
 import { useLanguage } from "./i18n";
 
 const handleKeyPress = (e: React.KeyboardEvent, action: () => void): void => {
@@ -54,16 +54,10 @@ export default function LoginComponent({
         body: { username, password },
       })
 
-      if (response.isErr()) {
-        throw new Error(response.unwrapErr().error || "Login failed");
-      }
-
-      const parsed = response.unwrap();
-      if (parsed.code !== 200) {
-        throw new Error(parsed.payload.message || "Login failed");
-      }
-
-      const data = parsed.payload;
+      if (response.code !== 200)
+        throw new Error(response.payload.message || "Login failed");
+  
+      const data = response.payload;
       if ('requires2FA' in data) {
         setRequires2FA(data.requires2FA);
         setTempToken(data.tempToken || null);
