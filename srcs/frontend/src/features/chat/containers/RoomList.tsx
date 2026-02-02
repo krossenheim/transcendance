@@ -3,10 +3,10 @@
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import type React from "react"
 import { useState, useCallback } from "react"
-import { useLanguage } from "../i18n/LanguageContext"
-import { useChatStore } from "../stores/chatStore"
-import { useWebSocket } from "../socketComponent"
-import { useGlobalStore } from "../stores/globalStore"
+import { useLanguage } from "../../../i18n/LanguageContext"
+import { useChatStore } from "../store/chatStore"
+import { useWebSocket } from "../../../socketComponent"
+import { useGlobalStore } from "../../global/store/globalStore"
 
 enum formInputMode {
   NONE,
@@ -20,9 +20,9 @@ const RoomList: React.FC = () => {
   const [inputValue, setInputValue] = useState("");
   const [inputFormState, setInputFormState] = useState(formInputMode.NONE);
 
-  const currentRoomId = useChatStore(state => state.currentRoomId);
-  const userChatRooms = useChatStore(state => state.userChatRooms);
-  const userChatRoomsUIData = useChatStore(state => state.roomUIData);
+  const currentRoomId = useChatStore(state => state.rooms.data.currentRoomId);
+  const userChatRooms = useChatStore(state => state.rooms.data.userChatRooms);
+  const userChatRoomsUIData = useChatStore(state => state.rooms.data.roomUIData);
 
   const handleCreateRoom = useCallback(() => {
     const roomName = inputValue.trim();
@@ -38,7 +38,7 @@ const RoomList: React.FC = () => {
     const targetUsername = inputValue.trim();
     if (!targetUsername) return ;
 
-    const userCache = useGlobalStore.getState().publicUserDataCache;
+    const userCache = useGlobalStore.getState().users.data.userCache;
     const userData = Array.from(userCache.values()).filter((user) => user.username === targetUsername);
     if (userData.length === 0) return ;
 

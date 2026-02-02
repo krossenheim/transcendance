@@ -9,8 +9,8 @@ import { useFriendshipContext } from "./friendshipContext"
 import { ChatBox, RoomList } from "./chat"
 import { HandlerResult } from "./socketComponent"
 
-import { useGlobalStore } from "./stores/globalStore"
-import { useChatStore } from "./stores/chatStore"
+import { useGlobalStore } from "./features/global/store/globalStore"
+import { useChatStore } from "./features/chat/store/chatStore"
 import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models"
 
 /* -------------------- Main Chat Component -------------------- */
@@ -52,6 +52,23 @@ export default function ChatInputComponent({
     >
   >({})
 
+  // import { useChatStore } from 'path/to/store';
+
+// 🕵️‍♂️ THE TRAP
+useChatStore.subscribe((state, prevState) => {
+    const oldSize = prevState.messages.data.messagesPerRoom.size;
+    const newSize = state.messages.data.messagesPerRoom.size;
+
+    // Trigger only when data disappears
+    if (oldSize > 0 && newSize === 0) {
+        console.group("🚨 DETECTED STATE WIPE!");
+        console.log("Previous Size:", oldSize);
+        console.log("New Size:", newSize);
+        console.trace("Who triggered this?"); // <--- THIS IS THE KEY
+        console.groupEnd();
+    }
+});
+
   const [blockedUserIds, setBlockedUserIds] = useState<number[]>([])
   const [profileUserId, setProfileUserId] = useState<number | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
@@ -60,23 +77,8 @@ export default function ChatInputComponent({
   const [currentRoomUsers, setCurrentRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
   const [pendingProfileLookup, setPendingProfileLookup] = useState<string | null>(null)
   
-  const onlineUsers = useGlobalStore(state => state.onlineUsers);
-  const publicUserDataCache = useGlobalStore(state => state.publicUserDataCache);
-  const cachePublicUserData = useGlobalStore(state => state.cachePublicUserData);
-  
-  const userChatRooms = useChatStore(state => state.userChatRooms);
-  const userChatRoomsUIData = useChatStore(state => state.roomUIData);
-  const storeCurrentRoomId = useChatStore(state => state.currentRoomId);
-
-  const setCurrentRoomData = useChatStore(state => state.setCurrentRoomData);
-  const setUserChatRooms = useChatStore(state => state.setUserChatRooms);
-  const updateUserRoomState = useChatStore(state => state.updateUserRoomState);
-  const setSingleUserChatRoom = useChatStore(state => state.setSingleUserChatRoom);
-
-  const incrementUnreadCount = useChatStore(state => state.incrementUnreadCount);
-  const resetUnreadCount = useChatStore(state => state.resetUnreadCount);
-  const addRoomMessage = useChatStore(state => state.addRoomMessage);
-  const leaveRoom = useChatStore(state => state.leaveRoom);
+  const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
+  const publicUserDataCache = useGlobalStore(state => state.users.data.userCache);
 
   // const onlineUsersRef = useRef<Set<number>>(new Set())
   const [pendingRoomInvites, setPendingRoomInvites] = useState<Array<{ roomId: number; roomName: string; inviterId: number; inviterUsername: string }>>([])
@@ -90,117 +92,117 @@ export default function ChatInputComponent({
     console.log("Online users updated:", onlineUsers)
   }, [onlineUsers])
 
-  useEffect(() => {
-    console.log("User chat rooms updated:", userChatRooms)
-  }, [userChatRooms])
+  // useEffect(() => {
+  //   console.log("User chat rooms updated:", userChatRooms)
+  // }, [userChatRooms])
 
-  useEffect(() => {
-    const unsubs: Array<() => void> = [];
+  // useEffect(() => {
+  //   const unsubs: Array<() => void> = [];
 
-    unsubs.push(subscribe(user_url.ws.chat.listRooms, (message, schema) => {
-      switch (message.code) {
-        case schema.output.FullListGiven.code:
-          setUserChatRooms(message.payload);
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.listRooms, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.FullListGiven.code:
+  //         setUserChatRooms(message.payload);
+  //         return HandlerResult.Handled;
 
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.getRoomData, (message, schema) => {
-      switch (message.code) {
-        case schema.output.RoomDataProvided.code:
-          setSingleUserChatRoom(message.payload.room);
-          cachePublicUserData(message.payload.users);
-          setCurrentRoomData(message.payload);
-          resetUnreadCount(message.payload.room.roomId);
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.getRoomData, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.RoomDataProvided.code:
+  //         setSingleUserChatRoom(message.payload.room);
+  //         cachePublicUserData(message.payload.users);
+  //         setCurrentRoomData(message.payload);
+  //         resetUnreadCount(message.payload.room.roomId);
+  //         return HandlerResult.Handled;
 
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.sendMessage, (message, schema) => {
-      switch (message.code) {
-        case schema.output.MessageSent.code:
-          const currentRoomId = useChatStore.getState().currentRoomId;
-          if (currentRoomId === message.payload.roomId)
-            addRoomMessage(message.payload);
-          else
-            incrementUnreadCount(message.payload.roomId);
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.sendMessage, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.MessageSent.code:
+  //         const currentRoomId = useChatStore.getState().currentRoomId;
+  //         if (currentRoomId === message.payload.roomId)
+  //           addRoomMessage(message.payload);
+  //         else
+  //           incrementUnreadCount(message.payload.roomId);
+  //         return HandlerResult.Handled;
 
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.addRoom, (message, schema) => {
-      switch (message.code) {
-        case schema.output.AddedRoom.code:
-          setSingleUserChatRoom(message.payload);
-          sendMessage(user_url.ws.chat.getRoomData, { roomId: message.payload.roomId });
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.addRoom, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.AddedRoom.code:
+  //         setSingleUserChatRoom(message.payload);
+  //         sendMessage(user_url.ws.chat.getRoomData, { roomId: message.payload.roomId });
+  //         return HandlerResult.Handled;
         
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.sendDirectMessage, (message, schema) => {
-      switch (message.code) {
-        case schema.output.MessageSent.code:
-          sendMessage(user_url.ws.chat.getRoomData, { roomId: message.payload.roomId });
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.sendDirectMessage, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.MessageSent.code:
+  //         sendMessage(user_url.ws.chat.getRoomData, { roomId: message.payload.roomId });
+  //         return HandlerResult.Handled;
         
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.leaveRoom, (message, schema) => {
-      switch (message.code) {
-        case schema.output.RoomLeft.code:
-          leaveRoom(message.payload.roomId);
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.leaveRoom, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.RoomLeft.code:
+  //         leaveRoom(message.payload.roomId);
+  //         return HandlerResult.Handled;
 
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.joinRoom, (message, schema) => {
-      switch (message.code) {
-        case schema.output.RoomJoined.code:
-          const currentRoomId = useChatStore.getState().currentRoomId;
-          if (currentRoomId === message.payload.roomId)
-            updateUserRoomState(message.payload.user, ChatRoomUserAccessType.JOINED);
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.joinRoom, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.RoomJoined.code:
+  //         const currentRoomId = useChatStore.getState().currentRoomId;
+  //         if (currentRoomId === message.payload.roomId)
+  //           updateUserRoomState(message.payload.user, ChatRoomUserAccessType.JOINED);
+  //         return HandlerResult.Handled;
 
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }));
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }));
 
-    unsubs.push(subscribe(user_url.ws.chat.addUserToRoom, (message, schema) => {
-      switch (message.code) {
-        case schema.output.UserAdded.code:
-          const currentRoomId = useChatStore.getState().currentRoomId;
-          if (currentRoomId === message.payload.roomId)
-            updateUserRoomState(message.payload.user, ChatRoomUserAccessType.INVITED);
-          return HandlerResult.Handled;
+  //   unsubs.push(subscribe(user_url.ws.chat.addUserToRoom, (message, schema) => {
+  //     switch (message.code) {
+  //       case schema.output.UserAdded.code:
+  //         const currentRoomId = useChatStore.getState().currentRoomId;
+  //         if (currentRoomId === message.payload.roomId)
+  //           updateUserRoomState(message.payload.user, ChatRoomUserAccessType.INVITED);
+  //         return HandlerResult.Handled;
 
-        default:
-          return HandlerResult.NotHandled;
-      }
-    }))
+  //       default:
+  //         return HandlerResult.NotHandled;
+  //     }
+  //   }))
 
-    return () => {
-      unsubs.forEach((unsub) => unsub());
-    };
-  }, [subscribe, sendMessage]);
+  //   return () => {
+  //     unsubs.forEach((unsub) => unsub());
+  //   };
+  // }, [subscribe, sendMessage]);
 
   useEffect(() => {
     sendMessage(user_url.ws.chat.listRooms, {});
@@ -403,7 +405,7 @@ export default function ChatInputComponent({
     } else if (showToast) {
       showToast("Pong invitation feature not yet implemented", 'error')
     }
-  }, [storeCurrentRoomId, showToast, onOpenPongInvite])
+  }, [showToast, onOpenPongInvite])
 
   const handleAcceptFriendship = useCallback(
     (userId: number) => {

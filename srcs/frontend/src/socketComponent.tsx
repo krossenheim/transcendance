@@ -8,6 +8,9 @@ import { z } from "zod"
 import { HubToClientMessageScheme } from "@app/shared/socket_messages"
 
 type SocketCallback<T extends WebSocketRouteDef> = (message: HubToClientMessageScheme<T>, schema: T["schema"]) => HandlerResult;
+type SocketMessageSubscriber = <T extends WebSocketRouteDef>(route: T, callback: SocketCallback<T>) => () => void;
+
+export type SocketMessageSender = <T extends WebSocketRouteDef>(route: T, payload: z.infer<T["schema"]["args"]>) => void;
 
 export enum HandlerResult {
   Handled,
@@ -16,8 +19,8 @@ export enum HandlerResult {
 
 interface SocketContextType {
   isConnected: boolean;
-  sendMessage: <T extends WebSocketRouteDef>(route: T, payload: z.infer<T["schema"]["args"]>) => void;
-  subscribe: <T extends WebSocketRouteDef>(route: T, callback: SocketCallback<T>) => () => void;
+  sendMessage: SocketMessageSender;
+  subscribe: SocketMessageSubscriber;
 }
 
 interface SocketCallbackSubscribtion<T extends WebSocketRouteDef> {
@@ -135,6 +138,10 @@ export default function SocketComponent({
 
       if (fatalError) {
         console.error('[Socket] No handlers processed the message for funcId', message.getFuncId());
+      }
+
+      if (currentCallbacks.length === 0) {
+        console.warn('[Socket] No subscribers for message funcId', message.getFuncId());
       }
     } catch (e) {
       console.error('[Socket] Failed to parse message', e)

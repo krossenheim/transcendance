@@ -2,6 +2,15 @@ import { BaseObject, CircleObject } from "../engine/baseObjects.js";
 import { CollisionResponse } from "../engine/collision.js";
 import { Vec2 } from "../engine/math.js";
 
+export type PongBallJSON = [
+    number, // center.x
+    number, // center.y
+    number, // velocity.x
+    number, // velocity.y
+    number, // radius
+    number, // inverseMass
+];
+
 export class PongBall extends CircleObject {
     private static idCounter = 0;
     public readonly id: number;
@@ -15,7 +24,7 @@ export class PongBall extends CircleObject {
         });
     }
 
-    public toJSON(): any {
+    public toJSON(): PongBallJSON {
         return [
             this.center.x,
             this.center.y,
@@ -24,5 +33,15 @@ export class PongBall extends CircleObject {
             this.radius,
             this.inverseMass,
         ]
+    }
+
+    public updateFromJSON(data: PongBallJSON): this {
+        this.center.x = data[0];
+        this.center.y = data[1];
+        this.velocity.x = data[2];
+        this.velocity.y = data[3];
+        this.radius = data[4];
+        this.inverseMass = data[5];
+        return this;
     }
 }

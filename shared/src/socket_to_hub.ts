@@ -377,7 +377,7 @@ export class OurSocket {
   private _sendMessageToHub(data: ServiceToHubMessage): void {
     const messageString = data.toString();
     if (this.socket.readyState === WebSocket.OPEN) {
-      console.log("Sending WS message to hub:", messageString);
+      // console.log("Sending WS message to hub:", messageString);
       try {
         this.socket.send(messageString);
       } catch (error) {

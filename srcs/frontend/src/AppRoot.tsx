@@ -1,6 +1,7 @@
 // Full updated AppRoot.tsx with border fix and chat-only scrolling
 // (Insert your import statements here exactly as before)
 
+import { GlobalSocketListeners } from "./features/global/listeners/GlobalSocketListeners";
 import SocketComponent, { closeGlobalSocket } from "./socketComponent";
 import LoginComponent from "./loginComponent";
 import PongComponent from "./pongComponent";
@@ -21,12 +22,15 @@ import StarfieldBackground from "./StarfieldBackground";
 import { useLanguage } from "./i18n";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import AuthenticatedApp from "./AuthenticatedApp";
+import { enableMapSet } from "immer";
 
-import { useGlobalStore } from "./stores/globalStore";
+import { useGlobalStore } from "./features/global/store/globalStore";
 import { useWebSocket } from "./socketComponent";
 import { user_url } from "@app/shared/api/service/common/endpoints";
 import { HandlerResult } from "./socketComponent";
 import { Cookie } from "lucide-react";
+
+enableMapSet();
 
 export default function AppRoot() {
   const navigate = useNavigate();
@@ -425,6 +429,7 @@ export default function AppRoot() {
             <SocketComponent AuthResponseObject={authResponse} showToast={showToast}>
               <StarfieldBackground starCount={300} />
               <CookieBanner />
+              <GlobalSocketListeners />
 
               <AuthenticatedApp
                 authResponse={authResponse}

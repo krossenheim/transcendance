@@ -1,12 +1,14 @@
 import { getBallCollisionTime, getWallCollisionTime, CollisionResponse, resolveBallCollision, resolveCircleLineCollision } from "./collision.js";
 import { BaseObject, LineObject, CircleObject } from "./baseObjects.js";
-import { EPS, FAT_EPS } from "./math.js";
+import { EPS, FAT_EPS, Vec2 } from "./math.js";
 
 interface Collision {
     time: number;
     objectA: BaseObject;
     objectB: BaseObject;
 };
+
+const scratchRelativeVelocity = new Vec2(0, 0);
 
 export class Scene {
     private objects: BaseObject[];
@@ -63,7 +65,7 @@ export class Scene {
             for (let j = 0; j < this.objects.length; j++) {
                 const parentB = this.objects[j]!;
                 if (parentA === parentB) continue;
-                if (parentA.velocity.sub(parentB.velocity).lenSq() < EPS) continue;
+                if (scratchRelativeVelocity.copy(parentA.velocity).sub(parentB.velocity).lenSq() < EPS) continue;
 
                 for (const objA of parentA.iter()) {
                     for (const objB of parentB.iter()) {
@@ -127,7 +129,6 @@ export class Scene {
             const bTask = parentB.onCollision(parentA, this.elapsedTime);
 
             const handleMethod = Math.max(aTask, bTask);
-            // Collision logging removed for performance
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
                     collision.objectA.moveByDelta(FAT_EPS);

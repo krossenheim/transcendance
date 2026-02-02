@@ -5,7 +5,7 @@ import { useWebSocket } from "../../socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import { useLanguage } from "../../i18n/LanguageContext"
 import { useProfileModalStore } from "../../stores/uiStore"
-import { useGlobalStore } from "../../stores/globalStore"
+import { useGlobalStore } from "../../features/global/store/globalStore"
 import { getUserColorCSS } from "../../userColorUtils"
 import { UserAccountType } from "@app/shared/api/service/db/user";
 
@@ -15,11 +15,11 @@ export default function ProfileComponent() {
   
   const { isOpen, targetUserId, closeProfileModal } = useProfileModalStore()
   
-  const currentUserId = useGlobalStore(state => state.currentUserId);
-  const onlineUsers = useGlobalStore(state => state.onlineUsers);
+  const currentUserId = useGlobalStore(state => state.me.data.currentUserId);
+  const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
   
   const profile = useGlobalStore(state => 
-    targetUserId ? state.publicUserDataCache.get(targetUserId) : null
+    targetUserId ? state.users.data.userCache.get(targetUserId) : null
   )
 
   const [avatarBlobUrl, setAvatarBlobUrl] = useState<string | null>(null)

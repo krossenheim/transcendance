@@ -4,6 +4,9 @@ import React, { FC, useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { getUserColorCSS } from './userColorUtils'
 import { useFriendshipContext } from './friendshipContext'
+import { useChatStore } from './features/chat/store/chatStore'
+import { useGlobalStore } from './features/global/store/globalStore'
+import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship'
 
 // Notification types
 type NotificationType = 'friend_request' | 'chat_invite' | 'dm_invite'
@@ -41,22 +44,18 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  React.useEffect(() => {
-    try {
-      const jwt = localStorage.getItem('jwt')
-      if (jwt) {
-        const payload = JSON.parse(atob(jwt.split('.')[1]))
-        if (typeof payload.uid === 'number') selfIdRef.current = payload.uid
-      }
-    } catch {}
-  }, [])
-
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 })
 
+  const selfUserId = useGlobalStore((state) => state.me.data.currentUserId);
+  const relationships = useGlobalStore((state) => state.users.data.userRelationships);
+
+  const pendingFriendshipRequests = Array.from(relationships.values())
+    .filter((conn) => conn.status === UserFriendshipStatusEnum.Pending && conn.id !== selfUserId);
+
   // Calculate total notification count
-  const totalNotifications = pendingRequests.length + roomInvites.length + dmInvites.length
+  const totalNotifications = pendingFriendshipRequests.length + roomInvites.length + dmInvites.length
 
   React.useEffect(() => {
     if (isDropdownOpen && buttonRef.current) {
@@ -85,29 +84,8 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [isDropdownOpen])
 
-  const handleAccept = useCallback(
-    async (userId: number) => {
-      setProcessingId(`friend_${userId}`)
-      try {
-        await handleAcceptFriendship(userId)
-      } finally {
-        setProcessingId(null)
-      }
-    },
-    [handleAcceptFriendship],
-  )
-
-  const handleDeny = useCallback(
-    async (userId: number) => {
-      setProcessingId(`friend_${userId}`)
-      try {
-        await handleDenyFriendship(userId)
-      } finally {
-        setProcessingId(null)
-      }
-    },
-    [handleDenyFriendship],
-  )
+  const acceptFriendshipFunction = useGlobalStore((state) => state.users.actions.acceptFriendRequest);
+  const denyFriendshipFunction = useGlobalStore((state) => state.users.actions.denyFriendRequest);
 
   return (
     <div className="relative">
@@ -148,20 +126,20 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
             {totalNotifications > 0 ? (
               <div className="space-y-2 p-2">
                 {/* Friend Requests Section */}
-                {pendingRequests.length > 0 && (
+                {pendingFriendshipRequests.length > 0 && (
                   <>
                     <div className="px-2 py-1 text-xs font-semibold text-gray-900 uppercase tracking-wide">
                       👥 Friend Requests
                     </div>
-                    {pendingRequests.filter(req => req.userId !== selfIdRef.current).map((req) => (
+                    {pendingFriendshipRequests.map((req) => (
                       <div
-                        key={`friend_${req.userId}`}
+                        key={`friend_${req.id}`}
                         className="flex items-center justify-between p-3 bg-gray-50/40 dark:bg-gray-700/80 rounded-lg hover:bg-gray-100/40 dark:hover:bg-gray-600/80 transition"
                       >
                         <div className="flex-1 min-w-0 pr-3">
                           <p
                             className="text-sm font-bold truncate"
-                            style={{ color: getUserColorCSS(req.userId, true) }}
+                            style={{ color: getUserColorCSS(req.id, true) }}
                           >
                             {req.username}
                           </p>
@@ -174,15 +152,15 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
 
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleAccept(req.userId)}
-                            disabled={processingId === `friend_${req.userId}` || isLoading}
+                            onClick={() => acceptFriendshipFunction(req.id)}
+                            disabled={processingId === `friend_${req.id}` || isLoading}
                             className="px-3 py-1 text-xs font-medium bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Accept
                           </button>
                           <button
-                            onClick={() => handleDeny(req.userId)}
-                            disabled={processingId === `friend_${req.userId}` || isLoading}
+                            onClick={() => denyFriendshipFunction(req.id)}
+                            disabled={processingId === `friend_${req.id}` || isLoading}
                             className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Deny

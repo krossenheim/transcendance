@@ -1,6 +1,8 @@
 import { CollisionResponse } from "./collision.js";
 import { Vec2 } from "./math.js";
 
+const moveVec = new Vec2(0, 0);
+
 export class BaseObject {
     private _velocity: Vec2;
     private _inverseMass: number;
@@ -89,9 +91,9 @@ export class LineObject extends BaseObject {
     }
 
     override moveByDelta(delta: number): void {
-        const move = this.velocity.mul(delta);
-        this.pointA = this.pointA.add(move);
-        this.pointB = this.pointB.add(move);
+        moveVec.copy(this.velocity).mul(delta);
+        this.pointA.add(moveVec);
+        this.pointB.add(moveVec);
     }
 
     override clone(): LineObject {
@@ -106,6 +108,7 @@ export class LineObject extends BaseObject {
 export class CircleObject extends BaseObject {
     public center: Vec2;
     public radius: number;
+    public warned: boolean = false;
 
     constructor(center: Vec2, radius: number, velocity: Vec2, inverseMass: number = 1.0, restitution: number = 1.0) {
         super(velocity, inverseMass, restitution);
@@ -114,8 +117,17 @@ export class CircleObject extends BaseObject {
     }
 
     override moveByDelta(delta: number): void {
-        const move = this.velocity.mul(delta);
-        this.center = this.center.add(move);
+        moveVec.copy(this.velocity).mul(delta);
+        this.center.add(moveVec);
+        if (this.warned) return;
+
+        if (this.center.x < 0 + this.radius || this.center.y < 0 + this.radius) {
+            console.error("CircleObject moved out of bounds:", this.center, this.velocity);
+            this.warned = true;
+        } else if (this.center.x > 1000 - this.radius || this.center.y > 1000 - this.radius) {
+            console.error("CircleObject moved out of bounds:", this.center, this.velocity);
+            this.warned = true;
+        }
     }
 
     override clone(): CircleObject {
@@ -140,7 +152,6 @@ export class MultiObject extends BaseObject {
     }
 
     override moveByDelta(delta: number): void {
-        this.velocity = this.velocity.mul(delta);
         for (const obj of this.objects) {
             obj.moveByDelta(delta);
         }

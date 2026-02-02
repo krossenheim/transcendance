@@ -1,0 +1,106 @@
+import { HTTPRouteDef } from "@app/shared/api/service/common/endpoints";
+import { user_url } from "@app/shared/api/service/common/endpoints";
+import { zodParse } from "@app/shared/api/service/common/zodUtils";
+import { Result } from "@app/shared/api/service/common/result";
+import z from "zod";
+
+
+export type DefinedAPIResponse<T extends HTTPRouteDef> = {
+    [StatusCode in keyof T['schema']['response']]: {
+        code: StatusCode;
+        payload: z.infer<T['schema']['response'][StatusCode]>;
+    }
+}[keyof T['schema']['response']];
+
+type ApiFailure = {
+    code: number;
+    type: 'network' | 'validation' | 'undefined_status';
+    error: unknown;
+};
+
+function returnSomething<T extends HTTPRouteDef>(route: T): DefinedAPIResponse<T> {
+    return {
+        code: 500,
+        payload: { message: "Internal Server Error" },
+    } as unknown as DefinedAPIResponse<T>;
+}
+
+const test = returnSomething(user_url.http.users.fetchUserAvatar);
+switch (test.code) {
+    case 200:
+        console.log(test.payload.avatarUrl);
+        break;
+    case 500:
+        console.log("Internal Server Error");
+        break;
+}
+
+export async function apiCall<T extends HTTPRouteDef>(
+    route: T,
+    options: {
+        body?: T['schema']['body'] extends z.ZodType ? z.infer<T['schema']['body']> : any;
+        query?: T['schema']['query'] extends z.ZodType ? z.infer<T['schema']['query']> : any;
+        params?: T['schema']['params'] extends z.ZodType ? z.infer<T['schema']['params']> : any;
+    } = {}
+): Promise<Result<DefinedAPIResponse<T>, ApiFailure>> {
+    const token = localStorage.getItem('jwt');
+
+    let url = route.endpoint;
+    if (options.params) {
+        for (const [key, value] of Object.entries(options.params)) {
+            url = url.replace(new RegExp(`:${key}\\b`, 'g'), encodeURIComponent(String(value)));
+        }
+    }
+
+    if (options.query) {
+        const qs = new URLSearchParams();
+        Object.entries(options.query).forEach(([k, v]) => {
+            if (v !== undefined && v !== null) qs.append(k, String(v));
+        });
+        url += `?${qs.toString()}`;
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: route.method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
+            body: options.body ? JSON.stringify(options.body) : null,
+        });
+
+        const data = await response.json().catch(() => null);
+        const schemaForStatus = route.schema.response[response.status];
+
+        if (schemaForStatus) {
+            const validation = zodParse(schemaForStatus, data);
+
+            if (validation.isOk()) {
+                return Result.Ok({
+                    code: response.status,
+                    payload: validation.unwrap(),
+                } as any);
+            } else {
+                return Result.Err({
+                    code: response.status,
+                    type: 'validation',
+                    error: validation.unwrapErr(),
+                });
+            }
+        }
+
+        return Result.Err({
+            code: response.status,
+            type: 'undefined_status',
+            error: data,
+        });
+
+    } catch (e) {
+        return Result.Err({
+            code: 0,
+            type: 'network',
+            error: e instanceof Error ? e.message : "Unknown Error",
+        });
+    }
+}
