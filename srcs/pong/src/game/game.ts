@@ -175,7 +175,7 @@ export class PongGame {
     // Deterministic simulation state
     private currentTick: number = 0;
     private rng: SeededRandom;
-    // private timeAccumulator: number = 0; // Accumulates fractional time between ticks
+    // private _timeAccumulator: number = 0; // Accumulates fractional time between ticks
 
     private fetchWallSegments(): number[] {
         if (this.players.length === 0)
@@ -391,9 +391,9 @@ export class PongGame {
      * Simulate exactly one tick (1/120th of a second).
      * All game logic happens in discrete ticks for determinism.
      */
-    // private simulateTick(): void {
-    //     // Clean up expired powerups at start of tick
-    //     this.cleanUpExpiredPowerups(this.currentTick);
+    /* private _simulateTick(): void {
+        // Clean up expired powerups at start of tick
+        this.cleanUpExpiredPowerups(this.currentTick);
 
     //     // Check for powerup spawn (tick-based)
     //     if (this.currentTick >= this.nextPowerupSpawnTick) {
@@ -412,8 +412,8 @@ export class PongGame {
     //     // Run physics for exactly one tick duration
     //     this.scene.playSimulation(TICK_DURATION, this.balls);
 
-    //     this.currentTick++;
-    // }
+        this.currentTick++;
+    } */
 
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
         switch (powerup.getPowerupType()) {
