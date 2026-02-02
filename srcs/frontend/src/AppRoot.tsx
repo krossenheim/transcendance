@@ -5,7 +5,6 @@ import { GlobalSocketListeners } from "./features/global/listeners/GlobalSocketL
 import SocketComponent, { closeGlobalSocket } from "./socketComponent";
 import LoginComponent from "./loginComponent";
 import PongComponent from "./pongComponent";
-import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";

@@ -1,9 +1,7 @@
 import { HTTPRouteDef } from "@app/shared/api/service/common/endpoints";
-import { user_url } from "@app/shared/api/service/common/endpoints";
 import { zodParse } from "@app/shared/api/service/common/zodUtils";
 import { Result } from "@app/shared/api/service/common/result";
 import z from "zod";
-
 
 export type DefinedAPIResponse<T extends HTTPRouteDef> = {
     [StatusCode in keyof T['schema']['response']]: {
@@ -12,28 +10,11 @@ export type DefinedAPIResponse<T extends HTTPRouteDef> = {
     }
 }[keyof T['schema']['response']];
 
-type ApiFailure = {
+export type ApiFailure = {
     code: number;
     type: 'network' | 'validation' | 'undefined_status';
-    error: unknown;
+    error: any;
 };
-
-function returnSomething<T extends HTTPRouteDef>(route: T): DefinedAPIResponse<T> {
-    return {
-        code: 500,
-        payload: { message: "Internal Server Error" },
-    } as unknown as DefinedAPIResponse<T>;
-}
-
-const test = returnSomething(user_url.http.users.fetchUserAvatar);
-switch (test.code) {
-    case 200:
-        console.log(test.payload.avatarUrl);
-        break;
-    case 500:
-        console.log("Internal Server Error");
-        break;
-}
 
 export async function apiCall<T extends HTTPRouteDef>(
     route: T,

@@ -1,5 +1,7 @@
-import React, { useId, useState } from "react";
+import { pub_url } from "@app/shared/api/service/common/endpoints";
 import { TwoFactorVerify } from "./twoFactorComponent";
+import React, { useId, useState } from "react";
+import { apiCall } from "@utils/useApi";
 import { useLanguage } from "./i18n";
 
 const handleKeyPress = (e: React.KeyboardEvent, action: () => void): void => {
@@ -48,40 +50,33 @@ export default function LoginComponent({
 
     setIsLoading(true);
     try {
-      const response = await fetch("/public_api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const response = await apiCall(pub_url.http.auth.loginUser, {
+        body: { username, password },
+      })
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Login failed");
+      if (response.isErr()) {
+        throw new Error(response.unwrapErr().error || "Login failed");
       }
 
-      const data = await response.json();
-      console.log("[v0] Login response:", data);
+      const parsed = response.unwrap();
+      if (parsed.code !== 200) {
+        throw new Error(parsed.payload.message || "Login failed");
+      }
 
-      // Check if 2FA is required
-      if (data?.requires2FA && data?.tempToken) {
-        setRequires2FA(true);
-        setTempToken(data.tempToken);
+      const data = parsed.payload;
+      if ('requires2FA' in data) {
+        setRequires2FA(data.requires2FA);
+        setTempToken(data.tempToken || null);
         return;
       }
 
-      // ✅ Save the JWT and refresh tokens in localStorage
-      if (data?.tokens?.jwt) {
-        localStorage.setItem("jwt", data.tokens.jwt);
-        console.log("[v0] Stored JWT token:", data.tokens.jwt);
-      } else {
-        console.warn("[v0] No JWT token found in login response");
-      }
-
-      if (data?.tokens?.refresh) {
+      localStorage.setItem("jwt", data.tokens.jwt);
+      console.log("[v0] Stored JWT token:", data.tokens.jwt);
+      
+      if (data.tokens.refresh !== undefined) {
         localStorage.setItem("refreshToken", data.tokens.refresh);
       }
 
-      // Continue app flow
       onLoginSuccess(data);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";

@@ -1,7 +1,7 @@
 "use client"
 
 import { user_url } from "@app/shared/api/service/common/endpoints"
-import type React from "react"
+import React from "react"
 import { useState, useCallback } from "react"
 import { useLanguage } from "../../../i18n/LanguageContext"
 import { useChatStore } from "../store/chatStore"

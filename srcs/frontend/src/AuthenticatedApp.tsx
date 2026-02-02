@@ -4,7 +4,6 @@ import { useLanguage } from "./i18n";
 
 // Components
 import UserMenu from "./userMenu";
-import ChatInputComponent from "./chatInputComponent";
 import PongComponent from "./pongComponent";
 import GDPRPage from "./GDPRPage";
 import FriendshipNotifications from "./friendshipNotifications";
@@ -15,11 +14,9 @@ import AccessibilitySettings from "./accessibilitySettings";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 
 import { useGlobalStore } from "./features/global/store/globalStore";
-import { useWebSocket } from "./socketComponent";
-import { user_url } from "@app/shared/api/service/common/endpoints";
-import { HandlerResult } from "./socketComponent";
 import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
 import ProfileModal from "./components/modals/profileModal";
+import ChatPage from "./pages/chat";
 
 interface AuthenticatedAppProps {
   authResponse: AuthResponseType;
@@ -121,14 +118,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
                 <Routes>
                   <Route path="/" element={<Navigate to="/chat" replace />} />
                   <Route path="/chat" element={
-                    <ChatInputComponent 
-                       selfUserId={authResponse.user.id} 
-                       onOpenPongInvite={(roomUsers) => {
-                         setPongInviteRoomUsers(roomUsers);
-                         setShowPongInviteModal(true);
-                         navigate('/pong');
-                       }}
-                    />
+                    <ChatPage />
                   } />
                   <Route path="/pong" element={
                     <PongComponent
