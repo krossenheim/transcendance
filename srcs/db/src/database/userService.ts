@@ -1,4 +1,3 @@
-import { UserNotifications, type UserNotificationsType, PendingFriendshipRequest, type PendingFriendshipRequestType } from '@app/shared/api/service/db/notification.js';
 import type { FullUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
 import { User, Friend, UserAuthData, UserAccountType } from '@app/shared/api/service/db/user';
 import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship';
