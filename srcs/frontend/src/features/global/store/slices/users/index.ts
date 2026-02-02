@@ -26,7 +26,19 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                 set((state) => {
                     state.users.data.blockedUsers = logic.addToSet(state.users.data.blockedUsers, [userId]);
                 });
-            }
+            },
+
+            sendFriendRequest: (userId: number) => {
+                getSocketSenderRef()(user_url.ws.users.requestFriendship, userId);
+            },
+
+            acceptFriendRequest: (userId: number) => {
+                getSocketSenderRef()(user_url.ws.users.confirmFriendship, userId);
+            },
+
+            denyFriendRequest: (userId: number) => {
+                getSocketSenderRef()(user_url.ws.users.denyFriendship, userId);
+            },
         },
 
         state: {

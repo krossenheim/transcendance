@@ -1,6 +1,16 @@
 import { LineObject } from "../engine/baseObjects.js";
 import { Vec2 } from "../engine/math.js";
 
+type PongWallJSON = [
+    number, // pointA.x
+    number, // pointA.y
+    number, // pointB.x
+    number, // pointB.y
+    number, // velocity.x
+    number, // velocity.y
+    number | null, // playerId
+];
+
 export class PlayerWall extends LineObject {
     public playerId: number;
 
@@ -9,7 +19,7 @@ export class PlayerWall extends LineObject {
         this.playerId = playerId;
     }
 
-    public toJSON(): any {
+    public toJSON(): PongWallJSON {
         return [
             this.pointA.x,
             this.pointA.y,
@@ -27,7 +37,7 @@ export class Wall extends LineObject {
         super(pointA, pointB, new Vec2(0, 0), 0, 1.0);
     }
 
-    public toJSON(): any {
+    public toJSON(): PongWallJSON {
         return [
             this.pointA.x,
             this.pointA.y,

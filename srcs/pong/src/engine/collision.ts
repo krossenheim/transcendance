@@ -1,5 +1,5 @@
+import { solveQuadratic, EPS, Vec2, QUAD_BUFFER } from "./math.js";
 import { CircleObject, LineObject } from "./baseObjects.js";
-import { solveQuadratic, EPS } from "./math.js";
 
 export enum CollisionResponse {
     BOUNCE = 0,
@@ -7,34 +7,41 @@ export enum CollisionResponse {
     RESET = 2,
 };
 
+const scratchRelativeVelocity = new Vec2(0, 0);
+const scratchRelativeStart = new Vec2(0, 0);
+const scratchWallVec = new Vec2(0, 0);
+const scratchNormal = new Vec2(0, 0);
+const scratchBallPosAtHit = new Vec2(0, 0);
+
 export function getWallCollisionTime(
     ball: CircleObject,
     wall: LineObject,
 ) {
-    const pointRelativeVelocity = ball.velocity.sub(wall.velocity);
-    const pointRelativeStart = ball.center.sub(wall.pointA);
+    scratchRelativeVelocity.copy(ball.velocity).sub(wall.velocity);
+    scratchRelativeStart.copy(ball.center).sub(wall.pointA);
 
-    const wallVec = wall.pointB.sub(wall.pointA);
-    let wallNormal = wallVec.perp().normalize();
+    scratchWallVec.copy(wall.pointB).sub(wall.pointA);
+    scratchNormal.copy(scratchWallVec).perp().normalize();
 
-    if (pointRelativeVelocity.dot(wallNormal) >= -EPS)
-        wallNormal = wallNormal.mul(-1);
-    const vecAlongNormal = pointRelativeVelocity.dot(wallNormal);
+    if (scratchRelativeVelocity.dot(scratchNormal) >= -EPS)
+        scratchNormal.mul(-1);
+    const vecAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
 
-    const distanceToLine = pointRelativeStart.dot(wallNormal);
+    const distanceToLine = scratchRelativeStart.dot(scratchNormal);
     const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
 
-    if (tHit < 0) {
+    if (tHit < 0)
         return null;
-    }
 
-    const ballPosAtHit = pointRelativeStart.add(pointRelativeVelocity.mul(tHit));
-    const shadowLengthSq = ballPosAtHit.dot(wallVec);
-    const segmentT = shadowLengthSq / wallVec.dot(wallVec);
+    scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, tHit);
+    const shadowLengthSq = scratchBallPosAtHit.dot(scratchWallVec);
 
-    if (segmentT < 0 || segmentT > 1) {
+    if (shadowLengthSq < -EPS)
         return null;
-    }
+
+    const segmentT = shadowLengthSq / scratchWallVec.dot(scratchWallVec);
+    if (segmentT < 0 || segmentT > 1)
+        return null;
 
     return tHit;
 }
@@ -43,17 +50,17 @@ export function getBallCollisionTime(
     ballA: CircleObject,
     ballB: CircleObject,
 ): number | null {
-    const pointRelativeStart = ballB.center.sub(ballA.center);
-    const pointRelativeVelocity = ballB.velocity.sub(ballA.velocity);
+    scratchRelativeStart.copy(ballB.center).sub(ballA.center);
+    scratchRelativeVelocity.copy(ballB.velocity).sub(ballA.velocity);
     const combinedRadius = ballA.radius + ballB.radius;
 
-    const a = pointRelativeVelocity.lenSq();
-    const b = 2 * pointRelativeStart.dot(pointRelativeVelocity);
-    const c = pointRelativeStart.lenSq() - Math.pow(combinedRadius, 2);
+    const a = scratchRelativeVelocity.lenSq();
+    const b = 2 * scratchRelativeStart.dot(scratchRelativeVelocity);
+    const c = scratchRelativeStart.lenSq() - Math.pow(combinedRadius, 2);
 
-    const roots = solveQuadratic(a, b, c);
-    if (roots.length > 0) {
-        const t = roots[0]!
+    const numRoots = solveQuadratic(a, b, c, QUAD_BUFFER);
+    if (numRoots > 0) {
+        const t = QUAD_BUFFER[0]!;
 
         if (t >= -EPS && t <= 1 + EPS) {
             return t;
@@ -67,37 +74,94 @@ export function resolveBallCollision(
     ballA: CircleObject,
     ballB: CircleObject,
 ): void {
-    const normal = ballB.center.sub(ballA.center).normalize();
-    const relativeVelocity = ballB.velocity.sub(ballA.velocity);
-    const velocityAlongNormal = relativeVelocity.dot(normal);
+    scratchNormal.copy(ballB.center).sub(ballA.center).normalize();
+    scratchRelativeVelocity.copy(ballB.velocity).sub(ballA.velocity);
+    const velocityAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
 
     if (velocityAlongNormal > 0) {
         return;
     }
 
-    const j = -(1 + Math.min(ballA.restitution, ballB.restitution)) * velocityAlongNormal / (ballA.inverseMass + ballB.inverseMass);
+    const restitution = Math.min(ballA.restitution, ballB.restitution);
+    const inverseMassSum = ballA.inverseMass + ballB.inverseMass;
+    if (inverseMassSum === 0) {
+        return;
+    }
 
-    const impulse = normal.mul(j);
-    ballA.velocity = ballA.velocity.sub(impulse.mul(ballA.inverseMass));
-    ballB.velocity = ballB.velocity.add(impulse.mul(ballB.inverseMass));
+    const j = -(1 + restitution) * velocityAlongNormal / inverseMassSum;
+    ballA.velocity.addScaled(scratchNormal, -j * ballA.inverseMass);
+    ballB.velocity.addScaled(scratchNormal, j * ballB.inverseMass);
 }
+
+const scratchAP = new Vec2(0, 0);
+const scratchAB = new Vec2(0, 0);
+const scratchClosestPoint = new Vec2(0, 0);
 
 export function resolveCircleLineCollision(
     ball: CircleObject,
     wall: LineObject,
 ): void {
-    const wallVec = wall.pointB.sub(wall.pointA);
-    const relativeVelocity = ball.velocity.sub(wall.velocity);
+    // 1. Calculate Vector form A to B (Wall Segment)
+    scratchAB.copy(wall.pointB).sub(wall.pointA);
 
-    let wallNormal = wallVec.perp().normalize();
-    if (relativeVelocity.dot(wallNormal) > 0) {
-        wallNormal = wallNormal.mul(-1);   
+    // 2. Calculate Vector from A to Ball Center
+    scratchAP.copy(ball.center).sub(wall.pointA);
+
+    // 3. Project AP onto AB to find position 't' on the segment
+    const lenSq = scratchAB.lenSq();
+    const dot = scratchAP.dot(scratchAB);
+
+    // Clamp t to the segment (0 to 1)
+    // If lenSq is 0 (zero length wall), default to 0
+    const t = lenSq > EPS ? Math.max(0, Math.min(1, dot / lenSq)) : 0;
+
+    // 4. Find the closest point on the line segment
+    scratchClosestPoint.copy(wall.pointA).addScaled(scratchAB, t);
+
+    // 5. Calculate the TRUE Normal (From Wall -> Ball)
+    scratchNormal.copy(ball.center).sub(scratchClosestPoint);
+
+    const distSq = scratchNormal.lenSq();
+    const dist = Math.sqrt(distSq);
+
+    // If dist is 0 (ball center exactly on line), pick arbitrary normal
+    if (dist < EPS) {
+        scratchNormal.copy(scratchAB).perp().normalize();
+    } else {
+        // Normalize the existing distance vector
+        scratchNormal.div(dist);
     }
 
-    const velocityAlongNormal = relativeVelocity.dot(wallNormal);
-    const j = -(1 + Math.min(ball.restitution, wall.restitution)) * velocityAlongNormal / (ball.inverseMass + wall.inverseMass);
+    // --- BUG FIX 1: GEOMETRIC NORMAL ---
+    // We now have a normal that explicitly points OUT of the wall.
+    // We do NOT flip it based on velocity.
 
-    const impulse = wallNormal.mul(j);
-    ball.velocity = ball.velocity.add(impulse.mul(ball.inverseMass));
-    wall.velocity = wall.velocity.sub(impulse.mul(wall.inverseMass));
+    // 6. Check if separating (Ball is already moving away?)
+    scratchRelativeVelocity.copy(ball.velocity).sub(wall.velocity);
+    const velocityAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
+
+    // If moving away, do not resolve velocity
+    if (velocityAlongNormal > 0) {
+        // ... But DO resolve position if we are deep inside (optional, but prevents leaking)
+        return;
+    }
+
+    // --- BUG FIX 2: POSITIONAL CORRECTION (Anti-Leak) ---
+    // If the ball has sunk into the wall, push it out immediately.
+    const overlap = ball.radius - dist;
+    if (overlap > 0) {
+        // Push ball out by overlap amount
+        ball.center.addScaled(scratchNormal, overlap);
+    }
+
+    // 7. Apply Impulse (Bounce)
+    const restitution = Math.min(ball.restitution, wall.restitution);
+    const inverseMassSum = ball.inverseMass + wall.inverseMass;
+
+    if (inverseMassSum === 0) return;
+
+    const j = -(1 + restitution) * velocityAlongNormal / inverseMassSum;
+
+    ball.velocity.addScaled(scratchNormal, j * ball.inverseMass);
+    wall.velocity.addScaled(scratchNormal, -j * wall.inverseMass);
 }

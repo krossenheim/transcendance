@@ -7,7 +7,6 @@ import { useLanguage } from "../../i18n/LanguageContext"
 import { useProfileModalStore } from "../../stores/uiStore"
 import { useGlobalStore } from "../../features/global/store/globalStore"
 import { getUserColorCSS } from "../../userColorUtils"
-import { apiCall } from "@utils/useAPI"
 import { UserAccountType } from "@app/shared/api/service/db/user";
 
 export default function ProfileComponent() {
@@ -33,29 +32,26 @@ export default function ProfileComponent() {
 
   useEffect(() => {
     let active = true;
-
-    async function fetchSecureAvatar() {
-      const result = await apiCall(user_url.http.users.fetchUserAvatar, { params: { file: profile?.avatarUrl } })
-
-      if (result.isErr()) {
-        console.error("Failed to fetch avatar image securely.");
-        return;
+    const fetchSecureAvatar = async () => {
+      if (!profile?.avatarUrl) {
+        setAvatarBlobUrl(null)
+        return
       }
 
-      const payload = result.unwrap();
+      try {
+        const token = localStorage.getItem("jwt")
+        const response = await fetch(user_url.http.users.fetchUserAvatar.endpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ file: profile.avatarUrl }),
+        })
 
-      switch (payload.code) {
-        case 200:
-          if (!active) return;
-          processAvatarData(payload);
-          break;
-        default:
-          console.error("Unexpected response code when fetching avatar:", payload.code);
-      }
+        if (!response.ok || !active) return
 
-
-
-        const raw = await result.unwrap().payload.
+        const raw = await response.text()
         const base64 = raw.startsWith("data:") ? raw.split(",")[1]! : raw
         const binary = atob(base64)
         const len = binary.length
@@ -64,6 +60,10 @@ export default function ProfileComponent() {
         const blob = new Blob([bytes], { type: "image/png" })
         const objectUrl = URL.createObjectURL(blob)
         setAvatarBlobUrl(objectUrl)
+      } catch (err) {
+        console.error("Error loading avatar:", err)
+      }
+    }
 
     fetchSecureAvatar()
 

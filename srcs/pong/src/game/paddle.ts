@@ -3,10 +3,24 @@ import { getWallCollisionTime } from "../engine/collision.js";
 import { Vec2 } from "../engine/math.js";
 
 type PongPaddleKeyData = {
-    key: string;
-    isPressed: boolean;
-    isClockwise: boolean;
+	key: string;
+	isPressed: boolean;
+	isClockwise: boolean;
 }
+
+type PongPaddleJSON = [
+	number, // center.x
+	number, // center.y
+	number, // paddleAngle
+	number, // paddleWidth
+	number, // paddleHeight
+	number, // velocity.x
+	number, // velocity.y
+	number, // playerId
+	number, // boardPaddleSpeed
+];
+
+const scaledDesiredVelocity = new Vec2(0, 0);
 
 export class PongPaddle extends MultiObject {
 	public keyData: PongPaddleKeyData[];
@@ -25,40 +39,46 @@ export class PongPaddle extends MultiObject {
 		const halfWidth = width / 2;
 		const halfHeight = height / 2;
 
+		const paddelPerpPositive = paddleDirection.clone().normalize().perp().mul(halfWidth);
+		const paddelPerpNegative = paddleDirection.clone().normalize().perp().mul(-halfWidth);
+		const paddelNormalized = paddleDirection.clone().normalize().mul(halfHeight);
+		const paddelNegNormalized = paddleDirection.clone().normalize().mul(-halfHeight);
+		const copyCenter = new Vec2(center.x, center.y);
+
 		const topLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const bottomLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const leftLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const rightLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const topLeftCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
 			0,
 			new Vec2(0, 0),
 			0,
@@ -66,7 +86,7 @@ export class PongPaddle extends MultiObject {
 		);
 
 		const topRightCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
 			0,
 			new Vec2(0, 0),
 			0,
@@ -74,7 +94,7 @@ export class PongPaddle extends MultiObject {
 		);
 
 		const bottomLeftCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
 			0,
 			new Vec2(0, 0),
 			0,
@@ -82,7 +102,7 @@ export class PongPaddle extends MultiObject {
 		);
 
 		const bottomRightCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
 			0,
 			new Vec2(0, 0),
 			0,
@@ -94,17 +114,18 @@ export class PongPaddle extends MultiObject {
 		this.keyData = [];
 		this.playerId = -1;
 
+		const paddleDirectionCopy = paddleDirection.clone();
 		const maxTravelDistance = Math.min(
-			getWallCollisionTime(new CircleObject(center.sub(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(center.sub(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(1)), walls[1]!) || Infinity,
-			getWallCollisionTime(new CircleObject(center.add(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(center.add(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
 			protectedWallWidth / 2,
 		) - halfWidth - 1;
 
 		this.bounds = {
-			min: center.sub(paddleDirection.normalize().perp().mul(maxTravelDistance)),
-			max: center.add(paddleDirection.normalize().perp().mul(maxTravelDistance)),
+			min: copyCenter.set(center.x, center.y).sub(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
+			max: copyCenter.set(center.x, center.y).add(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
 		};
 
 		const isTopHalf = (new Vec2(0, -1).dot(paddleDirection) > 0);
@@ -149,20 +170,20 @@ export class PongPaddle extends MultiObject {
 		}
 
 		if (moveDirection === 0) {
-			this.velocity = new Vec2(0, 0);
+			this.velocity.set(0, 0);
 			return Infinity;
 		}
 
-		const desiredVelocity = this.clockwiseBaseVelocity.normalize().mul(moveDirection * this.boardPaddleSpeed);
+		scaledDesiredVelocity.copy(this.clockwiseBaseVelocity).normalize().mul(moveDirection * this.boardPaddleSpeed);
 		const maxTravelDistance = moveDirection > 0 ? this.bounds.max.sub(this.getCenter()).len() : this.getCenter().sub(this.bounds.min).len();
 
 		if (maxTravelDistance < 1) {
-			this.velocity = new Vec2(0, 0);
+			this.velocity.set(0, 0);
 			return Infinity;
 		}
 
-		const maxTravelTime = maxTravelDistance / desiredVelocity.len();
-		this.velocity = desiredVelocity;
+		const maxTravelTime = maxTravelDistance / scaledDesiredVelocity.len();
+		this.velocity.set(scaledDesiredVelocity.x, scaledDesiredVelocity.y);
 		return maxTravelTime;
 	}
 
@@ -178,7 +199,7 @@ export class PongPaddle extends MultiObject {
 		this.boardPaddleSpeed = newSpeed;
 	}
 
-	public toJSON(): any {
+	public toJSON(): PongPaddleJSON {
 		const center = this.getCenter();
 		const velocity = this.velocity;
 		return [

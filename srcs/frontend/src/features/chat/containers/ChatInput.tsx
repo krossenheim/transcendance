@@ -1,33 +1,34 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo, act } from "react"
 import { useLanguage } from "../../../i18n/LanguageContext"
 import { useWebSocket } from "../../../socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
-import { RoomData } from "@app/shared/api/service/chat/chat_interfaces"
+import type { TypeRoomSchema } from '@app/shared/api/service/chat/db_models';
+import { Result } from "@app/shared/api/service/common/result"
 import { 
   getPossibleSlashCommands, 
   SlashCommand, 
 } from "../../../utils/slashCommands"
-import type { ChatRoomType } from "@app/shared/api/service/chat/chat_interfaces"
 
 type ExtendedArgDef = {
   description: string;
   type: 'text' | 'number';
-  validator?: (input: any) => any;
+  validator: (input: string) => Result<any, string>;
   autocomplete?: (input: string) => Promise<string[]> | string[];
 }
 
 interface ChatInputProps {
-  roomData?: RoomData;
+  roomData: TypeRoomSchema | undefined;
 }
+
+const COMMAND_PREFIX = "/";
 
 export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   const { t } = useLanguage()
   const { sendMessage } = useWebSocket()
   
-  // --- State ---
   const [input, setInput] = useState("")
   const [activeCommand, setActiveCommand] = useState<SlashCommand<any> | null>(null)
   const [commandArgValues, setCommandArgValues] = useState<string[]>([])
@@ -35,32 +36,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   const [argError, setArgError] = useState<string | null>(null)
   const randomId = useMemo(() => Math.random().toString(36).substring(7), []);
 
-  // Autocomplete State
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
   const [argSuggestions, setArgSuggestions] = useState<string[]>([])
   const [showArgSuggestions, setShowArgSuggestions] = useState(false)
 
-  // History
-  const [commandHistory, setCommandHistory] = useState<string[]>([])
-  const [historyIndex, setHistoryIndex] = useState<number>(-1)
-
-  // Refs
   const argInputRefs = useRef<(HTMLInputElement | null)[]>([])
   const mainInputRef = useRef<HTMLInputElement>(null)
+  const sendButtonRef = useRef<HTMLButtonElement>(null)
   const suggestionsListRef = useRef<HTMLDivElement>(null)
 
   // --- Derived State ---
-  const isCommand = input.startsWith("/")
-  const commandPart = isCommand ? input.substring(1).toLowerCase() : ""
+  const isCommand = input.startsWith(COMMAND_PREFIX);
+  const commandPart = isCommand ? input.substring(COMMAND_PREFIX.length).toLowerCase() : ""
   
   const filteredCommands = isCommand && !activeCommand
     ? getPossibleSlashCommands(commandPart)
     : []
 
-  // --- Effects ---
-
-  // Scroll Active Suggestion
   useEffect(() => {
     if (showArgSuggestions || showCommandSuggestions) {
       const activeItem = document.getElementById(`suggestion-item-${selectedIndex}`);
@@ -73,8 +66,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   // Command Suggestions Toggle
   useEffect(() => {
     const shouldShow = isCommand && !activeCommand && filteredCommands.length > 0
-    setShowCommandSuggestions(shouldShow)
     if (!showCommandSuggestions && shouldShow) setSelectedIndex(0)
+    setShowCommandSuggestions(shouldShow)
   }, [isCommand, filteredCommands.length, activeCommand, showCommandSuggestions])
 
   // Argument Autocomplete
@@ -127,9 +120,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
     if (!activeCommand) return;
     setArgError(null);
     setShowArgSuggestions(false);
-    if (currentIndex < activeCommand.args.length - 1) {
+
+    if (currentIndex + 1 >= activeCommand.args.length) {
+      setActiveArgIndex(activeCommand.args.length);
+      sendButtonRef.current?.focus();
+    } else {
       setActiveArgIndex(currentIndex + 1);
-    } 
+    }
   }
 
   const selectArgSuggestion = (value: string) => {
@@ -160,33 +157,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
     const parsedArgs: any[] = []
     
     for (let i = 0; i < activeCommand.args.length; i++) {
-      const def = activeCommand.args[i] as ExtendedArgDef
-      const rawVal = commandArgValues[i]
-      let val: string | number = rawVal
-      if (def.type === 'number') {
-        val = Number(rawVal)
-        if (isNaN(val)) {
-          triggerError(i, `Arg ${i+1}: Invalid number`)
-          return
-        }
+      const argumentValue = commandArgValues[i] || '';
+      const validationResult = (activeCommand.args[i] as ExtendedArgDef).validator(argumentValue);
+      if (validationResult.isErr()) {
+        console.log("Validation error:", validationResult.unwrapErr());
+        return;
       }
-      if (def.validator) {
-        const result = def.validator(val as never)
-        if (result.isErr()) {
-          triggerError(i, result.unwrapErr())
-          return
-        }
-      }
-      parsedArgs.push(val)
+      parsedArgs.push(validationResult.unwrap());
     }
 
     try {
       await activeCommand.execute(parsedArgs as any)
-      const reconstruct = `/${activeCommand.name} ${commandArgValues.join(' ')}`
-      setCommandHistory(prev => [reconstruct, ...prev.slice(0, 49)])
       exitCommandMode()
     } catch (e) {
-      setArgError("Execution failed")
+      console.error("Error executing command:", e)
     }
   }
 
@@ -206,86 +190,92 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
     setShowCommandSuggestions(false)
   }
 
-  // --- Key Handlers ---
-
   const handleArgKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
     if (!activeCommand) return
     const argDef = activeCommand.args[index] as ExtendedArgDef
 
     if (showArgSuggestions && argSuggestions.length > 0) {
       if (e.key === "ArrowDown") {
-        e.preventDefault(); setSelectedIndex(prev => (prev + 1) % argSuggestions.length); return
+        e.preventDefault();
+        setSelectedIndex(prev => (prev + 1) % argSuggestions.length);
+        return;
       } else if (e.key === "ArrowUp") {
-        e.preventDefault(); setSelectedIndex(prev => (prev - 1 + argSuggestions.length) % argSuggestions.length); return
+        e.preventDefault();
+        setSelectedIndex(prev => (prev - 1 + argSuggestions.length) % argSuggestions.length);
+        return;
       } else if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault(); selectArgSuggestion(argSuggestions[selectedIndex]); return
+        e.preventDefault();
+        selectArgSuggestion(argSuggestions[selectedIndex % argSuggestions.length]!);
+        return;
       } else if (e.key === "Escape") {
-        setShowArgSuggestions(false); return
+        setShowArgSuggestions(false);
+        return;
       }
     }
 
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault()
-      const currentVal = commandArgValues[index]
-      let valToCheck: string | number = currentVal
-      if (argDef.type === 'number') valToCheck = Number(currentVal)
+      const validationResult = argDef.validator(commandArgValues[index]!);
+      if (validationResult.isErr()) {
+        triggerError(index, validationResult.unwrapErr());
+        return;
+      }
 
-      if (argDef.type === 'number' && isNaN(valToCheck as number)) {
-         triggerError(index, "Invalid number"); return;
-      }
-      if (argDef.validator) {
-        const res = argDef.validator(valToCheck as never)
-        if (res.isErr()) { triggerError(index, res.unwrapErr()); return; }
-      }
-      setArgError(null)
-      if (index < activeCommand.args.length - 1) {
+      setArgError(null);
+      if (e.key === "Tab") {
+        e.preventDefault();
         advanceToNextArg(index);
+        return;
       } else {
-        handleExecuteCommand()
+        e.preventDefault()
+        handleExecuteCommand();
+        return;
       }
     } 
     else if (e.key === "Backspace" && commandArgValues[index] === "") {
         e.preventDefault()
         setArgError(null)
         if (index > 0) { setActiveArgIndex(index - 1) } 
-        else { exitCommandMode(); setInput(`/${activeCommand.name}`) }
+        else { exitCommandMode(); setInput(`${COMMAND_PREFIX}${activeCommand.name}`) }
     }
   }
 
   const handleRawKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (showCommandSuggestions && filteredCommands.length > 0) {
       if (e.key === "ArrowDown") {
-        e.preventDefault(); setSelectedIndex((prev) => (prev + 1) % filteredCommands.length); return
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % filteredCommands.length);
+        return;
       } else if (e.key === "ArrowUp") {
-        e.preventDefault(); setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length); return
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+        return;
       } else if (e.key === "Tab" || e.key === "Enter") {
-        e.preventDefault(); enterCommandMode(filteredCommands[selectedIndex]); return
+        e.preventDefault();
+        enterCommandMode(filteredCommands[selectedIndex % filteredCommands.length]!);
+        return;
       }
     }
 
     if (e.key === "Enter") {
       e.preventDefault()
-      if (isCommand && filteredCommands.length > 0 && filteredCommands[0].name === commandPart) {
-         enterCommandMode(filteredCommands[0])
-      } else {
-         handleStandardSend()
+      handleStandardSend()
+    }
+  }
+
+  if (isCommand) {
+    for (const command of filteredCommands) {
+      if (input.startsWith(`${COMMAND_PREFIX}${command.name} `)) {
+        enterCommandMode(command)
       }
-    } else if (e.key === "ArrowUp" && commandHistory.length > 0) {
-        e.preventDefault()
-        const newIndex = Math.min(historyIndex + 1, commandHistory.length - 1)
-        setHistoryIndex(newIndex)
-        setInput(commandHistory[newIndex])
-    } else if (e.key === "ArrowDown") {
-      if (historyIndex > 0) {
-        e.preventDefault()
-        const newIndex = historyIndex - 1
-        setHistoryIndex(newIndex)
-        setInput(commandHistory[newIndex])
-      } else if (historyIndex === 0) {
-        e.preventDefault()
-        setHistoryIndex(-1)
-        setInput("")
-      }
+    }
+  }
+
+  const handleSendButtonKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "Backspace" && activeCommand) {
+      e.preventDefault()
+      setActiveArgIndex(activeCommand.args.length - 1)
+      argInputRefs.current[activeCommand.args.length - 1]!.focus()
     }
   }
 
@@ -299,10 +289,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
           {activeCommand ? (
             <>
               <div className="flex-shrink-0 flex items-center bg-transparent text-purple-700 dark:text-purple-300 pl-3 pr-2 select-none border-r border-gray-300 dark:border-gray-600 h-6">
-                <span className="font-bold text-sm">/{activeCommand.name}</span>
+                <span className="font-bold text-sm">{COMMAND_PREFIX}{activeCommand.name}</span>
               </div>
               <div className="flex-1 flex flex-nowrap overflow-visible items-center relative pl-2">
-                {activeCommand.args.map((argDef, idx) => (
+                {activeCommand.args.map((argDef: any, idx: number) => (
                   <div key={idx} className="relative min-w-[100px] flex-shrink-0 mr-2 group">
                     <input
                       ref={(el) => { argInputRefs.current[idx] = el }}
@@ -326,7 +316,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                           ? (argError ? "border-red-400 bg-red-50 dark:bg-red-900/10" : "border-blue-400 bg-blue-50/30 dark:bg-blue-900/10") 
                           : "border-transparent hover:border-gray-200 dark:hover:border-gray-700 text-gray-500 dark:text-gray-400"
                       }`}
-                      placeholder={argDef.type === 'number' ? '#' : argDef.description.split(' ')[0]}
+                      placeholder={argDef.description}
                     />
                     {activeArgIndex === idx && (
                       <div className="absolute left-0 bottom-full w-full min-w-[200px] flex flex-col-reverse gap-2 z-[100] px-1 pointer-events-none mb-3">
@@ -388,7 +378,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
           )}
 
           <button
+            ref={sendButtonRef}
             onClick={activeCommand ? handleExecuteCommand : handleStandardSend}
+            onKeyDown={handleSendButtonKeyDown}
             disabled={!roomData}
             className={`px-5 py-2 mr-1 rounded-full text-sm font-semibold transition-all ${
                roomData 
@@ -416,7 +408,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                         : "hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent text-gray-700 dark:text-gray-300"
                     }`}
                   >
-                    <span className="font-bold mr-2">/{cmd.name}</span>
+                    <span className="font-bold mr-2">{COMMAND_PREFIX}{cmd.name}</span>
                     <span className="text-gray-500 dark:text-gray-400 text-xs truncate">{cmd.description}</span>
                   </button>
                 ))}

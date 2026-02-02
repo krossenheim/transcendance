@@ -1,4 +1,4 @@
-import type { TypeRoomSchema, TypeFullRoomInfoSchema, TypeRoomUserConnectionSchema } from '@app/shared/api/service/chat/db_models';
+import type { TypeRoomSchema, TypeRoomUserConnectionSchema } from '@app/shared/api/service/chat/db_models';
 import { TypeUserIdentifier } from '@app/shared/api/service/common/zodRules';
 
 export interface RoomUIData {

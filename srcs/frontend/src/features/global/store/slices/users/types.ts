@@ -12,6 +12,9 @@ export interface GlobalUserData {
 export interface GlobalUserActions {
     fetchPublicUserData: (userId: number) => void;
     blockUser: (userId: number) => void;
+    sendFriendRequest: (userId: number) => void;
+    acceptFriendRequest: (userId: number) => void;
+    denyFriendRequest: (userId: number) => void;
 }
 
 export interface GlobalUserStates {
