@@ -138,7 +138,8 @@ export class ClientPongSimulation {
         this.paddles = (serverState.paddles || []).map((p: any, idx: number) => {
             if (Array.isArray(p)) {
                 const parsedSpeed = p[8] ?? 150;
-                console.log(`[ClientSim] Paddle ${idx} speed from server: ${parsedSpeed} (raw p[8]: ${p[8]})`);
+                // Debug logging disabled for performance
+                // console.log(`[ClientSim] Paddle ${idx} speed from server: ${parsedSpeed} (raw p[8]: ${p[8]})`);
                 return {
                     paddle_id: p[7] ?? idx,
                     owner_id: p[7] ?? idx,
@@ -247,13 +248,14 @@ export class ClientPongSimulation {
         if (timeRemaining <= 0) return;
         
         // Debug: log actual speed being simulated (every 60 frames = ~1 second)
+        // Disabled for performance - data still available on window.PREDICTION_SPEED
         ClientPongSimulation.debugFrameCount++;
         if (this.balls.length > 0 && ClientPongSimulation.debugFrameCount % 60 === 0) {
             const ball = this.balls[0]!;
             const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-            // Store on window for easy inspection
+            // Store on window for easy inspection (no console log)
             (window as any).PREDICTION_SPEED = { speed: speed.toFixed(1), dx: ball.dx.toFixed(1), dy: ball.dy.toFixed(1), timeScale: this.timeScale, frame: ClientPongSimulation.debugFrameCount };
-            console.error(`🔵 PREDICTION | Speed: ${speed.toFixed(1)} | dx: ${ball.dx.toFixed(1)} | dy: ${ball.dy.toFixed(1)} | timeScale: ${this.timeScale}`);
+            // console.error(`🔵 PREDICTION | Speed: ${speed.toFixed(1)} | dx: ${ball.dx.toFixed(1)} | dy: ${ball.dy.toFixed(1)} | timeScale: ${this.timeScale}`);
         }
         
         // Match server's max iterations (1000)
@@ -634,9 +636,10 @@ export class ClientPongSimulation {
             );
             
             // Debug: log position error occasionally
+            // Disabled for performance - data still available on window.PREDICTION_ERROR
             if (ClientPongSimulation.debugFrameCount % 60 === 0 && i === 0) {
                 (window as any).PREDICTION_ERROR = { posError: posError.toFixed(1), localX: local.x.toFixed(1), serverX: server.x.toFixed(1) };
-                console.error(`🟡 SYNC ERROR | posErr: ${posError.toFixed(1)}px | local: (${local.x.toFixed(0)},${local.y.toFixed(0)}) | server: (${server.x.toFixed(0)},${server.y.toFixed(0)})`);
+                // console.error(`🟡 SYNC ERROR | posErr: ${posError.toFixed(1)}px | local: (${local.x.toFixed(0)},${local.y.toFixed(0)}) | server: (${server.x.toFixed(0)},${server.y.toFixed(0)})`);
             }
             
             // Dynamic interpolation: blend faster when error is large

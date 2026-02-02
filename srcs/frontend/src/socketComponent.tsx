@@ -97,7 +97,8 @@ export default function SocketComponent({
   // Handle incoming messages
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
-      console.log('[Socket] Message received:', event.data, typeof event.data);
+      // Debug logging disabled for performance
+      // console.log('[Socket] Message received:', event.data, typeof event.data);
       const messageParseResult = HubToClientMessage.fromRawString(event.data);
 
       if (messageParseResult.isErr()) {

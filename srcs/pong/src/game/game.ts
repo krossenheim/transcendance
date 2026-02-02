@@ -218,24 +218,22 @@ export class PongGame {
         const halfAngleStep = Math.PI / wallSegments.length;
         const angleStep = (2 * Math.PI) / wallSegments.length;
 
-        try {
-            console.warn(`[PongGame] constructPlayingField: wallSegments.length=${wallSegments.length} angleStep=${angleStep} halfAngleStep=${halfAngleStep}`);
-        } catch (e) { }
+        if (ENABLE_GAME_LOGS) {
+            console.log(`[PongGame] constructPlayingField: wallSegments.length=${wallSegments.length} angleStep=${angleStep} halfAngleStep=${halfAngleStep}`);
+        }
 
         for (let i = 0; i < wallSegments.length; i++) {
             scaledAPos.copy(center).addScaled(new Vec2(0, -1).rotate(i * angleStep - halfAngleStep), halfSize);
             scaledBPos.copy(center).addScaled(new Vec2(0, -1).rotate(i * angleStep + halfAngleStep), halfSize);
-            try {
+            if (ENABLE_GAME_LOGS) {
                 const segLen = scaledSegLen.copy(scaledBPos).sub(scaledAPos).len();
-                console.warn(`[PongGame] wall#${i} start=(${scaledAPos.x.toFixed(2)},${scaledAPos.y.toFixed(2)}) end=(${scaledBPos.x.toFixed(2)},${scaledBPos.y.toFixed(2)}) segLen=${segLen.toFixed(2)}`);
-            } catch (e) { }
+                console.log(`[PongGame] wall#${i} start=(${scaledAPos.x.toFixed(2)},${scaledAPos.y.toFixed(2)}) end=(${scaledBPos.x.toFixed(2)},${scaledBPos.y.toFixed(2)}) segLen=${segLen.toFixed(2)}`);
+            }
             const wall = this.createWallSegment(scaledAPos, scaledBPos, wallSegments[i]!);
             this.walls.push(wall);
             this.scene.addObject(wall);
-            try {
+            if (ENABLE_GAME_LOGS) {
                 console.log(`[PongGame] Created wall #${i} player=${wallSegments[i]} start=(${scaledAPos.x.toFixed(2)},${scaledAPos.y.toFixed(2)}) end=(${scaledBPos.x.toFixed(2)},${scaledBPos.y.toFixed(2)})`);
-            } catch (e) {
-                // Swallow logging errors to avoid disrupting game startup
             }
         }
 
@@ -260,10 +258,8 @@ export class PongGame {
             const paddle = new PongPaddle(scaledPaddleCenter, playerPaddleSize, this.gameOptions.paddleHeight, new Vec2(0, -1).rotate(i * angleStep).normalize(), wallLength, this.gameOptions.paddleSpeedFactor, [this.walls[(i - 1 + this.walls.length) % this.walls.length]!, this.walls[(i + 1) % this.walls.length]!], wallSegments[i]!);
             this.paddles.push(paddle);
             this.scene.addObject(paddle);
-            try {
+            if (ENABLE_GAME_LOGS) {
                 console.log(`[PongGame] Created paddle #${i} player=${wallSegments[i]} center=(${scaledPaddleCenter.x.toFixed(2)},${scaledPaddleCenter.y.toFixed(2)}) size=${playerPaddleSize.toFixed(2)} offset=${playerPaddleOffset}`);
-            } catch (e) {
-                // Ignore logging failures
             }
         }
 
@@ -285,10 +281,8 @@ export class PongGame {
         });
 
         ball.inverseMass = inverseMass;
-        try {
+        if (ENABLE_GAME_LOGS) {
             console.log(`[PongGame] Spawned ball id=${ball.id} pos=(${position.x.toFixed(2)},${position.y.toFixed(2)}) vel=(${velocity.x.toFixed(2)},${velocity.y.toFixed(2)}) radius=${radius}`);
-        } catch (e) {
-            // ignore
         }
         this.balls.push(ball);
         this.scene.addObject(ball);

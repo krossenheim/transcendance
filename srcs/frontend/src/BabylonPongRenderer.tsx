@@ -159,13 +159,19 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   }
   const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
-  const smoothedVelocitiesRef = useRef<Map<number, { vx: number; vz: number }>>(new Map())
+  const smoothedVelocitiesRef = useRef<Map<number, { vx: number; vz: number; lastServerTime: number }>>(new Map())
   const lastFrameDeltaRef = useRef<number>(16.667) // Default to 60fps
   const EXPECTED_FRAME_MS = 16.667 // 60fps target
+  
+  // Reusable temp objects to avoid GC pressure in render loop
+  const tempAxisRef = useRef(new Vector3(0, 0, 0))
+  const tempQuatRef = useRef(Quaternion.Identity())
+  const tempScaleRef = useRef(new Vector3(1, 1, 1))
 
   // Favicon animation during gameplay
   useEffect(() => {
-    console.log('[BabylonPongRenderer] Starting favicon animation');
+    // Debug logging disabled for performance
+    // console.log('[BabylonPongRenderer] Starting favicon animation');
     
     // Create favicon canvas
     if (!faviconCanvasRef.current) {
@@ -352,14 +358,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     };
     
     faviconAnimationRef.current = requestAnimationFrame(animate);
-    console.log('[BabylonPongRenderer] Favicon animation started');
+    // Debug logging disabled for performance
+    // console.log('[BabylonPongRenderer] Favicon animation started');
     
     return () => {
       if (faviconAnimationRef.current) {
         cancelAnimationFrame(faviconAnimationRef.current);
       }
       // Restore static favicon
-      console.log('[BabylonPongRenderer] Favicon animation stopped');
+      // console.log('[BabylonPongRenderer] Favicon animation stopped');
     };
   }, [gameState]);
 
@@ -452,7 +459,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               audioContext.close()
             }
 
-            console.log(`[Pong Sound] ${name} played with Web Audio API`)
+            // Debug logging disabled for performance
+            // console.log(`[Pong Sound] ${name} played with Web Audio API`)
           } catch (error) {
             console.warn(`[Pong Sound] Failed to play ${name}:`, error)
           }
@@ -470,7 +478,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       paddleSoundsRef.current.set(i, createBounceSound(frequencies[i]!, 0.08, `paddle${i}`))
     }
 
-    console.log("[Pong Sound] 8 paddle sounds initialized (Web Audio API)")
+    // Debug logging disabled for performance
+    // console.log("[Pong Sound] 8 paddle sounds initialized (Web Audio API)")
 
     // Camera
     const camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 25, Vector3.Zero(), scene)
@@ -491,117 +500,112 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Register ball and paddle movement using onBeforeRenderObservable (like powerups)
-    // This is more integrated with Babylon's render pipeline for smoother results
+    // Register ball and paddle movement using onBeforeRenderObservable
+    // Strategy: Pure dead-reckoning - move ball at server velocity, snap to server position on updates
     scene.onBeforeRenderObservable.add(() => {
       const dt = engine.getDeltaTime()
       lastFrameDeltaRef.current = dt
       const dtSeconds = dt / 1000
       
-      // Lerp alpha for smooth transitions (frame-rate independent)
-      const lerpAlpha = Math.min(dt / EXPECTED_FRAME_MS, 1)
-      
-      // Frame-rate independent blend factors
-      // These use exponential decay: blend = 1 - (1 - baseBlend)^(dt/targetDt)
-      const velocityBlendBase = 0.2  // How quickly to adopt new velocity (per 16.67ms)
-      const velocityBlendFactor = 1 - Math.pow(1 - velocityBlendBase, dt / EXPECTED_FRAME_MS)
-      
-      // Position correction settings
-      const CORRECTION_START_DIST = 0.05  // Start correcting at this distance
-      const CORRECTION_SNAP_DIST = 1.5    // Teleport if beyond this distance
-      const CORRECTION_STRENGTH = 3.0     // How aggressively to correct (units per second per unit of error)
-      
-      // Update ball positions using PURE velocity-based movement with gentle position correction
+      // Update ball positions using DEAD RECKONING
+      // The ball moves at constant velocity, and we correct when server updates arrive
       ballsRef.current.forEach((mesh, ballId) => {
         const target = ballTargetsRef.current.get(ballId)
-        if (target) {
-          // Get or initialize smoothed velocity
-          let smoothed = smoothedVelocitiesRef.current.get(ballId)
-          if (!smoothed) {
-            smoothed = { vx: target.velocityX, vz: target.velocityZ }
-            smoothedVelocitiesRef.current.set(ballId, smoothed)
+        if (!target) return
+        
+        // Get stored state for this ball
+        let state = smoothedVelocitiesRef.current.get(ballId)
+        if (!state) {
+          const newState = { 
+            vx: target.velocityX, 
+            vz: target.velocityZ,
+            lastServerTime: target.lastUpdateTime
           }
-          
-          // Check for major direction change (bounce) - if so, snap velocity immediately
-          const smoothedSpeed = Math.sqrt(smoothed.vx * smoothed.vx + smoothed.vz * smoothed.vz)
-          const targetSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
+          smoothedVelocitiesRef.current.set(ballId, newState)
+          // First frame: snap to position
+          mesh.position.x = target.targetPos.x
+          mesh.position.z = target.targetPos.z
+          mesh.position.y = target.targetPos.y
+          return
+        }
+        
+        // Check if we got a new server update
+        const gotNewUpdate = target.lastUpdateTime > state.lastServerTime
+        
+        if (gotNewUpdate) {
+          // Detect bounce: velocity direction changed significantly
+          const oldSpeed = Math.sqrt(state.vx * state.vx + state.vz * state.vz)
+          const newSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
           
           let isBounce = false
-          if (smoothedSpeed > 0.001 && targetSpeed > 0.001) {
-            const dotProduct = (smoothed.vx * target.velocityX + smoothed.vz * target.velocityZ) / (smoothedSpeed * targetSpeed)
-            isBounce = dotProduct < 0.3 // More generous bounce detection
+          if (oldSpeed > 0.01 && newSpeed > 0.01) {
+            const dot = (state.vx * target.velocityX + state.vz * target.velocityZ) / (oldSpeed * newSpeed)
+            isBounce = dot < 0.7  // Direction changed by more than ~45 degrees
           }
           
-          if (isBounce) {
-            // Bounce detected: snap velocity and position immediately
-            smoothed.vx = target.velocityX
-            smoothed.vz = target.velocityZ
+          // Calculate distance from where we are to where server says we should be
+          const errorX = target.targetPos.x - mesh.position.x
+          const errorZ = target.targetPos.z - mesh.position.z
+          const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
+          
+          if (isBounce || errorDist > 0.5) {
+            // BOUNCE or large error: Snap immediately
             mesh.position.x = target.targetPos.x
             mesh.position.z = target.targetPos.z
           } else {
-            // Smoothly blend velocity using frame-rate independent factor
-            smoothed.vx += (target.velocityX - smoothed.vx) * velocityBlendFactor
-            smoothed.vz += (target.velocityZ - smoothed.vz) * velocityBlendFactor
+            // Small error: blend position slightly toward server (soft correction)
+            mesh.position.x += errorX * 0.3
+            mesh.position.z += errorZ * 0.3
           }
           
-          // Pure velocity-based movement
-          const frameMovementX = smoothed.vx * dtSeconds
-          const frameMovementZ = smoothed.vz * dtSeconds
-          
-          mesh.position.x += frameMovementX
-          mesh.position.z += frameMovementZ
-          
-          // Calculate position error from server
-          const dx = target.targetPos.x - mesh.position.x
-          const dz = target.targetPos.z - mesh.position.z
-          const distanceToServer = Math.sqrt(dx * dx + dz * dz)
-          
-          if (distanceToServer >= CORRECTION_SNAP_DIST) {
-            // Major desync - snap immediately
-            mesh.position.x = target.targetPos.x
-            mesh.position.z = target.targetPos.z
-          } else if (distanceToServer > CORRECTION_START_DIST) {
-            // Gentle correction: add a small force toward server position
-            // This keeps balls from drifting too far while staying smooth
-            const correctionAmount = Math.min(distanceToServer * CORRECTION_STRENGTH * dtSeconds, distanceToServer * 0.5)
-            const correctionFactor = correctionAmount / distanceToServer
-            mesh.position.x += dx * correctionFactor
-            mesh.position.z += dz * correctionFactor
-          }
-          
-          // Keep Y position consistent
-          mesh.position.y = target.targetPos.y
-          
-          // Rolling rotation based on movement
-          const moveDist2D = Math.sqrt(frameMovementX * frameMovementX + frameMovementZ * frameMovementZ)
-          if (moveDist2D > 0.0001 && mesh.rotationQuaternion && target.visualRadius > 0) {
-            const rotationAmount = -moveDist2D / target.visualRadius
-            const currentRotation = ballRotationsRef.current.get(ballId) || Quaternion.Identity()
-            const dirX = frameMovementX / moveDist2D
-            const dirZ = frameMovementZ / moveDist2D
-            const axisX = -dirZ
-            const axisZ = dirX
-            const incrementalRotation = Quaternion.RotationAxis(new Vector3(axisX, 0, axisZ), rotationAmount)
-            const newRotation = incrementalRotation.multiply(currentRotation)
-            newRotation.normalize()
-            ballRotationsRef.current.set(ballId, newRotation)
-            mesh.rotationQuaternion = newRotation
-          }
-          
-          // Lerp scale (squash animation)
-          mesh.scaling = Vector3.Lerp(
-            mesh.scaling,
-            new Vector3(target.targetScaleX, target.targetScaleY, target.targetScaleZ),
-            lerpAlpha
-          )
+          // Update velocity and timestamp
+          state.vx = target.velocityX
+          state.vz = target.velocityZ
+          state.lastServerTime = target.lastUpdateTime
         }
+        
+        // DEAD RECKONING: Move ball at constant velocity
+        // This is the key to smooth motion - we trust the velocity
+        mesh.position.x += state.vx * dtSeconds
+        mesh.position.z += state.vz * dtSeconds
+        
+        // Keep Y position consistent
+        mesh.position.y = target.targetPos.y
+        
+        // Rolling rotation based on velocity
+        const speed = Math.sqrt(state.vx * state.vx + state.vz * state.vz)
+        const moveDist = speed * dtSeconds
+        if (moveDist > 0.0001 && mesh.rotationQuaternion && target.visualRadius > 0) {
+          const rotationAmount = -moveDist / target.visualRadius
+          let currentRotation = ballRotationsRef.current.get(ballId)
+          if (!currentRotation) {
+            currentRotation = Quaternion.Identity()
+            ballRotationsRef.current.set(ballId, currentRotation)
+          }
+          const dirX = state.vx / speed
+          const dirZ = state.vz / speed
+          // Reuse temp axis vector
+          tempAxisRef.current.set(-dirZ, 0, dirX)
+          // Compute incremental rotation into temp quaternion
+          Quaternion.RotationAxisToRef(tempAxisRef.current, rotationAmount, tempQuatRef.current)
+          // Multiply in place: currentRotation = tempQuat * currentRotation
+          tempQuatRef.current.multiplyToRef(currentRotation, currentRotation)
+          currentRotation.normalize()
+          mesh.rotationQuaternion.copyFrom(currentRotation)
+        }
+        
+        // Lerp scale (squash animation) - reuse temp vector
+        const scaleLerp = 1 - Math.pow(0.85, dt / EXPECTED_FRAME_MS)
+        tempScaleRef.current.set(target.targetScaleX, target.targetScaleY, target.targetScaleZ)
+        Vector3.LerpToRef(mesh.scaling, tempScaleRef.current, scaleLerp, mesh.scaling)
       })
       
-      // Update paddle positions using smooth lerp
+      // Update paddle positions using smooth lerp  
+      const paddleLerp = 1 - Math.pow(0.7, dt / EXPECTED_FRAME_MS)
       paddlesRef.current.forEach((mesh, paddleId) => {
         const targetPos = paddleTargetsRef.current.get(paddleId)
         if (targetPos) {
-          mesh.position = Vector3.Lerp(mesh.position, targetPos, lerpAlpha * 0.8)
+          Vector3.LerpToRef(mesh.position, targetPos, paddleLerp, mesh.position)
         }
       })
     })
@@ -714,7 +718,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
   // Update game state
   useEffect(() => {
-    console.log("[BabylonPongRenderer] Updating game state:", gameState)
+    // Debug logging disabled for performance
+    // console.log("[BabylonPongRenderer] Updating game state:", gameState)
     if (!gameState || !sceneRef.current) return
 
     const scene = sceneRef.current
@@ -921,7 +926,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ;(mesh as any).metadata = { baseDiameter: diameter }
         ballsRef.current.set(b.id, mesh)
 
-        console.log("[Pong Sound] New ball created:", b.id, "with direction:", b.dx, b.dy)
+        // Debug logging disabled for performance
+        // console.log("[Pong Sound] New ball created:", b.id, "with direction:", b.dx, b.dy)
       }
 
       // Calculate distance moved since last update for rotation
@@ -1014,21 +1020,35 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const worldVelocityZ = (b.dy || 0) * SCALE_FACTOR
         
         // Set target for lerp-based smoothing with velocity extrapolation
-        const targetPos = new Vector3(newPos.x, adjustedYPos, newPos.z)
-        ballTargetsRef.current.set(b.id, {
-          targetPos,
-          targetScaleX: scaleX,
-          targetScaleY: scaleY,
-          targetScaleZ: scaleZ,
-          velocityX: worldVelocityX,
-          velocityZ: worldVelocityZ,
-          lastUpdateTime: performance.now(),
-          visualRadius: actualVisualRadius
-        })
+        // Reuse existing target object to avoid GC pressure
+        let existingTarget = ballTargetsRef.current.get(b.id)
+        if (!existingTarget) {
+          existingTarget = {
+            targetPos: new Vector3(newPos.x, adjustedYPos, newPos.z),
+            targetScaleX: scaleX,
+            targetScaleY: scaleY,
+            targetScaleZ: scaleZ,
+            velocityX: worldVelocityX,
+            velocityZ: worldVelocityZ,
+            lastUpdateTime: performance.now(),
+            visualRadius: actualVisualRadius
+          }
+          ballTargetsRef.current.set(b.id, existingTarget)
+        } else {
+          // Update existing object in place
+          existingTarget.targetPos.set(newPos.x, adjustedYPos, newPos.z)
+          existingTarget.targetScaleX = scaleX
+          existingTarget.targetScaleY = scaleY
+          existingTarget.targetScaleZ = scaleZ
+          existingTarget.velocityX = worldVelocityX
+          existingTarget.velocityZ = worldVelocityZ
+          existingTarget.lastUpdateTime = performance.now()
+          existingTarget.visualRadius = actualVisualRadius
+        }
         
         // If ball is new, snap to position immediately
         if (isNewBall) {
-          mesh.position = targetPos
+          mesh.position.copyFrom(existingTarget.targetPos)
           mesh.scaling = new Vector3(scaleX, scaleY, scaleZ)
         }
       } catch (e) {
@@ -1102,7 +1122,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     // --- Powerups: create/update rotating shape meshes ---
     // gameState.powerups entries are arrays: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
     if (gameState.powerups && Array.isArray(gameState.powerups)) {
-      console.debug("[BabylonPongRenderer] Received powerups:", gameState.powerups)
+      // Debug logging disabled for performance
+      // console.debug("[BabylonPongRenderer] Received powerups:", gameState.powerups)
       const activePowerupKeys = new Set<string>()
       gameState.powerups.forEach((p: any, pidx: number) => {
         try {

@@ -159,10 +159,10 @@ export default function PongComponent({
   // Use client-side prediction for smooth rendering
   const predictedGameState = usePredictedGameState(gameState, myUserId, pressedKeys)
   
-  // Debug: Log all view changes
-  useEffect(() => {
-    console.log("[Pong] VIEW IS NOW:", currentView);
-  }, [currentView]);
+  // Debug: Log all view changes (disabled for performance)
+  // useEffect(() => {
+  //   console.log("[Pong] VIEW IS NOW:", currentView);
+  // }, [currentView]);
   
   // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
@@ -257,7 +257,8 @@ export default function PongComponent({
     
     // Subscribe to getGameState
     unsubscribers.push(subscribe(user_url.ws.pong.getGameState, (message, schema) => {
-      console.log("[Pong] Received getGameState:", message.code);
+      // Debug logging disabled for performance
+      // console.log("[Pong] Received getGameState:", message.code);
       
       if (message.code === schema.output.GameUpdate.code) {
         const normalized = normalizeGameState(message.payload);
@@ -762,7 +763,8 @@ export default function PongComponent({
   )
 
   // RENDER LOGIC
-  console.log("[Pong] RENDER called, currentView =", currentView);
+  // Debug logging disabled for performance
+  // console.log("[Pong] RENDER called, currentView =", currentView);
 
   const { t } = useLanguage();
 
