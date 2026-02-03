@@ -2,21 +2,18 @@ import { useState, useEffect, useRef } from "react";
 import ProfileComponent from "./profileComponent";
 import { getUserColorCSS } from "./userColorUtils";
 import { useLanguage } from "./i18n";
+import { useGlobalStore } from "./features/global/store/globalStore";
 
 interface UserMenuProps {
-  username: string;
-  userId: number;
-  avatarUrl?: string;
   onLogout: () => void;
-  isLoggingOut: boolean;
-  onFriendsClick?: () => void;
 }
 
-export default function UserMenu({ username, userId, avatarUrl, onLogout, isLoggingOut, onFriendsClick }: UserMenuProps) {
-  const { t, isRTL } = useLanguage();
+export default function UserMenu({ onLogout }: UserMenuProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { t, isRTL } = useLanguage();
+
   const userColor = getUserColorCSS(userId, true);
 
   // Close dropdown when clicking outside

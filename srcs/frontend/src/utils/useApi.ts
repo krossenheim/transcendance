@@ -1,39 +1,24 @@
 import { HTTPRouteDef } from "@app/shared/api/service/common/endpoints";
-import { user_url } from "@app/shared/api/service/common/endpoints";
 import { zodParse } from "@app/shared/api/service/common/zodUtils";
-import { Result } from "@app/shared/api/service/common/result";
 import z from "zod";
 
+export const ApiFailureCode: string = '-99';
 
-export type DefinedAPIResponse<T extends HTTPRouteDef> = {
+export type ApiFailure = {
+    code: typeof ApiFailureCode;
+    payload: {
+        code: number;
+        type: 'network' | 'validation' | 'undefined_status';
+        message: any;
+    }
+};
+
+export type DefinedAPIResponse<T extends HTTPRouteDef> = | {
     [StatusCode in keyof T['schema']['response']]: {
         code: StatusCode;
         payload: z.infer<T['schema']['response'][StatusCode]>;
-    }
-}[keyof T['schema']['response']];
-
-type ApiFailure = {
-    code: number;
-    type: 'network' | 'validation' | 'undefined_status';
-    error: unknown;
-};
-
-function returnSomething<T extends HTTPRouteDef>(route: T): DefinedAPIResponse<T> {
-    return {
-        code: 500,
-        payload: { message: "Internal Server Error" },
-    } as unknown as DefinedAPIResponse<T>;
-}
-
-const test = returnSomething(user_url.http.users.fetchUserAvatar);
-switch (test.code) {
-    case 200:
-        console.log(test.payload.avatarUrl);
-        break;
-    case 500:
-        console.log("Internal Server Error");
-        break;
-}
+    };
+}[keyof T['schema']['response']] | ApiFailure;
 
 export async function apiCall<T extends HTTPRouteDef>(
     route: T,
@@ -42,7 +27,7 @@ export async function apiCall<T extends HTTPRouteDef>(
         query?: T['schema']['query'] extends z.ZodType ? z.infer<T['schema']['query']> : any;
         params?: T['schema']['params'] extends z.ZodType ? z.infer<T['schema']['params']> : any;
     } = {}
-): Promise<Result<DefinedAPIResponse<T>, ApiFailure>> {
+): Promise<DefinedAPIResponse<T>> {
     const token = localStorage.getItem('jwt');
 
     let url = route.endpoint;
@@ -77,30 +62,39 @@ export async function apiCall<T extends HTTPRouteDef>(
             const validation = zodParse(schemaForStatus, data);
 
             if (validation.isOk()) {
-                return Result.Ok({
+                return {
                     code: response.status,
                     payload: validation.unwrap(),
-                } as any);
+                } as DefinedAPIResponse<T>;
             } else {
-                return Result.Err({
-                    code: response.status,
-                    type: 'validation',
-                    error: validation.unwrapErr(),
-                });
+                return {
+                    code: ApiFailureCode,
+                    payload: {
+                        code: response.status,
+                        type: 'validation',
+                        message: validation.unwrapErr(),
+                    },
+                };
             }
         }
 
-        return Result.Err({
-            code: response.status,
-            type: 'undefined_status',
-            error: data,
-        });
+        return {
+            code: ApiFailureCode,
+            payload: {
+                code: response.status,
+                type: 'undefined_status',
+                message: data,
+            },
+        };
 
     } catch (e) {
-        return Result.Err({
-            code: 0,
-            type: 'network',
-            error: e instanceof Error ? e.message : "Unknown Error",
-        });
+        return {
+            code: ApiFailureCode,
+            payload: {
+                code: -99,
+                type: 'network',
+                message: e instanceof Error ? e.message : "Unknown Error",
+            },
+        };
     }
 }
