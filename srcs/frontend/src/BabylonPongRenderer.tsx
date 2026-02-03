@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react"
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react"
 import {
   Engine,
   Scene,
@@ -26,7 +26,6 @@ import { getUserColorBabylon, getUserColorCSS } from "./userColorUtils"
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 const SCALE_FACTOR = 0.02 // Scale down the world
-const BALL_RADIUS = 0.2 // Half of diameter 0.4
 // Tunable offset for paddle rotation to match backend angle convention.
 // If paddles appear rotated by 90deg, change this to Math.PI/2 or 0 accordingly.
 const PADDLE_ROTATION_OFFSET = 0 // adjust to Math.PI/2 if needed
@@ -143,6 +142,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   // Store beach ball texture reference
   const beachBallTextureRef = useRef<DynamicTexture | null>(null)
 
+  // Store latest game state in a ref to bypass React for render loop reads
+  const gameStateRef = useRef<TypeGameStateSchema | null>(null)
+  gameStateRef.current = gameState // Always keep ref in sync
+
   // Lerp-based smoothing: store target positions and let Babylon's render loop interpolate
   // This decouples React state updates from rendering for smoother motion
   interface LerpTarget {
@@ -159,16 +162,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   }
   const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
-  const smoothedVelocitiesRef = useRef<Map<number, { vx: number; vz: number; lastServerTime: number }>>(new Map())
-  const lastFrameDeltaRef = useRef<number>(16.667) // Default to 60fps
-  const EXPECTED_FRAME_MS = 16.667 // 60fps target
-  
-  // Reusable temp objects to avoid GC pressure in render loop
-  const tempAxisRef = useRef(new Vector3(0, 0, 0))
-  const tempQuatRef = useRef(Quaternion.Identity())
-  const tempScaleRef = useRef(new Vector3(1, 1, 1))
+
+  // Compute a key that only changes when entity counts change (for slow path useEffect)
+  const entityKey = gameState 
+    ? `${gameState.balls.length}_${gameState.paddles.length}_${gameState.edges?.length ?? 0}_${gameState.powerups?.length ?? 0}`
+    : 'none'
 
   // Favicon animation during gameplay
+  // NOTE: This effect only runs once (empty deps), reads gameState from ref
   useEffect(() => {
     // Debug logging disabled for performance
     // console.log('[BabylonPongRenderer] Starting favicon animation');
@@ -194,9 +195,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
     
     let lastUpdate = 0;
-    const updateInterval = 50; // 20 FPS for favicon
+    const updateInterval = 100; // 10 FPS for favicon (reduced from 20)
     
     const drawFrame = () => {
+      const gs = gameStateRef.current; // Read from ref, not prop
       const w = 32, h = 32;
       
       // Helper to flip Y coordinate (game Y goes down, but we want up in favicon)
@@ -222,8 +224,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       
       // Draw all paddles from game state
       const fallbackPaddleColors = ['#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#60a5fa', '#c084fc'];
-      if (gameState?.paddles?.length) {
-        gameState.paddles.forEach((paddle, idx) => {
+      if (gs?.paddles?.length) {
+        gs.paddles.forEach((paddle, idx) => {
           if (!paddle) return;
           // Map paddle position to favicon coordinates (with Y flip)
           const px = (paddle.x / BACKEND_WIDTH) * w;
@@ -233,7 +235,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const clampedY = Math.max(4, Math.min(h - 4, py));
           // Use owner_id to get consistent color with the 3D game
           const ownerId = (paddle as any).owner_id ?? (paddle as any).ownerId ?? idx;
-          ctx.fillStyle = getUserColorCSS(ownerId, true) || fallbackPaddleColors[idx % fallbackPaddleColors.length];
+          ctx.fillStyle = getUserColorCSS(ownerId, true) ?? fallbackPaddleColors[idx % fallbackPaddleColors.length] ?? '#22d3ee';
           
           // Use canvas rotation to draw paddle at correct angle (negate rotation for flip)
           ctx.save();
@@ -253,7 +255,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       
       // Draw all balls from game state
       const ballColors = ['#fbbf24', '#f87171', '#4ade80', '#60a5fa', '#c084fc'];
-      const balls = gameState?.balls || [];
+      const balls = gs?.balls || [];
       if (balls.length > 0) {
         for (let idx = 0; idx < balls.length; idx++) {
           const ball = balls[idx];
@@ -269,7 +271,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const scaledRadius = Math.max(1.5, Math.min(5, (baseRadius / 10) * 2));
           
           // Draw ball with glow
-          const color = ballColors[idx % ballColors.length];
+          const color = ballColors[idx % ballColors.length] ?? '#fbbf24';
           ctx.shadowColor = color;
           ctx.shadowBlur = 3;
           ctx.fillStyle = color;
@@ -297,78 +299,26 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ctx.shadowBlur = 0;
       }
       
-      // Draw powerups as small diamonds - colors match Babylon renderer
-      // Type mapping from Babylon: 0=ADD_BALL(orange), 1=INC_PADDLE_SPEED(red), 2=DEC_PADDLE_SPEED(blue),
-      // 3=SUPER_SPEED(purple), 4=INC_BALL_SIZE(green), 5=DEC_BALL_SIZE(yellow), 6=REVERSE_CONTROLS(pink)
-      const powerupColors: { [key: number]: string } = {
-        0: '#e69919', // ADD_BALL -> orange
-        1: '#e63333', // INCREASE_PADDLE_SPEED -> red
-        2: '#3399e6', // DECREASE_PADDLE_SPEED -> blue
-        3: '#cc4de6', // SUPER_SPEED -> purple
-        4: '#33e64d', // INCREASE_BALL_SIZE -> green
-        5: '#e6e633', // DECREASE_BALL_SIZE -> yellow
-        6: '#e666b3', // REVERSE_CONTROLS -> pink
-      };
-      const powerups = gameState?.powerups || [];
-      if (powerups.length > 0) {
-        for (const powerup of powerups) {
-          if (!powerup) continue;
-          // Powerup array format: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
-          let px: number, py: number, ptype: number;
-          if (Array.isArray(powerup)) {
-            px = Number(powerup[0]) || 0;
-            py = Number(powerup[1]) || 0;
-            // Type is at index 6
-            ptype = Number(powerup[6]) ?? 0;
-          } else {
-            px = (powerup as any).x || 0;
-            py = (powerup as any).y || 0;
-            ptype = (powerup as any).type ?? 0;
-          }
-          
-          const ppx = (px / BACKEND_WIDTH) * w;
-          const ppy = flipY((py / BACKEND_HEIGHT) * h);
-          const clampedPx = Math.max(3, Math.min(w - 3, ppx));
-          const clampedPy = Math.max(3, Math.min(h - 3, ppy));
-          
-          ctx.fillStyle = powerupColors[ptype] || '#ffffff';
-          ctx.globalAlpha = 0.9;
-          // Draw as diamond
-          ctx.beginPath();
-          ctx.moveTo(clampedPx, clampedPy - 3);
-          ctx.lineTo(clampedPx + 3, clampedPy);
-          ctx.lineTo(clampedPx, clampedPy + 3);
-          ctx.lineTo(clampedPx - 3, clampedPy);
-          ctx.closePath();
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-      }
+      // Skip powerups for performance (they're small anyway)
     };
     
     const animate = (timestamp: number) => {
       if (timestamp - lastUpdate >= updateInterval) {
         drawFrame();
         link!.href = canvas.toDataURL('image/png');
-        
-        // Update title with scores
         lastUpdate = timestamp;
       }
       faviconAnimationRef.current = requestAnimationFrame(animate);
     };
     
     faviconAnimationRef.current = requestAnimationFrame(animate);
-    // Debug logging disabled for performance
-    // console.log('[BabylonPongRenderer] Favicon animation started');
     
     return () => {
       if (faviconAnimationRef.current) {
         cancelAnimationFrame(faviconAnimationRef.current);
       }
-      // Restore static favicon
-      // console.log('[BabylonPongRenderer] Favicon animation stopped');
     };
-  }, [gameState]);
+  }, []); // Empty deps - runs once, reads from gameStateRef
 
   // Initialize Babylon scene
   useEffect(() => {
@@ -500,117 +450,111 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Register ball and paddle movement using onBeforeRenderObservable
-    // Strategy: Pure dead-reckoning - move ball at server velocity, snap to server position on updates
+    // Ball/paddle movement - CONSTANT VELOCITY
+    // Never snap position (causes stutter), only update velocity on bounce
+    const rotAxis = new Vector3(0, 0, 0)
+    const rotQuat = Quaternion.Identity()
+    let lastTime = performance.now()
+    
+    // Store velocities and last known server velocity (to detect bounces)
+    const ballState = new Map<number, { vx: number; vz: number; lastServerVx: number; lastServerVz: number; initialized: boolean }>()
+    
     scene.onBeforeRenderObservable.add(() => {
-      const dt = engine.getDeltaTime()
-      lastFrameDeltaRef.current = dt
-      const dtSeconds = dt / 1000
+      const now = performance.now()
+      const dt = (now - lastTime) * 0.001 // seconds
+      lastTime = now
       
-      // Update ball positions using DEAD RECKONING
-      // The ball moves at constant velocity, and we correct when server updates arrive
-      ballsRef.current.forEach((mesh, ballId) => {
-        const target = ballTargetsRef.current.get(ballId)
-        if (!target) return
-        
-        // Get stored state for this ball
-        let state = smoothedVelocitiesRef.current.get(ballId)
-        if (!state) {
-          const newState = { 
-            vx: target.velocityX, 
-            vz: target.velocityZ,
-            lastServerTime: target.lastUpdateTime
-          }
-          smoothedVelocitiesRef.current.set(ballId, newState)
-          // First frame: snap to position
-          mesh.position.x = target.targetPos.x
-          mesh.position.z = target.targetPos.z
-          mesh.position.y = target.targetPos.y
-          return
-        }
-        
-        // Check if we got a new server update
-        const gotNewUpdate = target.lastUpdateTime > state.lastServerTime
-        
-        if (gotNewUpdate) {
-          // Detect bounce: velocity direction changed significantly
-          const oldSpeed = Math.sqrt(state.vx * state.vx + state.vz * state.vz)
-          const newSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
+      // Read server state
+      const gs = gameStateRef.current
+      if (gs) {
+        for (let i = 0; i < gs.balls.length; i++) {
+          const b = gs.balls[i]!
+          const mesh = ballsRef.current.get(b.id)
+          if (!mesh) continue
           
-          let isBounce = false
-          if (oldSpeed > 0.01 && newSpeed > 0.01) {
-            const dot = (state.vx * target.velocityX + state.vz * target.velocityZ) / (oldSpeed * newSpeed)
-            isBounce = dot < 0.7  // Direction changed by more than ~45 degrees
-          }
+          const serverVx = (b.dx || 0) * 0.02
+          const serverVz = (b.dy || 0) * 0.02
           
-          // Calculate distance from where we are to where server says we should be
-          const errorX = target.targetPos.x - mesh.position.x
-          const errorZ = target.targetPos.z - mesh.position.z
-          const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
-          
-          if (isBounce || errorDist > 0.5) {
-            // BOUNCE or large error: Snap immediately
-            mesh.position.x = target.targetPos.x
-            mesh.position.z = target.targetPos.z
+          let state = ballState.get(b.id)
+          if (!state) {
+            // First time seeing this ball - snap position and velocity
+            mesh.position.x = (b.x - 500) * 0.02
+            mesh.position.z = (b.y - 500) * 0.02
+            state = { vx: serverVx, vz: serverVz, lastServerVx: serverVx, lastServerVz: serverVz, initialized: true }
+            ballState.set(b.id, state)
           } else {
-            // Small error: blend position slightly toward server (soft correction)
-            mesh.position.x += errorX * 0.3
-            mesh.position.z += errorZ * 0.3
+            // Check if velocity direction changed (bounce happened)
+            const dotProduct = state.lastServerVx * serverVx + state.lastServerVz * serverVz
+            const velocityChanged = dotProduct < 0 || 
+              Math.abs(serverVx - state.lastServerVx) > 0.01 || 
+              Math.abs(serverVz - state.lastServerVz) > 0.01
+            
+            if (velocityChanged) {
+              // Bounce! Snap position and update velocity
+              mesh.position.x = (b.x - 500) * 0.02
+              mesh.position.z = (b.y - 500) * 0.02
+              state.vx = serverVx
+              state.vz = serverVz
+            }
+            state.lastServerVx = serverVx
+            state.lastServerVz = serverVz
+          }
+        }
+        
+        // Update paddle targets
+        for (let i = 0; i < gs.paddles.length; i++) {
+          const p = gs.paddles[i] as any
+          const id = p.paddle_id ?? p.id
+          if (id == null) continue
+          const target = paddleTargetsRef.current.get(id)
+          if (target) {
+            target.x = (p.x - 500) * 0.02
+            target.z = (p.y - 500) * 0.02
+          }
+        }
+      }
+      
+      // Move balls: position += velocity * dt
+      ballsRef.current.forEach((mesh, ballId) => {
+        const state = ballState.get(ballId)
+        if (!state) return
+        
+        mesh.position.x += state.vx * dt
+        mesh.position.z += state.vz * dt
+        
+        // Rolling rotation
+        const speed = Math.sqrt(state.vx * state.vx + state.vz * state.vz)
+        if (speed > 0.001 && mesh.rotationQuaternion) {
+          const target = ballTargetsRef.current.get(ballId)
+          const radius = target?.visualRadius || 0.2
+          const rotationAmount = -(speed * dt) / radius
+          
+          rotAxis.x = -state.vz / speed
+          rotAxis.y = 0
+          rotAxis.z = state.vx / speed
+          
+          let currentRot = ballRotationsRef.current.get(ballId)
+          if (!currentRot) {
+            currentRot = Quaternion.Identity()
+            ballRotationsRef.current.set(ballId, currentRot)
           }
           
-          // Update velocity and timestamp
-          state.vx = target.velocityX
-          state.vz = target.velocityZ
-          state.lastServerTime = target.lastUpdateTime
+          Quaternion.RotationAxisToRef(rotAxis, rotationAmount, rotQuat)
+          rotQuat.multiplyToRef(currentRot, currentRot)
+          mesh.rotationQuaternion.copyFrom(currentRot)
         }
-        
-        // DEAD RECKONING: Move ball at constant velocity
-        // This is the key to smooth motion - we trust the velocity
-        mesh.position.x += state.vx * dtSeconds
-        mesh.position.z += state.vz * dtSeconds
-        
-        // Keep Y position consistent
-        mesh.position.y = target.targetPos.y
-        
-        // Rolling rotation based on velocity
-        const speed = Math.sqrt(state.vx * state.vx + state.vz * state.vz)
-        const moveDist = speed * dtSeconds
-        if (moveDist > 0.0001 && mesh.rotationQuaternion && target.visualRadius > 0) {
-          const rotationAmount = -moveDist / target.visualRadius
-          let currentRotation = ballRotationsRef.current.get(ballId)
-          if (!currentRotation) {
-            currentRotation = Quaternion.Identity()
-            ballRotationsRef.current.set(ballId, currentRotation)
-          }
-          const dirX = state.vx / speed
-          const dirZ = state.vz / speed
-          // Reuse temp axis vector
-          tempAxisRef.current.set(-dirZ, 0, dirX)
-          // Compute incremental rotation into temp quaternion
-          Quaternion.RotationAxisToRef(tempAxisRef.current, rotationAmount, tempQuatRef.current)
-          // Multiply in place: currentRotation = tempQuat * currentRotation
-          tempQuatRef.current.multiplyToRef(currentRotation, currentRotation)
-          currentRotation.normalize()
-          mesh.rotationQuaternion.copyFrom(currentRotation)
-        }
-        
-        // Lerp scale (squash animation) - reuse temp vector
-        const scaleLerp = 1 - Math.pow(0.85, dt / EXPECTED_FRAME_MS)
-        tempScaleRef.current.set(target.targetScaleX, target.targetScaleY, target.targetScaleZ)
-        Vector3.LerpToRef(mesh.scaling, tempScaleRef.current, scaleLerp, mesh.scaling)
       })
       
-      // Update paddle positions using smooth lerp  
-      const paddleLerp = 1 - Math.pow(0.7, dt / EXPECTED_FRAME_MS)
+      // Move paddles with lerp
       paddlesRef.current.forEach((mesh, paddleId) => {
-        const targetPos = paddleTargetsRef.current.get(paddleId)
-        if (targetPos) {
-          Vector3.LerpToRef(mesh.position, targetPos, paddleLerp, mesh.position)
-        }
+        const target = paddleTargetsRef.current.get(paddleId)
+        if (!target) return
+        mesh.position.x += (target.x - mesh.position.x) * 0.3
+        mesh.position.z += (target.z - mesh.position.z) * 0.3
       })
     })
 
-    // Simplified render loop - just renders, all movement is in onBeforeRenderObservable
+    // Render loop
     engine.runRenderLoop(() => {
       scene.render()
     })
@@ -716,7 +660,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     })
   }, [darkMode])
 
-  // Update game state
+  // NOTE: Position updates now happen directly in the render loop (reads gameStateRef)
+  // No useEffect needed for fast position updates - this bypasses React entirely
+
+  // SLOW PATH: Setup/teardown meshes when entities change
+  // This runs less frequently (only when balls/paddles are added/removed)
   useEffect(() => {
     // Debug logging disabled for performance
     // console.log("[BabylonPongRenderer] Updating game state:", gameState)
@@ -932,11 +880,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
       // Calculate distance moved since last update for rotation
       // const prevVelData = previousBallVelocitiesRef.current.get(b.id)
-      const newPos = toWorld(b.x, b.y, 0.2)
-      const oldPos = mesh.position.clone()
+      // Inline toWorld calculation to avoid creating Vector3 every frame
+      const newPosX = (b.x - BACKEND_WIDTH / 2) * SCALE_FACTOR
+      const newPosZ = (b.y - BACKEND_HEIGHT / 2) * SCALE_FACTOR
+      const newPosY = 0.2
 
       // Update mesh scale if backend radius changed, and adjust Y position to keep ball on floor
-      let adjustedYPos = newPos.y
+      let adjustedYPos = newPosY
       let actualVisualRadius = 0.2 // default fallback
       try {
         const backendRadius = Number(b.radius || 10)
@@ -1001,8 +951,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             // This creates the "pancake then tall" effect
             scaleY = baseScale * perpendicular
           } else {
-            // Animation complete
-            ballSquashRef.current.set(b.id, { ...squashState, active: false })
+            // Animation complete - just set active to false, don't create new object
+            squashState.active = false
           }
         }
         
@@ -1024,7 +974,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         let existingTarget = ballTargetsRef.current.get(b.id)
         if (!existingTarget) {
           existingTarget = {
-            targetPos: new Vector3(newPos.x, adjustedYPos, newPos.z),
+            targetPos: new Vector3(newPosX, adjustedYPos, newPosZ),
             targetScaleX: scaleX,
             targetScaleY: scaleY,
             targetScaleZ: scaleZ,
@@ -1036,7 +986,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           ballTargetsRef.current.set(b.id, existingTarget)
         } else {
           // Update existing object in place
-          existingTarget.targetPos.set(newPos.x, adjustedYPos, newPos.z)
+          existingTarget.targetPos.set(newPosX, adjustedYPos, newPosZ)
           existingTarget.targetScaleX = scaleX
           existingTarget.targetScaleY = scaleY
           existingTarget.targetScaleZ = scaleZ
@@ -1105,17 +1055,29 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const impactSpeed = Math.sqrt(
             Math.pow(b.dx - prevVel.dx, 2) + Math.pow(b.dy - prevVel.dy, 2)
           )
-          ballSquashRef.current.set(b.id, {
-            active: true,
-            startTime: performance.now(),
-            impactAngle: impactAngle,
-            impactSpeed: impactSpeed
-          })
+          // REUSE existing squash object to avoid GC
+          let squashObj = ballSquashRef.current.get(b.id)
+          if (!squashObj) {
+            squashObj = { active: true, startTime: performance.now(), impactAngle: impactAngle, impactSpeed: impactSpeed }
+            ballSquashRef.current.set(b.id, squashObj)
+          } else {
+            squashObj.active = true
+            squashObj.startTime = performance.now()
+            squashObj.impactAngle = impactAngle
+            squashObj.impactSpeed = impactSpeed
+          }
         }
       }
 
-      // Store current velocity for next frame
-      previousBallVelocitiesRef.current.set(b.id, { dx: b.dx, dy: b.dy })
+      // Store current velocity for next frame - REUSE existing object to avoid GC
+      let prevVelObj = previousBallVelocitiesRef.current.get(b.id)
+      if (!prevVelObj) {
+        prevVelObj = { dx: b.dx, dy: b.dy }
+        previousBallVelocitiesRef.current.set(b.id, prevVelObj)
+      } else {
+        prevVelObj.dx = b.dx
+        prevVelObj.dy = b.dy
+      }
     })
 
     // Cleanup missing balls
@@ -1266,10 +1228,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ballRotationsRef.current.delete(id)
         ballTargetsRef.current.delete(id)
         ballSquashRef.current.delete(id)
-        smoothedVelocitiesRef.current.delete(id)
       }
     }
-  }, [gameState, darkMode, paddleRotationOffset])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityKey, darkMode, paddleRotationOffset])
 
   // Expose imperative API to parent for screenshots
   useImperativeHandle(ref, () => ({

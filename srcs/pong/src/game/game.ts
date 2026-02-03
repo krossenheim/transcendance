@@ -308,6 +308,9 @@ export class PongGame {
         this.powerups = [];
         this.players = Array.from(players);
         this.gameOptions = gameOptions;
+        
+        // Initialize scene with ball speed for constant speed enforcement
+        this.scene = new Scene(gameOptions.ballSpeed);
 
         // Initialize deterministic RNG with provided seed or random seed
         this.rng = gameOptions.seed !== undefined

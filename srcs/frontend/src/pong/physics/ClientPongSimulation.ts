@@ -65,6 +65,47 @@ export interface GameState {
 // Client Simulation
 // ====================
 
+// Pre-allocated scratch vectors to avoid GC pressure in hot loops
+// These are reused across frames instead of creating new Vec2 objects
+const _scratchBallCenter = new Vec2(0, 0);
+const _scratchBallVelocity = new Vec2(0, 0);
+const _scratchWallA = new Vec2(0, 0);
+const _scratchWallB = new Vec2(0, 0);
+const _scratchPaddleVelocity = new Vec2(0, 0);
+const _scratchOtherCenter = new Vec2(0, 0);
+const _scratchOtherVelocity = new Vec2(0, 0);
+// Paddle line scratch vectors (4 lines = 8 points)
+const _scratchLineA = [new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 0)];
+const _scratchLineB = [new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 0)];
+// Paddle corner scratch vectors (4 corners)
+const _scratchCorner = [new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 0), new Vec2(0, 0)];
+// Collision resolution scratch vectors
+const _scratchResolveFaceA = new Vec2(0, 0);
+const _scratchResolveFaceB = new Vec2(0, 0);
+
+// Reusable collision objects to avoid allocation in resolveCollision
+const _reusableBallObj = {
+    center: new Vec2(0, 0),
+    velocity: new Vec2(0, 0),
+    inverseMass: 1,
+    restitution: 1.0,
+    radius: 10,
+};
+const _reusableWallObj = {
+    pointA: new Vec2(0, 0),
+    pointB: new Vec2(0, 0),
+    velocity: new Vec2(0, 0),
+    inverseMass: 0,
+    restitution: 1.0,
+};
+const _reusableOtherBallObj = {
+    center: new Vec2(0, 0),
+    velocity: new Vec2(0, 0),
+    inverseMass: 1,
+    restitution: 1.0,
+    radius: 10,
+};
+
 export class ClientPongSimulation {
     private balls: BallState[] = [];
     private paddles: PaddleState[] = [];
@@ -198,6 +239,7 @@ export class ClientPongSimulation {
 
     /**
      * Update paddle velocities based on current pressed keys
+     * Avoids creating Vec2 objects to reduce GC pressure
      */
     private updatePaddleVelocities(): void {
         for (const paddle of this.paddles) {
@@ -207,8 +249,10 @@ export class ClientPongSimulation {
             // The server uses isTopHalf to determine which direction each key moves the paddle
             // isTopHalf = (Vec2(0, -1).dot(paddleDirection) > 0)
             // paddleDirection is derived from paddle.r (the angle)
-            const paddleDir = new Vec2(Math.cos(paddle.r), Math.sin(paddle.r));
-            const isTopHalf = (new Vec2(0, -1).dot(paddleDir) > 0);
+            const cosR = Math.cos(paddle.r);
+            const sinR = Math.sin(paddle.r);
+            // paddleDir = (cosR, sinR), Vec2(0, -1).dot(paddleDir) = -sinR
+            const isTopHalf = (-sinR > 0);
             
             // Server logic: arrowleft.isClockwise = !isTopHalf, arrowright.isClockwise = isTopHalf
             // moveDirection += isClockwise ? 1 : -1
@@ -230,10 +274,11 @@ export class ClientPongSimulation {
                 paddle.vy = 0;
             } else {
                 // clockwiseBaseVelocity = paddleDirection.perp().normalize()
-                const clockwiseBaseVelocity = paddleDir.perp().normalize();
-                const moveVec = clockwiseBaseVelocity.mul(moveDirection * paddle.speed);
-                paddle.vx = moveVec.x;
-                paddle.vy = moveVec.y;
+                // perp of (cosR, sinR) is (-sinR, cosR), already normalized
+                const perpX = -sinR;
+                const perpY = cosR;
+                paddle.vx = perpX * moveDirection * paddle.speed;
+                paddle.vy = perpY * moveDirection * paddle.speed;
             }
         }
     }
@@ -247,16 +292,8 @@ export class ClientPongSimulation {
         let timeRemaining = deltaTime * this.timeScale;
         if (timeRemaining <= 0) return;
         
-        // Debug: log actual speed being simulated (every 60 frames = ~1 second)
-        // Disabled for performance - data still available on window.PREDICTION_SPEED
+        // Frame counter for debugging (no object allocation)
         ClientPongSimulation.debugFrameCount++;
-        if (this.balls.length > 0 && ClientPongSimulation.debugFrameCount % 60 === 0) {
-            const ball = this.balls[0]!;
-            const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-            // Store on window for easy inspection (no console log)
-            (window as any).PREDICTION_SPEED = { speed: speed.toFixed(1), dx: ball.dx.toFixed(1), dy: ball.dy.toFixed(1), timeScale: this.timeScale, frame: ClientPongSimulation.debugFrameCount };
-            // console.error(`🔵 PREDICTION | Speed: ${speed.toFixed(1)} | dx: ${ball.dx.toFixed(1)} | dy: ${ball.dy.toFixed(1)} | timeScale: ${this.timeScale}`);
-        }
         
         // Match server's max iterations (1000)
         const maxIterations = 1000;
@@ -302,22 +339,28 @@ export class ClientPongSimulation {
 
     /**
      * Find the next collision in the simulation
+     * Uses pre-allocated scratch vectors to avoid GC pressure
      */
     private findNextCollision(maxTime: number): { time: number; type: string; ballIdx: number; targetIdx?: number } | null {
         let earliest: { time: number; type: string; ballIdx: number; targetIdx?: number } | null = null;
         
         for (let i = 0; i < this.balls.length; i++) {
             const ball = this.balls[i]!;
-            const ballCenter = new Vec2(ball.x, ball.y);
-            const ballVelocity = new Vec2(ball.dx, ball.dy);
+            // Reuse scratch vectors instead of creating new ones
+            _scratchBallCenter.x = ball.x;
+            _scratchBallCenter.y = ball.y;
+            _scratchBallVelocity.x = ball.dx;
+            _scratchBallVelocity.y = ball.dy;
             
             // Check ball-wall collisions
             for (let j = 0; j < this.walls.length; j++) {
                 const wall = this.walls[j]!;
-                const wallA = new Vec2(wall.ax, wall.ay);
-                const wallB = new Vec2(wall.bx, wall.by);
+                _scratchWallA.x = wall.ax;
+                _scratchWallA.y = wall.ay;
+                _scratchWallB.x = wall.bx;
+                _scratchWallB.y = wall.by;
                 
-                const tHit = getWallCollisionTime(ballCenter, ball.radius, ballVelocity, wallA, wallB);
+                const tHit = getWallCollisionTime(_scratchBallCenter, ball.radius, _scratchBallVelocity, _scratchWallA, _scratchWallB);
                 
                 // Match server: only check if tHit is not null/NaN, and if it's earliest
                 if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
@@ -330,14 +373,18 @@ export class ClientPongSimulation {
             // Check ball-paddle collisions (paddles are rectangles with rounded corners)
             for (let j = 0; j < this.paddles.length; j++) {
                 const paddle = this.paddles[j]!;
-                const paddleLines = this.getPaddleLines(paddle);
-                const paddleCorners = this.getPaddleCorners(paddle);
-                const paddleVelocity = new Vec2(paddle.vx, paddle.vy);
+                _scratchPaddleVelocity.x = paddle.vx;
+                _scratchPaddleVelocity.y = paddle.vy;
                 
-                // Check paddle edges
-                for (const line of paddleLines) {
-                    // Pass paddle velocity as wall velocity so relative velocity is computed correctly
-                    const tHit = getWallCollisionTime(ballCenter, ball.radius, ballVelocity, line.a, line.b, paddleVelocity);
+                // Compute paddle geometry into scratch arrays
+                this.computePaddleGeometry(paddle);
+                
+                // Check paddle edges (4 lines)
+                for (let k = 0; k < 4; k++) {
+                    const tHit = getWallCollisionTime(
+                        _scratchBallCenter, ball.radius, _scratchBallVelocity,
+                        _scratchLineA[k]!, _scratchLineB[k]!, _scratchPaddleVelocity
+                    );
                     
                     if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
                         if (earliest === null || tHit < earliest.time) {
@@ -346,12 +393,12 @@ export class ClientPongSimulation {
                     }
                 }
                 
-                // Check paddle corners (prevents ball slipping through at angles)
-                for (const corner of paddleCorners) {
-                    // Treat corner as a stationary circle moving with paddle velocity
+                // Check paddle corners (4 corners)
+                const cornerRadius = (paddle.l / 2) * 0.8;
+                for (let k = 0; k < 4; k++) {
                     const tHit = getBallCollisionTime(
-                        ballCenter, ball.radius, ballVelocity,
-                        corner.center, corner.radius, paddleVelocity
+                        _scratchBallCenter, ball.radius, _scratchBallVelocity,
+                        _scratchCorner[k]!, cornerRadius, _scratchPaddleVelocity
                     );
                     
                     if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
@@ -365,10 +412,15 @@ export class ClientPongSimulation {
             // Check ball-ball collisions
             for (let j = i + 1; j < this.balls.length; j++) {
                 const other = this.balls[j]!;
-                const otherCenter = new Vec2(other.x, other.y);
-                const otherVelocity = new Vec2(other.dx, other.dy);
+                _scratchOtherCenter.x = other.x;
+                _scratchOtherCenter.y = other.y;
+                _scratchOtherVelocity.x = other.dx;
+                _scratchOtherVelocity.y = other.dy;
                 
-                const tHit = getBallCollisionTime(ballCenter, ball.radius, ballVelocity, otherCenter, other.radius, otherVelocity);
+                const tHit = getBallCollisionTime(
+                    _scratchBallCenter, ball.radius, _scratchBallVelocity,
+                    _scratchOtherCenter, other.radius, _scratchOtherVelocity
+                );
                 
                 if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
                     if (earliest === null || tHit < earliest.time) {
@@ -382,7 +434,55 @@ export class ClientPongSimulation {
     }
 
     /**
+     * Compute paddle geometry into scratch arrays (lines and corners)
+     * This avoids creating new Vec2 objects every frame
+     */
+    private computePaddleGeometry(paddle: PaddleState): void {
+        const cosR = Math.cos(paddle.r);
+        const sinR = Math.sin(paddle.r);
+        const halfWidth = paddle.w / 2;
+        const halfHeight = paddle.l / 2;
+        
+        // dir = (cos, sin), perp = (-sin, cos)
+        const dirX = cosR;
+        const dirY = sinR;
+        const perpX = -sinR;
+        const perpY = cosR;
+        
+        // Compute four corners
+        // topLeft = center + perp * (-halfWidth) + dir * (-halfHeight)
+        const tlX = paddle.x + perpX * (-halfWidth) + dirX * (-halfHeight);
+        const tlY = paddle.y + perpY * (-halfWidth) + dirY * (-halfHeight);
+        // topRight = center + perp * (-halfWidth) + dir * (halfHeight)
+        const trX = paddle.x + perpX * (-halfWidth) + dirX * halfHeight;
+        const trY = paddle.y + perpY * (-halfWidth) + dirY * halfHeight;
+        // bottomLeft = center + perp * (halfWidth) + dir * (-halfHeight)
+        const blX = paddle.x + perpX * halfWidth + dirX * (-halfHeight);
+        const blY = paddle.y + perpY * halfWidth + dirY * (-halfHeight);
+        // bottomRight = center + perp * (halfWidth) + dir * (halfHeight)
+        const brX = paddle.x + perpX * halfWidth + dirX * halfHeight;
+        const brY = paddle.y + perpY * halfWidth + dirY * halfHeight;
+        
+        // Store corners
+        _scratchCorner[0]!.x = tlX; _scratchCorner[0]!.y = tlY;
+        _scratchCorner[1]!.x = trX; _scratchCorner[1]!.y = trY;
+        _scratchCorner[2]!.x = blX; _scratchCorner[2]!.y = blY;
+        _scratchCorner[3]!.x = brX; _scratchCorner[3]!.y = brY;
+        
+        // Store lines: [topLeft-topRight, bottomLeft-bottomRight, topLeft-bottomLeft, topRight-bottomRight]
+        _scratchLineA[0]!.x = tlX; _scratchLineA[0]!.y = tlY;
+        _scratchLineB[0]!.x = trX; _scratchLineB[0]!.y = trY;
+        _scratchLineA[1]!.x = blX; _scratchLineA[1]!.y = blY;
+        _scratchLineB[1]!.x = brX; _scratchLineB[1]!.y = brY;
+        _scratchLineA[2]!.x = tlX; _scratchLineA[2]!.y = tlY;
+        _scratchLineB[2]!.x = blX; _scratchLineB[2]!.y = blY;
+        _scratchLineA[3]!.x = trX; _scratchLineA[3]!.y = trY;
+        _scratchLineB[3]!.x = brX; _scratchLineB[3]!.y = brY;
+    }
+
+    /**
      * Get the lines that make up a paddle for collision detection
+     * @deprecated Use computePaddleGeometry() with scratch arrays instead
      */
     private getPaddleLines(paddle: PaddleState): { a: Vec2; b: Vec2 }[] {
         const center = new Vec2(paddle.x, paddle.y);
@@ -461,7 +561,7 @@ export class ClientPongSimulation {
 
     /**
      * Resolve a collision
-     * Server moves objects by FAT_EPS BEFORE calling this, so no post-nudge needed
+     * Uses pre-allocated objects to avoid GC pressure
      */
     private resolveCollision(collision: { time: number; type: string; ballIdx: number; targetIdx?: number }): void {
         const ball = this.balls[collision.ballIdx]!;
@@ -470,28 +570,34 @@ export class ClientPongSimulation {
             case 'wall': {
                 const wall = this.walls[collision.targetIdx!]!;
                 
-                // Note: We no longer track pendingBounce here - sync is based on server ball position
+                // Reuse pre-allocated objects
+                _reusableBallObj.center.x = ball.x;
+                _reusableBallObj.center.y = ball.y;
+                _reusableBallObj.velocity.x = ball.dx;
+                _reusableBallObj.velocity.y = ball.dy;
+                _reusableBallObj.inverseMass = ball.inverseMass;
+                _reusableBallObj.radius = ball.radius;
                 
-                const ballObj = {
-                    center: new Vec2(ball.x, ball.y),
-                    velocity: new Vec2(ball.dx, ball.dy),
-                    inverseMass: ball.inverseMass,
-                    restitution: 1.0,
-                    radius: ball.radius,
-                };
+                _reusableWallObj.pointA.x = wall.ax;
+                _reusableWallObj.pointA.y = wall.ay;
+                _reusableWallObj.pointB.x = wall.bx;
+                _reusableWallObj.pointB.y = wall.by;
+                _reusableWallObj.velocity.x = 0;
+                _reusableWallObj.velocity.y = 0;
                 
-                const wallObj = {
-                    pointA: new Vec2(wall.ax, wall.ay),
-                    pointB: new Vec2(wall.bx, wall.by),
-                    velocity: new Vec2(0, 0),
-                    inverseMass: 0,
-                    restitution: 1.0,
-                };
+                resolveCircleLineCollision(_reusableBallObj, _reusableWallObj);
                 
-                resolveCircleLineCollision(ballObj, wallObj);
+                ball.dx = _reusableBallObj.velocity.x;
+                ball.dy = _reusableBallObj.velocity.y;
                 
-                ball.dx = ballObj.velocity.x;
-                ball.dy = ballObj.velocity.y;
+                // Normalize to constant ball speed (prevents speed changes from floating point drift)
+                const wallBounceSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                if (wallBounceSpeed > 0.01) {
+                    const targetSpeed = this.gameOptions.ballSpeed;
+                    const scale = targetSpeed / wallBounceSpeed;
+                    ball.dx *= scale;
+                    ball.dy *= scale;
+                }
                 
                 // If this is a player wall, reset ball to center (simplified - server handles scoring)
                 if (wall.playerId !== null) {
@@ -501,73 +607,102 @@ export class ClientPongSimulation {
                     ball.dx = Math.cos(angle) * this.gameOptions.ballSpeed;
                     ball.dy = Math.sin(angle) * this.gameOptions.ballSpeed;
                 }
-                // No nudge needed - already done in main loop before resolution
                 break;
             }
             
             case 'paddle': {
                 const paddle = this.paddles[collision.targetIdx!]!;
-                const paddleVelocity = new Vec2(paddle.vx, paddle.vy);
-                
-                // Find the collision line (simplified: use main face)
-                const dir = new Vec2(Math.cos(paddle.r), Math.sin(paddle.r));
-                const perp = dir.perp();
+                const cosR = Math.cos(paddle.r);
+                const sinR = Math.sin(paddle.r);
                 const halfWidth = paddle.w / 2;
                 
-                // Front face of paddle
-                const faceA = new Vec2(paddle.x, paddle.y).add(perp.mul(-halfWidth));
-                const faceB = new Vec2(paddle.x, paddle.y).add(perp.mul(halfWidth));
+                // perp = (-sin, cos)
+                const perpX = -sinR;
+                const perpY = cosR;
                 
-                const ballObj = {
-                    center: new Vec2(ball.x, ball.y),
-                    velocity: new Vec2(ball.dx, ball.dy),
-                    inverseMass: ball.inverseMass,
-                    restitution: 1.0,
-                    radius: ball.radius,
-                };
+                // Front face of paddle (using scratch vectors)
+                _scratchResolveFaceA.x = paddle.x + perpX * (-halfWidth);
+                _scratchResolveFaceA.y = paddle.y + perpY * (-halfWidth);
+                _scratchResolveFaceB.x = paddle.x + perpX * halfWidth;
+                _scratchResolveFaceB.y = paddle.y + perpY * halfWidth;
                 
-                const paddleLine = {
-                    pointA: faceA,
-                    pointB: faceB,
-                    velocity: paddleVelocity,
-                    inverseMass: 0,
-                    restitution: 1.0,
-                };
+                // Reuse pre-allocated objects
+                _reusableBallObj.center.x = ball.x;
+                _reusableBallObj.center.y = ball.y;
+                _reusableBallObj.velocity.x = ball.dx;
+                _reusableBallObj.velocity.y = ball.dy;
+                _reusableBallObj.inverseMass = ball.inverseMass;
+                _reusableBallObj.radius = ball.radius;
                 
-                resolveCircleLineCollision(ballObj, paddleLine);
+                _reusableWallObj.pointA.x = _scratchResolveFaceA.x;
+                _reusableWallObj.pointA.y = _scratchResolveFaceA.y;
+                _reusableWallObj.pointB.x = _scratchResolveFaceB.x;
+                _reusableWallObj.pointB.y = _scratchResolveFaceB.y;
+                _reusableWallObj.velocity.x = paddle.vx;
+                _reusableWallObj.velocity.y = paddle.vy;
                 
-                ball.dx = ballObj.velocity.x;
-                ball.dy = ballObj.velocity.y;
-                // No nudge needed - already done in main loop before resolution
+                resolveCircleLineCollision(_reusableBallObj, _reusableWallObj);
+                
+                ball.dx = _reusableBallObj.velocity.x;
+                ball.dy = _reusableBallObj.velocity.y;
+                
+                // Normalize to constant ball speed (paddle movement shouldn't change ball speed)
+                const paddleBounceSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                const targetSpeed = this.gameOptions.ballSpeed;
+                if (paddleBounceSpeed > 0.01) {
+                    const scale = targetSpeed / paddleBounceSpeed;
+                    ball.dx *= scale;
+                    ball.dy *= scale;
+                }
+                
+                // Push ball out of paddle to prevent getting stuck
+                const pushDist = ball.radius * 0.5;
+                if (targetSpeed > 0) {
+                    ball.x += (ball.dx / targetSpeed) * pushDist;
+                    ball.y += (ball.dy / targetSpeed) * pushDist;
+                }
                 break;
             }
             
             case 'ball': {
                 const other = this.balls[collision.targetIdx!]!;
                 
-                const ballA = {
-                    center: new Vec2(ball.x, ball.y),
-                    velocity: new Vec2(ball.dx, ball.dy),
-                    inverseMass: ball.inverseMass,
-                    restitution: 1.0,
-                    radius: ball.radius,
-                };
+                // Reuse pre-allocated objects
+                _reusableBallObj.center.x = ball.x;
+                _reusableBallObj.center.y = ball.y;
+                _reusableBallObj.velocity.x = ball.dx;
+                _reusableBallObj.velocity.y = ball.dy;
+                _reusableBallObj.inverseMass = ball.inverseMass;
+                _reusableBallObj.radius = ball.radius;
                 
-                const ballB = {
-                    center: new Vec2(other.x, other.y),
-                    velocity: new Vec2(other.dx, other.dy),
-                    inverseMass: other.inverseMass,
-                    restitution: 1.0,
-                    radius: other.radius,
-                };
+                _reusableOtherBallObj.center.x = other.x;
+                _reusableOtherBallObj.center.y = other.y;
+                _reusableOtherBallObj.velocity.x = other.dx;
+                _reusableOtherBallObj.velocity.y = other.dy;
+                _reusableOtherBallObj.inverseMass = other.inverseMass;
+                _reusableOtherBallObj.radius = other.radius;
                 
-                resolveBallCollision(ballA, ballB);
+                resolveBallCollision(_reusableBallObj, _reusableOtherBallObj);
                 
-                ball.dx = ballA.velocity.x;
-                ball.dy = ballA.velocity.y;
-                other.dx = ballB.velocity.x;
-                other.dy = ballB.velocity.y;
-                // No nudge needed - already done in main loop before resolution
+                ball.dx = _reusableBallObj.velocity.x;
+                ball.dy = _reusableBallObj.velocity.y;
+                other.dx = _reusableOtherBallObj.velocity.x;
+                other.dy = _reusableOtherBallObj.velocity.y;
+                
+                // Normalize both balls to constant ball speed
+                const targetSpeed = this.gameOptions.ballSpeed;
+                const ballASpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                if (ballASpeed > 0.01) {
+                    const scaleA = targetSpeed / ballASpeed;
+                    ball.dx *= scaleA;
+                    ball.dy *= scaleA;
+                }
+                const ballBSpeed = Math.sqrt(other.dx * other.dx + other.dy * other.dy);
+                if (ballBSpeed > 0.01) {
+                    const scaleB = targetSpeed / ballBSpeed;
+                    other.dx *= scaleB;
+                    other.dy *= scaleB;
+                }
                 break;
             }
         }
@@ -691,29 +826,23 @@ export class ClientPongSimulation {
                 Math.pow(local.x - server.x, 2) + Math.pow(local.y - server.y, 2)
             );
             
-            // Debug: log position error occasionally
-            // Disabled for performance - data still available on window.PREDICTION_ERROR
-            if (ClientPongSimulation.debugFrameCount % 60 === 0 && i === 0) {
-                (window as any).PREDICTION_ERROR = { posError: posError.toFixed(1), localX: local.x.toFixed(1), serverX: server.x.toFixed(1) };
-                // console.error(`🟡 SYNC ERROR | posErr: ${posError.toFixed(1)}px | local: (${local.x.toFixed(0)},${local.y.toFixed(0)}) | server: (${server.x.toFixed(0)},${server.y.toFixed(0)})`);
+            // DEBUG: Log significant corrections
+            if (posError > 5) {
+                console.log(`[RECONCILE] Ball ${i}: error=${posError.toFixed(1)}px, local=(${local.x.toFixed(0)},${local.y.toFixed(0)}) server=(${server.x.toFixed(0)},${server.y.toFixed(0)})`);
             }
             
-            // Dynamic interpolation: blend faster when error is large
-            // Small error (< 10px): blend slowly (0.05) - almost imperceptible
-            // Medium error (10-50px): blend moderately (0.15)
-            // Large error (> 50px): blend fast (0.4)
-            let blendFactor: number;
-            if (posError < 10) {
-                blendFactor = 0.05;
-            } else if (posError < 50) {
-                blendFactor = 0.15;
-            } else {
-                blendFactor = 0.4;
-            }
+            // Use CONTINUOUS blend factor based on error (no discrete thresholds)
+            // This avoids jitter when error fluctuates around threshold boundaries
+            // Formula: blend = min(0.5, 0.02 + error * 0.008)
+            // At 0 error: 0.02, at 10px: 0.10, at 50px: 0.42, capped at 0.5
+            const blendFactor = Math.min(0.5, 0.02 + posError * 0.008);
             
-            // Smooth blend position only
-            local.x = local.x + (server.x - local.x) * blendFactor;
-            local.y = local.y + (server.y - local.y) * blendFactor;
+            // Only blend if error is noticeable (> 2px)
+            // Below that, trust client simulation completely for smoothest motion
+            if (posError > 2) {
+                local.x = local.x + (server.x - local.x) * blendFactor;
+                local.y = local.y + (server.y - local.y) * blendFactor;
+            }
             
             // VELOCITY: Only sync if direction actually changed (bounce happened)
             // Check if velocity DIRECTION differs (dot product < 0 means opposite direction)
@@ -724,9 +853,11 @@ export class ClientPongSimulation {
                 // Normalize and check dot product
                 const dotProduct = (local.dx * server.dx + local.dy * server.dy) / (localSpeed * serverSpeed);
                 
-                // If dot product < 0.5, velocities are significantly different direction (bounce happened)
-                if (dotProduct < 0.5) {
+                // If dot product < 0.3, velocities are significantly different direction (bounce happened)
+                // Using 0.3 instead of 0.5 to be more conservative about bounce detection
+                if (dotProduct < 0.3) {
                     // Bounce detected - snap velocity immediately for correct direction
+                    console.log(`[BOUNCE] Ball ${i}: dotProduct=${dotProduct.toFixed(2)}, snapping velocity`);
                     local.dx = server.dx;
                     local.dy = server.dy;
                 }

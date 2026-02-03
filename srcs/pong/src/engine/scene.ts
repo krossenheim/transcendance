@@ -13,13 +13,17 @@ const scratchRelativeVelocity = new Vec2(0, 0);
 // Maximum distance an object should move per nudge (prevents high-speed tunneling)
 const MAX_NUDGE_DISTANCE = 0.5;
 
+// Target ball speed (will be set by game when constructing scene)
+let targetBallSpeed: number = 450;
+
 export class Scene {
     private objects: BaseObject[];
     private elapsedTime: number = 0;
     private timeScale: number = 1.0;
 
-    constructor() {
+    constructor(ballSpeed: number = 450) {
         this.objects = [];
+        targetBallSpeed = ballSpeed;
     }
 
     public setTimeScale(scale: number): void {
@@ -154,10 +158,17 @@ export class Scene {
                     this.safeNudge(collision.objectB);
                     if (collision.objectA instanceof CircleObject && collision.objectB instanceof CircleObject) {
                         resolveBallCollision(collision.objectA, collision.objectB);
+                        // Normalize both balls to target speed after collision
+                        this.normalizeBallSpeed(collision.objectA);
+                        this.normalizeBallSpeed(collision.objectB);
                     } else if (collision.objectA instanceof CircleObject && collision.objectB instanceof LineObject) {
                         resolveCircleLineCollision(collision.objectA, collision.objectB);
+                        // Normalize ball speed after bouncing off wall/paddle
+                        this.normalizeBallSpeed(collision.objectA);
                     } else if (collision.objectA instanceof LineObject && collision.objectB instanceof CircleObject) {
                         resolveCircleLineCollision(collision.objectB, collision.objectA);
+                        // Normalize ball speed after bouncing off wall/paddle
+                        this.normalizeBallSpeed(collision.objectB);
                     } else {
                         console.warn(`Collision resolution not implemented for ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name}`);
                     }
@@ -183,6 +194,19 @@ export class Scene {
             obj.moveByDelta(safeDeltaTime);
         } else {
             obj.moveByDelta(FAT_EPS);
+        }
+    }
+
+    /**
+     * Normalize a circle object's velocity to the target ball speed.
+     * This ensures constant ball speed regardless of collision dynamics.
+     */
+    private normalizeBallSpeed(obj: CircleObject): void {
+        const speed = obj.velocity.len();
+        if (speed > EPS) {
+            // Scale velocity to maintain constant speed
+            const scale = targetBallSpeed / speed;
+            obj.velocity = obj.velocity.mul(scale);
         }
     }
 
