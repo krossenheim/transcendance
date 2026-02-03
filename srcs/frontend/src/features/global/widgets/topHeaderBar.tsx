@@ -6,10 +6,15 @@ import { useLanguage } from "@src/i18n";
 import UserMenu from "@src/userMenu";
 
 interface TopHeaderBarProps {
+  username: string;
+  userId: number;
+  avatarUrl: string;
   onLogout: () => void;
+  isLoggingOut: boolean;
+  onFriendsClick?: () => void;
 }
 
-export default function TopHeaderBar({ onLogout }: TopHeaderBarProps) {
+export default function TopHeaderBar({ username, userId, avatarUrl, onLogout, isLoggingOut, onFriendsClick }: TopHeaderBarProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { t } = useLanguage();
@@ -40,8 +45,12 @@ export default function TopHeaderBar({ onLogout }: TopHeaderBarProps) {
 					{/* <button onClick={() => setShowAccessibilitySettings(true)} className="p-2 text-gray-300 hover:text-white">⚙️</button> */}
 					<FriendshipNotifications isLoading={false} />
 					<UserMenu
+						username={username}
+						userId={userId}
+						avatarUrl={avatarUrl}
 						onLogout={onLogout}
-						// onFriendsClick={() => setShowFriendsManager(true)}
+						isLoggingOut={isLoggingOut}
+						onFriendsClick={onFriendsClick}
 					/>
 				</div>
 			</div>
