@@ -1,6 +1,9 @@
 // Shared collision detection - used by both frontend and backend
 import { Vec2, solveQuadratic, EPS } from "./math.js";
 
+// Maximum ball speed to prevent tunneling at extreme velocities
+export const MAX_BALL_SPEED = 800;
+
 export enum CollisionResponse {
     BOUNCE = 0,
     IGNORE = 1,
@@ -89,6 +92,7 @@ export function getBallCollisionTime(
 /**
  * Resolve elastic collision between two circles
  * Modifies velocity of both balls in place
+ * Also enforces max speed to prevent tunneling
  */
 export function resolveBallCollision(
     ballA: ICircle,
@@ -107,11 +111,22 @@ export function resolveBallCollision(
     const impulse = normal.mul(j);
     ballA.velocity = ballA.velocity.sub(impulse.mul(ballA.inverseMass));
     ballB.velocity = ballB.velocity.add(impulse.mul(ballB.inverseMass));
+
+    // Enforce max speed on both balls
+    const speedA = ballA.velocity.len();
+    if (speedA > MAX_BALL_SPEED) {
+        ballA.velocity = ballA.velocity.mul(MAX_BALL_SPEED / speedA);
+    }
+    const speedB = ballB.velocity.len();
+    if (speedB > MAX_BALL_SPEED) {
+        ballB.velocity = ballB.velocity.mul(MAX_BALL_SPEED / speedB);
+    }
 }
 
 /**
  * Resolve collision between a circle and a line (bounce off wall)
  * Modifies velocity of ball (and wall if it has mass) in place
+ * Also enforces max speed to prevent tunneling
  */
 export function resolveCircleLineCollision(
     ball: ICircle,
@@ -126,9 +141,21 @@ export function resolveCircleLineCollision(
     }
 
     const velocityAlongNormal = relativeVelocity.dot(wallNormal);
+    
+    // If moving away, don't resolve
+    if (velocityAlongNormal > 0) {
+        return;
+    }
+
     const j = -(1 + Math.min(ball.restitution, wall.restitution)) * velocityAlongNormal / (ball.inverseMass + wall.inverseMass);
 
     const impulse = wallNormal.mul(j);
     ball.velocity = ball.velocity.add(impulse.mul(ball.inverseMass));
     wall.velocity = wall.velocity.sub(impulse.mul(wall.inverseMass));
+
+    // Enforce max speed to prevent tunneling at extreme velocities
+    const speed = ball.velocity.len();
+    if (speed > MAX_BALL_SPEED) {
+        ball.velocity = ball.velocity.mul(MAX_BALL_SPEED / speed);
+    }
 }

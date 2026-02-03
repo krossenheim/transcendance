@@ -80,9 +80,13 @@ export class PongPaddle extends MultiObject {
 			1.0,
 		)
 
+		// Corner radius prevents ball from slipping through paddle corners
+		// Using half the paddle height creates a smooth rounded rectangle shape
+		const cornerRadius = halfHeight * 0.8;
+
 		const topLeftCorner = new CircleObject(
 			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
-			0,
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
@@ -90,7 +94,7 @@ export class PongPaddle extends MultiObject {
 
 		const topRightCorner = new CircleObject(
 			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
-			0,
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
@@ -98,7 +102,7 @@ export class PongPaddle extends MultiObject {
 
 		const bottomLeftCorner = new CircleObject(
 			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
-			0,
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
@@ -106,7 +110,7 @@ export class PongPaddle extends MultiObject {
 
 		const bottomRightCorner = new CircleObject(
 			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
-			0,
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,

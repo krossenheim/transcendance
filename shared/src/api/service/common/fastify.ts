@@ -7,7 +7,8 @@ import { z } from "zod";
 import type { HTTPRouteDef } from "@app/shared/api/service/common/endpoints";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-function addHealthcheckRoute(fastify: FastifyInstance) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function addHealthcheckRoute(fastify: any) {
 	registerRoute(
 		fastify,
 		{
@@ -71,7 +72,8 @@ export type RouteParams<T extends HTTPRouteDef> =
 	: never;
 
 export function registerRoute<T extends HTTPRouteDef>(
-	fastify: FastifyInstance,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	fastify: any,
 	route: T,
 	handler: (
 		req: FastifyRequest<
@@ -91,11 +93,11 @@ export function registerRoute<T extends HTTPRouteDef>(
 		| "delete";
 
 	if (route.wrapper) {
-		fastify[method](route.endpoint, { schema: route.wrapper.extend({ payload: route.schema.body }) }, async (req, reply) => {
+		fastify[method](route.endpoint, { schema: route.wrapper.extend({ payload: route.schema.body }) }, async (req: any, reply: any) => {
 			await handler(req as any, reply as any);
 		});
 	} else {
-		fastify[method](route.endpoint, { schema: route.schema }, async (req, reply) => {
+		fastify[method](route.endpoint, { schema: route.schema }, async (req: any, reply: any) => {
 			await handler(req as any, reply as any);
 		});
 	}

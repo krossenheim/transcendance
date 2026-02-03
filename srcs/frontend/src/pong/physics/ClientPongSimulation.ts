@@ -262,6 +262,9 @@ export class ClientPongSimulation {
         const maxIterations = 1000;
         let iterations = 0;
         
+        // Maximum distance for post-collision nudge (prevents high-speed tunneling)
+        const MAX_NUDGE_DISTANCE = 0.5;
+        
         while (timeRemaining > EPS && iterations < maxIterations) {
             iterations++;
             
@@ -281,8 +284,16 @@ export class ClientPongSimulation {
             this.elapsedTime += collision.time / this.timeScale;
             timeRemaining -= collision.time;
             
-            // Server moves objects by FAT_EPS BEFORE resolving collision
-            this.moveObjects(FAT_EPS);
+            // Velocity-aware nudge: limit distance to prevent high-speed tunneling
+            const ball = this.balls[collision.ballIdx]!;
+            const ballSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+            if (ballSpeed > EPS) {
+                const nudgeDistance = ballSpeed * FAT_EPS;
+                const safeDeltaTime = nudgeDistance > MAX_NUDGE_DISTANCE 
+                    ? MAX_NUDGE_DISTANCE / ballSpeed 
+                    : FAT_EPS;
+                this.moveObjects(safeDeltaTime);
+            }
             
             // Resolve collision
             this.resolveCollision(collision);
@@ -316,15 +327,32 @@ export class ClientPongSimulation {
                 }
             }
             
-            // Check ball-paddle collisions (paddles are rectangles, simplified as lines)
+            // Check ball-paddle collisions (paddles are rectangles with rounded corners)
             for (let j = 0; j < this.paddles.length; j++) {
                 const paddle = this.paddles[j]!;
                 const paddleLines = this.getPaddleLines(paddle);
+                const paddleCorners = this.getPaddleCorners(paddle);
                 const paddleVelocity = new Vec2(paddle.vx, paddle.vy);
                 
+                // Check paddle edges
                 for (const line of paddleLines) {
                     // Pass paddle velocity as wall velocity so relative velocity is computed correctly
                     const tHit = getWallCollisionTime(ballCenter, ball.radius, ballVelocity, line.a, line.b, paddleVelocity);
+                    
+                    if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
+                        if (earliest === null || tHit < earliest.time) {
+                            earliest = { time: tHit, type: 'paddle', ballIdx: i, targetIdx: j };
+                        }
+                    }
+                }
+                
+                // Check paddle corners (prevents ball slipping through at angles)
+                for (const corner of paddleCorners) {
+                    // Treat corner as a stationary circle moving with paddle velocity
+                    const tHit = getBallCollisionTime(
+                        ballCenter, ball.radius, ballVelocity,
+                        corner.center, corner.radius, paddleVelocity
+                    );
                     
                     if (tHit !== null && !isNaN(tHit) && tHit <= maxTime) {
                         if (earliest === null || tHit < earliest.time) {
@@ -375,6 +403,34 @@ export class ClientPongSimulation {
             { a: bottomLeft, b: bottomRight }, // bottom edge
             { a: topLeft, b: bottomLeft },     // left edge
             { a: topRight, b: bottomRight },   // right edge
+        ];
+    }
+
+    /**
+     * Get the corner circles of a paddle for collision detection
+     * Matches server-side paddle corner radius for consistent physics
+     */
+    private getPaddleCorners(paddle: PaddleState): { center: Vec2; radius: number }[] {
+        const center = new Vec2(paddle.x, paddle.y);
+        const dir = new Vec2(Math.cos(paddle.r), Math.sin(paddle.r));
+        const perp = dir.perp();
+        
+        const halfWidth = paddle.w / 2;
+        const halfHeight = paddle.l / 2;
+        // Corner radius matches server: halfHeight * 0.8
+        const cornerRadius = halfHeight * 0.8;
+        
+        // Four corner positions
+        const topLeft = center.add(perp.mul(-halfWidth)).add(dir.mul(-halfHeight));
+        const topRight = center.add(perp.mul(-halfWidth)).add(dir.mul(halfHeight));
+        const bottomLeft = center.add(perp.mul(halfWidth)).add(dir.mul(-halfHeight));
+        const bottomRight = center.add(perp.mul(halfWidth)).add(dir.mul(halfHeight));
+        
+        return [
+            { center: topLeft, radius: cornerRadius },
+            { center: topRight, radius: cornerRadius },
+            { center: bottomLeft, radius: cornerRadius },
+            { center: bottomRight, radius: cornerRadius },
         ];
     }
 

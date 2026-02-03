@@ -10,6 +10,9 @@ interface Collision {
 
 const scratchRelativeVelocity = new Vec2(0, 0);
 
+// Maximum distance an object should move per nudge (prevents high-speed tunneling)
+const MAX_NUDGE_DISTANCE = 0.5;
+
 export class Scene {
     private objects: BaseObject[];
     private elapsedTime: number = 0;
@@ -135,8 +138,9 @@ export class Scene {
             const handleMethod = Math.max(aTask, bTask);
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
-                    collision.objectA.moveByDelta(FAT_EPS);
-                    collision.objectB.moveByDelta(FAT_EPS);
+                    // Use velocity-aware nudge to prevent high-speed objects from tunneling
+                    this.safeNudge(collision.objectA);
+                    this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.RESET:
                     if (aTask === CollisionResponse.RESET)
@@ -145,8 +149,9 @@ export class Scene {
                         this.objects = this.objects.filter(obj => obj !== parentB);
                     break;
                 case CollisionResponse.BOUNCE:
-                    collision.objectA.moveByDelta(FAT_EPS);
-                    collision.objectB.moveByDelta(FAT_EPS);
+                    // Use velocity-aware nudge to prevent high-speed objects from tunneling
+                    this.safeNudge(collision.objectA);
+                    this.safeNudge(collision.objectB);
                     if (collision.objectA instanceof CircleObject && collision.objectB instanceof CircleObject) {
                         resolveBallCollision(collision.objectA, collision.objectB);
                     } else if (collision.objectA instanceof CircleObject && collision.objectB instanceof LineObject) {
@@ -158,6 +163,26 @@ export class Scene {
                     }
                     break;
             }
+        }
+    }
+
+    /**
+     * Safely nudge an object forward by FAT_EPS, but limit the actual distance
+     * traveled to prevent high-speed objects from tunneling through walls.
+     */
+    private safeNudge(obj: BaseObject): void {
+        const speed = obj.velocity.len();
+        if (speed < EPS) return;
+        
+        // Calculate how far the object would move in FAT_EPS time
+        const nudgeDistance = speed * FAT_EPS;
+        
+        // If that distance is too large, reduce the time step proportionally
+        if (nudgeDistance > MAX_NUDGE_DISTANCE) {
+            const safeDeltaTime = MAX_NUDGE_DISTANCE / speed;
+            obj.moveByDelta(safeDeltaTime);
+        } else {
+            obj.moveByDelta(FAT_EPS);
         }
     }
 

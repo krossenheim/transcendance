@@ -4,9 +4,8 @@ import { registerRoute } from "@app/shared/api/service/common/fastify";
 import { int_url } from "@app/shared/api/service/common/endpoints";
 import { chatService } from "../main.js";
 
-import type { FastifyInstance } from "fastify";
-
-export async function chatRoutes(fastify: FastifyInstance) {
+// Use 'any' to avoid FastifyInstance type mismatch between shared and local fastify versions
+export async function chatRoutes(fastify: any) {
     registerRoute(fastify, int_url.http.db.createChatRoom, async (request, reply) => {
         const createRoomResult = chatService.createNewRoom(request.body.roomName, ChatRoomType.PRIVATE, request.body.owner);
         if (createRoomResult.isErr())

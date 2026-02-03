@@ -7,7 +7,6 @@ import websocketPlugin from "@fastify/websocket";
 import { OurSocket } from "@app/shared/socket_to_hub";
 import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
-import type { FastifyInstance } from "fastify";
 import { createFastify } from "@app/shared/api/service/common/fastify";
 // Prometheus metrics
 import client from "prom-client";
@@ -18,7 +17,8 @@ client.collectDefaultMetrics({ prefix: 'pong_' });
 // Expose metrics on /metrics
 import BlockchainService from "./services/blockchainService.js";
 
-const fastify: FastifyInstance = createFastify();
+// Cast to any to avoid FastifyInstance type mismatch with websocket plugin
+const fastify: any = createFastify();
 
 fastify.register(websocketPlugin);
 
@@ -417,7 +417,7 @@ const port = parseInt(
 const host = process.env.PONG_BIND_TO || "0.0.0.0";
 
 // register a /metrics route for Prometheus to scrape
-fastify.get('/metrics', async (request, reply) => {
+fastify.get('/metrics', async (request: any, reply: any) => {
   try {
     reply.header('Content-Type', client.register.contentType);
     const metrics = await client.register.metrics();
@@ -428,7 +428,7 @@ fastify.get('/metrics', async (request, reply) => {
 });
 
 // Public API: Get tournament stats including on-chain tx hashes
-fastify.get('/public_api/pong/tournaments/:id/stats', async (request, reply) => {
+fastify.get('/public_api/pong/tournaments/:id/stats', async (request: any, reply: any) => {
   const idParam = (request.params as any).id;
   const tid = Number(idParam);
   if (Number.isNaN(tid)) return reply.status(400).send({ message: 'invalid tournament id' });
@@ -442,7 +442,7 @@ fastify.get('/public_api/pong/tournaments/:id/stats', async (request, reply) => 
 
 // Internal endpoint to record a tournament score on-chain.
 // Protect with INTERNAL_API_SECRET header for simple access control in dev.
-fastify.post('/api/pong/blockchain/record_score', async (request, reply) => {
+fastify.post('/api/pong/blockchain/record_score', async (request: any, reply: any) => {
   const body: any = request.body as any;
   const secret = (request.headers['x-internal-secret'] as string) || undefined;
   if (process.env.INTERNAL_API_SECRET && secret !== process.env.INTERNAL_API_SECRET) {
@@ -469,7 +469,7 @@ fastify.post('/api/pong/blockchain/record_score', async (request, reply) => {
   }
 });
 
-fastify.listen({ port, host }, (err, address) => {
+fastify.listen({ port, host }, (err: any, address: any) => {
   if (err) {
     fastify.log.error(err);
     process.exit(1);
