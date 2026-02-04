@@ -43,21 +43,6 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
   }
 });
 
-function createBasicGameOptions(): PongGameOptions {
-  return {
-    canvasWidth: 1000,
-    canvasHeight: 1000,
-    ballSpeed: 450,
-    paddleSpeedFactor: 4.0,
-    paddleWidthFactor: 0.15,
-    paddleHeight: 30,
-    paddleWallOffset: 40,
-    amountOfBalls: 1,
-    powerupFrequency: 10,
-    gameDuration: 180,
-  };
-}
-
 function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number): PongGameOptions {
   console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}`);
   const options: PongGameOptions = {
