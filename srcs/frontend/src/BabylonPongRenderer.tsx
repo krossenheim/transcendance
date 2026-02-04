@@ -195,7 +195,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
     
     let lastUpdate = 0;
-    const updateInterval = 50; // 20 FPS for favicon
+    const updateInterval = 16; // ~60 FPS for favicon
     
     const drawFrame = () => {
       const gs = gameStateRef.current; // Read from ref, not prop
