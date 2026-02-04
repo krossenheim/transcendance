@@ -195,7 +195,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
     
     let lastUpdate = 0;
-    const updateInterval = 16; // ~60 FPS for favicon
+    const updateInterval = 250; // ~4 FPS - browsers throttle favicon updates anyway
     
     const drawFrame = () => {
       const gs = gameStateRef.current; // Read from ref, not prop
@@ -467,14 +467,16 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const mesh = ballsRef.current.get(b.id)
           if (!mesh) continue
           
+          const serverX = (b.x - 500) * 0.02
+          const serverZ = (b.y - 500) * 0.02
           const serverVx = (b.dx || 0) * 0.02
           const serverVz = (b.dy || 0) * 0.02
           
           let state = ballState.get(b.id)
           if (!state) {
             // First time seeing this ball - snap position and velocity
-            mesh.position.x = (b.x - 500) * 0.02
-            mesh.position.z = (b.y - 500) * 0.02
+            mesh.position.x = serverX
+            mesh.position.z = serverZ
             state = { vx: serverVx, vz: serverVz, lastServerVx: serverVx, lastServerVz: serverVz, initialized: true }
             ballState.set(b.id, state)
           } else {
@@ -484,10 +486,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               Math.abs(serverVx - state.lastServerVx) > 0.01 || 
               Math.abs(serverVz - state.lastServerVz) > 0.01
             
-            if (velocityChanged) {
-              // Bounce! Snap position and update velocity
-              mesh.position.x = (b.x - 500) * 0.02
-              mesh.position.z = (b.y - 500) * 0.02
+            // Check if position drifted too far from server (>1 unit = 50 game units)
+            const posErrorX = Math.abs(mesh.position.x - serverX)
+            const posErrorZ = Math.abs(mesh.position.z - serverZ)
+            const positionDrifted = posErrorX > 1.0 || posErrorZ > 1.0
+            
+            if (velocityChanged || positionDrifted) {
+              // Bounce or drift correction - snap position and update velocity
+              mesh.position.x = serverX
+              mesh.position.z = serverZ
               state.vx = serverVx
               state.vz = serverVz
             }
