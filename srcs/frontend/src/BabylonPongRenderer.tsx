@@ -195,7 +195,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
     
     let lastUpdate = 0;
-    const updateInterval = 100; // 10 FPS for favicon (reduced from 20)
+    const updateInterval = 50; // 20 FPS for favicon
     
     const drawFrame = () => {
       const gs = gameStateRef.current; // Read from ref, not prop
@@ -270,15 +270,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const baseRadius = ball.radius || 10;
           const scaledRadius = Math.max(1.5, Math.min(5, (baseRadius / 10) * 2));
           
-          // Draw ball with glow
+          // Draw ball without expensive shadow effects
           const color = ballColors[idx % ballColors.length] ?? '#fbbf24';
-          ctx.shadowColor = color;
-          ctx.shadowBlur = 3;
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.arc(ballX, ballY, scaledRadius, 0, Math.PI * 2);
           ctx.fill();
-          ctx.shadowBlur = 0;
         }
       } else {
         // Simulate ball when no game state
@@ -290,13 +287,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         sim.x = Math.max(4, Math.min(w - 4, sim.x));
         sim.y = Math.max(4, Math.min(h - 4, sim.y));
         
-        ctx.shadowColor = '#fbbf24';
-        ctx.shadowBlur = 4;
         ctx.fillStyle = '#fbbf24';
         ctx.beginPath();
         ctx.arc(sim.x, flipY(sim.y), 2.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
       
       // Skip powerups for performance (they're small anyway)
@@ -305,7 +299,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const animate = (timestamp: number) => {
       if (timestamp - lastUpdate >= updateInterval) {
         drawFrame();
-        link!.href = canvas.toDataURL('image/png');
+        // Use smaller/faster ICO format instead of PNG
+        link!.href = canvas.toDataURL('image/x-icon');
         lastUpdate = timestamp;
       }
       faviconAnimationRef.current = requestAnimationFrame(animate);
