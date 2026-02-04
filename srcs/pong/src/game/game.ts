@@ -352,6 +352,10 @@ export class PongGame {
 
         if (this.currentTick >= this.nextPowerupSpawnTick) {
             this.spawnNewPowerup();
+            // Schedule next powerup spawn with some randomness
+            const baseFrequencyTicks = Math.floor(this.gameOptions.powerupFrequency * TICK_RATE);
+            const jitterFactor = 0.8 + this.rng.next() * 0.4;
+            this.nextPowerupSpawnTick = this.currentTick + Math.floor(baseFrequencyTicks * jitterFactor);
         }
 
         let leftOverTime = deltaTime;
@@ -364,6 +368,9 @@ export class PongGame {
             this.scene.playSimulation(timeStep, this.balls);
             leftOverTime -= timeStep;
         }
+
+        // Increment tick counter based on deltaTime (approximately)
+        this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
 
         // console.log(`[PongGame] playSimulation called with deltaTime=${deltaTime.toFixed(4)}s`);
         // const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);
