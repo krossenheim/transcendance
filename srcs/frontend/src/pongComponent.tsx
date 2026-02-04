@@ -795,6 +795,7 @@ export default function PongComponent({
                     const payload: TypeStartNewPongGame = {
                       player_list: [authResponse.user.id],
                       balls: 1,
+                      allowPowerups: true,
                     }
                     handleUserInput(user_url.ws.pong.startGame, payload)
                     setCurrentView("game")

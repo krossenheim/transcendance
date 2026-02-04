@@ -91,9 +91,11 @@ socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) =
 
 socket.registerHandler(user_url.ws.pong.startGame, async (body, response) => {
   const player_list_requested = body.payload.player_list;
+  const allowPowerups = body.payload.allowPowerups ?? false;
+  const gameOptions = createGameOptionsFromLobby(body.payload.balls || 1, allowPowerups);
   const startGameResult = singletonPong.startGame(
     player_list_requested,
-    createBasicGameOptions()
+    gameOptions
   );
 
   if (startGameResult.isErr()) {
