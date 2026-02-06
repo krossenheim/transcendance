@@ -472,23 +472,22 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           
           // Store position before moving for rotation calculation
           const lastPos = ballLastPos.get(b.id)
-          const prevX = lastPos?.x ?? mesh.position.x
-          const prevZ = lastPos?.z ?? mesh.position.z
+          const prevX = lastPos?.x ?? serverX
+          const prevZ = lastPos?.z ?? serverZ
           
-          // Smooth interpolation toward server position
-          // Use high lerp factor (0.5) for tight tracking of server state
-          const lerpFactor = 0.5
-          mesh.position.x += (serverX - mesh.position.x) * lerpFactor
-          mesh.position.z += (serverZ - mesh.position.z) * lerpFactor
+          // Directly set position to server state - no interpolation
+          // This ensures visual position matches server hitbox exactly
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
           
           // Update last position for next frame's rotation
           let posRecord = ballLastPos.get(b.id)
           if (!posRecord) {
-            posRecord = { x: mesh.position.x, z: mesh.position.z }
+            posRecord = { x: serverX, z: serverZ }
             ballLastPos.set(b.id, posRecord)
           } else {
-            posRecord.x = mesh.position.x
-            posRecord.z = mesh.position.z
+            posRecord.x = serverX
+            posRecord.z = serverZ
           }
           
           // Rolling rotation based on actual movement this frame
