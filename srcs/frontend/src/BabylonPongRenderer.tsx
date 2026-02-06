@@ -490,14 +490,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             state = { serverX, serverZ, velocityX, velocityZ, lastServerTime: now }
             ballServerState.set(b.id, state)
           } else {
-            // Check if server position changed (new server update received)
-            const posChanged = Math.abs(state.serverX - serverX) > 0.001 || 
-                               Math.abs(state.serverZ - serverZ) > 0.001
-            const velChanged = Math.abs(state.velocityX - velocityX) > 0.001 ||
-                               Math.abs(state.velocityZ - velocityZ) > 0.001
+            // Check if velocity changed (bounce detected) - this is the reliable signal
+            const velChanged = Math.abs(state.velocityX - velocityX) > 0.01 ||
+                               Math.abs(state.velocityZ - velocityZ) > 0.01
             
-            if (posChanged || velChanged) {
-              // New server data - reset extrapolation base
+            // Calculate where we THINK the ball should be based on extrapolation
+            const timeSinceUpdate = (now - state.lastServerTime) * 0.001
+            const extrapolatedX = state.serverX + state.velocityX * timeSinceUpdate
+            const extrapolatedZ = state.serverZ + state.velocityZ * timeSinceUpdate
+            
+            // Check if server position deviates significantly from our extrapolation
+            // This catches drift without resetting on every frame
+            const deviationX = Math.abs(extrapolatedX - serverX)
+            const deviationZ = Math.abs(extrapolatedZ - serverZ)
+            const significantDeviation = deviationX > 0.1 || deviationZ > 0.1 // ~5 backend units
+            
+            if (velChanged || significantDeviation) {
+              // Velocity changed (bounce) or we've drifted too far - reset extrapolation base
               state.serverX = serverX
               state.serverZ = serverZ
               state.velocityX = velocityX
@@ -1140,7 +1149,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             console.warn("[BabylonPongRenderer] powerup type is not a number, raw:", rawType)
           }
           const key = `${spawnTime}_${pidx}`
-          console.debug(`[BabylonPongRenderer] Powerup parsed: key=${key}, x=${x}, y=${y}, radius=${radius}, type=${typeIndex}`)
           activePowerupKeys.add(key)
 
           let mesh = powerupsRef.current.get(key)
@@ -1216,7 +1224,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               mesh.material = mat
               // Render powerups slightly lower than balls so they appear beneath them
               mesh.position = toWorld(x, y, 0.15)
-              console.debug(`[BabylonPongRenderer] Created powerup mesh ${name} for type ${typeIndex}`)
               powerupsRef.current.set(key, mesh)
             }
           } else {
