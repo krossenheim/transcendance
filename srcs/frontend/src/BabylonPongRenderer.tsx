@@ -136,6 +136,19 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   }
   const ballSquashRef = useRef<Map<number, SquashState>>(new Map())
 
+  // Track server state for extrapolation (prevents drift/desync)
+  interface BallServerState {
+    serverX: number
+    serverZ: number
+    velocityX: number  // world units per second
+    velocityZ: number
+    lastServerTime: number  // when we received this server state
+  }
+  const ballServerStateRef = useRef<Map<number, BallServerState>>(new Map())
+  
+  // Track last rendered position for rotation calculation
+  const ballLastPosRef = useRef<Map<number, { x: number; z: number }>>(new Map())
+
   // Powerups: stable meshes keyed by spawnTime (string) + index fallback
   const powerupsRef = useRef<Map<string, Mesh>>(new Map())
 
@@ -445,54 +458,97 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Ball/paddle movement - directly follow server position with smooth interpolation
-    // No client-side prediction to avoid drift from server's authoritative hitbox
+    // Ball/paddle movement - extrapolate from server position for smooth motion
+    // Key: always start extrapolation from LAST SERVER POSITION, never accumulate
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     let lastTime = performance.now()
     
-    // Store last position for rotation calculation
-    const ballLastPos = new Map<number, { x: number; z: number }>()
+    // Use refs for server state (defined at component level for proper cleanup)
+    const ballServerState = ballServerStateRef.current
+    const ballLastPos = ballLastPosRef.current
     
     scene.onBeforeRenderObservable.add(() => {
       const now = performance.now()
       const dt = (now - lastTime) * 0.001 // seconds
       lastTime = now
       
-      // Read server state and interpolate toward it
+      // Read server state
       const gs = gameStateRef.current
       if (gs) {
+        // First pass: update server state from game state
+        for (let i = 0; i < gs.balls.length; i++) {
+          const b = gs.balls[i]!
+          
+          const serverX = (b.x - 500) * 0.02
+          const serverZ = (b.y - 500) * 0.02
+          const velocityX = (b.dx || 0) * 0.02
+          const velocityZ = (b.dy || 0) * 0.02
+          
+          let state = ballServerState.get(b.id)
+          if (!state) {
+            state = { serverX, serverZ, velocityX, velocityZ, lastServerTime: now }
+            ballServerState.set(b.id, state)
+          } else {
+            // Check if server position changed (new server update received)
+            const posChanged = Math.abs(state.serverX - serverX) > 0.001 || 
+                               Math.abs(state.serverZ - serverZ) > 0.001
+            const velChanged = Math.abs(state.velocityX - velocityX) > 0.001 ||
+                               Math.abs(state.velocityZ - velocityZ) > 0.001
+            
+            if (posChanged || velChanged) {
+              // New server data - reset extrapolation base
+              state.serverX = serverX
+              state.serverZ = serverZ
+              state.velocityX = velocityX
+              state.velocityZ = velocityZ
+              state.lastServerTime = now
+            }
+          }
+        }
+        
+        // Second pass: render balls with extrapolation from server state
         for (let i = 0; i < gs.balls.length; i++) {
           const b = gs.balls[i]!
           const mesh = ballsRef.current.get(b.id)
           if (!mesh) continue
           
-          const serverX = (b.x - 500) * 0.02
-          const serverZ = (b.y - 500) * 0.02
+          const state = ballServerState.get(b.id)
+          if (!state) continue
           
-          // Store position before moving for rotation calculation
+          // Calculate time since last server update
+          const timeSinceUpdate = (now - state.lastServerTime) * 0.001 // seconds
+          
+          // Extrapolate position from server position + velocity * time
+          // Cap extrapolation to prevent runaway if server updates are delayed
+          const maxExtrapolation = 0.2 // max 200ms of extrapolation
+          const clampedTime = Math.min(timeSinceUpdate, maxExtrapolation)
+          
+          const extrapolatedX = state.serverX + state.velocityX * clampedTime
+          const extrapolatedZ = state.serverZ + state.velocityZ * clampedTime
+          
+          // Store previous position for rotation
           const lastPos = ballLastPos.get(b.id)
-          const prevX = lastPos?.x ?? serverX
-          const prevZ = lastPos?.z ?? serverZ
+          const prevX = lastPos?.x ?? extrapolatedX
+          const prevZ = lastPos?.z ?? extrapolatedZ
           
-          // Directly set position to server state - no interpolation
-          // This ensures visual position matches server hitbox exactly
-          mesh.position.x = serverX
-          mesh.position.z = serverZ
+          // Set mesh position
+          mesh.position.x = extrapolatedX
+          mesh.position.z = extrapolatedZ
           
-          // Update last position for next frame's rotation
+          // Update last position
           let posRecord = ballLastPos.get(b.id)
           if (!posRecord) {
-            posRecord = { x: serverX, z: serverZ }
+            posRecord = { x: extrapolatedX, z: extrapolatedZ }
             ballLastPos.set(b.id, posRecord)
           } else {
-            posRecord.x = serverX
-            posRecord.z = serverZ
+            posRecord.x = extrapolatedX
+            posRecord.z = extrapolatedZ
           }
           
           // Rolling rotation based on actual movement this frame
-          const movedX = mesh.position.x - prevX
-          const movedZ = mesh.position.z - prevZ
+          const movedX = extrapolatedX - prevX
+          const movedZ = extrapolatedZ - prevZ
           const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
           
           if (moveDist > 0.0001 && mesh.rotationQuaternion) {
@@ -1212,6 +1268,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ballRotationsRef.current.delete(id)
         ballTargetsRef.current.delete(id)
         ballSquashRef.current.delete(id)
+        ballServerStateRef.current.delete(id)
+        ballLastPosRef.current.delete(id)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
