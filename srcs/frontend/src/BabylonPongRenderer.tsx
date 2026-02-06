@@ -480,24 +480,44 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             state = { vx: serverVx, vz: serverVz, lastServerVx: serverVx, lastServerVz: serverVz, initialized: true }
             ballState.set(b.id, state)
           } else {
-            // Check if velocity direction changed (bounce happened)
+            // Check if velocity direction actually reversed (true bounce)
+            // Use dot product < 0 to detect direction reversal, but require significant speed
             const dotProduct = state.lastServerVx * serverVx + state.lastServerVz * serverVz
-            const velocityChanged = dotProduct < 0 || 
-              Math.abs(serverVx - state.lastServerVx) > 0.01 || 
-              Math.abs(serverVz - state.lastServerVz) > 0.01
+            const lastSpeed = Math.sqrt(state.lastServerVx * state.lastServerVx + state.lastServerVz * state.lastServerVz)
+            const currentSpeed = Math.sqrt(serverVx * serverVx + serverVz * serverVz)
+            const minSpeedForBounce = 0.05 // Require meaningful velocity to count as bounce
             
-            // Check if position drifted too far from server (>1 unit = 50 game units)
+            // True bounce: direction reversed AND both old and new velocities are significant
+            const isTrueBounce = dotProduct < 0 && lastSpeed > minSpeedForBounce && currentSpeed > minSpeedForBounce
+            
+            // Check if position drifted too far from server
             const posErrorX = Math.abs(mesh.position.x - serverX)
             const posErrorZ = Math.abs(mesh.position.z - serverZ)
-            const positionDrifted = posErrorX > 1.0 || posErrorZ > 1.0
             
-            if (velocityChanged || positionDrifted) {
-              // Bounce or drift correction - snap position and update velocity
+            if (isTrueBounce) {
+              // On true bounce, snap position and update velocity immediately
               mesh.position.x = serverX
               mesh.position.z = serverZ
               state.vx = serverVx
               state.vz = serverVz
+            } else if (posErrorX > 2.0 || posErrorZ > 2.0) {
+              // Large drift (>100 game units): snap to correct position
+              mesh.position.x = serverX
+              mesh.position.z = serverZ
+              state.vx = serverVx
+              state.vz = serverVz
+            } else if (posErrorX > 0.5 || posErrorZ > 0.5) {
+              // Moderate drift (25-100 game units): smoothly blend toward server position
+              // This prevents jarring snaps while still correcting drift over time
+              const blendFactor = 0.1
+              mesh.position.x += (serverX - mesh.position.x) * blendFactor
+              mesh.position.z += (serverZ - mesh.position.z) * blendFactor
+              // Also gently correct velocity
+              state.vx += (serverVx - state.vx) * blendFactor
+              state.vz += (serverVz - state.vz) * blendFactor
             }
+            // For small drifts (<25 game units), trust client-side prediction
+            
             state.lastServerVx = serverVx
             state.lastServerVz = serverVz
           }
