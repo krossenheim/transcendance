@@ -117,37 +117,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   const floorRef = useRef<Mesh | null>(null)
   const shadowGeneratorRef = useRef<ShadowGenerator | null>(null)
 
-  // Sound effects
-  const paddleSoundsRef = useRef<Map<number, { play: () => void; dispose: () => void }>>(new Map())
-
-  // Track previous ball velocities to detect bounces and which paddle was hit
-  const previousBallVelocitiesRef = useRef<Map<number, { dx: number; dy: number }>>(new Map())
-
   // Track ball rotation for realistic rolling effect (using quaternions)
   const ballRotationsRef = useRef<Map<number, Quaternion>>(new Map())
-
-  // Track squash animation state per ball
-  // When a ball bounces, we animate: squash (flatten) -> stretch -> normal
-  interface SquashState {
-    active: boolean
-    startTime: number
-    impactAngle: number  // Direction of impact (radians) for oriented squash
-    impactSpeed: number  // Speed at impact - faster = more squash
-  }
-  const ballSquashRef = useRef<Map<number, SquashState>>(new Map())
-
-  // Track server state for extrapolation (prevents drift/desync)
-  interface BallServerState {
-    serverX: number
-    serverZ: number
-    velocityX: number  // world units per second
-    velocityZ: number
-    lastServerTime: number  // when we received this server state
-  }
-  const ballServerStateRef = useRef<Map<number, BallServerState>>(new Map())
   
-  // Track last rendered position for rotation calculation
-  const ballLastPosRef = useRef<Map<number, { x: number; z: number }>>(new Map())
+  // Track last velocity to detect bounces
+  const ballLastVelocityRef = useRef<Map<number, { vx: number; vz: number }>>(new Map())
 
   // Powerups: stable meshes keyed by spawnTime (string) + index fallback
   const powerupsRef = useRef<Map<string, Mesh>>(new Map())
@@ -383,62 +357,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     scene.clearColor = bgColor.toColor4()
     sceneRef.current = scene
 
-    // Create synthetic bounce sounds using Web Audio API - use oscillator for reliable playback
-    const createBounceSound = (frequency: number, duration: number, name: string) => {
-      // Instead of pre-generating, we'll play using Web Audio API directly
-      // This is more reliable than trying to create WAV files
-      return {
-        play: () => {
-          try {
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-
-            // Create oscillator
-            const oscillator = audioContext.createOscillator()
-            const gainNode = audioContext.createGain()
-
-            oscillator.type = 'sine'
-            oscillator.frequency.value = frequency
-
-            // Exponential decay envelope
-            const now = audioContext.currentTime
-            gainNode.gain.setValueAtTime(0.3, now)
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration)
-
-            oscillator.connect(gainNode)
-            gainNode.connect(audioContext.destination)
-
-            oscillator.start(now)
-            oscillator.stop(now + duration)
-
-            // Clean up after sound finishes
-            oscillator.onended = () => {
-              oscillator.disconnect()
-              gainNode.disconnect()
-              audioContext.close()
-            }
-
-            // Debug logging disabled for performance
-            // console.log(`[Pong Sound] ${name} played with Web Audio API`)
-          } catch (error) {
-            console.warn(`[Pong Sound] Failed to play ${name}:`, error)
-          }
-        },
-        dispose: () => {
-          // Nothing to dispose
-        }
-      }
-    }
-
-    // Initialize sounds for each paddle (8 different frequencies)
-    // Using a pentatonic scale for pleasant tones: C, D, E, G, A, C, D, E
-    const frequencies = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51]
-    for (let i = 0; i < 8; i++) {
-      paddleSoundsRef.current.set(i, createBounceSound(frequencies[i]!, 0.08, `paddle${i}`))
-    }
-
-    // Debug logging disabled for performance
-    // console.log("[Pong Sound] 8 paddle sounds initialized (Web Audio API)")
-
     // Camera
     const camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 25, Vector3.Zero(), scene)
     camera.attachControl(canvasRef.current, true)
@@ -458,121 +376,97 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Ball/paddle movement - simple velocity-based motion
-    // Move by velocity*dt every frame, snap to server on bounce
+    // Simple ball/paddle movement - lerp toward server position
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
-    let lastTime = performance.now()
-    
-    // Track velocity per ball to detect bounces
-    const ballVelocity = ballServerStateRef.current
-    const ballLastPos = ballLastPosRef.current
+    const ballLastVel = ballLastVelocityRef.current
     
     scene.onBeforeRenderObservable.add(() => {
-      const now = performance.now()
-      const dt = (now - lastTime) * 0.001 // seconds
-      lastTime = now
-      
       const gs = gameStateRef.current
-      if (gs) {
-        for (let i = 0; i < gs.balls.length; i++) {
-          const b = gs.balls[i]!
-          const mesh = ballsRef.current.get(b.id)
-          if (!mesh) continue
-          
-          // Get current velocity from server (in world units)
-          const velocityX = (b.dx || 0) * 0.02
-          const velocityZ = (b.dy || 0) * 0.02
-          
-          // Get previous velocity to detect bounce
-          let state = ballVelocity.get(b.id)
-          
-          // Detect bounce: velocity changed significantly
-          const bounced = state && (
-            Math.abs(state.velocityX - velocityX) > 0.01 ||
-            Math.abs(state.velocityZ - velocityZ) > 0.01
-          )
-          
-          if (!state || bounced) {
-            // First frame or bounce: snap to server position
-            const serverX = (b.x - 500) * 0.02
-            const serverZ = (b.y - 500) * 0.02
-            mesh.position.x = serverX
-            mesh.position.z = serverZ
-            
-            // Store velocity
-            if (!state) {
-              state = { serverX: 0, serverZ: 0, velocityX, velocityZ, lastServerTime: now }
-              ballVelocity.set(b.id, state)
-            } else {
-              state.velocityX = velocityX
-              state.velocityZ = velocityZ
-            }
-          } else {
-            // Normal frame: move by velocity * dt
-            mesh.position.x += velocityX * dt
-            mesh.position.z += velocityZ * dt
-          }
-          
-          // Rolling rotation
-          const lastPos = ballLastPos.get(b.id)
-          if (lastPos && mesh.rotationQuaternion) {
-            const movedX = mesh.position.x - lastPos.x
-            const movedZ = mesh.position.z - lastPos.z
-            const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
-            
-            if (moveDist > 0.0001) {
-              const target = ballTargetsRef.current.get(b.id)
-              const radius = target?.visualRadius || 0.2
-              const rotationAmount = -moveDist / radius
-              
-              rotAxis.x = -movedZ / moveDist
-              rotAxis.y = 0
-              rotAxis.z = movedX / moveDist
-              
-              let currentRot = ballRotationsRef.current.get(b.id)
-              if (!currentRot) {
-                currentRot = Quaternion.Identity()
-                ballRotationsRef.current.set(b.id, currentRot)
-              }
-              
-              Quaternion.RotationAxisToRef(rotAxis, rotationAmount, rotQuat)
-              rotQuat.multiplyToRef(currentRot, currentRot)
-              mesh.rotationQuaternion.copyFrom(currentRot)
-            }
-          }
-          
-          // Update last position for next frame
-          let posRecord = ballLastPos.get(b.id)
-          if (!posRecord) {
-            posRecord = { x: mesh.position.x, z: mesh.position.z }
-            ballLastPos.set(b.id, posRecord)
-          } else {
-            posRecord.x = mesh.position.x
-            posRecord.z = mesh.position.z
-          }
+      if (!gs) return
+      
+      // Update balls - smooth lerp to server position
+      for (let i = 0; i < gs.balls.length; i++) {
+        const b = gs.balls[i]!
+        const mesh = ballsRef.current.get(b.id)
+        if (!mesh) continue
+        
+        // Server position
+        const targetX = (b.x - 500) * 0.02
+        const targetZ = (b.y - 500) * 0.02
+        const vx = (b.dx || 0) * 0.02
+        const vz = (b.dy || 0) * 0.02
+        
+        // Check for bounce (velocity changed)
+        const lastVel = ballLastVel.get(b.id)
+        const bounced = lastVel && (
+          Math.abs(lastVel.vx - vx) > 0.01 || Math.abs(lastVel.vz - vz) > 0.01
+        )
+        
+        // Store previous position for rotation
+        const prevX = mesh.position.x
+        const prevZ = mesh.position.z
+        
+        if (!lastVel || bounced) {
+          // First frame or bounce: snap to server
+          mesh.position.x = targetX
+          mesh.position.z = targetZ
+        } else {
+          // Smooth lerp to server position (0.3 = responsive but smooth)
+          mesh.position.x += (targetX - mesh.position.x) * 0.3
+          mesh.position.z += (targetZ - mesh.position.z) * 0.3
         }
         
-        // Update paddle targets
-        for (let i = 0; i < gs.paddles.length; i++) {
-          const p = gs.paddles[i] as any
-          const id = p.paddle_id ?? p.id
-          if (id == null) continue
-          const target = paddleTargetsRef.current.get(id)
-          if (target) {
-            target.x = (p.x - 500) * 0.02
-            target.z = (p.y - 500) * 0.02
+        // Update velocity tracking
+        if (!lastVel) {
+          ballLastVel.set(b.id, { vx, vz })
+        } else {
+          lastVel.vx = vx
+          lastVel.vz = vz
+        }
+        
+        // Rolling rotation based on movement
+        if (mesh.rotationQuaternion) {
+          const movedX = mesh.position.x - prevX
+          const movedZ = mesh.position.z - prevZ
+          const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
+          
+          if (moveDist > 0.0001) {
+            const target = ballTargetsRef.current.get(b.id)
+            const radius = target?.visualRadius || 0.2
+            
+            rotAxis.x = -movedZ / moveDist
+            rotAxis.y = 0
+            rotAxis.z = movedX / moveDist
+            
+            let rot = ballRotationsRef.current.get(b.id)
+            if (!rot) {
+              rot = Quaternion.Identity()
+              ballRotationsRef.current.set(b.id, rot)
+            }
+            
+            Quaternion.RotationAxisToRef(rotAxis, -moveDist / radius, rotQuat)
+            rotQuat.multiplyToRef(rot, rot)
+            mesh.rotationQuaternion.copyFrom(rot)
           }
         }
       }
       
-      // Move paddles with lerp
-      paddlesRef.current.forEach((mesh, paddleId) => {
-        const target = paddleTargetsRef.current.get(paddleId)
-        if (!target) return
+      // Update paddles - smooth lerp
+      for (let i = 0; i < gs.paddles.length; i++) {
+        const p = gs.paddles[i] as any
+        const id = p.paddle_id ?? p.id
+        if (id == null) continue
+        
+        const mesh = paddlesRef.current.get(id)
+        const target = paddleTargetsRef.current.get(id)
+        if (!mesh || !target) continue
+        
+        target.x = (p.x - 500) * 0.02
+        target.z = (p.y - 500) * 0.02
         mesh.position.x += (target.x - mesh.position.x) * 0.3
         mesh.position.z += (target.z - mesh.position.z) * 0.3
-      })
+      }
     })
 
     // Render loop
@@ -618,8 +512,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       window.removeEventListener("resize", handleResize)
       window.removeEventListener("orientationchange", handleResize)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      paddleSoundsRef.current.forEach(sound => sound.dispose())
-      paddleSoundsRef.current.clear()
 
       // Clear all mesh references
       paddlesRef.current.clear()
@@ -627,7 +519,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       ballLightsRef.current.clear()
       edgesRef.current = []
       floorRef.current = null
-      previousBallVelocitiesRef.current.clear()
+      ballLastVelocityRef.current.clear()
       // Dispose powerup meshes
       powerupsRef.current.forEach(m => m.dispose())
       powerupsRef.current.clear()
@@ -900,204 +792,51 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
 
       // Calculate distance moved since last update for rotation
-      // const prevVelData = previousBallVelocitiesRef.current.get(b.id)
-      // Inline toWorld calculation to avoid creating Vector3 every frame
       const newPosX = (b.x - BACKEND_WIDTH / 2) * SCALE_FACTOR
       const newPosZ = (b.y - BACKEND_HEIGHT / 2) * SCALE_FACTOR
-      const newPosY = 0.2
 
       // Update mesh scale if backend radius changed, and adjust Y position to keep ball on floor
-      let adjustedYPos = newPosY
       let actualVisualRadius = 0.2 // default fallback
       try {
         const backendRadius = Number(b.radius || 10)
         const worldRadius = Math.max(0.05, backendRadius * SCALE_FACTOR)
         const desiredDiameter = Math.max(0.05, worldRadius * 2)
         const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
-        const baseScale = desiredDiameter / baseDiameter
+        const scale = desiredDiameter / baseDiameter
         
-        // Apply squash and stretch animation
-        let scaleX = baseScale
-        let scaleY = baseScale
-        let scaleZ = baseScale
+        actualVisualRadius = (baseDiameter / 2) * scale
         
-        const squashState = ballSquashRef.current.get(b.id)
-        if (squashState?.active) {
-          const elapsed = performance.now() - squashState.startTime
-          const SQUASH_DURATION = 150 // ms for full squash/stretch cycle
-          
-          if (elapsed < SQUASH_DURATION) {
-            // Animation progress (0 to 1)
-            const t = elapsed / SQUASH_DURATION
-            
-            // Scale squash intensity based on impact speed
-            const MIN_SPEED = 200
-            const MAX_SPEED = 1000
-            const MIN_INTENSITY = 0.12
-            const MAX_INTENSITY = 0.35
-            const speedNorm = Math.min(1, Math.max(0, (squashState.impactSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)))
-            const maxSquash = MIN_INTENSITY + speedNorm * (MAX_INTENSITY - MIN_INTENSITY)
-            
-            // Use a simple damped sine wave for natural bounce feel
-            // Starts at 1, dips down (squash), overshoots up (stretch), settles to 1
-            // Formula: 1 + amplitude * sin(phase) * decay
-            const frequency = 2.5 // Number of oscillations
-            const decay = Math.exp(-4 * t) // Exponential decay
-            const phase = t * frequency * Math.PI * 2
-            
-            // Primary deformation along impact direction
-            const deformation = maxSquash * Math.sin(phase) * decay
-            
-            // Get normalized impact direction in world XZ plane
-            // impactAngle is in 2D game space, map to 3D: game X -> world X, game Y -> world Z
-            const impactDirX = Math.cos(squashState.impactAngle)
-            const impactDirZ = Math.sin(squashState.impactAngle)
-            
-            // Squash along impact direction, stretch perpendicular (volume preservation)
-            // When deformation > 0: stretch along impact, squash perpendicular (ball elongating after bounce)
-            // When deformation < 0: squash along impact, stretch perpendicular (ball compressing on impact)
-            const alongImpact = 1 + deformation
-            const perpendicular = 1 / Math.sqrt(alongImpact) // Volume preservation: V = x * y * z
-            
-            // Blend X and Z based on how aligned they are with impact direction
-            const xAlignment = Math.abs(impactDirX)
-            const zAlignment = Math.abs(impactDirZ)
-            
-            // X gets more "along impact" scaling when impact is horizontal (X-aligned)
-            // Z gets more "along impact" scaling when impact is vertical (Z-aligned)
-            scaleX = baseScale * (alongImpact * xAlignment + perpendicular * zAlignment)
-            scaleZ = baseScale * (alongImpact * zAlignment + perpendicular * xAlignment)
-            
-            // Y (height) bulges out when ball is squashed horizontally - inverse of horizontal compression
-            // This creates the "pancake then tall" effect
-            scaleY = baseScale * perpendicular
-          } else {
-            // Animation complete - just set active to false, don't create new object
-            squashState.active = false
-          }
-        }
-        
-        // The actual visual radius after scaling (use average for Y positioning)
-        actualVisualRadius = (baseDiameter / 2) * baseScale
-        
-        // Adjust Y position so ball stays on the floor (scale from bottom, not center)
-        // Floor is at y = -0.1, so ball center should be at -0.1 + radius
+        // Adjust Y position so ball stays on the floor
         const FLOOR_Y = -0.1
-        adjustedYPos = FLOOR_Y + actualVisualRadius
+        const adjustedYPos = FLOOR_Y + actualVisualRadius
         
-        // Convert backend velocity to world units per second
-        // Backend velocity is in backend units per second, scale to world units
-        const worldVelocityX = (b.dx || 0) * SCALE_FACTOR
-        const worldVelocityZ = (b.dy || 0) * SCALE_FACTOR
-        
-        // Set target for lerp-based smoothing with velocity extrapolation
-        // Reuse existing target object to avoid GC pressure
+        // Store visual radius for rotation calculation
         let existingTarget = ballTargetsRef.current.get(b.id)
         if (!existingTarget) {
           existingTarget = {
             targetPos: new Vector3(newPosX, adjustedYPos, newPosZ),
-            targetScaleX: scaleX,
-            targetScaleY: scaleY,
-            targetScaleZ: scaleZ,
-            velocityX: worldVelocityX,
-            velocityZ: worldVelocityZ,
+            targetScaleX: scale,
+            targetScaleY: scale,
+            targetScaleZ: scale,
+            velocityX: 0,
+            velocityZ: 0,
             lastUpdateTime: performance.now(),
             visualRadius: actualVisualRadius
           }
           ballTargetsRef.current.set(b.id, existingTarget)
         } else {
-          // Update existing object in place
-          existingTarget.targetPos.set(newPosX, adjustedYPos, newPosZ)
-          existingTarget.targetScaleX = scaleX
-          existingTarget.targetScaleY = scaleY
-          existingTarget.targetScaleZ = scaleZ
-          existingTarget.velocityX = worldVelocityX
-          existingTarget.velocityZ = worldVelocityZ
-          existingTarget.lastUpdateTime = performance.now()
           existingTarget.visualRadius = actualVisualRadius
         }
         
-        // If ball is new, snap to position immediately
+        // Set Y position and scale
+        mesh.position.y = adjustedYPos
         if (isNewBall) {
-          mesh.position.copyFrom(existingTarget.targetPos)
-          mesh.scaling = new Vector3(scaleX, scaleY, scaleZ)
+          mesh.position.x = newPosX
+          mesh.position.z = newPosZ
+          mesh.scaling.set(scale, scale, scale)
         }
       } catch (e) {
         // ignore scaling errors
-      }
-
-      // Note: Rolling rotation is now handled in onBeforeRenderObservable for smoother animation
-      // The rotation is calculated based on actual frame-by-frame movement there
-
-      // Detect bounces by checking if velocity direction changed
-      const prevVel = previousBallVelocitiesRef.current.get(b.id)
-      if (prevVel) {
-        // Check if direction has changed significantly (sign flip or major change)
-        // Use a larger threshold to avoid false positives from client-side prediction jitter
-        const velocityThreshold = 10 // Require significant velocity change to trigger sound
-        const dxChanged = Math.abs(b.dx - prevVel.dx) > velocityThreshold
-        const dyChanged = Math.abs(b.dy - prevVel.dy) > velocityThreshold
-        
-        // Also check if velocity actually flipped direction (more reliable bounce detection)
-        const dxFlipped = (b.dx * prevVel.dx < 0) && Math.abs(b.dx) > 1 && Math.abs(prevVel.dx) > 1
-        const dyFlipped = (b.dy * prevVel.dy < 0) && Math.abs(b.dy) > 1 && Math.abs(prevVel.dy) > 1
-
-        if ((dxChanged || dyChanged) && (dxFlipped || dyFlipped)) {
-          // Direction changed - find closest paddle and play its sound
-          let closestPaddleIndex = 0
-          let minDist = Infinity
-
-          gameState.paddles.forEach((paddle, index) => {
-            const dist = Math.sqrt(
-              Math.pow(b.x - paddle.x, 2) + Math.pow(b.y - paddle.y, 2)
-            )
-            if (dist < minDist) {
-              minDist = dist
-              closestPaddleIndex = index
-            }
-          })
-
-          const sound = paddleSoundsRef.current.get(closestPaddleIndex)
-          if (sound) {
-            try {
-              sound.play()
-            } catch (error) {
-              console.warn("[Pong Sound] Failed to play:", error)
-            }
-          }
-          
-          // Trigger squash animation on bounce
-          // Calculate impact angle from velocity change direction
-          const impactAngle = Math.atan2(
-            prevVel.dy - b.dy,  // Change in dy
-            prevVel.dx - b.dx   // Change in dx
-          )
-          // Calculate impact speed (magnitude of velocity change)
-          const impactSpeed = Math.sqrt(
-            Math.pow(b.dx - prevVel.dx, 2) + Math.pow(b.dy - prevVel.dy, 2)
-          )
-          // REUSE existing squash object to avoid GC
-          let squashObj = ballSquashRef.current.get(b.id)
-          if (!squashObj) {
-            squashObj = { active: true, startTime: performance.now(), impactAngle: impactAngle, impactSpeed: impactSpeed }
-            ballSquashRef.current.set(b.id, squashObj)
-          } else {
-            squashObj.active = true
-            squashObj.startTime = performance.now()
-            squashObj.impactAngle = impactAngle
-            squashObj.impactSpeed = impactSpeed
-          }
-        }
-      }
-
-      // Store current velocity for next frame - REUSE existing object to avoid GC
-      let prevVelObj = previousBallVelocitiesRef.current.get(b.id)
-      if (!prevVelObj) {
-        prevVelObj = { dx: b.dx, dy: b.dy }
-        previousBallVelocitiesRef.current.set(b.id, prevVelObj)
-      } else {
-        prevVelObj.dx = b.dx
-        prevVelObj.dy = b.dy
       }
     })
 
@@ -1243,12 +982,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         }
         mesh.dispose()
         ballsRef.current.delete(id)
-        previousBallVelocitiesRef.current.delete(id)
         ballRotationsRef.current.delete(id)
         ballTargetsRef.current.delete(id)
-        ballSquashRef.current.delete(id)
-        ballServerStateRef.current.delete(id)
-        ballLastPosRef.current.delete(id)
+        ballLastVelocityRef.current.delete(id)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
