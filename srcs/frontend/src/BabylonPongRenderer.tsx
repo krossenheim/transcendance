@@ -458,14 +458,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Ball/paddle movement - extrapolate from server position for smooth motion
-    // Key: always start extrapolation from LAST SERVER POSITION, never accumulate
+    // Ball/paddle movement - simple velocity-based motion
+    // Move by velocity*dt every frame, snap to server on bounce
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     let lastTime = performance.now()
     
-    // Use refs for server state (defined at component level for proper cleanup)
-    const ballServerState = ballServerStateRef.current
+    // Track velocity per ball to detect bounces
+    const ballVelocity = ballServerStateRef.current
     const ballLastPos = ballLastPosRef.current
     
     scene.onBeforeRenderObservable.add(() => {
@@ -473,111 +473,83 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       const dt = (now - lastTime) * 0.001 // seconds
       lastTime = now
       
-      // Read server state
       const gs = gameStateRef.current
       if (gs) {
-        // First pass: update server state from game state
-        for (let i = 0; i < gs.balls.length; i++) {
-          const b = gs.balls[i]!
-          
-          const serverX = (b.x - 500) * 0.02
-          const serverZ = (b.y - 500) * 0.02
-          const velocityX = (b.dx || 0) * 0.02
-          const velocityZ = (b.dy || 0) * 0.02
-          
-          let state = ballServerState.get(b.id)
-          if (!state) {
-            state = { serverX, serverZ, velocityX, velocityZ, lastServerTime: now }
-            ballServerState.set(b.id, state)
-          } else {
-            // Check if velocity changed (bounce detected) - this is the reliable signal
-            const velChanged = Math.abs(state.velocityX - velocityX) > 0.01 ||
-                               Math.abs(state.velocityZ - velocityZ) > 0.01
-            
-            // Calculate where we THINK the ball should be based on extrapolation
-            const timeSinceUpdate = (now - state.lastServerTime) * 0.001
-            const extrapolatedX = state.serverX + state.velocityX * timeSinceUpdate
-            const extrapolatedZ = state.serverZ + state.velocityZ * timeSinceUpdate
-            
-            // Check if server position deviates significantly from our extrapolation
-            // This catches drift without resetting on every frame
-            const deviationX = Math.abs(extrapolatedX - serverX)
-            const deviationZ = Math.abs(extrapolatedZ - serverZ)
-            const significantDeviation = deviationX > 0.1 || deviationZ > 0.1 // ~5 backend units
-            
-            if (velChanged || significantDeviation) {
-              // Velocity changed (bounce) or we've drifted too far - reset extrapolation base
-              state.serverX = serverX
-              state.serverZ = serverZ
-              state.velocityX = velocityX
-              state.velocityZ = velocityZ
-              state.lastServerTime = now
-            }
-          }
-        }
-        
-        // Second pass: render balls with extrapolation from server state
         for (let i = 0; i < gs.balls.length; i++) {
           const b = gs.balls[i]!
           const mesh = ballsRef.current.get(b.id)
           if (!mesh) continue
           
-          const state = ballServerState.get(b.id)
-          if (!state) continue
+          // Get current velocity from server (in world units)
+          const velocityX = (b.dx || 0) * 0.02
+          const velocityZ = (b.dy || 0) * 0.02
           
-          // Calculate time since last server update
-          const timeSinceUpdate = (now - state.lastServerTime) * 0.001 // seconds
+          // Get previous velocity to detect bounce
+          let state = ballVelocity.get(b.id)
           
-          // Extrapolate position from server position + velocity * time
-          // Cap extrapolation to prevent runaway if server updates are delayed
-          const maxExtrapolation = 0.2 // max 200ms of extrapolation
-          const clampedTime = Math.min(timeSinceUpdate, maxExtrapolation)
+          // Detect bounce: velocity changed significantly
+          const bounced = state && (
+            Math.abs(state.velocityX - velocityX) > 0.01 ||
+            Math.abs(state.velocityZ - velocityZ) > 0.01
+          )
           
-          const extrapolatedX = state.serverX + state.velocityX * clampedTime
-          const extrapolatedZ = state.serverZ + state.velocityZ * clampedTime
-          
-          // Store previous position for rotation
-          const lastPos = ballLastPos.get(b.id)
-          const prevX = lastPos?.x ?? extrapolatedX
-          const prevZ = lastPos?.z ?? extrapolatedZ
-          
-          // Set mesh position
-          mesh.position.x = extrapolatedX
-          mesh.position.z = extrapolatedZ
-          
-          // Update last position
-          let posRecord = ballLastPos.get(b.id)
-          if (!posRecord) {
-            posRecord = { x: extrapolatedX, z: extrapolatedZ }
-            ballLastPos.set(b.id, posRecord)
+          if (!state || bounced) {
+            // First frame or bounce: snap to server position
+            const serverX = (b.x - 500) * 0.02
+            const serverZ = (b.y - 500) * 0.02
+            mesh.position.x = serverX
+            mesh.position.z = serverZ
+            
+            // Store velocity
+            if (!state) {
+              state = { serverX: 0, serverZ: 0, velocityX, velocityZ, lastServerTime: now }
+              ballVelocity.set(b.id, state)
+            } else {
+              state.velocityX = velocityX
+              state.velocityZ = velocityZ
+            }
           } else {
-            posRecord.x = extrapolatedX
-            posRecord.z = extrapolatedZ
+            // Normal frame: move by velocity * dt
+            mesh.position.x += velocityX * dt
+            mesh.position.z += velocityZ * dt
           }
           
-          // Rolling rotation based on actual movement this frame
-          const movedX = extrapolatedX - prevX
-          const movedZ = extrapolatedZ - prevZ
-          const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
-          
-          if (moveDist > 0.0001 && mesh.rotationQuaternion) {
-            const target = ballTargetsRef.current.get(b.id)
-            const radius = target?.visualRadius || 0.2
-            const rotationAmount = -moveDist / radius
+          // Rolling rotation
+          const lastPos = ballLastPos.get(b.id)
+          if (lastPos && mesh.rotationQuaternion) {
+            const movedX = mesh.position.x - lastPos.x
+            const movedZ = mesh.position.z - lastPos.z
+            const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
             
-            rotAxis.x = -movedZ / moveDist
-            rotAxis.y = 0
-            rotAxis.z = movedX / moveDist
-            
-            let currentRot = ballRotationsRef.current.get(b.id)
-            if (!currentRot) {
-              currentRot = Quaternion.Identity()
-              ballRotationsRef.current.set(b.id, currentRot)
+            if (moveDist > 0.0001) {
+              const target = ballTargetsRef.current.get(b.id)
+              const radius = target?.visualRadius || 0.2
+              const rotationAmount = -moveDist / radius
+              
+              rotAxis.x = -movedZ / moveDist
+              rotAxis.y = 0
+              rotAxis.z = movedX / moveDist
+              
+              let currentRot = ballRotationsRef.current.get(b.id)
+              if (!currentRot) {
+                currentRot = Quaternion.Identity()
+                ballRotationsRef.current.set(b.id, currentRot)
+              }
+              
+              Quaternion.RotationAxisToRef(rotAxis, rotationAmount, rotQuat)
+              rotQuat.multiplyToRef(currentRot, currentRot)
+              mesh.rotationQuaternion.copyFrom(currentRot)
             }
-            
-            Quaternion.RotationAxisToRef(rotAxis, rotationAmount, rotQuat)
-            rotQuat.multiplyToRef(currentRot, currentRot)
-            mesh.rotationQuaternion.copyFrom(currentRot)
+          }
+          
+          // Update last position for next frame
+          let posRecord = ballLastPos.get(b.id)
+          if (!posRecord) {
+            posRecord = { x: mesh.position.x, z: mesh.position.z }
+            ballLastPos.set(b.id, posRecord)
+          } else {
+            posRecord.x = mesh.position.x
+            posRecord.z = mesh.position.z
           }
         }
         
