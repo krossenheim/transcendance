@@ -445,21 +445,21 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Ball/paddle movement - CONSTANT VELOCITY
-    // Never snap position (causes stutter), only update velocity on bounce
+    // Ball/paddle movement - directly follow server position with smooth interpolation
+    // No client-side prediction to avoid drift from server's authoritative hitbox
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     let lastTime = performance.now()
     
-    // Store velocities and last known server velocity (to detect bounces)
-    const ballState = new Map<number, { vx: number; vz: number; lastServerVx: number; lastServerVz: number; initialized: boolean }>()
+    // Store last position for rotation calculation
+    const ballLastPos = new Map<number, { x: number; z: number }>()
     
     scene.onBeforeRenderObservable.add(() => {
       const now = performance.now()
       const dt = (now - lastTime) * 0.001 // seconds
       lastTime = now
       
-      // Read server state
+      // Read server state and interpolate toward it
       const gs = gameStateRef.current
       if (gs) {
         for (let i = 0; i < gs.balls.length; i++) {
@@ -469,65 +469,51 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           
           const serverX = (b.x - 500) * 0.02
           const serverZ = (b.y - 500) * 0.02
-          const serverVx = (b.dx || 0) * 0.02
-          const serverVz = (b.dy || 0) * 0.02
           
-          let state = ballState.get(b.id)
-          if (!state) {
-            // First time seeing this ball - snap position and velocity
-            mesh.position.x = serverX
-            mesh.position.z = serverZ
-            state = { vx: serverVx, vz: serverVz, lastServerVx: serverVx, lastServerVz: serverVz, initialized: true }
-            ballState.set(b.id, state)
+          // Store position before moving for rotation calculation
+          const lastPos = ballLastPos.get(b.id)
+          const prevX = lastPos?.x ?? mesh.position.x
+          const prevZ = lastPos?.z ?? mesh.position.z
+          
+          // Smooth interpolation toward server position
+          // Use high lerp factor (0.5) for tight tracking of server state
+          const lerpFactor = 0.5
+          mesh.position.x += (serverX - mesh.position.x) * lerpFactor
+          mesh.position.z += (serverZ - mesh.position.z) * lerpFactor
+          
+          // Update last position for next frame's rotation
+          let posRecord = ballLastPos.get(b.id)
+          if (!posRecord) {
+            posRecord = { x: mesh.position.x, z: mesh.position.z }
+            ballLastPos.set(b.id, posRecord)
           } else {
-            // Check if velocity direction actually reversed (true bounce)
-            // Use dot product < 0 to detect direction reversal, but require significant speed
-            const dotProduct = state.lastServerVx * serverVx + state.lastServerVz * serverVz
-            const lastSpeed = Math.sqrt(state.lastServerVx * state.lastServerVx + state.lastServerVz * state.lastServerVz)
-            const currentSpeed = Math.sqrt(serverVx * serverVx + serverVz * serverVz)
-            const minSpeedForBounce = 0.05 // Require meaningful velocity to count as bounce
+            posRecord.x = mesh.position.x
+            posRecord.z = mesh.position.z
+          }
+          
+          // Rolling rotation based on actual movement this frame
+          const movedX = mesh.position.x - prevX
+          const movedZ = mesh.position.z - prevZ
+          const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
+          
+          if (moveDist > 0.0001 && mesh.rotationQuaternion) {
+            const target = ballTargetsRef.current.get(b.id)
+            const radius = target?.visualRadius || 0.2
+            const rotationAmount = -moveDist / radius
             
-            // True bounce: direction reversed AND both old and new velocities are significant
-            const isTrueBounce = dotProduct < 0 && lastSpeed > minSpeedForBounce && currentSpeed > minSpeedForBounce
+            rotAxis.x = -movedZ / moveDist
+            rotAxis.y = 0
+            rotAxis.z = movedX / moveDist
             
-            // Check if position drifted too far from server
-            const posErrorX = Math.abs(mesh.position.x - serverX)
-            const posErrorZ = Math.abs(mesh.position.z - serverZ)
-            const totalError = Math.sqrt(posErrorX * posErrorX + posErrorZ * posErrorZ)
-            
-            // Check if ball is near or past the playing area boundaries (world units)
-            const WORLD_BOUND = 9.5
-            const isNearBoundary = Math.abs(mesh.position.x) > WORLD_BOUND || Math.abs(mesh.position.z) > WORLD_BOUND
-            const isOutOfBounds = Math.abs(mesh.position.x) > 10.5 || Math.abs(mesh.position.z) > 10.5
-            
-            if (isTrueBounce || isOutOfBounds || totalError > 1.0) {
-              // On true bounce, out of bounds, or significant drift: snap immediately
-              mesh.position.x = serverX
-              mesh.position.z = serverZ
-              state.vx = serverVx
-              state.vz = serverVz
-            } else {
-              // ALWAYS apply continuous correction to prevent drift accumulation
-              // Use stronger correction when error is larger or near boundaries
-              let blendFactor: number
-              if (isNearBoundary) {
-                blendFactor = 0.4  // Very aggressive near walls
-              } else if (totalError > 0.3) {
-                blendFactor = 0.25 // Moderate correction for noticeable drift
-              } else {
-                blendFactor = 0.08 // Gentle continuous correction for small errors
-              }
-              
-              mesh.position.x += (serverX - mesh.position.x) * blendFactor
-              mesh.position.z += (serverZ - mesh.position.z) * blendFactor
-              
-              // Always sync velocity to prevent drift from compounding
-              state.vx = serverVx
-              state.vz = serverVz
+            let currentRot = ballRotationsRef.current.get(b.id)
+            if (!currentRot) {
+              currentRot = Quaternion.Identity()
+              ballRotationsRef.current.set(b.id, currentRot)
             }
             
-            state.lastServerVx = serverVx
-            state.lastServerVz = serverVz
+            Quaternion.RotationAxisToRef(rotAxis, rotationAmount, rotQuat)
+            rotQuat.multiplyToRef(currentRot, currentRot)
+            mesh.rotationQuaternion.copyFrom(currentRot)
           }
         }
         
@@ -543,37 +529,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           }
         }
       }
-      
-      // Move balls: position += velocity * dt
-      ballsRef.current.forEach((mesh, ballId) => {
-        const state = ballState.get(ballId)
-        if (!state) return
-        
-        mesh.position.x += state.vx * dt
-        mesh.position.z += state.vz * dt
-        
-        // Rolling rotation
-        const speed = Math.sqrt(state.vx * state.vx + state.vz * state.vz)
-        if (speed > 0.001 && mesh.rotationQuaternion) {
-          const target = ballTargetsRef.current.get(ballId)
-          const radius = target?.visualRadius || 0.2
-          const rotationAmount = -(speed * dt) / radius
-          
-          rotAxis.x = -state.vz / speed
-          rotAxis.y = 0
-          rotAxis.z = state.vx / speed
-          
-          let currentRot = ballRotationsRef.current.get(ballId)
-          if (!currentRot) {
-            currentRot = Quaternion.Identity()
-            ballRotationsRef.current.set(ballId, currentRot)
-          }
-          
-          Quaternion.RotationAxisToRef(rotAxis, rotationAmount, rotQuat)
-          rotQuat.multiplyToRef(currentRot, currentRot)
-          mesh.rotationQuaternion.copyFrom(currentRot)
-        }
-      })
       
       // Move paddles with lerp
       paddlesRef.current.forEach((mesh, paddleId) => {
