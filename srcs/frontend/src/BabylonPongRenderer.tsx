@@ -494,29 +494,35 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             const posErrorX = Math.abs(mesh.position.x - serverX)
             const posErrorZ = Math.abs(mesh.position.z - serverZ)
             
-            if (isTrueBounce) {
-              // On true bounce, snap position and update velocity immediately
+            // Check if ball is near or past the playing area boundaries (world units)
+            // Playing area is roughly -10 to +10 in both X and Z (1000 * 0.02 / 2 = 10)
+            const WORLD_BOUND = 9.5 // Slightly inside the actual edge
+            const isNearBoundary = Math.abs(mesh.position.x) > WORLD_BOUND || Math.abs(mesh.position.z) > WORLD_BOUND
+            const isOutOfBounds = Math.abs(mesh.position.x) > 10.5 || Math.abs(mesh.position.z) > 10.5
+            
+            if (isTrueBounce || isOutOfBounds) {
+              // On true bounce or out of bounds, snap position and update velocity immediately
               mesh.position.x = serverX
               mesh.position.z = serverZ
               state.vx = serverVx
               state.vz = serverVz
-            } else if (posErrorX > 2.0 || posErrorZ > 2.0) {
-              // Large drift (>100 game units): snap to correct position
+            } else if (posErrorX > 1.5 || posErrorZ > 1.5) {
+              // Large drift (>75 game units): snap to correct position
               mesh.position.x = serverX
               mesh.position.z = serverZ
               state.vx = serverVx
               state.vz = serverVz
-            } else if (posErrorX > 0.5 || posErrorZ > 0.5) {
-              // Moderate drift (25-100 game units): smoothly blend toward server position
-              // This prevents jarring snaps while still correcting drift over time
-              const blendFactor = 0.1
+            } else if (posErrorX > 0.3 || posErrorZ > 0.3 || isNearBoundary) {
+              // Moderate drift or near boundary: blend toward server position
+              // Use stronger blending near boundaries to prevent visual overshoot
+              const blendFactor = isNearBoundary ? 0.25 : 0.15
               mesh.position.x += (serverX - mesh.position.x) * blendFactor
               mesh.position.z += (serverZ - mesh.position.z) * blendFactor
-              // Also gently correct velocity
+              // Also correct velocity more aggressively
               state.vx += (serverVx - state.vx) * blendFactor
               state.vz += (serverVz - state.vz) * blendFactor
             }
-            // For small drifts (<25 game units), trust client-side prediction
+            // For small drifts (<15 game units) away from boundaries, trust client-side prediction
             
             state.lastServerVx = serverVx
             state.lastServerVz = serverVz
