@@ -869,12 +869,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           existingTarget.visualRadius = actualVisualRadius
         }
         
-        // Set Y position and scale
+        // Set Y position and scale (always update these, not just for new balls)
         mesh.position.y = adjustedYPos
+        mesh.scaling.set(scale, scale, scale)
+        
         if (isNewBall) {
           mesh.position.x = newPosX
           mesh.position.z = newPosZ
-          mesh.scaling.set(scale, scale, scale)
         }
       } catch (e) {
         // ignore scaling errors
