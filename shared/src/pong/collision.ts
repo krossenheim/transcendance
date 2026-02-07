@@ -98,7 +98,8 @@ export function getWallCollisionTime(
 }
 
 /**
- * Calculate collision time between two circles
+ * Calculate collision time between two circles.
+ * Returns 0 if already penetrating (immediate collision), or the time until collision.
  */
 export function getBallCollisionTime(
     ballA: ICircle,
@@ -107,17 +108,32 @@ export function getBallCollisionTime(
     const pointRelativeStart = ballB.center.sub(ballA.center);
     const pointRelativeVelocity = ballB.velocity.sub(ballA.velocity);
     const combinedRadius = ballA.radius + ballB.radius;
+    
+    // Check if circles are already penetrating
+    const currentDistSq = pointRelativeStart.lenSq();
+    const combinedRadiusSq = combinedRadius * combinedRadius;
+    if (currentDistSq < combinedRadiusSq - EPS) {
+        // Already overlapping - return immediate collision
+        return 0;
+    }
 
     const a = pointRelativeVelocity.lenSq();
+    
+    // If not moving relative to each other, no future collision
+    if (a < EPS) {
+        return null;
+    }
+    
     const b = 2 * pointRelativeStart.dot(pointRelativeVelocity);
-    const c = pointRelativeStart.lenSq() - Math.pow(combinedRadius, 2);
+    const c = currentDistSq - combinedRadiusSq;
 
     const roots = solveQuadratic(a, b, c);
     if (roots.length > 0) {
         const t = roots[0]!;
 
-        if (t >= -EPS && t <= 1 + EPS) {
-            return t;
+        // Allow slightly negative t for numerical precision, clamp to 0
+        if (t >= -EPS) {
+            return Math.max(0, t);
         }
     }
 
