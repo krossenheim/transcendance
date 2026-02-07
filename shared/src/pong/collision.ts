@@ -28,7 +28,8 @@ export interface ILine {
 }
 
 /**
- * Calculate collision time between a circle and a line segment
+ * Calculate collision time between a circle and a line segment.
+ * Returns 0 if already penetrating (immediate collision), or the time until collision.
  */
 export function getWallCollisionTime(
     ball: ICircle,
@@ -38,28 +39,62 @@ export function getWallCollisionTime(
     const pointRelativeStart = ball.center.sub(wall.pointA);
 
     const wallVec = wall.pointB.sub(wall.pointA);
+    const wallLenSq = wallVec.dot(wallVec);
+    
+    // Avoid zero-length walls
+    if (wallLenSq < EPS) {
+        return null;
+    }
+    
     let wallNormal = wallVec.perp().normalize();
 
+    // Choose the normal that faces the ball's approach direction
     if (pointRelativeVelocity.dot(wallNormal) >= -EPS)
         wallNormal = wallNormal.mul(-1);
+    
     const vecAlongNormal = pointRelativeVelocity.dot(wallNormal);
-
     const distanceToLine = pointRelativeStart.dot(wallNormal);
-    const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
-
-    if (tHit < 0) {
+    
+    // Check if ball is already penetrating the wall segment
+    // First, find the closest point on the segment to the ball
+    const projT = pointRelativeStart.dot(wallVec) / wallLenSq;
+    const clampedT = Math.max(0, Math.min(1, projT));
+    const closestPoint = wallVec.mul(clampedT);
+    const toBall = pointRelativeStart.sub(closestPoint);
+    const distToSegment = toBall.len();
+    
+    // If ball is already penetrating the segment, return immediate collision (t=0)
+    if (distToSegment < ball.radius - EPS) {
+        // Verify ball is moving towards or along the wall (not escaping)
+        // Check if the ball center is within the segment bounds (with some margin)
+        if (clampedT > -0.1 && clampedT < 1.1) {
+            return 0; // Immediate collision - ball is inside
+        }
+    }
+    
+    // If moving parallel to wall (or away), no collision via this method
+    if (Math.abs(vecAlongNormal) < EPS) {
         return null;
     }
 
-    const ballPosAtHit = pointRelativeStart.add(pointRelativeVelocity.mul(tHit));
+    const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
+
+    if (tHit < -EPS) {
+        return null;
+    }
+    
+    // Clamp small negative values to 0 (numerical precision)
+    const clampedTHit = Math.max(0, tHit);
+
+    const ballPosAtHit = pointRelativeStart.add(pointRelativeVelocity.mul(clampedTHit));
     const shadowLengthSq = ballPosAtHit.dot(wallVec);
-    const segmentT = shadowLengthSq / wallVec.dot(wallVec);
+    const segmentT = shadowLengthSq / wallLenSq;
 
     if (segmentT < 0 || segmentT > 1) {
         return null;
     }
 
-    return tHit;
+    return clampedTHit;
 }
 
 /**

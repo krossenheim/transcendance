@@ -12,7 +12,13 @@ const scratchRelativeStart = new Vec2(0, 0);
 const scratchWallVec = new Vec2(0, 0);
 const scratchNormal = new Vec2(0, 0);
 const scratchBallPosAtHit = new Vec2(0, 0);
+const scratchPenetrationCheck = new Vec2(0, 0);
+const scratchPenetrationToBall = new Vec2(0, 0);
 
+/**
+ * Calculate collision time between a circle and a line segment.
+ * Returns 0 if already penetrating (immediate collision), or the time until collision.
+ */
 export function getWallCollisionTime(
     ball: CircleObject,
     wall: LineObject,
@@ -21,29 +27,61 @@ export function getWallCollisionTime(
     scratchRelativeStart.copy(ball.center).sub(wall.pointA);
 
     scratchWallVec.copy(wall.pointB).sub(wall.pointA);
+    const wallLenSq = scratchWallVec.lenSq();
+    
+    // Avoid zero-length walls
+    if (wallLenSq < EPS) {
+        return null;
+    }
+    
     scratchNormal.copy(scratchWallVec).perp().normalize();
 
+    // Choose the normal that faces the ball's approach direction
     if (scratchRelativeVelocity.dot(scratchNormal) >= -EPS)
         scratchNormal.mul(-1);
+    
     const vecAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
-
     const distanceToLine = scratchRelativeStart.dot(scratchNormal);
+    
+    // Check if ball is already penetrating the wall segment
+    const projT = scratchRelativeStart.dot(scratchWallVec) / wallLenSq;
+    const clampedT = Math.max(0, Math.min(1, projT));
+    scratchPenetrationCheck.copy(scratchWallVec).mul(clampedT);
+    scratchPenetrationToBall.copy(scratchRelativeStart).sub(scratchPenetrationCheck);
+    const distToSegment = scratchPenetrationToBall.len();
+    
+    // If ball is already penetrating the segment, return immediate collision (t=0)
+    if (distToSegment < ball.radius - EPS) {
+        // Verify ball center is within segment bounds (with margin)
+        if (clampedT > -0.1 && clampedT < 1.1) {
+            return 0; // Immediate collision - ball is inside
+        }
+    }
+    
+    // If moving parallel to wall (or away), no collision via this method
+    if (Math.abs(vecAlongNormal) < EPS) {
+        return null;
+    }
+
     const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
 
-    if (tHit < 0)
+    if (tHit < -EPS)
         return null;
+    
+    // Clamp small negative values to 0 (numerical precision)
+    const clampedTHit = Math.max(0, tHit);
 
-    scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, tHit);
+    scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, clampedTHit);
     const shadowLengthSq = scratchBallPosAtHit.dot(scratchWallVec);
 
     if (shadowLengthSq < -EPS)
         return null;
 
-    const segmentT = shadowLengthSq / scratchWallVec.dot(scratchWallVec);
+    const segmentT = shadowLengthSq / wallLenSq;
     if (segmentT < 0 || segmentT > 1)
         return null;
 
-    return tHit;
+    return clampedTHit;
 }
 
 export function getBallCollisionTime(
