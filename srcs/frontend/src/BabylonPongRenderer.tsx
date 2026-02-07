@@ -120,8 +120,17 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   // Track ball rotation for realistic rolling effect (using quaternions)
   const ballRotationsRef = useRef<Map<number, Quaternion>>(new Map())
   
-  // Track last velocity to detect bounces
-  const ballLastVelocityRef = useRef<Map<number, { vx: number; vz: number }>>(new Map())
+  // Track last velocity and smoothing state for bounce handling
+  interface BallSmoothingState {
+    vx: number
+    vz: number
+    // For adaptive smoothing during bounces
+    lerpFactor: number
+    lastServerX: number
+    lastServerZ: number
+    lastUpdateTime: number
+  }
+  const ballSmoothingRef = useRef<Map<number, BallSmoothingState>>(new Map())
 
   // Powerups: stable meshes keyed by spawnTime (string) + index fallback
   const powerupsRef = useRef<Map<string, Mesh>>(new Map())
@@ -376,79 +385,132 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Simple ball/paddle movement - lerp toward server position
+    // Simple ball/paddle movement - lerp toward server position with extrapolation
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
-    const ballLastVel = ballLastVelocityRef.current
+    const ballSmoothing = ballSmoothingRef.current
+    
+    // Smoothing constants
+    const BASE_LERP = 0.15 // Base lerp factor (lower = smoother but more latency)
+    const BOUNCE_LERP = 0.4 // Faster lerp when recovering from a bounce
+    const LERP_RECOVERY_RATE = 0.92 // How fast lerp factor returns to normal each frame
+    const EXTRAPOLATION_WEIGHT = 0.7 // How much to trust velocity extrapolation
+    const SNAP_THRESHOLD = 2.0 // Distance (world units) beyond which we snap
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
       
-      // Update balls - smooth lerp to server position
+      const currentTime = performance.now()
+      
+      // Update balls - smooth lerp with velocity extrapolation
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
         if (!mesh) continue
         
-        // Server position
-        const targetX = (b.x - 500) * 0.02
-        const targetZ = (b.y - 500) * 0.02
+        // Server position and velocity (converted to world units)
+        const serverX = (b.x - 500) * 0.02
+        const serverZ = (b.y - 500) * 0.02
         const vx = (b.dx || 0) * 0.02
         const vz = (b.dy || 0) * 0.02
         
-        // Check for bounce (velocity changed)
-        const lastVel = ballLastVel.get(b.id)
-        const bounced = lastVel && (
-          Math.abs(lastVel.vx - vx) > 0.01 || Math.abs(lastVel.vz - vz) > 0.01
-        )
-        
-        // Store previous position for rotation
-        const prevX = mesh.position.x
-        const prevZ = mesh.position.z
-        
-        if (!lastVel || bounced) {
-          // First frame or bounce: snap to server
-          mesh.position.x = targetX
-          mesh.position.z = targetZ
-        } else {
-          // Smooth lerp to server position (0.3 = responsive but smooth)
-          mesh.position.x += (targetX - mesh.position.x) * 0.3
-          mesh.position.z += (targetZ - mesh.position.z) * 0.3
-        }
-        
-        // Update velocity tracking
-        if (!lastVel) {
-          ballLastVel.set(b.id, { vx, vz })
-        } else {
-          lastVel.vx = vx
-          lastVel.vz = vz
-        }
-        
-        // Rolling rotation based on movement
-        if (mesh.rotationQuaternion) {
-          const movedX = mesh.position.x - prevX
-          const movedZ = mesh.position.z - prevZ
-          const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
-          
-          if (moveDist > 0.0001) {
-            const target = ballTargetsRef.current.get(b.id)
-            const radius = target?.visualRadius || 0.2
-            
-            rotAxis.x = -movedZ / moveDist
-            rotAxis.y = 0
-            rotAxis.z = movedX / moveDist
-            
-            let rot = ballRotationsRef.current.get(b.id)
-            if (!rot) {
-              rot = Quaternion.Identity()
-              ballRotationsRef.current.set(b.id, rot)
-            }
-            
-            Quaternion.RotationAxisToRef(rotAxis, -moveDist / radius, rotQuat)
-            rotQuat.multiplyToRef(rot, rot)
-            mesh.rotationQuaternion.copyFrom(rot)
+        // Get or create smoothing state
+        let state = ballSmoothing.get(b.id)
+        if (!state) {
+          state = {
+            vx, vz,
+            lerpFactor: BASE_LERP,
+            lastServerX: serverX,
+            lastServerZ: serverZ,
+            lastUpdateTime: currentTime
           }
+          ballSmoothing.set(b.id, state)
+          // First frame - snap to position
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+        } else {
+          const dt = Math.min((currentTime - state.lastUpdateTime) / 1000, 0.1) // cap dt at 100ms
+          
+          // Detect if server position changed (new update received)
+          const serverMoved = Math.abs(serverX - state.lastServerX) > 0.0001 || 
+                             Math.abs(serverZ - state.lastServerZ) > 0.0001
+          
+          // Detect bounce: velocity sign changed (ball bounced off wall)
+          const bounced = (state.vx * vx < -0.0001) || (state.vz * vz < -0.0001)
+          
+          if (bounced && serverMoved) {
+            // Bounce detected: use faster lerp temporarily for quicker correction
+            // but don't snap - this prevents the jarring visual jump
+            state.lerpFactor = BOUNCE_LERP
+          }
+          
+          // Store previous position for rotation calculation
+          const prevX = mesh.position.x
+          const prevZ = mesh.position.z
+          
+          // Calculate prediction error (how far off our extrapolation was)
+          const errorX = serverX - mesh.position.x
+          const errorZ = serverZ - mesh.position.z
+          const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
+          
+          // If error is huge (teleport/respawn), snap immediately
+          if (errorDist > SNAP_THRESHOLD) {
+            mesh.position.x = serverX
+            mesh.position.z = serverZ
+            state.lerpFactor = BASE_LERP
+          } else {
+            // Extrapolate position based on current velocity
+            const extrapolatedX = mesh.position.x + vx * dt * 60 * EXTRAPOLATION_WEIGHT
+            const extrapolatedZ = mesh.position.z + vz * dt * 60 * EXTRAPOLATION_WEIGHT
+            
+            // Blend extrapolation with server position using adaptive lerp
+            // The lerp pulls us toward the server position to correct drift
+            const targetX = extrapolatedX + (serverX - extrapolatedX) * state.lerpFactor
+            const targetZ = extrapolatedZ + (serverZ - extrapolatedZ) * state.lerpFactor
+            
+            // Apply smooth movement toward target
+            mesh.position.x += (targetX - mesh.position.x) * 0.5
+            mesh.position.z += (targetZ - mesh.position.z) * 0.5
+          }
+          
+          // Gradually return lerp factor to base (smooth recovery after bounce)
+          state.lerpFactor = BASE_LERP + (state.lerpFactor - BASE_LERP) * LERP_RECOVERY_RATE
+          
+          // Rolling rotation based on actual movement
+          if (mesh.rotationQuaternion) {
+            const movedX = mesh.position.x - prevX
+            const movedZ = mesh.position.z - prevZ
+            const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
+            
+            if (moveDist > 0.0001) {
+              const target = ballTargetsRef.current.get(b.id)
+              const radius = target?.visualRadius || 0.2
+              
+              rotAxis.x = -movedZ / moveDist
+              rotAxis.y = 0
+              rotAxis.z = movedX / moveDist
+              
+              let rot = ballRotationsRef.current.get(b.id)
+              if (!rot) {
+                rot = Quaternion.Identity()
+                ballRotationsRef.current.set(b.id, rot)
+              }
+              
+              Quaternion.RotationAxisToRef(rotAxis, -moveDist / radius, rotQuat)
+              rotQuat.multiplyToRef(rot, rot)
+              mesh.rotationQuaternion.copyFrom(rot)
+            }
+          }
+          
+          // Update state for next frame
+          if (serverMoved) {
+            state.lastServerX = serverX
+            state.lastServerZ = serverZ
+          }
+          state.vx = vx
+          state.vz = vz
+          state.lastUpdateTime = currentTime
         }
       }
       
@@ -519,7 +581,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       ballLightsRef.current.clear()
       edgesRef.current = []
       floorRef.current = null
-      ballLastVelocityRef.current.clear()
+      ballSmoothingRef.current.clear()
       // Dispose powerup meshes
       powerupsRef.current.forEach(m => m.dispose())
       powerupsRef.current.clear()
@@ -984,7 +1046,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         ballsRef.current.delete(id)
         ballRotationsRef.current.delete(id)
         ballTargetsRef.current.delete(id)
-        ballLastVelocityRef.current.delete(id)
+        ballSmoothingRef.current.delete(id)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
