@@ -13,11 +13,6 @@ const scratchRelativeVelocity = new Vec2(0, 0);
 // Maximum distance an object should move per nudge (prevents high-speed tunneling)
 const MAX_NUDGE_DISTANCE = 0.5;
 
-// Safe movement fraction: ball should not move more than this fraction of its radius per sub-step
-// This prevents tunneling even at extreme speeds
-const SAFE_MOVEMENT_FRACTION = 0.5; // Move at most half the radius per sub-step
-const MIN_BALL_RADIUS = 3; // Minimum ball radius (from powerup shrink limit)
-
 // Target ball speed (will be set by game when constructing scene)
 let targetBallSpeed: number = 450;
 
@@ -122,55 +117,17 @@ export class Scene {
         return null;
     }
 
-    /**
-     * Calculate the maximum safe time step based on the fastest moving object.
-     * This ensures no object moves more than SAFE_MOVEMENT_FRACTION of the minimum radius.
-     */
-    private getMaxSafeTimeStep(objects: BaseObject[]): number {
-        let maxSpeed = 0;
-        let minRadius = MIN_BALL_RADIUS;
-        
-        for (const obj of objects) {
-            for (const subObj of obj.iter()) {
-                const speed = subObj.velocity.len();
-                if (speed > maxSpeed) {
-                    maxSpeed = speed;
-                }
-                // Track minimum ball radius for safe step calculation
-                if (subObj instanceof CircleObject && subObj.radius < minRadius) {
-                    minRadius = subObj.radius;
-                }
-            }
-        }
-        
-        if (maxSpeed < EPS) {
-            return Infinity; // No movement, any time step is safe
-        }
-        
-        // Max safe step = (radius * fraction) / speed
-        // This ensures the ball moves at most SAFE_MOVEMENT_FRACTION of its radius
-        return (minRadius * SAFE_MOVEMENT_FRACTION) / maxSpeed;
-    }
-
     public playSimulation(deltaTime: number, mainObjects?: BaseObject[]) {
         let timeRemaining = deltaTime * this.timeScale;
         let shouldContinue = true;
         let timeout = 1000;
 
-        // Calculate max safe time step to prevent tunneling at high speeds
-        const maxSafeStep = this.getMaxSafeTimeStep(mainObjects || this.objects);
-
         while (timeRemaining > EPS && shouldContinue && timeout-- > 0) {
-            // Limit the time step to prevent balls from tunneling through walls
-            const effectiveTimeRemaining = Math.min(timeRemaining, maxSafeStep);
-            
             const collision = this.getNextCollisionBetweenObjects(mainObjects || this.objects);
 
-            if (collision === null || collision.time - EPS > effectiveTimeRemaining) {
-                // No collision in this sub-step, move by effective time and continue
-                this.moveSceneObjects(effectiveTimeRemaining);
-                timeRemaining -= effectiveTimeRemaining;
-                continue; // Continue to process remaining time in smaller chunks
+            if (collision === null || collision.time - EPS > timeRemaining) {
+                this.moveSceneObjects(timeRemaining);
+                break;
             }
 
             const earliestHit = collision.time;

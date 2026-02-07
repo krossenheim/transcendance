@@ -92,23 +92,45 @@ export function getBallCollisionTime(
 /**
  * Resolve elastic collision between two circles
  * Modifies velocity of both balls in place
- * Also enforces max speed to prevent tunneling
+ * Also enforces max speed and includes positional correction to prevent tunneling
  */
 export function resolveBallCollision(
     ballA: ICircle,
     ballB: ICircle,
 ): void {
-    const normal = ballB.center.sub(ballA.center).normalize();
+    const normal = ballB.center.sub(ballA.center);
+    const dist = normal.len();
+    
+    // Avoid division by zero
+    if (dist < EPS) {
+        return;
+    }
+    
+    const normalizedNormal = normal.div(dist);
     const relativeVelocity = ballB.velocity.sub(ballA.velocity);
-    const velocityAlongNormal = relativeVelocity.dot(normal);
+    const velocityAlongNormal = relativeVelocity.dot(normalizedNormal);
 
     if (velocityAlongNormal > 0) {
         return;
     }
 
+    // Positional correction: push balls apart if overlapping
+    const combinedRadius = ballA.radius + ballB.radius;
+    const overlap = combinedRadius - dist;
+    if (overlap > 0) {
+        // Distribute correction based on inverse mass
+        const totalInverseMass = ballA.inverseMass + ballB.inverseMass;
+        if (totalInverseMass > 0) {
+            const correctionA = overlap * (ballA.inverseMass / totalInverseMass);
+            const correctionB = overlap * (ballB.inverseMass / totalInverseMass);
+            ballA.center = ballA.center.sub(normalizedNormal.mul(correctionA));
+            ballB.center = ballB.center.add(normalizedNormal.mul(correctionB));
+        }
+    }
+
     const j = -(1 + Math.min(ballA.restitution, ballB.restitution)) * velocityAlongNormal / (ballA.inverseMass + ballB.inverseMass);
 
-    const impulse = normal.mul(j);
+    const impulse = normalizedNormal.mul(j);
     ballA.velocity = ballA.velocity.sub(impulse.mul(ballA.inverseMass));
     ballB.velocity = ballB.velocity.add(impulse.mul(ballB.inverseMass));
 
@@ -126,27 +148,55 @@ export function resolveBallCollision(
 /**
  * Resolve collision between a circle and a line (bounce off wall)
  * Modifies velocity of ball (and wall if it has mass) in place
- * Also enforces max speed to prevent tunneling
+ * Also enforces max speed and includes positional correction to prevent tunneling
  */
 export function resolveCircleLineCollision(
     ball: ICircle,
     wall: ILine,
 ): void {
+    // 1. Calculate Vector from A to B (Wall Segment)
     const wallVec = wall.pointB.sub(wall.pointA);
-    const relativeVelocity = ball.velocity.sub(wall.velocity);
 
-    let wallNormal = wallVec.perp().normalize();
-    if (relativeVelocity.dot(wallNormal) > 0) {
-        wallNormal = wallNormal.mul(-1);
+    // 2. Calculate Vector from A to Ball Center
+    const ap = ball.center.sub(wall.pointA);
+
+    // 3. Project AP onto AB to find position 't' on the segment
+    const lenSq = wallVec.lenSq();
+    const dot = ap.dot(wallVec);
+
+    // Clamp t to the segment (0 to 1)
+    const t = lenSq > EPS ? Math.max(0, Math.min(1, dot / lenSq)) : 0;
+
+    // 4. Find the closest point on the line segment
+    const closestPoint = wall.pointA.add(wallVec.mul(t));
+
+    // 5. Calculate the TRUE Normal (From Wall -> Ball)
+    let wallNormal = ball.center.sub(closestPoint);
+    const dist = wallNormal.len();
+
+    // If dist is 0 (ball center exactly on line), pick arbitrary normal
+    if (dist < EPS) {
+        wallNormal = wallVec.perp().normalize();
+    } else {
+        wallNormal = wallNormal.div(dist);
     }
 
+    // 6. Check if separating (Ball is already moving away)
+    const relativeVelocity = ball.velocity.sub(wall.velocity);
     const velocityAlongNormal = relativeVelocity.dot(wallNormal);
     
-    // If moving away, don't resolve
+    // If moving away, don't resolve velocity (but still do positional correction)
     if (velocityAlongNormal > 0) {
         return;
     }
 
+    // 7. Positional Correction (Anti-Leak): push ball out if penetrating
+    const overlap = ball.radius - dist;
+    if (overlap > 0) {
+        ball.center = ball.center.add(wallNormal.mul(overlap));
+    }
+
+    // 8. Apply Impulse (Bounce)
     const j = -(1 + Math.min(ball.restitution, wall.restitution)) * velocityAlongNormal / (ball.inverseMass + wall.inverseMass);
 
     const impulse = wallNormal.mul(j);

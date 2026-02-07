@@ -283,38 +283,6 @@ export class ClientPongSimulation {
         }
     }
 
-    // Safe movement constants to match server
-    private static readonly SAFE_MOVEMENT_FRACTION = 0.5; // Move at most half the radius per sub-step
-    private static readonly MIN_BALL_RADIUS = 3; // Minimum ball radius (from powerup shrink limit)
-    private static readonly MAX_NUDGE_DISTANCE = 0.5;
-
-    /**
-     * Calculate the maximum safe time step based on the fastest moving ball.
-     * This ensures no ball moves more than SAFE_MOVEMENT_FRACTION of its radius per sub-step.
-     */
-    private getMaxSafeTimeStep(): number {
-        let maxSpeed = 0;
-        let minRadius = ClientPongSimulation.MIN_BALL_RADIUS;
-        
-        for (const ball of this.balls) {
-            const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-            if (speed > maxSpeed) {
-                maxSpeed = speed;
-            }
-            if (ball.radius < minRadius) {
-                minRadius = ball.radius;
-            }
-        }
-        
-        if (maxSpeed < EPS) {
-            return Infinity; // No movement, any time step is safe
-        }
-        
-        // Max safe step = (radius * fraction) / speed
-        // This ensures the ball moves at most SAFE_MOVEMENT_FRACTION of its radius
-        return (minRadius * ClientPongSimulation.SAFE_MOVEMENT_FRACTION) / maxSpeed;
-    }
-
     /**
      * Run the physics simulation for deltaTime seconds
      * Matches server's playSimulation() logic exactly
@@ -331,25 +299,21 @@ export class ClientPongSimulation {
         const maxIterations = 1000;
         let iterations = 0;
         
-        // Calculate max safe time step to prevent tunneling at high speeds
-        const maxSafeStep = this.getMaxSafeTimeStep();
+        // Maximum distance for post-collision nudge (prevents high-speed tunneling)
+        const MAX_NUDGE_DISTANCE = 0.5;
         
         while (timeRemaining > EPS && iterations < maxIterations) {
             iterations++;
             
-            // Limit the time step to prevent balls from tunneling through walls
-            const effectiveTimeRemaining = Math.min(timeRemaining, maxSafeStep);
+            // Find the next collision
+            const collision = this.findNextCollision(timeRemaining);
             
-            // Find the next collision within this sub-step
-            const collision = this.findNextCollision(effectiveTimeRemaining);
-            
-            // Check if collision happens within this sub-step
-            if (collision === null || collision.time - EPS > effectiveTimeRemaining) {
-                // No collision in this sub-step, move by effective time and continue
-                this.moveObjects(effectiveTimeRemaining);
-                this.elapsedTime += effectiveTimeRemaining / this.timeScale;
-                timeRemaining -= effectiveTimeRemaining;
-                continue; // Continue to process remaining time in smaller chunks
+            // Match server: collision.time - EPS > timeRemaining
+            if (collision === null || collision.time - EPS > timeRemaining) {
+                // No collision in remaining time, just move everything
+                this.moveObjects(timeRemaining);
+                this.elapsedTime += timeRemaining / this.timeScale;
+                break;
             }
             
             // Move to collision point
@@ -362,8 +326,8 @@ export class ClientPongSimulation {
             const ballSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
             if (ballSpeed > EPS) {
                 const nudgeDistance = ballSpeed * FAT_EPS;
-                const safeDeltaTime = nudgeDistance > ClientPongSimulation.MAX_NUDGE_DISTANCE 
-                    ? ClientPongSimulation.MAX_NUDGE_DISTANCE / ballSpeed 
+                const safeDeltaTime = nudgeDistance > MAX_NUDGE_DISTANCE 
+                    ? MAX_NUDGE_DISTANCE / ballSpeed 
                     : FAT_EPS;
                 this.moveObjects(safeDeltaTime);
             }
