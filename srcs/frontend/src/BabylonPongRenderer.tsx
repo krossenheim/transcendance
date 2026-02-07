@@ -385,25 +385,22 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator
 
-    // Simple ball/paddle movement - lerp toward server position with extrapolation
+    // Simple ball/paddle movement - lerp toward server position with bounce smoothing
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     const ballSmoothing = ballSmoothingRef.current
     
     // Smoothing constants
-    const BASE_LERP = 0.15 // Base lerp factor (lower = smoother but more latency)
-    const BOUNCE_LERP = 0.4 // Faster lerp when recovering from a bounce
-    const LERP_RECOVERY_RATE = 0.92 // How fast lerp factor returns to normal each frame
-    const EXTRAPOLATION_WEIGHT = 0.7 // How much to trust velocity extrapolation
-    const SNAP_THRESHOLD = 2.0 // Distance (world units) beyond which we snap
+    const BASE_LERP = 0.25 // Normal lerp factor
+    const BOUNCE_LERP = 0.35 // Slightly faster lerp after bounce for correction
+    const LERP_RECOVERY_RATE = 0.95 // How fast lerp factor returns to normal
+    const SNAP_THRESHOLD = 1.5 // Distance (world units) beyond which we snap
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
       
-      const currentTime = performance.now()
-      
-      // Update balls - smooth lerp with velocity extrapolation
+      // Update balls - smooth lerp to server position
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
@@ -423,25 +420,19 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             lerpFactor: BASE_LERP,
             lastServerX: serverX,
             lastServerZ: serverZ,
-            lastUpdateTime: currentTime
+            lastUpdateTime: performance.now()
           }
           ballSmoothing.set(b.id, state)
           // First frame - snap to position
           mesh.position.x = serverX
           mesh.position.z = serverZ
         } else {
-          const dt = Math.min((currentTime - state.lastUpdateTime) / 1000, 0.1) // cap dt at 100ms
-          
-          // Detect if server position changed (new update received)
-          const serverMoved = Math.abs(serverX - state.lastServerX) > 0.0001 || 
-                             Math.abs(serverZ - state.lastServerZ) > 0.0001
-          
           // Detect bounce: velocity sign changed (ball bounced off wall)
-          const bounced = (state.vx * vx < -0.0001) || (state.vz * vz < -0.0001)
+          const bouncedX = (state.vx * vx < -0.0001)
+          const bouncedZ = (state.vz * vz < -0.0001)
           
-          if (bounced && serverMoved) {
-            // Bounce detected: use faster lerp temporarily for quicker correction
-            // but don't snap - this prevents the jarring visual jump
+          if (bouncedX || bouncedZ) {
+            // Bounce detected: use slightly faster lerp for quicker correction
             state.lerpFactor = BOUNCE_LERP
           }
           
@@ -449,7 +440,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const prevX = mesh.position.x
           const prevZ = mesh.position.z
           
-          // Calculate prediction error (how far off our extrapolation was)
+          // Calculate distance to server position
           const errorX = serverX - mesh.position.x
           const errorZ = serverZ - mesh.position.z
           const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
@@ -460,21 +451,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             mesh.position.z = serverZ
             state.lerpFactor = BASE_LERP
           } else {
-            // Extrapolate position based on current velocity
-            const extrapolatedX = mesh.position.x + vx * dt * 60 * EXTRAPOLATION_WEIGHT
-            const extrapolatedZ = mesh.position.z + vz * dt * 60 * EXTRAPOLATION_WEIGHT
-            
-            // Blend extrapolation with server position using adaptive lerp
-            // The lerp pulls us toward the server position to correct drift
-            const targetX = extrapolatedX + (serverX - extrapolatedX) * state.lerpFactor
-            const targetZ = extrapolatedZ + (serverZ - extrapolatedZ) * state.lerpFactor
-            
-            // Apply smooth movement toward target
-            mesh.position.x += (targetX - mesh.position.x) * 0.5
-            mesh.position.z += (targetZ - mesh.position.z) * 0.5
+            // Simple lerp toward server position
+            mesh.position.x += errorX * state.lerpFactor
+            mesh.position.z += errorZ * state.lerpFactor
           }
           
-          // Gradually return lerp factor to base (smooth recovery after bounce)
+          // Gradually return lerp factor to base
           state.lerpFactor = BASE_LERP + (state.lerpFactor - BASE_LERP) * LERP_RECOVERY_RATE
           
           // Rolling rotation based on actual movement
@@ -503,14 +485,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             }
           }
           
-          // Update state for next frame
-          if (serverMoved) {
-            state.lastServerX = serverX
-            state.lastServerZ = serverZ
-          }
+          // Update velocity tracking
           state.vx = vx
           state.vz = vz
-          state.lastUpdateTime = currentTime
+          state.lastServerX = serverX
+          state.lastServerZ = serverZ
         }
       }
       
