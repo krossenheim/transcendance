@@ -391,9 +391,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const ballSmoothing = ballSmoothingRef.current
     
     // Smoothing constants
-    const BASE_LERP = 0.25 // Normal lerp factor
-    const BOUNCE_LERP = 0.35 // Slightly faster lerp after bounce for correction
-    const LERP_RECOVERY_RATE = 0.95 // How fast lerp factor returns to normal
+    const BASE_LERP = 0.3 // Normal lerp factor
+    const BOUNCE_LERP = 0.7 // Much faster lerp after bounce so ball appears to hit wall/paddle
+    const LERP_RECOVERY_RATE = 0.9 // How fast lerp factor returns to normal
     const SNAP_THRESHOLD = 1.5 // Distance (world units) beyond which we snap
     
     scene.onBeforeRenderObservable.add(() => {
