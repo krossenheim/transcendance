@@ -430,7 +430,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           continue
         }
         
-        // Check if server sent new position (significant change from last known server pos)
+        // Detect bounce: velocity direction changed significantly
+        // Dot product < 0 means velocity reversed (bounce occurred)
+        const dotProduct = target.velocityX * velX + target.velocityZ * velZ
+        const hadVelocity = Math.abs(target.velocityX) > 0.001 || Math.abs(target.velocityZ) > 0.001
+        const hasVelocity = Math.abs(velX) > 0.001 || Math.abs(velZ) > 0.001
+        const bounceOccurred = hadVelocity && hasVelocity && dotProduct < 0
+        
+        // Check if server sent new position
         const serverChanged = Math.abs(serverX - target.targetPos.x) > 0.001 || 
                               Math.abs(serverZ - target.targetPos.z) > 0.001
         
@@ -447,16 +454,21 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Extrapolate position based on velocity and time since last server update
-        const dt = (now - target.lastUpdateTime) / 1000.0 // seconds
-        const extrapolatedX = target.targetPos.x + target.velocityX * dt
-        const extrapolatedZ = target.targetPos.z + target.velocityZ * dt
-        
-        // Smooth blend between current position and extrapolated position
-        // Use high lerp factor for responsive movement but smooth micro-jitter
-        const lerpFactor = 0.4
-        mesh.position.x += (extrapolatedX - mesh.position.x) * lerpFactor
-        mesh.position.z += (extrapolatedZ - mesh.position.z) * lerpFactor
+        if (bounceOccurred) {
+          // SNAP immediately on bounce to prevent ball going through walls visually
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+        } else {
+          // Extrapolate position based on velocity and time since last server update
+          const dt = (now - target.lastUpdateTime) / 1000.0 // seconds
+          const extrapolatedX = target.targetPos.x + target.velocityX * dt
+          const extrapolatedZ = target.targetPos.z + target.velocityZ * dt
+          
+          // Smooth blend between current position and extrapolated position
+          const lerpFactor = 0.5
+          mesh.position.x += (extrapolatedX - mesh.position.x) * lerpFactor
+          mesh.position.z += (extrapolatedZ - mesh.position.z) * lerpFactor
+        }
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
