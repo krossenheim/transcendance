@@ -52,7 +52,6 @@ export function getUserColorHex(userId: number, darkMode = true): string {
     return `#${r}${g}${b}`
 }
 
-
 /**
  * Get the visual display name for a user
  * @param user - The user object containing username and optional alias + id

@@ -1389,7 +1389,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/db/users/update_profile",
         method: "POST",
         schema: {
-          body: UpdateUserData.extend({ userId: userIdValue }),
+          body: UpdateUserData,
           response: {
             200: FullUser, // Updated user profile
             400: ErrorResponse, // Invalid data

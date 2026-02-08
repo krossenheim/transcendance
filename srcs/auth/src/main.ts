@@ -297,9 +297,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		try {
 			// Update basic profile fields
 			await containers.db.post(int_url.http.db.updateUserData, {
-				userId: newUser.id,
 				bio: newUser.bio ?? '',
-				alias: newUser.alias ?? ghLogin,
 				email: email,
 			});
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Routes, Route, useNavigate, Navigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect, use } from "react";
+import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useLanguage } from "./i18n";
 
 // Components
@@ -7,7 +7,7 @@ import PongComponent from "./pongComponent";
 import GDPRPage from "./GDPRPage";
 import PongInvitationHandler from "./pongInvitationHandler";
 import PongInviteNotifications, { PongInvitation } from "./pongInviteNotifications";
-import AccessibilitySettings from "./accessibilitySettings";
+import SettingsPage from "./pages/settings"; // Imported the new page
 
 import { useGlobalStore } from "@features/global/store/globalStore";
 import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
@@ -22,45 +22,23 @@ interface AuthenticatedAppProps {
 }
 
 export default function AuthenticatedApp({ authResponse, onLogout }: AuthenticatedAppProps) {
-  const setCurrentUserId = useGlobalStore((state) => state.me.state.setCurrentUserId);
-
   useEffect(() => {
-    setCurrentUserId(authResponse.user.id);
-  }, [authResponse.user.id, setCurrentUserId]);
-
-  useEffect(() => {
+    useGlobalStore.getState().me.state.setCurrentUserData(authResponse.user);
     useGlobalStore.getState().users.state.cachePublicUserData({ ...authResponse.user, onlineStatus: null });
   }, [authResponse.user])
 
-    const navigate = useNavigate();
-    const { isRTL } = useLanguage();
+  const navigate = useNavigate();
+  const { isRTL } = useLanguage();
 
-  const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
   const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
   const [showPongInviteModal, setShowPongInviteModal] = useState(false);
   const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
   const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
-  const [accessibilitySettings, setAccessibilitySettings] = useState({
-    highContrast: false,
-    largeText: false,
-    reducedMotion: false,
-    screenReaderMode: false,
-  });
-
-  // --- Accessibility Effect ---
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('high-contrast', accessibilitySettings.highContrast);
-    root.classList.toggle('reduce-motion', accessibilitySettings.reducedMotion);
-    
-    if (accessibilitySettings.largeText) root.style.fontSize = '18px';
-    else root.style.fontSize = '';
-  }, [accessibilitySettings]);
 
   return (
     <div className={`flex flex-col h-screen overflow-hidden bg-slate-900 text-gray-100 font-sans ${isRTL ? 'rtl' : 'ltr'}`}>
       
-      {/* Global Logic Controllers (Headless components) */}
+      {/* Global Logic Controllers */}
       <PongInvitationHandler authResponse={authResponse} setPongInvitations={setPongInvitations} />
       
       {/* Global UI Overlays */}
@@ -87,9 +65,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
               <div className="flex-1 bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl shadow-2xl overflow-hidden relative">
                 <Routes>
                   <Route path="/" element={<Navigate to="chat" replace />} />
-                  <Route path="/chat" element={
-                    <ChatPage />
-                  } />
+                  <Route path="/chat" element={<ChatPage />} />
                   <Route path="/pong" element={
                     <PongComponent
                       authResponse={authResponse}
@@ -106,21 +82,13 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
                       onNavigateToChat={() => navigate('/chat')}
                     />
                   } />
+                  <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/gdpr" element={<GDPRPage showToast={() => {}} onNavigateBack={() => navigate('/')} />} />
                 </Routes>
               </div>
            </div>
         </div>
       </main>
-
-      {showAccessibilitySettings && (
-         <AccessibilitySettings 
-            isOpen={showAccessibilitySettings} 
-            onClose={() => setShowAccessibilitySettings(false)}
-            settings={accessibilitySettings}
-            onUpdateSettings={setAccessibilitySettings} 
-         />
-      )}
     </div>
   );
 }

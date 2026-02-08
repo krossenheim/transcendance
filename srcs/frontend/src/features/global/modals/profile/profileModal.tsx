@@ -168,7 +168,7 @@ export default function ProfileComponent() {
               </div>
 
               {/* Actions */}
-              {!isOwnProfile && (
+              {!isOwnProfile && profile.accountType != UserAccountType.System && (
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={handleAddFriend}

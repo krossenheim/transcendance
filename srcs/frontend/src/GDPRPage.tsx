@@ -1,6 +1,14 @@
 import { useState } from "react";
 
-export default function GDPRPage({ showToast, onNavigateBack }: { showToast?: (m: string, t: 'success' | 'error') => void; onNavigateBack?: () => void }) {
+export default function GDPRPage({ 
+  showToast, 
+  onNavigateBack, 
+  embedded = false 
+}: { 
+  showToast?: (m: string, t: 'success' | 'error') => void; 
+  onNavigateBack?: () => void;
+  embedded?: boolean;
+}) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any | null>(null);
 
@@ -118,28 +126,32 @@ export default function GDPRPage({ showToast, onNavigateBack }: { showToast?: (m
   };
 
   return (
-    <div className="p-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Manage My Data (GDPR)</h2>
-          <div className="flex gap-2">
-            <button onClick={() => onNavigateBack?.()} className="px-3 py-1 text-sm bg-gray-200 rounded">Back</button>
+    <div className={embedded ? "p-0" : "p-6"}>
+      <div className={embedded ? "w-full" : "max-w-3xl mx-auto"}>
+        {!embedded && (
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Manage My Data (GDPR)</h2>
+            <div className="flex gap-2">
+              <button onClick={() => onNavigateBack?.()} className="px-3 py-1 text-sm bg-gray-200 rounded">Back</button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Use the controls below to view, anonymize or delete your personal data.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Use the controls below to view, anonymize or delete your personal data.
+          </p>
 
-          <div className="flex gap-3">
-            <button onClick={fetchMyData} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded">View My Data</button>
-            <button onClick={doAnonymize} disabled={loading} className="px-4 py-2 bg-yellow-600 text-white rounded">Request Anonymization</button>
-            <button onClick={doDelete} disabled={loading} className="px-4 py-2 bg-red-600 text-white rounded">Request Account Deletion</button>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={fetchMyData} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">View My Data</button>
+            <button onClick={doAnonymize} disabled={loading} className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors">Request Anonymization</button>
+            <button onClick={doDelete} disabled={loading} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">Request Account Deletion</button>
           </div>
 
           <div>
             {loading && <div className="text-sm text-gray-500">Processing…</div>}
             {data && (
-              <pre className="mt-3 max-h-80 overflow-auto bg-gray-100 dark:bg-dark-700 p-3 rounded text-xs text-gray-800 dark:text-gray-200">{JSON.stringify(data, null, 2)}</pre>
+              <pre className="mt-3 max-h-80 overflow-auto bg-gray-100 dark:bg-slate-900 p-3 rounded text-xs text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-slate-700">{JSON.stringify(data, null, 2)}</pre>
             )}
           </div>
         </div>

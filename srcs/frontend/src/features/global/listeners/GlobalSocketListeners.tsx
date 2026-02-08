@@ -45,6 +45,23 @@ const BaseSocketListeners = () => {
             }
         }));
 
+        unsubscribers.push(subscribe(user_url.ws.users.updateProfile, (payload, schema) => {
+            switch (payload.code) {
+                case schema.output.ProfileUpdated.code: {
+                    const meState = useGlobalStore.getState().me.state;
+                    meState.setCurrentUserData(payload.payload);
+
+                    const globalUserState = useGlobalStore.getState().users.state;
+                    globalUserState.cachePublicUserData({ ...payload.payload, onlineStatus: null });
+
+                    return HandlerResult.Handled;
+                }
+
+                default:
+                    return HandlerResult.NotHandled;
+            }
+        }));
+
         unsubscribers.push(subscribe(user_url.ws.users.fetchUserConnections, (payload, schema) => {
             switch (payload.code) {
                 case schema.output.Success.code: {

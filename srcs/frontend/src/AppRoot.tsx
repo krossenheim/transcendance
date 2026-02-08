@@ -10,47 +10,40 @@ import LanguageSwitcher from "./components/LanguageSwitcher";
 import AuthenticatedApp from "./AuthenticatedApp";
 import { enableMapSet } from "immer";
 import type { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
-
 import { apiCall } from "@utils/useApi";
 import { pub_url } from "@app/shared/api/service/common/endpoints";
 import { ToastContainer } from "@features/toast/toastContainer";
 import { toast, useToastStore } from "@features/toast/toastStore";
+import { useAccessibilityStore } from "./stores/accessibilityStore";
 
-// Enable Map and Set support in Immer for better state management with complex data structures
+// Enable Map and Set support in Immer
 enableMapSet();
-
-interface accessibilitySettings {
-  highContrast: boolean;
-  largeText: boolean;
-  reducedMotion: boolean;
-  screenReaderMode: boolean;
-};
 
 export default function AppRoot() {
   const { t, isRTL } = useLanguage();
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
-
   const showToast = useToastStore(state => state.showToast);
 
-  const [accessibilitySettings, setAccessibilitySettings] = useState<accessibilitySettings>({
-    highContrast: false,
-    largeText: false,
-    reducedMotion: false,
-    screenReaderMode: false,
-  });
+  // Use the global store for accessibility settings
+  const { highContrast, reducedMotion, screenReaderMode, largeText } = useAccessibilityStore();
 
   useEffect(() => {
     document.title = 'Transcendence 42';
   }, []);
 
+  // Apply accessibility settings globally
   useEffect(() => {
     const root = document.documentElement;
-
-    root.classList.toggle('high-contrast', accessibilitySettings.highContrast);
-    root.classList.toggle('reduce-motion', accessibilitySettings.reducedMotion);
-    root.classList.toggle('screen-reader-mode', accessibilitySettings.screenReaderMode);
-    root.classList.toggle('large-text', accessibilitySettings.largeText);
-  }, [accessibilitySettings]);
+    root.classList.toggle('high-contrast', highContrast);
+    root.classList.toggle('reduce-motion', reducedMotion);
+    root.classList.toggle('screen-reader-mode', screenReaderMode);
+    root.classList.toggle('large-text', largeText);
+    
+    // Apply font size change manually if needed, though CSS class is preferred
+    if (largeText) root.style.fontSize = '18px';
+    else root.style.fontSize = '';
+    
+  }, [highContrast, reducedMotion, screenReaderMode, largeText]);
 
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
@@ -104,7 +97,6 @@ export default function AppRoot() {
       }
 
       if (jwtToken && refreshToken) {
-        console.log("Attempting auto-login with tokens from URL or localStorage");
         const validateRes = await apiCall(pub_url.http.auth.refreshToken, {
           body: { token: refreshToken }
         });
@@ -114,14 +106,12 @@ export default function AppRoot() {
           setIsAutoLoggingIn(false);
           return;
         } else {
-          console.warn("Auto-login token validation failed:", validateRes);
           removeAuthResponse();
           setIsAutoLoggingIn(false);
           return;
         }
 
       } else {
-        console.log("Auto login failed: No tokens found in URL or localStorage");
         removeAuthResponse();
         setIsAutoLoggingIn(false);
         return;
@@ -164,7 +154,7 @@ export default function AppRoot() {
       setAuthResponse(null);
 
       showToast(
-        backendOk ? 'Logged out successfully' : 'Logged out locally (server revoke may have failed)',
+        backendOk ? 'Logged out successfully' : 'Logged out locally',
         backendOk ? 'success' : 'error'
       );
     } finally {
@@ -189,11 +179,10 @@ export default function AppRoot() {
       if (res.code === 200) {
         handleAuthResponse(res.payload);
       } else {
-        console.warn("Token refresh failed:", res);
         toast.error("Session expired. Please log in again.");
         removeAuthResponse();
       }
-    }, 10 * 60 * 1000); // Refresh every 10 minutes
+    }, 10 * 60 * 1000); 
 
     return () => clearInterval(refreshInterval);
   }, [authResponse])
@@ -203,7 +192,6 @@ export default function AppRoot() {
       className="min-h-screen bg-cover bg-center bg-fixed"
       style={{ backgroundColor: 'transparent' }}
     >
-      {/* Starfield animation background - behind everything */}
       <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />
       <ToastContainer />
 
