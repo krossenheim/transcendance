@@ -72,7 +72,10 @@ export class Scene {
             for (let j = 0; j < this.objects.length; j++) {
                 const parentB = this.objects[j]!;
                 if (parentA === parentB) continue;
-                if (scratchRelativeVelocity.copy(parentA.velocity).sub(parentB.velocity).lenSq() < EPS) continue;
+                
+                // Skip if objects have no relative velocity
+                const relVelSq = scratchRelativeVelocity.copy(parentA.velocity).sub(parentB.velocity).lenSq();
+                if (relVelSq < EPS) continue;
 
                 for (const objA of parentA.iter()) {
                     for (const objB of parentB.iter()) {

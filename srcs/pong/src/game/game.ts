@@ -11,7 +11,7 @@ import { PongPaddle } from "./paddle.js";
 import { PongBall } from "./ball.js";
 
 // Toggle heavy game logging for debugging (set to `true` only when debugging).
-const ENABLE_GAME_LOGS = true;
+const ENABLE_GAME_LOGS = false;
 
 // Deterministic simulation constants
 export const TICK_RATE = 120; // Simulation ticks per second
@@ -78,9 +78,14 @@ export class Powerup extends CircleObject {
 
         this.setCollisionHandler((other: BaseObject) => {
             if (other instanceof PongBall) {
-                console.log(`[Powerup] Collision detected! Type: ${PowerupType[this.metadata.type]}, Ball ID: ${other.id}`);
-                if (ENABLE_GAME_LOGS) console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
-                this.game.applyPowerupEffect(this, other);
+                // Only apply effect if powerup hasn't been collected yet
+                if (this.activationTick === null) {
+                    if (ENABLE_GAME_LOGS) console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
+                    this.game.applyPowerupEffect(this, other);
+                    return CollisionResponse.RESET;
+                }
+                // Already collected - ignore collision
+                return CollisionResponse.IGNORE;
             }
 
             return CollisionResponse.RESET;
@@ -494,6 +499,7 @@ export class PongGame {
             const isActive = powerup.isPowerupActive(currentTick);
             const isTaken = powerup.isPowerupTaken();
 
+            // Remove powerups that have been taken but are no longer active (expired)
             const shouldRemove = !isActive && isTaken;
             if (shouldRemove) {
                 if (ENABLE_GAME_LOGS) console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
@@ -501,6 +507,7 @@ export class PongGame {
                 this.scene.removeObject(powerup);
                 this.removePowerupEffects(powerup);
 
+                // Swap-and-pop removal for O(1) removal
                 const lastIndex = this.powerups.length - 1;
                 if (i !== lastIndex) {
                     this.powerups[i] = this.powerups[lastIndex]!;
@@ -508,16 +515,6 @@ export class PongGame {
                 this.powerups.pop();
             }
         }
-
-        this.powerups = this.powerups.filter(powerup => {
-            const couldBeRemoved = !(powerup.isPowerupActive(currentTick) || !powerup.isPowerupTaken());
-            if (couldBeRemoved) {
-                if (ENABLE_GAME_LOGS) console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
-                this.scene.removeObject(powerup);
-                this.removePowerupEffects(powerup);
-            }
-            return !couldBeRemoved;
-        });
     }
 
     public handleKeyPress(key: string, isPressed: boolean): void {
@@ -594,7 +591,8 @@ export class PongGame {
             walls: this.walls.map(wall => wall.toJSON()),
             balls: this.balls.map(ball => ball.toJSON()),
             paddles: this.paddles.map(paddle => paddle.toJSON()),
-            powerups: this.powerups.map(powerup => powerup.toJSON()),
+            // Only send powerups that haven't been collected yet (visual should disappear when taken)
+            powerups: this.powerups.filter(powerup => !powerup.isPowerupTaken()).map(powerup => powerup.toJSON()),
             score: Object.fromEntries(this.fetchPlayerScoreMap()),
             serverTime: Date.now(),
             gameOver: this.isGameOver(),

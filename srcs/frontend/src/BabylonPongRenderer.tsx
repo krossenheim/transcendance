@@ -158,6 +158,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   }
   const ballTargetsRef = useRef<Map<number, LerpTarget>>(new Map())
   const paddleTargetsRef = useRef<Map<number, Vector3>>(new Map())
+  
+  // Track collected powerup keys to ensure they stay hidden
+  const collectedPowerupsRef = useRef<Set<string>>(new Set())
 
   // Compute a key that only changes when entity counts change (for slow path useEffect)
   const entityKey = gameState 
@@ -388,108 +391,55 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     // Simple ball/paddle movement - lerp toward server position with bounce smoothing
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
-    const ballSmoothing = ballSmoothingRef.current
     
-    // Smoothing constants
-    const BASE_LERP = 0.3 // Normal lerp factor
-    const BOUNCE_LERP = 0.7 // Much faster lerp after bounce so ball appears to hit wall/paddle
-    const LERP_RECOVERY_RATE = 0.9 // How fast lerp factor returns to normal
-    const SNAP_THRESHOLD = 1.5 // Distance (world units) beyond which we snap
+    // No ball smoothing - snap directly to server position
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
       
-      // Update balls - smooth lerp to server position
+      // Update balls - NO LERP, snap directly to server position
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
         if (!mesh) continue
         
-        // Server position and velocity (converted to world units)
+        // Server position (converted to world units) - SNAP DIRECTLY
         const serverX = (b.x - 500) * 0.02
         const serverZ = (b.y - 500) * 0.02
-        const vx = (b.dx || 0) * 0.02
-        const vz = (b.dy || 0) * 0.02
         
-        // Get or create smoothing state
-        let state = ballSmoothing.get(b.id)
-        if (!state) {
-          state = {
-            vx, vz,
-            lerpFactor: BASE_LERP,
-            lastServerX: serverX,
-            lastServerZ: serverZ,
-            lastUpdateTime: performance.now()
-          }
-          ballSmoothing.set(b.id, state)
-          // First frame - snap to position
-          mesh.position.x = serverX
-          mesh.position.z = serverZ
-        } else {
-          // Detect bounce: velocity sign changed (ball bounced off wall)
-          const bouncedX = (state.vx * vx < -0.0001)
-          const bouncedZ = (state.vz * vz < -0.0001)
-          
-          if (bouncedX || bouncedZ) {
-            // Bounce detected: use slightly faster lerp for quicker correction
-            state.lerpFactor = BOUNCE_LERP
-          }
-          
-          // Store previous position for rotation calculation
-          const prevX = mesh.position.x
-          const prevZ = mesh.position.z
-          
-          // Calculate distance to server position
-          const errorX = serverX - mesh.position.x
-          const errorZ = serverZ - mesh.position.z
-          const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
-          
-          // If error is huge (teleport/respawn), snap immediately
-          if (errorDist > SNAP_THRESHOLD) {
-            mesh.position.x = serverX
-            mesh.position.z = serverZ
-            state.lerpFactor = BASE_LERP
-          } else {
-            // Simple lerp toward server position
-            mesh.position.x += errorX * state.lerpFactor
-            mesh.position.z += errorZ * state.lerpFactor
-          }
-          
-          // Gradually return lerp factor to base
-          state.lerpFactor = BASE_LERP + (state.lerpFactor - BASE_LERP) * LERP_RECOVERY_RATE
-          
-          // Rolling rotation based on actual movement
-          if (mesh.rotationQuaternion) {
-            const movedX = mesh.position.x - prevX
-            const movedZ = mesh.position.z - prevZ
-            const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
+        // Store previous position for rotation calculation
+        const prevX = mesh.position.x
+        const prevZ = mesh.position.z
+        
+        // SNAP to server position - no lerp
+        mesh.position.x = serverX
+        mesh.position.z = serverZ
+        
+        // Rolling rotation based on actual movement
+        if (mesh.rotationQuaternion) {
+          const movedX = mesh.position.x - prevX
+          const movedZ = mesh.position.z - prevZ
+          const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
             
-            if (moveDist > 0.0001) {
-              const target = ballTargetsRef.current.get(b.id)
-              const radius = target?.visualRadius || 0.2
-              
-              rotAxis.x = -movedZ / moveDist
-              rotAxis.y = 0
-              rotAxis.z = movedX / moveDist
-              
-              let rot = ballRotationsRef.current.get(b.id)
-              if (!rot) {
-                rot = Quaternion.Identity()
-                ballRotationsRef.current.set(b.id, rot)
-              }
-              
-              Quaternion.RotationAxisToRef(rotAxis, -moveDist / radius, rotQuat)
-              rotQuat.multiplyToRef(rot, rot)
-              mesh.rotationQuaternion.copyFrom(rot)
+          if (moveDist > 0.0001) {
+            const target = ballTargetsRef.current.get(b.id)
+            const radius = target?.visualRadius || 0.2
+            
+            rotAxis.x = -movedZ / moveDist
+            rotAxis.y = 0
+            rotAxis.z = movedX / moveDist
+            
+            let rot = ballRotationsRef.current.get(b.id)
+            if (!rot) {
+              rot = Quaternion.Identity()
+              ballRotationsRef.current.set(b.id, rot)
             }
+            
+            Quaternion.RotationAxisToRef(rotAxis, -moveDist / radius, rotQuat)
+            rotQuat.multiplyToRef(rot, rot)
+            mesh.rotationQuaternion.copyFrom(rot)
           }
-          
-          // Update velocity tracking
-          state.vx = vx
-          state.vz = vz
-          state.lastServerX = serverX
-          state.lastServerZ = serverZ
         }
       }
       
@@ -901,13 +851,35 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           // Check if powerup has been collected (activationTick at index 8 is not null)
           const activationTick = isArray ? p[8] : p.activationTick
           const isCollected = activationTick !== null && activationTick !== undefined
+          
           if (isNaN(typeIndex)) {
             console.warn("[BabylonPongRenderer] powerup type is not a number, raw:", rawType)
           }
-          const key = `${spawnTime}_${pidx}`
+          // Use only spawnTime as key since pidx can change when powerups are removed
+          const key = `${spawnTime}`
           
           // Skip rendering collected powerups - they've already been picked up
           if (isCollected) {
+            // Add to collected set so we never show it again
+            collectedPowerupsRef.current.add(key)
+          }
+          
+          // Skip if this powerup was ever collected
+          if (collectedPowerupsRef.current.has(key)) {
+            // Force hide by moving mesh to oblivion - dispose doesn't seem to work
+            const meshName = `powerup_${key}`
+            const sceneMesh = scene.getMeshByName(meshName)
+            if (sceneMesh) {
+              sceneMesh.position.set(0, -9999, 0)
+              sceneMesh.scaling.set(0.001, 0.001, 0.001)
+            }
+            // Also try from our ref
+            const refMesh = powerupsRef.current.get(key)
+            if (refMesh) {
+              refMesh.position.set(0, -9999, 0)
+              refMesh.scaling.set(0.001, 0.001, 0.001)
+              powerupsRef.current.delete(key)
+            }
             return
           }
           
@@ -932,65 +904,33 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
               }
             })()
 
-            // Create shape depending on type
-            switch (typeIndex) {
-              case 1:
-                // square pyramid
-                created = MeshBuilder.CreateCylinder(name, { diameterTop: 0, diameterBottom: size * 2.0, height: size * 2.0, tessellation: 4 }, scene)
-                break
-              case 2:
-                // hexagonal pyramid
-                created = MeshBuilder.CreateCylinder(name, { diameterTop: 0, diameterBottom: size * 2.0, height: size * 2.2, tessellation: 6 }, scene)
-                break
-              case 3:
-                // octahedron (polyhedron type 2)
-                try {
-                  created = MeshBuilder.CreatePolyhedron(name, { type: 2, size: size }, scene)
-                } catch (e) {
-                  created = MeshBuilder.CreateSphere(name, { diameter: size * 1.6, segments: 8 }, scene)
-                }
-                break
-              case 4:
-                // dodecahedron (polyhedron type 3)
-                try {
-                  created = MeshBuilder.CreatePolyhedron(name, { type: 3, size: size }, scene)
-                } catch (e) {
-                  created = MeshBuilder.CreateSphere(name, { diameter: size * 1.8, segments: 10 }, scene)
-                }
-                break
-              case 5:
-                // rectangular prism
-                created = MeshBuilder.CreateBox(name, { width: size * 2.5, height: size * 1.2, depth: size * 1.4 }, scene)
-                break
-              case 6:
-                // icosahedron (polyhedron type 4)
-                try {
-                  created = MeshBuilder.CreatePolyhedron(name, { type: 4, size: size }, scene)
-                } catch (e) {
-                  created = MeshBuilder.CreateSphere(name, { diameter: size * 1.6, segments: 8 }, scene)
-                }
-                break
-              case 0:
-              default:
-                // cube for ADD_BALL and default
-                created = MeshBuilder.CreateBox(name, { size: size * 1.6 }, scene)
-                break
-            }
+            // Create shape depending on type - ALL use flat disc for consistent hitbox visualization
+            const visualSize = size
+            // Use flat disc for ALL powerup types - diameter matches hitbox
+            // Create as a coin standing up (rotated to stand on edge)
+            created = MeshBuilder.CreateCylinder(name, { 
+              diameterTop: visualSize * 2.0, 
+              diameterBottom: visualSize * 2.0, 
+              height: visualSize * 0.25, 
+              tessellation: 32 
+            }, scene)
 
             if (created) {
               mesh = created
               const mat = new StandardMaterial(name + "_mat", scene)
               mat.diffuseColor = color
               mat.emissiveColor = color.scale(0.25)
-              mat.specularColor = new Color3(0.2, 0.2, 0.2)
+              mat.specularColor = new Color3(0.4, 0.4, 0.4)
               mesh.material = mat
-              // Render powerups slightly lower than balls so they appear beneath them
-              mesh.position = toWorld(x, y, 0.15)
+              // Stand the coin up on its edge (rotate 90 degrees on X axis)
+              mesh.rotation.x = Math.PI / 2
+              // Render powerups slightly above the board so they're visible
+              mesh.position = toWorld(x, y, 0.35)
               powerupsRef.current.set(key, mesh)
             }
           } else {
-            // update position (keep powerups below balls)
-            mesh.position = toWorld(x, y, 0.15)
+            // update position (keep powerups at standing coin height)
+            mesh.position = toWorld(x, y, 0.35)
             // Small debug to ensure updates are occurring
             // console.debug(`[BabylonPongRenderer] Updated powerup ${key} position to (${x},${y})`)
           }
@@ -999,10 +939,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         }
       })
 
-      // Remove powerups that no longer exist in game state
+      // Remove powerups that no longer exist in game state (or are collected)
       for (const [k, m] of powerupsRef.current) {
         if (!activePowerupKeys.has(k)) {
-          try { m.dispose() } catch (e) { /* ignore */ }
+          try { 
+            m.position.set(0, -9999, 0)
+            m.scaling.set(0.001, 0.001, 0.001)
+            m.dispose() 
+          } catch (e) { /* ignore */ }
           powerupsRef.current.delete(k)
         }
       }
@@ -1016,10 +960,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         (scene as any).__powerupRotationRegistered = true
         scene.onBeforeRenderObservable.add(() => {
           const dt = scene.getEngine().getDeltaTime() / 1000 // seconds
-          const rotSpeed = 0.9 // radians per second
+          const rotSpeed = 2.5 // radians per second - fast spin like a coin
           for (const mesh of powerupsRef.current.values()) {
+            // Keep X rotation fixed at 90deg (standing up), only spin around Y
+            mesh.rotation.x = Math.PI / 2
             mesh.rotation.y += rotSpeed * dt
-            mesh.rotation.x += (rotSpeed * 0.25) * dt
           }
         })
       }
