@@ -147,10 +147,15 @@ export class Scene {
                     this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.RESET:
-                    if (aTask === CollisionResponse.RESET)
+                    // Nudge the surviving object to prevent getting stuck at collision point
+                    if (aTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentA);
-                    if (bTask === CollisionResponse.RESET)
+                        this.safeNudge(collision.objectB);
+                    }
+                    if (bTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentB);
+                        this.safeNudge(collision.objectA);
+                    }
                     break;
                 case CollisionResponse.BOUNCE:
                     // Use velocity-aware nudge to prevent high-speed objects from tunneling

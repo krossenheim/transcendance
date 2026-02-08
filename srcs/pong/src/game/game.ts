@@ -11,7 +11,7 @@ import { PongPaddle } from "./paddle.js";
 import { PongBall } from "./ball.js";
 
 // Toggle heavy game logging for debugging (set to `true` only when debugging).
-const ENABLE_GAME_LOGS = false;
+const ENABLE_GAME_LOGS = true;
 
 // Deterministic simulation constants
 export const TICK_RATE = 120; // Simulation ticks per second
@@ -78,6 +78,7 @@ export class Powerup extends CircleObject {
 
         this.setCollisionHandler((other: BaseObject) => {
             if (other instanceof PongBall) {
+                console.log(`[Powerup] Collision detected! Type: ${PowerupType[this.metadata.type]}, Ball ID: ${other.id}`);
                 if (ENABLE_GAME_LOGS) console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
                 this.game.applyPowerupEffect(this, other);
             }
@@ -101,7 +102,8 @@ export class Powerup extends CircleObject {
             newPowerup = powerupData[0]!;
         }
 
-        return new Powerup(center, 10, velocity, newPowerup, game);
+        // Use larger radius (20) for more reliable collision detection
+        return new Powerup(center, 20, velocity, newPowerup, game);
     }
 
     public getPowerupType(): PowerupType {
