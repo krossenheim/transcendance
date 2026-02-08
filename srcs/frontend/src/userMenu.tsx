@@ -1,24 +1,41 @@
+import { useUserConnectionsModalStore } from "@features/global/modals/userConnections/userConnectionsModalStore";
 import { useState, useEffect, useRef } from "react";
 import ProfileComponent from "./profileComponent";
 import { getUserColorCSS } from "./userColorUtils";
 import { useLanguage } from "./i18n";
+import { useGlobalStore } from "./features/global/store/globalStore";
+import { getVisualUserName } from "@utils/users";
 
 interface UserMenuProps {
-  username: string;
-  userId: number;
-  avatarUrl: string;
   onLogout: () => void;
   isLoggingOut: boolean;
-  onFriendsClick?: () => void;
 }
 
-export default function UserMenu({ username, userId, avatarUrl, onLogout, isLoggingOut, onFriendsClick }: UserMenuProps) {
+export default function UserMenu({ onLogout, isLoggingOut }: UserMenuProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { t, isRTL } = useLanguage();
 
-  const userColor = getUserColorCSS(userId, true);
+  const currentUserId = useGlobalStore((state) => state.me.data.currentUserId);
+  const currentUserData = useGlobalStore((state) => state.users.data.userCache.get(currentUserId || -1));
+
+  console.log("Current user data in UserMenu:", currentUserData, currentUserId);
+  const userColor = getUserColorCSS(currentUserId || 0, true);
+
+  const openUserConnectionsModal = useUserConnectionsModalStore(state => state.openUserConnectionsModal);
+
+  useEffect(() => {
+    if (!currentUserData?.avatarUrl) return;
+    useGlobalStore.getState().users.actions.fetchUserProfileUrl(currentUserData.avatarUrl).then(result => {
+      if (result.isOk()) {
+        setAvatarUrl(result.unwrap());
+      } else {
+        console.error("Failed to fetch avatar URL:", result.unwrapErr());
+      }
+    });
+  }, [currentUserData]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -37,6 +54,8 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
 
     return;
   }, [isDropdownOpen]);
+
+  const username = getVisualUserName(currentUserData, currentUserId || undefined);
 
   return (
     <>
@@ -78,7 +97,7 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
             {/* User info header */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-dark-700">
               <p className="text-sm font-bold" style={{ color: userColor }}>{username}</p>
-              <p className="text-xs text-gray-900 mt-1">{t('userMenu.userId')}: {userId}</p>
+              <p className="text-xs text-gray-900 mt-1">{t('userMenu.userId')}: {currentUserId || "?"}</p>
             </div>
 
             {/* Menu items */}
@@ -99,7 +118,7 @@ export default function UserMenu({ username, userId, avatarUrl, onLogout, isLogg
               <button
                 onClick={() => {
                   setIsDropdownOpen(false);
-                  onFriendsClick?.();
+                  openUserConnectionsModal();
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100/40 dark:hover:bg-dark-700 flex items-center gap-2"
               >

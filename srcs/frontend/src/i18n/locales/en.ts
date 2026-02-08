@@ -33,7 +33,7 @@ export const en = {
   app: {
     title: 'Transcendence',
     welcome: 'Welcome to Transcendence',
-    restoringSession: 'Restoring session…',
+    restoringSession: 'Trying to restore session…',
     continueAsGuest: 'Continue as Guest',
     logoutSuccess: 'Logged out successfully',
     logoutLocalOnly: 'Logged out locally (server revoke may have failed)',
@@ -49,6 +49,8 @@ export const en = {
     passwordPlaceholder: 'Your password',
     loginButton: 'Login',
     loggingIn: 'Logging in...',
+    continueAsGuest: 'Continue as Guest',
+    continueAsGuestLoading: 'Trying to login as guest...',
     continueWithGithub: 'Continue with GitHub',
     usernameRequired: 'Username is required',
     usernameMinLength: 'Username must be at least 3 characters',

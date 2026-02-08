@@ -1,18 +1,11 @@
 "use client"
 
-import { useGlobalStore } from './features/global/store/globalStore'
 import React, { FC, useState, useEffect, useRef } from 'react'
-import { getUserColorCSS } from './userColorUtils'
+import { getUserColorCSS } from '../../../userColorUtils'
+import { useGlobalStore } from '../store/globalStore'
 import { createPortal } from 'react-dom'
 
-
-interface FriendshipNotificationsProps {
-  isLoading?: boolean
-}
-
-const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({ 
-  isLoading = false,
-}) => {
+const NotificationArea: FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -122,14 +115,12 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                         <div className="flex gap-2">
                           <button
                             onClick={() => acceptFriendshipFunction(req.fromUserId)}
-                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Accept
                           </button>
                           <button
                             onClick={() => denyFriendshipFunction(req.fromUserId)}
-                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Deny
@@ -163,7 +154,6 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                               acceptRoomInviteFunction(invite.roomId)
                               setIsDropdownOpen(false)
                             }}
-                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Join
@@ -172,7 +162,6 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
                             onClick={() => {
                               console.error("Jokes on you, decline not implemented yet!")
                             }}
-                            disabled={isLoading}
                             className="px-3 py-1 text-xs font-medium bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Decline
@@ -196,4 +185,4 @@ const FriendshipNotifications: FC<FriendshipNotificationsProps> = ({
   )
 }
 
-export default FriendshipNotifications
+export default NotificationArea

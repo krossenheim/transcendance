@@ -3,20 +3,18 @@ import { Routes, Route, useNavigate, Navigate, useLocation } from "react-router-
 import { useLanguage } from "./i18n";
 
 // Components
-import UserMenu from "./userMenu";
 import PongComponent from "./pongComponent";
 import GDPRPage from "./GDPRPage";
-import FriendshipNotifications from "./friendshipNotifications";
-import FriendsManager from "./friendsManager";
 import PongInvitationHandler from "./pongInvitationHandler";
 import PongInviteNotifications, { PongInvitation } from "./pongInviteNotifications";
 import AccessibilitySettings from "./accessibilitySettings";
-import LanguageSwitcher from "./components/LanguageSwitcher";
 
 import { useGlobalStore } from "./features/global/store/globalStore";
 import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
-import ProfileModal from "./components/modals/profileModal";
+import ProfileModal from "./features/global/modals/profile/profileModal";
 import ChatPage from "./pages/chat";
+import UserConnectionsModal from "./features/global/modals/userConnections/userConnectionsModal";
+import TopHeaderBar from "./features/global/widgets/topHeaderBar";
 
 interface AuthenticatedAppProps {
   authResponse: AuthResponseType;
@@ -35,10 +33,8 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
   }, [authResponse.user])
 
     const navigate = useNavigate();
-    const location = useLocation();
-    const { t, isRTL } = useLanguage();
+    const { isRTL } = useLanguage();
 
-    const [showFriendsManager, setShowFriendsManager] = useState(false);
   const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);
   const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
   const [showPongInviteModal, setShowPongInviteModal] = useState(false);
@@ -74,44 +70,15 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
          onDecline={(id) => setPongInvitations(prev => prev.filter(i => i.inviteId !== id))}
       />
 
+      {/* Modals */}
       <ProfileModal />
+      <UserConnectionsModal />
 
       {/* Main Layout Header */}
-      <header className="flex-none bg-slate-800/90 border-b border-slate-700 shadow-md z-20">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <h1 className="text-xl font-bold tracking-tight text-white">TRANSCENDENCE</h1>
-            <nav className="hidden md:flex items-center gap-1">
-              <button 
-                onClick={() => navigate('/chat')} 
-                className={`px-3 py-2 rounded-md transition-colors ${location.pathname === '/chat' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}
-              >
-                {t('nav.chat')}
-              </button>
-              <button 
-                onClick={() => navigate('/pong')} 
-                className={`px-3 py-2 rounded-md transition-colors ${location.pathname === '/pong' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}
-              >
-                {t('nav.pong')}
-              </button>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <LanguageSwitcher />
-            <button onClick={() => setShowAccessibilitySettings(true)} className="p-2 text-gray-300 hover:text-white">⚙️</button>
-            <FriendshipNotifications isLoading={false} />
-            <UserMenu
-              username={authResponse.user.username}
-              userId={authResponse.user.id}
-              avatarUrl={authResponse.user.avatarUrl || ''}
-              onLogout={onLogout}
-              isLoggingOut={false}
-              onFriendsClick={() => setShowFriendsManager(true)}
-            />
-          </div>
-        </div>
-      </header>
+      <TopHeaderBar
+        onLogout={onLogout}
+        isLoggingOut={false}
+      />
 
       {/* Routes */}
       <main className="flex-1 overflow-hidden relative">
@@ -119,7 +86,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
            <div className="max-w-7xl mx-auto h-full flex flex-col">
               <div className="flex-1 bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl shadow-2xl overflow-hidden relative">
                 <Routes>
-                  <Route path="/" element={<Navigate to="/chat" replace />} />
+                  <Route path="/" element={<Navigate to="chat" replace />} />
                   <Route path="/chat" element={
                     <ChatPage />
                   } />
@@ -146,8 +113,6 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
         </div>
       </main>
 
-      {/* Modals */}
-      {showFriendsManager && <FriendsManager isOpen={showFriendsManager} onClose={() => setShowFriendsManager(false)} />}
       {showAccessibilitySettings && (
          <AccessibilitySettings 
             isOpen={showAccessibilitySettings} 

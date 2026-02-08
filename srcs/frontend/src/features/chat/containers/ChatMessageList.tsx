@@ -3,7 +3,7 @@
 import type { TypeStoredMessageSchema } from "@app/shared/api/service/chat/db_models"
 import { ChatMessage } from "../components/ChatMessage"
 
-import { useProfileModalStore } from "@stores/uiStore"
+import { useProfileModalStore } from "@src/features/global/modals/profile/profileModalStore"
 import { useGlobalStore } from "@src/features/global/store/globalStore"
 import { useChatStore } from "@src/features/chat/store/chatStore"
 

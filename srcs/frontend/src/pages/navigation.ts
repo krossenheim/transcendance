@@ -4,6 +4,7 @@ export enum WebPage {
 	Home = "/",
 	Chat = "/chat",
 	Pong = "/pong",
+	GDPR = "/gdpr",
 };
 
 export function useNavigateToWebPage() {

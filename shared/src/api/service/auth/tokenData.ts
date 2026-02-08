@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const TokenData = z.object({
 	jwt: z.string(),
-	refresh: z.string().optional(),
+	refresh: z.string(),
 });
 
 export const SingleToken = z.object({

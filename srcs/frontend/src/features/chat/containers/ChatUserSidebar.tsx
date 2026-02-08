@@ -2,7 +2,7 @@
 
 import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models"
 import { user_url } from "@app/shared/api/service/common/endpoints"
-import { useProfileModalStore } from "../../../stores/uiStore"
+import { useProfileModalStore } from "../../global/modals/profile/profileModalStore"
 import { useGlobalStore } from "../../global/store/globalStore"
 import { useLanguage } from "../../../i18n/LanguageContext"
 import { UserListItem } from "@features/chat/components/UserListItem"

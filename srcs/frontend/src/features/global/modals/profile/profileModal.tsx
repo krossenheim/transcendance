@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useWebSocket } from "../../socketComponent"
+import { useWebSocket } from "../../../../socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
-import { useLanguage } from "../../i18n/LanguageContext"
-import { useProfileModalStore } from "../../stores/uiStore"
-import { useGlobalStore } from "../../features/global/store/globalStore"
-import { getUserColorCSS } from "../../userColorUtils"
+import { useLanguage } from "../../../../i18n/LanguageContext"
+import { useProfileModalStore } from "./profileModalStore"
+import { useGlobalStore } from "../../store/globalStore"
+import { getUserColorCSS } from "../../../../userColorUtils"
 import { UserAccountType } from "@app/shared/api/service/db/user";
 
 export default function ProfileComponent() {
@@ -17,6 +17,7 @@ export default function ProfileComponent() {
   
   const currentUserId = useGlobalStore(state => state.me.data.currentUserId);
   const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
+  const userAvatarFetcher = useGlobalStore(state => state.users.actions.fetchUserProfileUrl);
   
   const profile = useGlobalStore(state => 
     targetUserId ? state.users.data.userCache.get(targetUserId) : null
@@ -32,44 +33,19 @@ export default function ProfileComponent() {
 
   useEffect(() => {
     let active = true;
-    const fetchSecureAvatar = async () => {
-      if (!profile?.avatarUrl) {
-        setAvatarBlobUrl(null)
-        return
-      }
-
-      try {
-        const token = localStorage.getItem("jwt")
-        const response = await fetch(user_url.http.users.fetchUserAvatar.endpoint, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ file: profile.avatarUrl }),
-        })
-
-        if (!response.ok || !active) return
-
-        const raw = await response.text()
-        const base64 = raw.startsWith("data:") ? raw.split(",")[1]! : raw
-        const binary = atob(base64)
-        const len = binary.length
-        const bytes = new Uint8Array(len)
-        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
-        const blob = new Blob([bytes], { type: "image/png" })
-        const objectUrl = URL.createObjectURL(blob)
-        setAvatarBlobUrl(objectUrl)
-      } catch (err) {
-        console.error("Error loading avatar:", err)
-      }
-    }
-
-    fetchSecureAvatar()
-
-    return () => { 
-      active = false
-      if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl) 
+    
+    if (profile?.avatarUrl) {
+      userAvatarFetcher(profile.avatarUrl).then(result => {
+        if (active) {
+          if (result.isOk()) {
+            setAvatarBlobUrl(result.unwrap());
+          } else {
+            setAvatarBlobUrl(null);
+          }
+        }
+      });
+    } else {
+      setAvatarBlobUrl(null);
     }
   }, [profile?.avatarUrl])
 

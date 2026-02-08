@@ -1,4 +1,4 @@
-import FriendshipNotifications from "@src/friendshipNotifications";
+import NotificationArea from "@features/global/widgets/notificationArea";
 import LanguageSwitcher from "@src/components/LanguageSwitcher";
 import { useLocation, useNavigate } from "react-router-dom";
 import { WebPage } from "@src/pages/navigation"
@@ -6,15 +6,11 @@ import { useLanguage } from "@src/i18n";
 import UserMenu from "@src/userMenu";
 
 interface TopHeaderBarProps {
-  username: string;
-  userId: number;
-  avatarUrl: string;
   onLogout: () => void;
   isLoggingOut: boolean;
-  onFriendsClick?: () => void;
 }
 
-export default function TopHeaderBar({ username, userId, avatarUrl, onLogout, isLoggingOut, onFriendsClick }: TopHeaderBarProps) {
+export default function TopHeaderBar({ onLogout, isLoggingOut }: TopHeaderBarProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const { t } = useLanguage();
@@ -43,14 +39,10 @@ export default function TopHeaderBar({ username, userId, avatarUrl, onLogout, is
 				<div className="flex items-center gap-4">
 					<LanguageSwitcher />
 					{/* <button onClick={() => setShowAccessibilitySettings(true)} className="p-2 text-gray-300 hover:text-white">⚙️</button> */}
-					<FriendshipNotifications isLoading={false} />
+					<NotificationArea />
 					<UserMenu
-						username={username}
-						userId={userId}
-						avatarUrl={avatarUrl}
 						onLogout={onLogout}
 						isLoggingOut={isLoggingOut}
-						onFriendsClick={onFriendsClick}
 					/>
 				</div>
 			</div>

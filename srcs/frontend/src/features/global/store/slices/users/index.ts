@@ -2,9 +2,11 @@ import type { PendingFriendshipRequestType, UserNotificationsType } from "@app/s
 import { PublicUserDataType, FriendType } from "@app/shared/api/service/db/user";
 import type { TypeRoomSchema } from "@app/shared/api/service/chat/db_models";
 import { user_url } from "@app/shared/api/service/common/endpoints";
+import { Result } from "@app/shared/api/service/common/result";
 import { getSocketSenderRef } from "@utils/socketRef";
 import { GlobalStoreState } from "../../types"
 import { GlobalUserSlice } from "./types"
+import { apiCall } from "@utils/useApi";
 import { StateCreator } from "zustand"
 import * as logic from "./logic";
 
@@ -66,6 +68,48 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                         (invite: TypeRoomSchema) => invite.roomId !== roomId
                     );
                 })
+            },
+
+            fetchUserProfileUrl: async (url: string): Promise<Result<string, string>> => {
+                const apiResult = await apiCall(user_url.http.users.fetchUserAvatar, {
+                    body: { file: url },
+                })
+
+                if (apiResult.code === 200) {
+                    console.log("Fetched user profile avatar data:", apiResult);
+                    const raw = apiResult.payload as string;
+                    const base64 = raw.startsWith("data:") ? raw.split(",")[1]! : raw;
+                    const binary = atob(base64);
+                    const len = binary.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++)
+                        bytes[i] = binary.charCodeAt(i);
+                    const blob = new Blob([bytes], { type: "image/png" });
+                    const objectUrl = URL.createObjectURL(blob);
+                    console.log("Created object URL for avatar:", objectUrl);
+                    return Result.Ok(objectUrl);
+                }
+                else
+                    return Result.Err(apiResult.payload.message as string);
+
+            },
+
+            fetchUserConnections: () => {
+                getSocketSenderRef()(user_url.ws.users.fetchUserConnections, null);
+            },
+
+            removeFriendship: (userId: number) => {
+                getSocketSenderRef()(user_url.ws.users.removeFriendship, userId);
+                set((state) => {
+                    state.users.data.friends = logic.removeFromSet(state.users.data.friends, [userId]);
+                });
+            },
+
+            unblockUser: (userId: number) => {
+                getSocketSenderRef()(user_url.ws.users.unblockUser, userId);
+                set((state) => {
+                    state.users.data.blockedUsers = logic.removeFromSet(state.users.data.blockedUsers, [userId]);
+                });
             },
         },
 

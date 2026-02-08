@@ -55,13 +55,14 @@ export async function apiCall<T extends HTTPRouteDef>(
             body: options.body ? JSON.stringify(options.body) : null,
         });
 
-        const data = await response.json().catch(() => null);
+        const data = await response.text().catch(() => null);
         const schemaForStatus = route.schema.response[response.status];
 
         if (schemaForStatus) {
             const validation = zodParse(schemaForStatus, data);
 
             if (validation.isOk()) {
+                console.log(data, response);
                 return {
                     code: response.status,
                     payload: validation.unwrap(),

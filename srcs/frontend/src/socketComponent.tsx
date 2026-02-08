@@ -52,11 +52,9 @@ export function useWebSocket() {
 export default function SocketComponent({
   AuthResponseObject,
   children,
-  showToast,
 }: {
   AuthResponseObject: AuthResponseType | null
   children: React.ReactNode
-  showToast: (msg: string, type: 'success' | 'error') => void
 }) {
   const socket = useRef<WebSocket | null>(null)
   const messageQueue = useRef<string[]>([])

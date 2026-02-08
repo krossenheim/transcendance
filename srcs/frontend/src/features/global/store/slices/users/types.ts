@@ -1,6 +1,6 @@
 import type { UserNotificationsType } from "@app/shared/api/service/db/notification";
 import { FriendType, PublicUserDataType } from "@app/shared/api/service/db/user";
-
+import { Result } from "@app/shared/api/service/common/result";
 
 export interface GlobalUserData {
     userCache: Map<number, PublicUserDataType>;
@@ -18,6 +18,10 @@ export interface GlobalUserActions {
     acceptFriendRequest: (userId: number) => void;
     denyFriendRequest: (userId: number) => void;
     acceptRoomInvite: (roomId: number) => void;
+    fetchUserProfileUrl: (url: string) => Promise<Result<string, string>>;
+    fetchUserConnections: () => void;
+    removeFriendship: (userId: number) => void;
+    unblockUser: (userId: number) => void;
 }
 
 export interface GlobalUserStates {

@@ -8,7 +8,11 @@ export function zodParse<T extends z.ZodTypeAny>(schema: T | undefined, data: un
 	if (typeof data === 'string') {
 		try {
 			data = JSON.parse(data);
-		} catch (e) { }
+		} catch (e) {
+			if (schema instanceof z.ZodAny) {
+				return Result.Ok(data as z.infer<T>);
+			}
+		}
 	}
 
 	const parsed = schema.safeParse(data);
