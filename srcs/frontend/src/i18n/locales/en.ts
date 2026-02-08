@@ -94,6 +94,7 @@ export const en = {
     userId: 'User ID',
     viewProfile: 'View my profile',
     manageFriends: 'Manage friends',
+    settings: 'Settings',
     logout: 'Logout',
     loggingOut: 'Logging out...',
   },
