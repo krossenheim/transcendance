@@ -437,6 +437,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const hasVelocity = Math.abs(velX) > 0.001 || Math.abs(velZ) > 0.001
         const bounceOccurred = hadVelocity && hasVelocity && dotProduct < 0
         
+        // Detect respawn: ball teleported a large distance (more than it could travel in one frame)
+        // At ~60fps with typical ball speed, max movement per frame is small
+        const distFromTarget = Math.sqrt(
+          Math.pow(serverX - target.targetPos.x, 2) + 
+          Math.pow(serverZ - target.targetPos.z, 2)
+        )
+        const respawnOccurred = distFromTarget > 0.5 // Large teleport indicates respawn
+        
         // Check if server sent new position
         const serverChanged = Math.abs(serverX - target.targetPos.x) > 0.001 || 
                               Math.abs(serverZ - target.targetPos.z) > 0.001
@@ -454,8 +462,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        if (bounceOccurred) {
-          // SNAP immediately on bounce to prevent ball going through walls visually
+        if (bounceOccurred || respawnOccurred) {
+          // SNAP immediately on bounce or respawn to prevent visual artifacts
           mesh.position.x = serverX
           mesh.position.z = serverZ
         } else {
