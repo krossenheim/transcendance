@@ -898,10 +898,19 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const spawnTime = String(isArray ? p[5] ?? pidx : (p.spawnTime ?? pidx))
           const rawType = isArray ? p[6] : p.type
           const typeIndex = Number(rawType)
+          // Check if powerup has been collected (activationTick at index 8 is not null)
+          const activationTick = isArray ? p[8] : p.activationTick
+          const isCollected = activationTick !== null && activationTick !== undefined
           if (isNaN(typeIndex)) {
             console.warn("[BabylonPongRenderer] powerup type is not a number, raw:", rawType)
           }
           const key = `${spawnTime}_${pidx}`
+          
+          // Skip rendering collected powerups - they've already been picked up
+          if (isCollected) {
+            return
+          }
+          
           activePowerupKeys.add(key)
 
           let mesh = powerupsRef.current.get(key)
