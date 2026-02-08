@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState, useRef } from "react"
-import { getUserColorCSS } from "./userColorUtils"
+import { getUserColorCSS } from "@utils/users"
 import { useWebSocket, HandlerResult } from "./socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"

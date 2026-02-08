@@ -1,7 +1,7 @@
 "use client"
 
 import type { GameMode } from "./pongInviteModal"
-import { getUserColorCSS } from "./userColorUtils"
+import { getUserColorCSS } from "@utils/users"
 import { useLanguage } from "./i18n/LanguageContext"
 
 export interface LobbyPlayer {

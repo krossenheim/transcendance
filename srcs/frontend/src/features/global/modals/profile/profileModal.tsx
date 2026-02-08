@@ -1,13 +1,41 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useWebSocket } from "../../../../socketComponent"
-import { user_url } from "@app/shared/api/service/common/endpoints"
-import { useLanguage } from "../../../../i18n/LanguageContext"
-import { useProfileModalStore } from "./profileModalStore"
-import { useGlobalStore } from "../../store/globalStore"
-import { getUserColorCSS } from "../../../../userColorUtils"
+import { getUserColorCSS, getVisualUserName, getPlayerInitials } from "@utils/users";
+import { user_url } from "@app/shared/api/service/common/endpoints";
 import { UserAccountType } from "@app/shared/api/service/db/user";
+import { useProfileModalStore } from "./profileModalStore";
+import { useWebSocket } from "../../../../socketComponent";
+import { useGlobalStore } from "../../store/globalStore";
+import { useLanguage } from "@language/LanguageContext";
+import { useEffect, useState } from "react";
+
+function UserStatusPill({ isOnline }: { isOnline: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
+        isOnline
+          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+        }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+      {isOnline ? 'Online' : 'Offline'}
+    </span>
+  )
+}
+
+function UserAccountTypePill({ accountType }: { accountType: UserAccountType }) {
+  switch (accountType) {
+    case UserAccountType.Guest:
+      return (
+        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">
+          Guest
+        </span>
+      );
+    default:
+      return null;
+  }
+}
 
 export default function ProfileComponent() {
   const { t } = useLanguage()
@@ -32,16 +60,12 @@ export default function ProfileComponent() {
   }, [isOpen, targetUserId, sendMessage])
 
   useEffect(() => {
-    let active = true;
-    
     if (profile?.avatarUrl) {
       userAvatarFetcher(profile.avatarUrl).then(result => {
-        if (active) {
-          if (result.isOk()) {
-            setAvatarBlobUrl(result.unwrap());
-          } else {
-            setAvatarBlobUrl(null);
-          }
+        if (result.isOk()) {
+          setAvatarBlobUrl(result.unwrap());
+        } else {
+          setAvatarBlobUrl(null);
         }
       });
     } else {
@@ -63,13 +87,13 @@ export default function ProfileComponent() {
     }
   }
 
-  if (!isOpen || targetUserId === null) return null
-  if (typeof document === 'undefined') return null
+  if (!isOpen || targetUserId === null) return null;
+  if (typeof document === 'undefined') return null;
 
-  const isOwnProfile = currentUserId === targetUserId
-  const isUserOnline = profile?.onlineStatus === 1 || onlineUsers.has(targetUserId!);
+  const isUserOnline = onlineUsers.has(targetUserId);
+  const isOwnProfile = currentUserId === targetUserId;
 
-  const displayName = profile?.alias || profile?.username || "Unknown";
+  const displayName = getVisualUserName(profile, targetUserId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeProfileModal}>
@@ -96,57 +120,39 @@ export default function ProfileComponent() {
             </div>
 
             <div className="p-6 space-y-6 overflow-y-auto">
-              
-              {/* Profile Header Row */}
+
               <div className="flex items-start space-x-4">
                 {/* Avatar */}
                 <div className="relative h-20 w-20 flex-shrink-0 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700 border-2 border-white dark:border-gray-600 shadow-sm">
                   {avatarBlobUrl ? (
                     <img
                       src={avatarBlobUrl}
-                      alt={profile.username}
+                      alt={displayName}
                       className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-blue-500 text-white text-2xl font-bold">
-                      {displayName.slice(0, 2).toUpperCase()}
+                      {getPlayerInitials(profile, targetUserId)}
                     </div>
                   )}
                 </div>
-                
-                {/* Names Column */}
+
                 <div className="flex-1 min-w-0 pt-1">
-                  {/* Big Display Name */}
                   <h3 
                     className="text-2xl font-bold leading-tight truncate" 
                     style={{ color: getUserColorCSS(profile.id, true) }}
                   >
                     {displayName}
                   </h3>
-                  
-                  {/* Small Real Username (Handle) */}
+
                   <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                     @{profile.username}
                   </div>
-                  
+
                   {/* Status Pills */}
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
-                        isUserOnline
-                          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                        }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isUserOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                      {isUserOnline ? 'Online' : 'Offline'}
-                    </span>
-                    
-                    {profile.accountType === UserAccountType.Guest && (
-                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">
-                        Guest
-                      </span>
-                    )}
+                    <UserStatusPill isOnline={isUserOnline} />
+                    <UserAccountTypePill accountType={profile.accountType} />
                   </div>
                 </div>
               </div>

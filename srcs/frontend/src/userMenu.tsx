@@ -1,9 +1,9 @@
 import { useUserConnectionsModalStore } from "@features/global/modals/userConnections/userConnectionsModalStore";
 import { useState, useEffect, useRef } from "react";
 import ProfileComponent from "./profileComponent";
-import { getUserColorCSS } from "./userColorUtils";
+import { getUserColorCSS } from "@utils/users";
 import { useLanguage } from "./i18n";
-import { useGlobalStore } from "./features/global/store/globalStore";
+import { useGlobalStore } from "@features/global/store/globalStore";
 import { getVisualUserName } from "@utils/users";
 
 interface UserMenuProps {

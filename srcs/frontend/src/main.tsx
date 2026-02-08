@@ -1,8 +1,9 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import AppRoot from "./AppRoot";
 import { LanguageProvider } from "./i18n";
+import ReactDOM from "react-dom/client";
+import AppRoot from "./AppRoot";
+import React from "react";
+
 // @ts-ignore: allow importing CSS without type declarations
 import "./index.css";
 // Initialize the pong favicon on app load

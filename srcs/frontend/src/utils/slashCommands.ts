@@ -1,6 +1,6 @@
-import { useChatStore } from "../features/chat/store/chatStore";
+import { useChatStore } from "@features/chat/store/chatStore";
 import { Result } from "@app/shared/api/service/common/result";
-import { useGlobalStore } from "../features/global/store/globalStore";
+import { useGlobalStore } from "@features/global/store/globalStore";
 
 interface BaseSlashCommandArgs<T> {
     description: string;

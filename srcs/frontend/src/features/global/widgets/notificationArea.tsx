@@ -1,7 +1,7 @@
 "use client"
 
 import React, { FC, useState, useEffect, useRef } from 'react'
-import { getUserColorCSS } from '../../../userColorUtils'
+import { getUserColorCSS } from '@utils/users'
 import { useGlobalStore } from '../store/globalStore'
 import { createPortal } from 'react-dom'
 

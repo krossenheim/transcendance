@@ -21,7 +21,7 @@ import {
 } from "@babylonjs/core"
 import earcut from "earcut"
 import type { TypeGameStateSchema } from "./types/pong-interfaces"
-import { getUserColorBabylon, getUserColorCSS } from "./userColorUtils"
+import { getUserColorBabylon, getUserColorCSS } from "@utils/users"
 
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000

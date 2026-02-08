@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { getUserColorCSS } from "./userColorUtils"
+import { getUserColorCSS } from "@utils/users"
 
 export interface TournamentMatch {
   matchId: number

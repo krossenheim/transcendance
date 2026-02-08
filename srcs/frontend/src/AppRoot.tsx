@@ -1,9 +1,8 @@
-import { GlobalSocketListeners } from "./features/global/listeners/GlobalSocketListeners";
+import { GlobalSocketListeners } from "@features/global/listeners/GlobalSocketListeners";
 import SocketComponent, { closeGlobalSocket } from "./socketComponent";
-import LoginComponent from "./loginComponent";
-import RegisterComponent from "./registerComponent";
+import LoginComponent from "@features/auth/loginComponent";
+import RegisterComponent from "@features/auth/registerComponent";
 import { useState, useEffect } from "react";
-import { FriendshipProvider } from "./friendshipContext";
 import CookieBanner from "./CookieBanner";
 import StarfieldBackground from "./StarfieldBackground";
 import { useLanguage } from "./i18n";
@@ -14,8 +13,8 @@ import type { AuthResponseType } from "@app/shared/api/service/auth/loginRespons
 
 import { apiCall } from "@utils/useApi";
 import { pub_url } from "@app/shared/api/service/common/endpoints";
-import { ToastContainer } from "./features/toast/toastContainer";
-import { toast, useToastStore } from "./features/toast/toastStore";
+import { ToastContainer } from "@features/toast/toastContainer";
+import { toast, useToastStore } from "@features/toast/toastStore";
 
 // Enable Map and Set support in Immer for better state management with complex data structures
 enableMapSet();
@@ -212,18 +211,16 @@ export default function AppRoot() {
         <CookieBanner />
 
         {authResponse ? (
-          <FriendshipProvider>
-            <SocketComponent AuthResponseObject={authResponse}>
-              <StarfieldBackground starCount={300} />
-              <CookieBanner />
-              <GlobalSocketListeners />
+          <SocketComponent AuthResponseObject={authResponse}>
+            <StarfieldBackground starCount={300} />
+            <CookieBanner />
+            <GlobalSocketListeners />
 
-              <AuthenticatedApp
-                authResponse={authResponse}
-                onLogout={handleLogout}
-              />
-            </SocketComponent>
-          </FriendshipProvider>
+            <AuthenticatedApp
+              authResponse={authResponse}
+              onLogout={handleLogout}
+            />
+          </SocketComponent>
         ) : (
           <div className="min-h-screen flex items-center justify-center py-12 px-4">
             {isAutoLoggingIn ? (

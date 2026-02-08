@@ -3,7 +3,7 @@
 import { useImperativeHandle, useState, useEffect, useRef, forwardRef } from "react"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
-import { getUserColorCSS } from "./userColorUtils"
+import { getUserColorCSS } from "@utils/users"
 
 export type TypeStoredMessageSchema = {
   user: string

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { getUserColorCSS } from "./userColorUtils"
+import { getUserColorCSS } from "@utils/users"
 import { useLanguage } from "./i18n/LanguageContext"
 
 export type GameMode = "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi"

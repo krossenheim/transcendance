@@ -1,9 +1,9 @@
 "use client"
 
 import { pub_url } from "@app/shared/api/service/common/endpoints"
-import type { AuthResponseType } from "./types/auth-response"
+import type { AuthResponseType } from "../../types/auth-response"
 import { apiCall } from "@utils/useApi"
-import { useLanguage } from "./i18n"
+import { useLanguage } from "../../i18n"
 import { useState } from "react"
 
 interface RegisterComponentProps {

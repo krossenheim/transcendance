@@ -9,12 +9,12 @@ import PongInvitationHandler from "./pongInvitationHandler";
 import PongInviteNotifications, { PongInvitation } from "./pongInviteNotifications";
 import AccessibilitySettings from "./accessibilitySettings";
 
-import { useGlobalStore } from "./features/global/store/globalStore";
+import { useGlobalStore } from "@features/global/store/globalStore";
 import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
-import ProfileModal from "./features/global/modals/profile/profileModal";
+import ProfileModal from "@features/global/modals/profile/profileModal";
 import ChatPage from "./pages/chat";
-import UserConnectionsModal from "./features/global/modals/userConnections/userConnectionsModal";
-import TopHeaderBar from "./features/global/widgets/topHeaderBar";
+import UserConnectionsModal from "@features/global/modals/userConnections/userConnectionsModal";
+import TopHeaderBar from "@features/global/widgets/topHeaderBar";
 
 interface AuthenticatedAppProps {
   authResponse: AuthResponseType;

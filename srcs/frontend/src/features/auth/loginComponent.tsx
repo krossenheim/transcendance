@@ -1,9 +1,9 @@
 import { pub_url } from "@app/shared/api/service/common/endpoints";
 import { useToastStore } from "@features/toast/toastStore";
-import { TwoFactorVerify } from "./twoFactorComponent";
+import { TwoFactorVerify } from "../../twoFactorComponent";
 import React, { useId, useState } from "react";
 import { apiCall } from "@utils/useApi";
-import { useLanguage } from "./i18n";
+import { useLanguage } from "../../i18n";
 
 const handleKeyPress = (e: React.KeyboardEvent, action: () => void): void => {
   if (e.key === "Enter") {

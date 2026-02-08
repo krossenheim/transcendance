@@ -53,6 +53,9 @@
             ],
             "@features/*": [
                 "./src/features/*"
+            ],
+            "@language/*": [
+                "./src/i18n/*"
             ]
         }
     }

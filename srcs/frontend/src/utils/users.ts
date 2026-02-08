@@ -55,11 +55,25 @@ export function getUserColorHex(userId: number, darkMode = true): string {
 
 /**
  * Get the visual display name for a user
- * @param user - The user object containing username and optional alias
+ * @param user - The user object containing username and optional alias + id
  * @param id - The user ID (used if user is undefined)
  * @returns The display name
  */
-export function getVisualUserName(user?: PublicUserDataType, id?: number): string {
-    if (user === undefined) return `User ${id ?? ''}`;
-    return user.alias && user.alias.trim().length > 0 ? user.alias : user.username;
+export function getVisualUserName(user?: { alias: string | null; username: string, id: number } | null, id?: number): string {
+    if (!user) return `User ${id ?? ''}`;
+    return (user.alias && user.alias.trim().length > 0 ? user.alias : user.username) || `User ${user.id}`;
+}
+
+/**
+ * Get the initials for a user (for avatar placeholders)
+ * @param user The user object containing username and optional alias + id
+ * @param id The user ID (used if user is undefined)
+ * @returns The initials as string
+ */
+export function getPlayerInitials(user?: { alias: string | null; username: string, id: number } | null, id?: number): string {
+    const displayName = getVisualUserName(user, id);
+    const nameParts = displayName.split('_').filter(part => part.length > 0);
+    if (nameParts.length === 0) return '';
+    if (nameParts.length === 1) return nameParts[0]!.slice(0, 2).toUpperCase();
+    return (nameParts[0]![0]! + nameParts[nameParts.length - 1]![0]!).toUpperCase();
 }

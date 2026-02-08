@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { getUserColorCSS } from "./userColorUtils"
+import { getUserColorCSS } from "@utils/users"
 import type { GameMode } from "./pongInviteModal"
 
 export interface PongInvitation {
