@@ -392,29 +392,71 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     
-    // No ball smoothing - snap directly to server position
+    // Ball smoothing using velocity-based extrapolation for constant-speed movement
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
+      const now = performance.now()
       
-      // Update balls - NO LERP, snap directly to server position
+      // Update balls - velocity-based extrapolation for smooth constant-speed movement
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
         if (!mesh) continue
         
-        // Server position (converted to world units) - SNAP DIRECTLY
+        // Server position and velocity (converted to world units)
         const serverX = (b.x - 500) * 0.02
         const serverZ = (b.y - 500) * 0.02
+        // Velocity: dx/dy are in game units per second, convert to world units
+        const velX = (b.dx || 0) * 0.02
+        const velZ = (b.dy || 0) * 0.02
+        
+        // Get or create target tracking
+        let target = ballTargetsRef.current.get(b.id)
+        if (!target) {
+          target = {
+            targetPos: new Vector3(serverX, mesh.position.y, serverZ),
+            targetScaleX: 1, targetScaleY: 1, targetScaleZ: 1,
+            velocityX: velX,
+            velocityZ: velZ,
+            lastUpdateTime: now,
+            visualRadius: 0.2
+          }
+          ballTargetsRef.current.set(b.id, target)
+          // First frame: snap to position
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+          continue
+        }
+        
+        // Check if server sent new position (significant change from last known server pos)
+        const serverChanged = Math.abs(serverX - target.targetPos.x) > 0.001 || 
+                              Math.abs(serverZ - target.targetPos.z) > 0.001
+        
+        if (serverChanged) {
+          // New server update received - update target and velocity
+          target.targetPos.x = serverX
+          target.targetPos.z = serverZ
+          target.velocityX = velX
+          target.velocityZ = velZ
+          target.lastUpdateTime = now
+        }
         
         // Store previous position for rotation calculation
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // SNAP to server position - no lerp
-        mesh.position.x = serverX
-        mesh.position.z = serverZ
+        // Extrapolate position based on velocity and time since last server update
+        const dt = (now - target.lastUpdateTime) / 1000.0 // seconds
+        const extrapolatedX = target.targetPos.x + target.velocityX * dt
+        const extrapolatedZ = target.targetPos.z + target.velocityZ * dt
+        
+        // Smooth blend between current position and extrapolated position
+        // Use high lerp factor for responsive movement but smooth micro-jitter
+        const lerpFactor = 0.4
+        mesh.position.x += (extrapolatedX - mesh.position.x) * lerpFactor
+        mesh.position.z += (extrapolatedZ - mesh.position.z) * lerpFactor
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
@@ -423,8 +465,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const moveDist = Math.sqrt(movedX * movedX + movedZ * movedZ)
             
           if (moveDist > 0.0001) {
-            const target = ballTargetsRef.current.get(b.id)
-            const radius = target?.visualRadius || 0.2
+            const radius = target.visualRadius || 0.2
             
             rotAxis.x = -movedZ / moveDist
             rotAxis.y = 0
