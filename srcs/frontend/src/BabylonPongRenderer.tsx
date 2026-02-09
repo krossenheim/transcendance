@@ -786,13 +786,21 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             scene,
           )
 
-          wall.position = center
-          wall.position.y = wallHeight / 2 - 0.1 // Sunk slightly
-
           // Rotation: align local X with direction
           // atan2(z, x) gives angle in XZ plane
           const angle = Math.atan2(dir.z, dir.x)
           wall.rotation.y = -angle // Babylon rotation might need negation depending on coord system
+
+          // Calculate the outward normal to offset wall so inner face aligns with collision line
+          // The normal is perpendicular to the wall direction, pointing outward (away from center)
+          const perp = new Vector3(-dir.z, 0, dir.x) // perpendicular in XZ plane
+          // Determine which direction is "outward" by checking against center of arena
+          const toCenter = Vector3.Zero().subtract(center)
+          const outward = perp.dot(toCenter) < 0 ? perp : perp.scale(-1)
+          
+          // Offset wall position outward by half thickness so inner face is at collision line
+          wall.position = center.add(outward.scale(wallThickness / 2))
+          wall.position.y = wallHeight / 2 - 0.1 // Sunk slightly
 
           const wallMat = new StandardMaterial("wallMat", scene)
           // Dark mode: blue-purple, Light mode: light blue-gray
@@ -981,7 +989,143 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
     })
 
-    // Cleanup missing balls (powerups now fully handled in render loop)
+    // Cleanup missing balls
+    // --- Powerups: create/update rotating shape meshes ---
+    // gameState.powerups entries are arrays: [x, y, vx, vy, radius, spawnTime, type, duration, activationStart]
+    if (gameState.powerups && Array.isArray(gameState.powerups)) {
+      // Debug logging disabled for performance
+      // console.debug("[BabylonPongRenderer] Received powerups:", gameState.powerups)
+      const activePowerupKeys = new Set<string>()
+      gameState.powerups.forEach((p: any, pidx: number) => {
+        try {
+          const isArray = Array.isArray(p)
+          const x = Number(isArray ? p[0] : p.x) || 0
+          const y = Number(isArray ? p[1] : p.y) || 0
+          const radius = Number(isArray ? p[4] : p.radius) || 10
+          const spawnTime = String(isArray ? p[5] ?? pidx : (p.spawnTime ?? pidx))
+          const rawType = isArray ? p[6] : p.type
+          const typeIndex = Number(rawType)
+          // Check if powerup has been collected (activationTick at index 8 is not null)
+          const activationTick = isArray ? p[8] : p.activationTick
+          const isCollected = activationTick !== null && activationTick !== undefined
+          
+          if (isNaN(typeIndex)) {
+            console.warn("[BabylonPongRenderer] powerup type is not a number, raw:", rawType)
+          }
+          // Use only spawnTime as key since pidx can change when powerups are removed
+          const key = `${spawnTime}`
+          
+          // Skip rendering collected powerups - they've already been picked up
+          if (isCollected) {
+            // Add to collected set so we never show it again
+            collectedPowerupsRef.current.add(key)
+          }
+          
+          // Skip if this powerup was ever collected
+          if (collectedPowerupsRef.current.has(key)) {
+            // Force hide by moving mesh to oblivion - dispose doesn't seem to work
+            const meshName = `powerup_${key}`
+            const sceneMesh = scene.getMeshByName(meshName)
+            if (sceneMesh) {
+              sceneMesh.position.set(0, -9999, 0)
+              sceneMesh.scaling.set(0.001, 0.001, 0.001)
+            }
+            // Also try from our ref
+            const refMesh = powerupsRef.current.get(key)
+            if (refMesh) {
+              refMesh.position.set(0, -9999, 0)
+              refMesh.scaling.set(0.001, 0.001, 0.001)
+              powerupsRef.current.delete(key)
+            }
+            return
+          }
+          
+          activePowerupKeys.add(key)
+
+          let mesh = powerupsRef.current.get(key)
+          const size = Math.max(0.1, radius * SCALE_FACTOR)
+
+          if (!mesh) {
+            const name = `powerup_${key}`
+            let created: Mesh | null = null
+            const color = (() => {
+              switch (typeIndex) {
+                case 0: return new Color3(0.9, 0.6, 0.1) // ADD_BALL -> orange cube
+                case 1: return new Color3(0.9, 0.2, 0.2) // INCREASE_PADDLE_SPEED -> red pyramid
+                case 2: return new Color3(0.2, 0.6, 0.9) // DECREASE_PADDLE_SPEED -> blue pyramid
+                case 3: return new Color3(0.8, 0.3, 0.9) // SUPER_SPEED -> purple octa
+                case 4: return new Color3(0.2, 0.9, 0.3) // INCREASE_BALL_SIZE -> green dodeca
+                case 5: return new Color3(0.9, 0.9, 0.2) // DECREASE_BALL_SIZE -> yellow rect prism
+                case 6: return new Color3(0.9, 0.4, 0.7) // REVERSE_CONTROLS -> pink icosa
+                default: return new Color3(0.8, 0.8, 0.8)
+              }
+            })()
+
+            // Create shape depending on type - ALL use flat disc for consistent hitbox visualization
+            const visualSize = size
+            // Use flat disc for ALL powerup types - diameter matches hitbox
+            // Create as a coin standing up (rotated to stand on edge)
+            created = MeshBuilder.CreateCylinder(name, { 
+              diameterTop: visualSize * 2.0, 
+              diameterBottom: visualSize * 2.0, 
+              height: visualSize * 0.25, 
+              tessellation: 32 
+            }, scene)
+
+            if (created) {
+              mesh = created
+              const mat = new StandardMaterial(name + "_mat", scene)
+              mat.diffuseColor = color
+              mat.emissiveColor = color.scale(0.25)
+              mat.specularColor = new Color3(0.4, 0.4, 0.4)
+              mesh.material = mat
+              // Stand the coin up on its edge (rotate 90 degrees on X axis)
+              mesh.rotation.x = Math.PI / 2
+              // Render powerups slightly above the board so they're visible
+              mesh.position = toWorld(x, y, 0.35)
+              powerupsRef.current.set(key, mesh)
+            }
+          } else {
+            // update position (keep powerups at standing coin height)
+            mesh.position = toWorld(x, y, 0.35)
+            // Small debug to ensure updates are occurring
+            // console.debug(`[BabylonPongRenderer] Updated powerup ${key} position to (${x},${y})`)
+          }
+        } catch (e) {
+          console.warn("Failed to create/update powerup mesh", e)
+        }
+      })
+
+      // Remove powerups that no longer exist in game state (or are collected)
+      for (const [k, m] of powerupsRef.current) {
+        if (!activePowerupKeys.has(k)) {
+          try { 
+            m.position.set(0, -9999, 0)
+            m.scaling.set(0.001, 0.001, 0.001)
+            m.dispose() 
+          } catch (e) { /* ignore */ }
+          powerupsRef.current.delete(k)
+        }
+      }
+
+      // Register a simple rotation if not already registered
+      if (!scene.onBeforeRenderObservable.hasObservers()) {
+        // If there are other before-render observers we don't want to clobber them; add our own observer anyway.
+      }
+      // Add a dedicated rotation observer (idempotent by checking custom flag)
+      if (!(scene as any).__powerupRotationRegistered) {
+        (scene as any).__powerupRotationRegistered = true
+        scene.onBeforeRenderObservable.add(() => {
+          const dt = scene.getEngine().getDeltaTime() / 1000 // seconds
+          const rotSpeed = 2.5 // radians per second - fast spin like a coin
+          for (const mesh of powerupsRef.current.values()) {
+            // Keep X rotation fixed at 90deg (standing up), only spin around Y
+            mesh.rotation.x = Math.PI / 2
+            mesh.rotation.y += rotSpeed * dt
+          }
+        })
+      }
+    }
     for (const [id, mesh] of ballsRef.current) {
       if (!activeBallIds.has(id)) {
         const light = ballLightsRef.current.get(id)
