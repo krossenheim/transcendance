@@ -393,21 +393,25 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     
-    // Ball rendering: directly use server position (server handles physics)
+    // Ball rendering: constant velocity between bounces
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
+      const deltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
+      const dtSeconds = deltaTime / 1000.0
       
-      // Update balls - directly follow server position
+      // Update balls
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
         if (!mesh) continue
         
-        // Server position (converted to world units)
+        // Server position and velocity (converted to world units)
         const serverX = (b.x - 500) * 0.02
         const serverZ = (b.y - 500) * 0.02
+        const serverVelX = (b.dx || 0) * 0.02
+        const serverVelZ = (b.dy || 0) * 0.02
         
         // Get or create tracking state
         let target = ballTargetsRef.current.get(b.id)
@@ -415,21 +419,46 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           target = {
             targetPos: new Vector3(serverX, mesh.position.y, serverZ),
             targetScaleX: 1, targetScaleY: 1, targetScaleZ: 1,
-            velocityX: 0,
-            velocityZ: 0,
+            velocityX: serverVelX,
+            velocityZ: serverVelZ,
             lastUpdateTime: 0,
             visualRadius: 0.2
           }
           ballTargetsRef.current.set(b.id, target)
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+          continue
         }
         
         // Store previous position for rotation calculation
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Just use server position directly
-        mesh.position.x = serverX
-        mesh.position.z = serverZ
+        // Detect bounce: check if server velocity direction changed significantly
+        const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
+        const newSpeed = Math.sqrt(serverVelX * serverVelX + serverVelZ * serverVelZ)
+        
+        let bounced = false
+        if (oldSpeed > 0.001 && newSpeed > 0.001) {
+          const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
+          // Bounce if angle > 30 degrees (dot < 0.866)
+          bounced = dot < 0.866
+        } else if (oldSpeed < 0.001 && newSpeed > 0.001) {
+          // Ball started moving
+          bounced = true
+        }
+        
+        if (bounced) {
+          // Bounce: sync to server and adopt new velocity
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+          target.velocityX = serverVelX
+          target.velocityZ = serverVelZ
+        } else {
+          // Move at constant stored velocity
+          mesh.position.x += target.velocityX * dtSeconds
+          mesh.position.z += target.velocityZ * dtSeconds
+        }
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
