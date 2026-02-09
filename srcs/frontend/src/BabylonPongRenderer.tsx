@@ -432,23 +432,30 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           continue
         }
         
-        // Check if velocity direction changed (bounce occurred)
-        // Dot product < 0 means direction reversed
-        const dotProduct = target.velocityX * velX + target.velocityZ * velZ
-        const hadVelocity = Math.abs(target.velocityX) > 0.0001 || Math.abs(target.velocityZ) > 0.0001
-        const hasVelocity = Math.abs(velX) > 0.0001 || Math.abs(velZ) > 0.0001
-        const bounced = hadVelocity && hasVelocity && dotProduct < 0
+        // Store previous position for rotation calculation
+        const prevX = mesh.position.x
+        const prevZ = mesh.position.z
         
-        // Check for teleport (large position jump)
+        // Check if velocity direction changed significantly (bounce occurred)
+        // Use angle between old and new velocity - must be > 45 degrees to count as bounce
+        const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
+        const newSpeed = Math.sqrt(velX * velX + velZ * velZ)
+        let bounced = false
+        
+        if (oldSpeed > 0.001 && newSpeed > 0.001) {
+          // Normalize and compute dot product (cosine of angle)
+          const dotNorm = (target.velocityX * velX + target.velocityZ * velZ) / (oldSpeed * newSpeed)
+          // cos(45°) ≈ 0.707, cos(90°) = 0, cos(135°) ≈ -0.707
+          // Trigger bounce if angle > ~60 degrees (dot < 0.5)
+          bounced = dotNorm < 0.5
+        }
+        
+        // Check for teleport (large position jump from where we expect to be)
         const distToServer = Math.sqrt(
           Math.pow(serverX - mesh.position.x, 2) + 
           Math.pow(serverZ - mesh.position.z, 2)
         )
-        const teleported = distToServer > 0.5
-        
-        // Store previous position for rotation calculation
-        const prevX = mesh.position.x
-        const prevZ = mesh.position.z
+        const teleported = distToServer > 0.4
         
         if (bounced || teleported) {
           // Bounce or teleport: snap to server position and adopt new velocity
@@ -457,16 +464,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           target.velocityX = velX
           target.velocityZ = velZ
         } else {
-          // Normal frame: just move at constant velocity
+          // Normal frame: move at constant velocity (use stored velocity, not server)
           mesh.position.x += target.velocityX * dtSeconds
           mesh.position.z += target.velocityZ * dtSeconds
-          
-          // Silently update velocity for next bounce detection (don't change position)
-          target.velocityX = velX
-          target.velocityZ = velZ
+          // Do NOT update target.velocity here - keep it constant until bounce
         }
         
-        // Update tracking
+        // Update tracking position (for teleport detection)
         target.targetPos.x = serverX
         target.targetPos.z = serverZ
         
