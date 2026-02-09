@@ -437,20 +437,24 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevZ = mesh.position.z
         
         // Check if velocity direction changed significantly (bounce occurred)
-        // Use angle between old and new velocity - must be > 60 degrees to count as bounce
         const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
         const newSpeed = Math.sqrt(velX * velX + velZ * velZ)
-        let bounced = false
+        let shouldSnap = false
         
-        if (oldSpeed > 0.001 && newSpeed > 0.001) {
-          // Normalize and compute dot product (cosine of angle)
+        if (oldSpeed < 0.001) {
+          // Ball was stationary - adopt new velocity if it's now moving
+          if (newSpeed > 0.001) {
+            shouldSnap = true
+          }
+        } else if (newSpeed > 0.001) {
+          // Both have velocity - check angle change
           const dotNorm = (target.velocityX * velX + target.velocityZ * velZ) / (oldSpeed * newSpeed)
           // cos(60°) = 0.5 - trigger bounce if angle > 60 degrees
-          bounced = dotNorm < 0.5
+          shouldSnap = dotNorm < 0.5
         }
         
-        if (bounced) {
-          // Bounce: snap to server position and adopt new velocity
+        if (shouldSnap) {
+          // Bounce or start moving: snap to server position and adopt new velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           target.velocityX = velX
