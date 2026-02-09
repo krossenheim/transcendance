@@ -437,7 +437,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevZ = mesh.position.z
         
         // Check if velocity direction changed significantly (bounce occurred)
-        // Use angle between old and new velocity - must be > 45 degrees to count as bounce
+        // Use angle between old and new velocity - must be > 60 degrees to count as bounce
         const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
         const newSpeed = Math.sqrt(velX * velX + velZ * velZ)
         let bounced = false
@@ -445,34 +445,21 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           // Normalize and compute dot product (cosine of angle)
           const dotNorm = (target.velocityX * velX + target.velocityZ * velZ) / (oldSpeed * newSpeed)
-          // cos(45°) ≈ 0.707, cos(90°) = 0, cos(135°) ≈ -0.707
-          // Trigger bounce if angle > ~60 degrees (dot < 0.5)
+          // cos(60°) = 0.5 - trigger bounce if angle > 60 degrees
           bounced = dotNorm < 0.5
         }
         
-        // Check for teleport (large position jump from where we expect to be)
-        const distToServer = Math.sqrt(
-          Math.pow(serverX - mesh.position.x, 2) + 
-          Math.pow(serverZ - mesh.position.z, 2)
-        )
-        const teleported = distToServer > 0.4
-        
-        if (bounced || teleported) {
-          // Bounce or teleport: snap to server position and adopt new velocity
+        if (bounced) {
+          // Bounce: snap to server position and adopt new velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           target.velocityX = velX
           target.velocityZ = velZ
         } else {
-          // Normal frame: move at constant velocity (use stored velocity, not server)
+          // Normal frame: move at constant velocity
           mesh.position.x += target.velocityX * dtSeconds
           mesh.position.z += target.velocityZ * dtSeconds
-          // Do NOT update target.velocity here - keep it constant until bounce
         }
-        
-        // Update tracking position (for teleport detection)
-        target.targetPos.x = serverX
-        target.targetPos.z = serverZ
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
