@@ -393,30 +393,34 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     
-    // Simple ball smoothing: just lerp toward server position
+    // Ball smoothing: move at server velocity, gently correct toward server position
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
+      const deltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
+      const dtSeconds = deltaTime / 1000.0
       
-      // Update balls - simple lerp to server position
+      // Update balls
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
         if (!mesh) continue
         
-        // Server position (converted to world units)
+        // Server position and velocity (converted to world units)
         const serverX = (b.x - 500) * 0.02
         const serverZ = (b.y - 500) * 0.02
+        const velX = (b.dx || 0) * 0.02
+        const velZ = (b.dy || 0) * 0.02
         
-        // Get or create tracking state (for rotation)
+        // Get or create tracking state
         let target = ballTargetsRef.current.get(b.id)
         if (!target) {
           target = {
             targetPos: new Vector3(serverX, mesh.position.y, serverZ),
             targetScaleX: 1, targetScaleY: 1, targetScaleZ: 1,
-            velocityX: 0,
-            velocityZ: 0,
+            velocityX: velX,
+            velocityZ: velZ,
             lastUpdateTime: 0,
             visualRadius: 0.2
           }
@@ -430,20 +434,26 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Check distance to server - if large, snap immediately (respawn/teleport)
+        // Check distance to server
         const distX = serverX - mesh.position.x
         const distZ = serverZ - mesh.position.z
         const dist = Math.sqrt(distX * distX + distZ * distZ)
         
         if (dist > 0.3) {
-          // Large jump - snap immediately
+          // Large jump (respawn) - snap immediately
           mesh.position.x = serverX
           mesh.position.z = serverZ
+          target.velocityX = velX
+          target.velocityZ = velZ
         } else {
-          // Simple lerp toward server position
-          const lerpFactor = 0.35
-          mesh.position.x += distX * lerpFactor
-          mesh.position.z += distZ * lerpFactor
+          // Move at server velocity (smooth constant speed)
+          mesh.position.x += velX * dtSeconds
+          mesh.position.z += velZ * dtSeconds
+          
+          // Gentle correction toward server position (prevents drift)
+          const correction = 0.1
+          mesh.position.x += distX * correction
+          mesh.position.z += distZ * correction
         }
         
         // Rolling rotation based on actual movement
