@@ -430,12 +430,21 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Simple lerp toward server position
-        // Higher factor = more responsive but potentially choppier
-        // Lower factor = smoother but more lag
-        const lerpFactor = 0.35
-        mesh.position.x += (serverX - mesh.position.x) * lerpFactor
-        mesh.position.z += (serverZ - mesh.position.z) * lerpFactor
+        // Check distance to server - if large, snap immediately (respawn/teleport)
+        const distX = serverX - mesh.position.x
+        const distZ = serverZ - mesh.position.z
+        const dist = Math.sqrt(distX * distX + distZ * distZ)
+        
+        if (dist > 0.3) {
+          // Large jump - snap immediately
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+        } else {
+          // Simple lerp toward server position
+          const lerpFactor = 0.35
+          mesh.position.x += distX * lerpFactor
+          mesh.position.z += distZ * lerpFactor
+        }
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
