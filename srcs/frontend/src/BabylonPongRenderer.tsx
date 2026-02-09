@@ -434,52 +434,34 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Detect bounce: check if server velocity direction changed
+        // Only sync on actual bounces (significant velocity direction change)
         const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
         const newSpeed = Math.sqrt(serverVelX * serverVelX + serverVelZ * serverVelZ)
         
         let shouldSync = false
-        let syncReason = ''
         
-        // Sync if velocity direction changed meaningfully
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
-          // Only sync on real bounces (> 15 degrees change)
-          if (dot < 0.966) {
+          // Only sync on real bounces (> 20 degrees change)
+          if (dot < 0.94) {
             shouldSync = true
-            syncReason = `velocity angle changed: dot=${dot.toFixed(3)}`
           }
         } else if (newSpeed > 0.001 && oldSpeed < 0.001) {
           // Ball started moving
           shouldSync = true
-          syncReason = 'ball started moving'
-        }
-        
-        // Also sync if visual drifted too far from server
-        const visualDx = serverX - mesh.position.x
-        const visualDz = serverZ - mesh.position.z
-        const visualDrift = Math.sqrt(visualDx * visualDx + visualDz * visualDz)
-        if (visualDrift > 0.15) {
-          shouldSync = true
-          syncReason = `visual drift too large: ${visualDrift.toFixed(3)}`
         }
         
         if (shouldSync) {
-          console.log(`[Ball ${b.id}] Sync: ${syncReason}`)
           // Sync to server and adopt new velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           target.velocityX = serverVelX
           target.velocityZ = serverVelZ
         } else {
-          // Move at constant stored velocity
+          // Move at constant stored velocity - no corrections, no drift checks
           mesh.position.x += target.velocityX * dtSeconds
           mesh.position.z += target.velocityZ * dtSeconds
         }
-        
-        // Update last known server position
-        target.targetPos.x = serverX
-        target.targetPos.z = serverZ
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
