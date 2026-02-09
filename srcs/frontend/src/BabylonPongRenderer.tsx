@@ -393,40 +393,34 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     
-    // Ball smoothing: pure constant-speed movement, only snap on bounces
+    // Simple ball smoothing: just lerp toward server position
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
-      const deltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
-      const dtSeconds = deltaTime / 1000.0
       
-      // Update balls - constant velocity movement, snap only on bounce/teleport
+      // Update balls - simple lerp to server position
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
         if (!mesh) continue
         
-        // Server position and velocity (converted to world units)
+        // Server position (converted to world units)
         const serverX = (b.x - 500) * 0.02
         const serverZ = (b.y - 500) * 0.02
-        // Velocity: dx/dy are in game units per second, convert to world units per second
-        const velX = (b.dx || 0) * 0.02
-        const velZ = (b.dy || 0) * 0.02
         
-        // Get or create tracking state
+        // Get or create tracking state (for rotation)
         let target = ballTargetsRef.current.get(b.id)
         if (!target) {
           target = {
             targetPos: new Vector3(serverX, mesh.position.y, serverZ),
             targetScaleX: 1, targetScaleY: 1, targetScaleZ: 1,
-            velocityX: velX,
-            velocityZ: velZ,
+            velocityX: 0,
+            velocityZ: 0,
             lastUpdateTime: 0,
             visualRadius: 0.2
           }
           ballTargetsRef.current.set(b.id, target)
-          // First frame: snap to server position and velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           continue
@@ -436,34 +430,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Check if velocity direction changed significantly (bounce occurred)
-        const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
-        const newSpeed = Math.sqrt(velX * velX + velZ * velZ)
-        let shouldSnap = false
-        
-        if (oldSpeed < 0.001) {
-          // Ball was stationary - adopt new velocity if it's now moving
-          if (newSpeed > 0.001) {
-            shouldSnap = true
-          }
-        } else if (newSpeed > 0.001) {
-          // Both have velocity - check angle change
-          const dotNorm = (target.velocityX * velX + target.velocityZ * velZ) / (oldSpeed * newSpeed)
-          // cos(60°) = 0.5 - trigger bounce if angle > 60 degrees
-          shouldSnap = dotNorm < 0.5
-        }
-        
-        if (shouldSnap) {
-          // Bounce or start moving: snap to server position and adopt new velocity
-          mesh.position.x = serverX
-          mesh.position.z = serverZ
-          target.velocityX = velX
-          target.velocityZ = velZ
-        } else {
-          // Normal frame: move at constant velocity
-          mesh.position.x += target.velocityX * dtSeconds
-          mesh.position.z += target.velocityZ * dtSeconds
-        }
+        // Simple lerp toward server position
+        // Higher factor = more responsive but potentially choppier
+        // Lower factor = smoother but more lag
+        const lerpFactor = 0.35
+        mesh.position.x += (serverX - mesh.position.x) * lerpFactor
+        mesh.position.z += (serverZ - mesh.position.z) * lerpFactor
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
