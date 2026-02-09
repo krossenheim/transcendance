@@ -399,8 +399,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       const gs = gameStateRef.current
       if (!gs) return
       const now = performance.now()
+      const deltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
+      const dtSeconds = deltaTime / 1000.0
       
-      // Update balls - velocity-based extrapolation for smooth constant-speed movement
+      // Update balls - smooth velocity-based movement with server correction
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
@@ -431,52 +433,58 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           continue
         }
         
-        // Detect bounce: velocity direction changed significantly
-        // Dot product < 0 means velocity reversed (bounce occurred)
-        const dotProduct = target.velocityX * velX + target.velocityZ * velZ
-        const hadVelocity = Math.abs(target.velocityX) > 0.001 || Math.abs(target.velocityZ) > 0.001
-        const hasVelocity = Math.abs(velX) > 0.001 || Math.abs(velZ) > 0.001
-        const bounceOccurred = hadVelocity && hasVelocity && dotProduct < 0
+        // Calculate distance from current visual position to server position
+        const errorX = serverX - mesh.position.x
+        const errorZ = serverZ - mesh.position.z
+        const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
         
-        // Detect respawn: ball teleported a large distance (more than it could travel in one frame)
-        // At ~60fps with typical ball speed, max movement per frame is small
-        const distFromTarget = Math.sqrt(
-          Math.pow(serverX - target.targetPos.x, 2) + 
-          Math.pow(serverZ - target.targetPos.z, 2)
-        )
-        const respawnOccurred = distFromTarget > 0.5 // Large teleport indicates respawn
-        
-        // Check if server sent new position
-        const serverChanged = Math.abs(serverX - target.targetPos.x) > 0.001 || 
-                              Math.abs(serverZ - target.targetPos.z) > 0.001
-        
-        if (serverChanged) {
-          // New server update received - update target and velocity
-          target.targetPos.x = serverX
-          target.targetPos.z = serverZ
-          target.velocityX = velX
-          target.velocityZ = velZ
-          target.lastUpdateTime = now
-        }
+        // Detect respawn/teleport: ball jumped more than it could reasonably travel
+        const maxReasonableMove = 0.5 // ~25 world units, large jump
+        const teleported = errorDist > maxReasonableMove
         
         // Store previous position for rotation calculation
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        if (bounceOccurred || respawnOccurred) {
-          // SNAP immediately on bounce or respawn to prevent visual artifacts
+        if (teleported) {
+          // Large jump - snap immediately (respawn, powerup effect, etc.)
           mesh.position.x = serverX
           mesh.position.z = serverZ
+          target.velocityX = velX
+          target.velocityZ = velZ
+          target.targetPos.x = serverX
+          target.targetPos.z = serverZ
+          target.lastUpdateTime = now
         } else {
-          // Extrapolate position based on velocity and time since last server update
-          const dt = (now - target.lastUpdateTime) / 1000.0 // seconds
-          const extrapolatedX = target.targetPos.x + target.velocityX * dt
-          const extrapolatedZ = target.targetPos.z + target.velocityZ * dt
+          // Normal movement: move at server velocity + gentle error correction
+          // This keeps the ball moving smoothly at constant speed
           
-          // Smooth blend between current position and extrapolated position
-          const lerpFactor = 0.5
-          mesh.position.x += (extrapolatedX - mesh.position.x) * lerpFactor
-          mesh.position.z += (extrapolatedZ - mesh.position.z) * lerpFactor
+          // Update stored velocity (smoothly blend to avoid jerks on direction changes)
+          const velBlend = 0.3 // How fast to adopt new velocity direction
+          target.velocityX += (velX - target.velocityX) * velBlend
+          target.velocityZ += (velZ - target.velocityZ) * velBlend
+          
+          // Move ball using blended velocity
+          let moveX = target.velocityX * dtSeconds
+          let moveZ = target.velocityZ * dtSeconds
+          
+          // Add gentle error correction to prevent drift
+          // Correction is proportional to error but capped to avoid visible jumps
+          const correctionStrength = 5.0 // Correction rate per second
+          const maxCorrectionPerFrame = 0.02 // Max correction per frame to keep it smooth
+          const correctionX = Math.max(-maxCorrectionPerFrame, Math.min(maxCorrectionPerFrame, errorX * correctionStrength * dtSeconds))
+          const correctionZ = Math.max(-maxCorrectionPerFrame, Math.min(maxCorrectionPerFrame, errorZ * correctionStrength * dtSeconds))
+          
+          moveX += correctionX
+          moveZ += correctionZ
+          
+          mesh.position.x += moveX
+          mesh.position.z += moveZ
+          
+          // Update target tracking
+          target.targetPos.x = serverX
+          target.targetPos.z = serverZ
+          target.lastUpdateTime = now
         }
         
         // Rolling rotation based on actual movement
