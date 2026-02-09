@@ -393,16 +393,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const rotAxis = new Vector3(0, 0, 0)
     const rotQuat = Quaternion.Identity()
     
-    // Ball smoothing using velocity-based extrapolation for constant-speed movement
+    // Ball smoothing: pure constant-speed movement, only snap on bounces
     
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
-      const now = performance.now()
       const deltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
       const dtSeconds = deltaTime / 1000.0
       
-      // Update balls - smooth velocity-based movement with server correction
+      // Update balls - constant velocity movement, snap only on bounce/teleport
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
         const mesh = ballsRef.current.get(b.id)
@@ -411,11 +410,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         // Server position and velocity (converted to world units)
         const serverX = (b.x - 500) * 0.02
         const serverZ = (b.y - 500) * 0.02
-        // Velocity: dx/dy are in game units per second, convert to world units
+        // Velocity: dx/dy are in game units per second, convert to world units per second
         const velX = (b.dx || 0) * 0.02
         const velZ = (b.dy || 0) * 0.02
         
-        // Get or create target tracking
+        // Get or create tracking state
         let target = ballTargetsRef.current.get(b.id)
         if (!target) {
           target = {
@@ -423,69 +422,53 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             targetScaleX: 1, targetScaleY: 1, targetScaleZ: 1,
             velocityX: velX,
             velocityZ: velZ,
-            lastUpdateTime: now,
+            lastUpdateTime: 0,
             visualRadius: 0.2
           }
           ballTargetsRef.current.set(b.id, target)
-          // First frame: snap to position
+          // First frame: snap to server position and velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           continue
         }
         
-        // Calculate distance from current visual position to server position
-        const errorX = serverX - mesh.position.x
-        const errorZ = serverZ - mesh.position.z
-        const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
+        // Check if velocity direction changed (bounce occurred)
+        // Dot product < 0 means direction reversed
+        const dotProduct = target.velocityX * velX + target.velocityZ * velZ
+        const hadVelocity = Math.abs(target.velocityX) > 0.0001 || Math.abs(target.velocityZ) > 0.0001
+        const hasVelocity = Math.abs(velX) > 0.0001 || Math.abs(velZ) > 0.0001
+        const bounced = hadVelocity && hasVelocity && dotProduct < 0
         
-        // Detect respawn/teleport: ball jumped more than it could reasonably travel
-        const maxReasonableMove = 0.5 // ~25 world units, large jump
-        const teleported = errorDist > maxReasonableMove
+        // Check for teleport (large position jump)
+        const distToServer = Math.sqrt(
+          Math.pow(serverX - mesh.position.x, 2) + 
+          Math.pow(serverZ - mesh.position.z, 2)
+        )
+        const teleported = distToServer > 0.5
         
         // Store previous position for rotation calculation
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        if (teleported) {
-          // Large jump - snap immediately (respawn, powerup effect, etc.)
+        if (bounced || teleported) {
+          // Bounce or teleport: snap to server position and adopt new velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           target.velocityX = velX
           target.velocityZ = velZ
-          target.targetPos.x = serverX
-          target.targetPos.z = serverZ
-          target.lastUpdateTime = now
         } else {
-          // Normal movement: move at server velocity + gentle error correction
-          // This keeps the ball moving smoothly at constant speed
+          // Normal frame: just move at constant velocity
+          mesh.position.x += target.velocityX * dtSeconds
+          mesh.position.z += target.velocityZ * dtSeconds
           
-          // Update stored velocity (smoothly blend to avoid jerks on direction changes)
-          const velBlend = 0.3 // How fast to adopt new velocity direction
-          target.velocityX += (velX - target.velocityX) * velBlend
-          target.velocityZ += (velZ - target.velocityZ) * velBlend
-          
-          // Move ball using blended velocity
-          let moveX = target.velocityX * dtSeconds
-          let moveZ = target.velocityZ * dtSeconds
-          
-          // Add gentle error correction to prevent drift
-          // Correction is proportional to error but capped to avoid visible jumps
-          const correctionStrength = 5.0 // Correction rate per second
-          const maxCorrectionPerFrame = 0.02 // Max correction per frame to keep it smooth
-          const correctionX = Math.max(-maxCorrectionPerFrame, Math.min(maxCorrectionPerFrame, errorX * correctionStrength * dtSeconds))
-          const correctionZ = Math.max(-maxCorrectionPerFrame, Math.min(maxCorrectionPerFrame, errorZ * correctionStrength * dtSeconds))
-          
-          moveX += correctionX
-          moveZ += correctionZ
-          
-          mesh.position.x += moveX
-          mesh.position.z += moveZ
-          
-          // Update target tracking
-          target.targetPos.x = serverX
-          target.targetPos.z = serverZ
-          target.lastUpdateTime = now
+          // Silently update velocity for next bounce detection (don't change position)
+          target.velocityX = velX
+          target.velocityZ = velZ
         }
+        
+        // Update tracking
+        target.targetPos.x = serverX
+        target.targetPos.z = serverZ
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
