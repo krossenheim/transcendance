@@ -434,22 +434,41 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Detect bounce: check if server velocity direction changed significantly
+        // Detect bounce: check if server velocity direction changed
         const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
         const newSpeed = Math.sqrt(serverVelX * serverVelX + serverVelZ * serverVelZ)
         
-        let bounced = false
+        let shouldSync = false
+        
+        // Sync if velocity direction changed at all (any bounce, even glancing)
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
-          // Bounce if angle > 30 degrees (dot < 0.866)
-          bounced = dot < 0.866
-        } else if (oldSpeed < 0.001 && newSpeed > 0.001) {
+          // Sync if any direction change (dot < 0.99 means > ~8 degrees)
+          if (dot < 0.99) {
+            shouldSync = true
+          }
+        } else if (newSpeed > 0.001) {
           // Ball started moving
-          bounced = true
+          shouldSync = true
         }
         
-        if (bounced) {
-          // Bounce: sync to server and adopt new velocity
+        // Also sync if server position jumped (compare server to last known server pos)
+        const serverDx = serverX - target.targetPos.x
+        const serverDz = serverZ - target.targetPos.z
+        const serverJump = Math.sqrt(serverDx * serverDx + serverDz * serverDz)
+        // Expected movement based on velocity
+        const expectedMove = newSpeed * 0.02 // ~1 frame at 50fps
+        if (serverJump > expectedMove * 3 + 0.05) {
+          // Server moved more than expected - respawn or we missed a bounce
+          shouldSync = true
+        }
+        
+        // Update last known server position
+        target.targetPos.x = serverX
+        target.targetPos.z = serverZ
+        
+        if (shouldSync) {
+          // Sync to server and adopt new velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
           target.velocityX = serverVelX
