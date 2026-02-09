@@ -163,8 +163,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   const collectedPowerupsRef = useRef<Set<string>>(new Set())
 
   // Compute a key that only changes when entity counts change (for slow path useEffect)
+  // Powerups: use spawn times as keys so we only re-run when NEW powerups appear, not on position updates
+  const powerupKeys = gameState?.powerups?.map((p: any) => {
+    const isArray = Array.isArray(p)
+    return String(isArray ? p[5] ?? '' : (p.spawnTime ?? ''))
+  }).sort().join(',') ?? ''
+  
   const entityKey = gameState 
-    ? `${gameState.balls.length}_${gameState.paddles.length}_${gameState.edges?.length ?? 0}_${gameState.powerups?.length ?? 0}`
+    ? `${gameState.balls.length}_${gameState.paddles.length}_${gameState.edges?.length ?? 0}_${powerupKeys}`
     : 'none'
 
   // Favicon animation during gameplay
@@ -194,7 +200,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
     
     let lastUpdate = 0;
-    const updateInterval = 250; // ~4 FPS - browsers throttle favicon updates anyway
+    const updateInterval = 500; // ~2 FPS - favicon doesn't need to be super smooth, reduces CPU/stutter
     
     const drawFrame = () => {
       const gs = gameStateRef.current; // Read from ref, not prop
@@ -518,6 +524,27 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         target.z = (p.y - 500) * 0.02
         mesh.position.x += (target.x - mesh.position.x) * 0.3
         mesh.position.z += (target.z - mesh.position.z) * 0.3
+      }
+      
+      // Update powerup positions (mesh creation happens in useEffect, just update positions here)
+      if (gs.powerups && Array.isArray(gs.powerups)) {
+        for (let pidx = 0; pidx < gs.powerups.length; pidx++) {
+          const p = gs.powerups[pidx] as any
+          const isArray = Array.isArray(p)
+          const x = Number(isArray ? p[0] : p.x) || 0
+          const y = Number(isArray ? p[1] : p.y) || 0
+          const spawnTime = String(isArray ? p[5] ?? pidx : (p.spawnTime ?? pidx))
+          const key = `${spawnTime}`
+          
+          const mesh = powerupsRef.current.get(key)
+          if (mesh) {
+            // Update position smoothly
+            const targetX = (x - 500) * 0.02
+            const targetZ = (y - 500) * 0.02
+            mesh.position.x += (targetX - mesh.position.x) * 0.3
+            mesh.position.z += (targetZ - mesh.position.z) * 0.3
+          }
+        }
       }
     })
 
