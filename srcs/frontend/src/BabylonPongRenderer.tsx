@@ -439,35 +439,33 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const newSpeed = Math.sqrt(serverVelX * serverVelX + serverVelZ * serverVelZ)
         
         let shouldSync = false
+        let syncReason = ''
         
-        // Sync if velocity direction changed at all (any bounce, even glancing)
+        // Sync if velocity direction changed meaningfully
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
-          // Sync if any direction change (dot < 0.99 means > ~8 degrees)
-          if (dot < 0.99) {
+          // Only sync on real bounces (> 15 degrees change)
+          if (dot < 0.966) {
             shouldSync = true
+            syncReason = `velocity angle changed: dot=${dot.toFixed(3)}`
           }
-        } else if (newSpeed > 0.001) {
+        } else if (newSpeed > 0.001 && oldSpeed < 0.001) {
           // Ball started moving
           shouldSync = true
+          syncReason = 'ball started moving'
         }
         
-        // Also sync if server position jumped (compare server to last known server pos)
-        const serverDx = serverX - target.targetPos.x
-        const serverDz = serverZ - target.targetPos.z
-        const serverJump = Math.sqrt(serverDx * serverDx + serverDz * serverDz)
-        // Expected movement based on velocity
-        const expectedMove = newSpeed * 0.02 // ~1 frame at 50fps
-        if (serverJump > expectedMove * 3 + 0.05) {
-          // Server moved more than expected - respawn or we missed a bounce
+        // Also sync if visual drifted too far from server
+        const visualDx = serverX - mesh.position.x
+        const visualDz = serverZ - mesh.position.z
+        const visualDrift = Math.sqrt(visualDx * visualDx + visualDz * visualDz)
+        if (visualDrift > 0.15) {
           shouldSync = true
+          syncReason = `visual drift too large: ${visualDrift.toFixed(3)}`
         }
-        
-        // Update last known server position
-        target.targetPos.x = serverX
-        target.targetPos.z = serverZ
         
         if (shouldSync) {
+          console.log(`[Ball ${b.id}] Sync: ${syncReason}`)
           // Sync to server and adopt new velocity
           mesh.position.x = serverX
           mesh.position.z = serverZ
@@ -478,6 +476,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           mesh.position.x += target.velocityX * dtSeconds
           mesh.position.z += target.velocityZ * dtSeconds
         }
+        
+        // Update last known server position
+        target.targetPos.x = serverX
+        target.targetPos.z = serverZ
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
