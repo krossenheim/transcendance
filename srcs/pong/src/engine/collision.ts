@@ -18,6 +18,7 @@ const scratchPenetrationToBall = new Vec2(0, 0);
 /**
  * Calculate collision time between a circle and a line segment.
  * Returns 0 if already penetrating (immediate collision), or the time until collision.
+ * Also checks collision with segment endpoints to prevent corner tunneling.
  */
 export function getWallCollisionTime(
     ball: CircleObject,
@@ -34,14 +35,7 @@ export function getWallCollisionTime(
         return null;
     }
     
-    scratchNormal.copy(scratchWallVec).perp().normalize();
-
-    // Choose the normal that faces the ball's approach direction
-    if (scratchRelativeVelocity.dot(scratchNormal) >= -EPS)
-        scratchNormal.mul(-1);
-    
-    const vecAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
-    const distanceToLine = scratchRelativeStart.dot(scratchNormal);
+    const wallLen = Math.sqrt(wallLenSq);
     
     // Check if ball is already penetrating the wall segment
     const projT = scratchRelativeStart.dot(scratchWallVec) / wallLenSq;
@@ -52,36 +46,109 @@ export function getWallCollisionTime(
     
     // If ball is already penetrating the segment, return immediate collision (t=0)
     if (distToSegment < ball.radius - EPS) {
-        // Verify ball center is within segment bounds (with margin)
-        if (clampedT > -0.1 && clampedT < 1.1) {
-            return 0; // Immediate collision - ball is inside
+        return 0; // Immediate collision - ball is inside
+    }
+    
+    // Get wall normal
+    scratchNormal.copy(scratchWallVec).perp().normalize();
+
+    // Choose the normal that faces the ball's approach direction
+    if (scratchRelativeVelocity.dot(scratchNormal) >= -EPS)
+        scratchNormal.mul(-1);
+    
+    const vecAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
+    const distanceToLine = scratchRelativeStart.dot(scratchNormal);
+    
+    let tHitSegment: number | null = null;
+    
+    // Check collision with the infinite line (if not moving parallel)
+    if (Math.abs(vecAlongNormal) >= EPS) {
+        const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
+        
+        if (tHit >= -EPS) {
+            const clampedTHit = Math.max(0, tHit);
+            
+            // Check if hit point is within segment bounds
+            scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, clampedTHit);
+            const shadowLength = scratchBallPosAtHit.dot(scratchWallVec) / wallLen;
+            
+            // Allow small margin for numerical precision
+            if (shadowLength >= -ball.radius && shadowLength <= wallLen + ball.radius) {
+                tHitSegment = clampedTHit;
+            }
         }
     }
     
-    // If moving parallel to wall (or away), no collision via this method
-    if (Math.abs(vecAlongNormal) < EPS) {
-        return null;
-    }
-
-    const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
-
-    if (tHit < -EPS)
-        return null;
+    // Also check collision with segment endpoints (prevents corner tunneling at steep angles)
+    // This treats each endpoint as a point (circle with radius 0) that the ball can hit
+    const tHitEndpointA = getCirclePointCollisionTime(ball, wall.pointA, wall.velocity);
+    const tHitEndpointB = getCirclePointCollisionTime(ball, wall.pointB, wall.velocity);
     
-    // Clamp small negative values to 0 (numerical precision)
-    const clampedTHit = Math.max(0, tHit);
+    // Return the earliest valid collision
+    let earliest: number | null = null;
+    
+    if (tHitSegment !== null && (earliest === null || tHitSegment < earliest)) {
+        earliest = tHitSegment;
+    }
+    if (tHitEndpointA !== null && (earliest === null || tHitEndpointA < earliest)) {
+        earliest = tHitEndpointA;
+    }
+    if (tHitEndpointB !== null && (earliest === null || tHitEndpointB < earliest)) {
+        earliest = tHitEndpointB;
+    }
+    
+    return earliest;
+}
 
-    scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, clampedTHit);
-    const shadowLengthSq = scratchBallPosAtHit.dot(scratchWallVec);
-
-    if (shadowLengthSq < -EPS)
-        return null;
-
-    const segmentT = shadowLengthSq / wallLenSq;
-    if (segmentT < 0 || segmentT > 1)
-        return null;
-
-    return clampedTHit;
+/**
+ * Calculate collision time between a circle and a point (circle with radius 0).
+ * Used for detecting collisions with wall endpoints/corners.
+ */
+function getCirclePointCollisionTime(
+    ball: CircleObject,
+    point: Vec2,
+    pointVelocity: Vec2,
+): number | null {
+    // Relative position and velocity
+    const relPosX = ball.center.x - point.x;
+    const relPosY = ball.center.y - point.y;
+    const relVelX = ball.velocity.x - pointVelocity.x;
+    const relVelY = ball.velocity.y - pointVelocity.y;
+    
+    // Check if already penetrating
+    const distSq = relPosX * relPosX + relPosY * relPosY;
+    const radiusSq = ball.radius * ball.radius;
+    if (distSq < radiusSq - EPS) {
+        return 0; // Already penetrating
+    }
+    
+    // Solve quadratic: |relPos + t*relVel|^2 = radius^2
+    const a = relVelX * relVelX + relVelY * relVelY;
+    if (a < EPS) {
+        return null; // Not moving relative to point
+    }
+    
+    const b = 2 * (relPosX * relVelX + relPosY * relVelY);
+    const c = distSq - radiusSq;
+    
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant < 0) {
+        return null; // No collision
+    }
+    
+    const sqrtDisc = Math.sqrt(discriminant);
+    const t1 = (-b - sqrtDisc) / (2 * a);
+    const t2 = (-b + sqrtDisc) / (2 * a);
+    
+    // Return earliest non-negative time
+    if (t1 >= -EPS) {
+        return Math.max(0, t1);
+    }
+    if (t2 >= -EPS) {
+        return Math.max(0, t2);
+    }
+    
+    return null;
 }
 
 /**

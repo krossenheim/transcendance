@@ -290,19 +290,19 @@ export class PongGame {
             const px = x - wall.pointA.x;
             const py = y - wall.pointA.y;
             
-            // Cross product (2D): if negative, point is on the "right" side (outside for CCW polygon)
-            // Our arena is built CCW (vertices go counter-clockwise), so inside is on the LEFT (positive cross)
+            // Cross product (2D): wx * py - wy * px
+            // For our arena (walls go clockwise in screen coords), inside is on the RIGHT (negative cross)
             const cross = wx * py - wy * px;
             
             // Wall length for normalizing
             const wallLen = Math.sqrt(wx * wx + wy * wy);
             if (wallLen < 0.001) continue;
             
-            // Signed distance from point to wall line (positive = inside, negative = outside)
+            // Signed distance from point to wall line
             const signedDist = cross / wallLen;
             
-            // If point is outside this wall (with margin for ball radius), it's outside arena
-            if (signedDist < -margin) {
+            // If point is outside this wall (positive cross means outside for CW polygon), it's outside arena
+            if (signedDist > margin) {
                 return false;
             }
         }

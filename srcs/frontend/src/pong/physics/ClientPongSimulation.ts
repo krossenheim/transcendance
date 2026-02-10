@@ -342,7 +342,7 @@ export class ClientPongSimulation {
     
     /**
      * BULLETPROOF: Check if a point is inside the arena polygon.
-     * For a convex polygon with walls ordered CCW, inside points have positive cross product with all walls.
+     * For our arena (walls go clockwise in screen coords), inside is on the RIGHT (negative cross).
      */
     private isPointInsideArena(x: number, y: number): boolean {
         for (const wall of this.walls) {
@@ -354,11 +354,11 @@ export class ClientPongSimulation {
             const px = x - wall.ax;
             const py = y - wall.ay;
             
-            // Cross product: positive = inside (left side), negative = outside (right side)
+            // Cross product: for CW polygon, inside is negative cross
             const cross = wx * py - wy * px;
             
-            // If point is outside this wall, it's outside arena
-            if (cross < 0) {
+            // If point is outside this wall (positive cross for CW), it's outside arena
+            if (cross > 0) {
                 return false;
             }
         }
