@@ -335,6 +335,100 @@ export class ClientPongSimulation {
             // Resolve collision
             this.resolveCollision(collision);
         }
+        
+        // BULLETPROOF FIX: After all physics, fix any balls that penetrated walls/paddles
+        this.fixAllPenetrations();
+    }
+    
+    /**
+     * BULLETPROOF penetration fix: Check all balls against all walls and paddles.
+     * If a ball is inside, push it out and reflect velocity. 100% reliable.
+     */
+    private fixAllPenetrations(): void {
+        for (const ball of this.balls) {
+            // Check against all walls
+            for (const wall of this.walls) {
+                this.fixBallWallPenetration(ball, wall.ax, wall.ay, wall.bx, wall.by);
+            }
+            
+            // Check against all paddle edges
+            for (const paddle of this.paddles) {
+                this.computePaddleGeometry(paddle);
+                for (let k = 0; k < 4; k++) {
+                    this.fixBallWallPenetration(
+                        ball,
+                        _scratchLineA[k]!.x, _scratchLineA[k]!.y,
+                        _scratchLineB[k]!.x, _scratchLineB[k]!.y
+                    );
+                }
+            }
+        }
+    }
+    
+    /**
+     * If ball is penetrating a line segment, push it out and reflect velocity.
+     */
+    private fixBallWallPenetration(
+        ball: BallState,
+        ax: number, ay: number, bx: number, by: number
+    ): void {
+        // Vector from A to B
+        const lineX = bx - ax;
+        const lineY = by - ay;
+        const lineLenSq = lineX * lineX + lineY * lineY;
+        
+        if (lineLenSq < EPS) return; // Skip zero-length lines
+        
+        // Vector from A to ball center
+        const toX = ball.x - ax;
+        const toY = ball.y - ay;
+        
+        // Project ball center onto line, clamped to segment [0, 1]
+        const t = Math.max(0, Math.min(1, (toX * lineX + toY * lineY) / lineLenSq));
+        
+        // Closest point on line segment
+        const closestX = ax + lineX * t;
+        const closestY = ay + lineY * t;
+        
+        // Vector from closest point to ball center
+        let normalX = ball.x - closestX;
+        let normalY = ball.y - closestY;
+        const dist = Math.sqrt(normalX * normalX + normalY * normalY);
+        
+        // Check if penetrating (distance < radius)
+        if (dist < ball.radius) {
+            if (dist < EPS) {
+                // Ball center exactly on line - use perpendicular as normal
+                const lineLen = Math.sqrt(lineLenSq);
+                normalX = -lineY / lineLen;
+                normalY = lineX / lineLen;
+            } else {
+                // Normalize
+                normalX /= dist;
+                normalY /= dist;
+            }
+            
+            // Push ball out so it's exactly at radius distance + small margin
+            const penetration = ball.radius - dist + 0.5;
+            ball.x += normalX * penetration;
+            ball.y += normalY * penetration;
+            
+            // If ball is moving into the wall, reflect its velocity
+            const velDotNormal = ball.dx * normalX + ball.dy * normalY;
+            if (velDotNormal < 0) {
+                // Reflect: v = v - 2*(v·n)*n
+                ball.dx -= 2 * velDotNormal * normalX;
+                ball.dy -= 2 * velDotNormal * normalY;
+                
+                // Normalize to target speed
+                const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                if (speed > 0.01) {
+                    const scale = this.gameOptions.ballSpeed / speed;
+                    ball.dx *= scale;
+                    ball.dy *= scale;
+                }
+            }
+        }
     }
 
     /**
@@ -393,8 +487,8 @@ export class ClientPongSimulation {
                     }
                 }
                 
-                // Check paddle corners (4 corners)
-                const cornerRadius = (paddle.l / 2) * 0.8;
+                // Check paddle corners (4 corners) - radius = halfHeight to match server
+                const cornerRadius = (paddle.l / 2);
                 for (let k = 0; k < 4; k++) {
                     const tHit = getBallCollisionTime(
                         _scratchBallCenter, ball.radius, _scratchBallVelocity,
@@ -517,8 +611,8 @@ export class ClientPongSimulation {
         
         const halfWidth = paddle.w / 2;
         const halfHeight = paddle.l / 2;
-        // Corner radius matches server: halfHeight * 0.8
-        const cornerRadius = halfHeight * 0.8;
+        // Corner radius matches server: full halfHeight for no gaps
+        const cornerRadius = halfHeight;
         
         // Four corner positions
         const topLeft = center.add(perp.mul(-halfWidth)).add(dir.mul(-halfHeight));
