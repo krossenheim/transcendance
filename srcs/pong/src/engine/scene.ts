@@ -226,7 +226,8 @@ export class Scene {
 
     /**
      * If a circle is penetrating a line segment, push it out.
-     * Simple and 100% reliable.
+     * Does NOT reflect velocity - lets normal collision system handle that.
+     * This ensures player walls still trigger reset instead of bounce.
      */
     private fixCircleLinePenetration(circle: CircleObject, line: LineObject): void {
         // Vector from line start to end
@@ -258,18 +259,10 @@ export class Scene {
                 normal.div(dist);
             }
             
-            // Push circle out so it's exactly at radius distance
+            // Push circle out so it's exactly at radius distance + safety margin
+            // Do NOT reflect velocity - let normal collision system handle bounce/reset
             const penetration = circle.radius - dist;
-            circle.center.add(normal.mul(penetration + 0.1)); // +0.1 for safety margin
-            
-            // If ball is moving into the wall, reflect its velocity
-            const velDotNormal = circle.velocity.dot(normal);
-            if (velDotNormal < 0) {
-                // Reflect velocity: v = v - 2*(v·n)*n
-                circle.velocity.addScaled(normal, -2 * velDotNormal);
-                // Normalize to target speed
-                this.normalizeBallSpeed(circle);
-            }
+            circle.center.add(normal.mul(penetration + 0.5));
         }
     }
 

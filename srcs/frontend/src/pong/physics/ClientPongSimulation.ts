@@ -366,7 +366,9 @@ export class ClientPongSimulation {
     }
     
     /**
-     * If ball is penetrating a line segment, push it out and reflect velocity.
+     * If ball is penetrating a line segment, push it out.
+     * Does NOT reflect velocity - lets normal collision system handle that.
+     * This ensures player walls still trigger reset instead of bounce.
      */
     private fixBallWallPenetration(
         ball: BallState,
@@ -408,26 +410,11 @@ export class ClientPongSimulation {
                 normalY /= dist;
             }
             
-            // Push ball out so it's exactly at radius distance + small margin
+            // Push ball out so it's exactly at radius distance + safety margin
+            // Do NOT reflect velocity - let normal collision system handle bounce/reset
             const penetration = ball.radius - dist + 0.5;
             ball.x += normalX * penetration;
             ball.y += normalY * penetration;
-            
-            // If ball is moving into the wall, reflect its velocity
-            const velDotNormal = ball.dx * normalX + ball.dy * normalY;
-            if (velDotNormal < 0) {
-                // Reflect: v = v - 2*(v·n)*n
-                ball.dx -= 2 * velDotNormal * normalX;
-                ball.dy -= 2 * velDotNormal * normalY;
-                
-                // Normalize to target speed
-                const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-                if (speed > 0.01) {
-                    const scale = this.gameOptions.ballSpeed / speed;
-                    ball.dx *= scale;
-                    ball.dy *= scale;
-                }
-            }
         }
     }
 
