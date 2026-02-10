@@ -80,10 +80,9 @@ export class PongPaddle extends MultiObject {
 			1.0,
 		)
 
-		// Corner radius prevents ball from slipping through paddle corners
-		// Using full halfHeight ensures corners fully overlap with line segments
-		// This prevents any gaps that fast-moving balls could slip through
-		const cornerRadius = halfHeight;
+		// Corner radius should be small - just enough to round the corners
+		// Using a small fraction of halfHeight to avoid affecting bounces on the flat face
+		const cornerRadius = halfHeight * 0.3;
 
 		const topLeftCorner = new CircleObject(
 			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
