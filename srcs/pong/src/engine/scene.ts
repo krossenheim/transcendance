@@ -185,6 +185,92 @@ export class Scene {
                     break;
             }
         }
+        
+        // BULLETPROOF FIX: After all collisions are resolved, do a final penetration check
+        // This catches any balls that somehow ended up inside walls/paddles
+        this.fixAllPenetrations(mainObjects || this.objects);
+    }
+
+    /**
+     * BULLETPROOF penetration fix: Check all circles against all lines and push them out.
+     * This runs after every simulation step as a safety net.
+     */
+    private fixAllPenetrations(mainObjects: BaseObject[]): void {
+        // Collect all circles (balls) from main objects
+        const circles: CircleObject[] = [];
+        for (const obj of mainObjects) {
+            for (const subObj of obj.iter()) {
+                if (subObj instanceof CircleObject) {
+                    circles.push(subObj);
+                }
+            }
+        }
+        
+        // Collect all lines (walls, paddle edges) from all scene objects
+        const lines: LineObject[] = [];
+        for (const obj of this.objects) {
+            for (const subObj of obj.iter()) {
+                if (subObj instanceof LineObject) {
+                    lines.push(subObj);
+                }
+            }
+        }
+        
+        // Check each circle against each line and fix penetrations
+        for (const circle of circles) {
+            for (const line of lines) {
+                this.fixCircleLinePenetration(circle, line);
+            }
+        }
+    }
+
+    /**
+     * If a circle is penetrating a line segment, push it out.
+     * Simple and 100% reliable.
+     */
+    private fixCircleLinePenetration(circle: CircleObject, line: LineObject): void {
+        // Vector from line start to end
+        const lineVec = line.pointB.clone().sub(line.pointA);
+        const lineLenSq = lineVec.lenSq();
+        
+        if (lineLenSq < EPS) return; // Skip zero-length lines
+        
+        // Vector from line start to circle center
+        const toCircle = circle.center.clone().sub(line.pointA);
+        
+        // Project circle center onto line, clamped to segment
+        const t = Math.max(0, Math.min(1, toCircle.dot(lineVec) / lineLenSq));
+        
+        // Closest point on line segment to circle center
+        const closest = line.pointA.clone().add(lineVec.clone().mul(t));
+        
+        // Vector from closest point to circle center
+        const normal = circle.center.clone().sub(closest);
+        const dist = normal.len();
+        
+        // Check if penetrating (distance < radius)
+        if (dist < circle.radius) {
+            if (dist < EPS) {
+                // Circle center is exactly on the line - use perpendicular as normal
+                normal.set(-lineVec.y, lineVec.x).normalize();
+            } else {
+                // Normalize the normal
+                normal.div(dist);
+            }
+            
+            // Push circle out so it's exactly at radius distance
+            const penetration = circle.radius - dist;
+            circle.center.add(normal.mul(penetration + 0.1)); // +0.1 for safety margin
+            
+            // If ball is moving into the wall, reflect its velocity
+            const velDotNormal = circle.velocity.dot(normal);
+            if (velDotNormal < 0) {
+                // Reflect velocity: v = v - 2*(v·n)*n
+                circle.velocity.addScaled(normal, -2 * velDotNormal);
+                // Normalize to target speed
+                this.normalizeBallSpeed(circle);
+            }
+        }
     }
 
     /**
