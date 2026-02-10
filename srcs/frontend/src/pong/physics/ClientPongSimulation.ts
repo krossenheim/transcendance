@@ -336,85 +336,52 @@ export class ClientPongSimulation {
             this.resolveCollision(collision);
         }
         
-        // BULLETPROOF FIX: After all physics, fix any balls that penetrated walls/paddles
-        this.fixAllPenetrations();
+        // BULLETPROOF FIX: If ball escaped the arena, reset to center
+        this.checkBallsInsideArena();
     }
     
     /**
-     * BULLETPROOF penetration fix: Check all balls against all walls and paddles.
-     * If a ball is inside, push it out and reflect velocity. 100% reliable.
+     * BULLETPROOF: Check if a point is inside the arena polygon.
+     * For a convex polygon with walls ordered CCW, inside points have positive cross product with all walls.
      */
-    private fixAllPenetrations(): void {
-        for (const ball of this.balls) {
-            // Check against all walls
-            for (const wall of this.walls) {
-                this.fixBallWallPenetration(ball, wall.ax, wall.ay, wall.bx, wall.by);
-            }
+    private isPointInsideArena(x: number, y: number): boolean {
+        for (const wall of this.walls) {
+            // Wall vector A -> B
+            const wx = wall.bx - wall.ax;
+            const wy = wall.by - wall.ay;
             
-            // Check against all paddle edges
-            for (const paddle of this.paddles) {
-                this.computePaddleGeometry(paddle);
-                for (let k = 0; k < 4; k++) {
-                    this.fixBallWallPenetration(
-                        ball,
-                        _scratchLineA[k]!.x, _scratchLineA[k]!.y,
-                        _scratchLineB[k]!.x, _scratchLineB[k]!.y
-                    );
-                }
+            // Vector from A to point
+            const px = x - wall.ax;
+            const py = y - wall.ay;
+            
+            // Cross product: positive = inside (left side), negative = outside (right side)
+            const cross = wx * py - wy * px;
+            
+            // If point is outside this wall, it's outside arena
+            if (cross < 0) {
+                return false;
             }
         }
+        return true;
     }
     
     /**
-     * If ball is penetrating a line segment, push it out.
-     * Does NOT reflect velocity - lets normal collision system handle that.
-     * This ensures player walls still trigger reset instead of bounce.
+     * BULLETPROOF: Reset any balls that escaped the arena polygon.
      */
-    private fixBallWallPenetration(
-        ball: BallState,
-        ax: number, ay: number, bx: number, by: number
-    ): void {
-        // Vector from A to B
-        const lineX = bx - ax;
-        const lineY = by - ay;
-        const lineLenSq = lineX * lineX + lineY * lineY;
+    private checkBallsInsideArena(): void {
+        const centerX = this.gameOptions.canvasWidth / 2;
+        const centerY = this.gameOptions.canvasHeight / 2;
         
-        if (lineLenSq < EPS) return; // Skip zero-length lines
-        
-        // Vector from A to ball center
-        const toX = ball.x - ax;
-        const toY = ball.y - ay;
-        
-        // Project ball center onto line, clamped to segment [0, 1]
-        const t = Math.max(0, Math.min(1, (toX * lineX + toY * lineY) / lineLenSq));
-        
-        // Closest point on line segment
-        const closestX = ax + lineX * t;
-        const closestY = ay + lineY * t;
-        
-        // Vector from closest point to ball center
-        let normalX = ball.x - closestX;
-        let normalY = ball.y - closestY;
-        const dist = Math.sqrt(normalX * normalX + normalY * normalY);
-        
-        // Check if penetrating (distance < radius)
-        if (dist < ball.radius) {
-            if (dist < EPS) {
-                // Ball center exactly on line - use perpendicular as normal
-                const lineLen = Math.sqrt(lineLenSq);
-                normalX = -lineY / lineLen;
-                normalY = lineX / lineLen;
-            } else {
-                // Normalize
-                normalX /= dist;
-                normalY /= dist;
+        for (const ball of this.balls) {
+            if (!this.isPointInsideArena(ball.x, ball.y)) {
+                // Ball escaped - reset to center
+                ball.x = centerX;
+                ball.y = centerY;
+                // Random direction
+                const angle = Math.random() * 2 * Math.PI;
+                ball.dx = Math.cos(angle) * this.gameOptions.ballSpeed;
+                ball.dy = Math.sin(angle) * this.gameOptions.ballSpeed;
             }
-            
-            // Push ball out so it's exactly at radius distance + safety margin
-            // Do NOT reflect velocity - let normal collision system handle bounce/reset
-            const penetration = ball.radius - dist + 0.5;
-            ball.x += normalX * penetration;
-            ball.y += normalY * penetration;
         }
     }
 
