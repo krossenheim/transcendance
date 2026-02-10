@@ -195,9 +195,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
     
     let lastUpdate = 0;
-    const updateInterval = 500; // ~2 FPS - favicon doesn't need to be super smooth, reduces CPU/stutter
+    const updateInterval = 1000; // 1 FPS - minimize favicon overhead
+    let pendingFrame = false;
     
     const drawFrame = () => {
+      pendingFrame = false;
       const gs = gameStateRef.current; // Read from ref, not prop
       const w = 32, h = 32;
       
@@ -297,10 +299,21 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     };
     
     const animate = (timestamp: number) => {
-      if (timestamp - lastUpdate >= updateInterval) {
-        drawFrame();
-        // Use smaller/faster ICO format instead of PNG
-        link!.href = canvas.toDataURL('image/x-icon');
+      if (timestamp - lastUpdate >= updateInterval && !pendingFrame) {
+        pendingFrame = true;
+        // Use requestIdleCallback to avoid blocking render loop
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            drawFrame();
+            link!.href = canvas.toDataURL('image/x-icon');
+          }, { timeout: 500 });
+        } else {
+          // Fallback: use setTimeout with 0 to defer to next event loop
+          setTimeout(() => {
+            drawFrame();
+            link!.href = canvas.toDataURL('image/x-icon');
+          }, 0);
+        }
         lastUpdate = timestamp;
       }
       faviconAnimationRef.current = requestAnimationFrame(animate);
@@ -442,8 +455,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
-          // Only sync on real bounces (> 20 degrees change)
-          if (dot < 0.94) {
+          // Only sync on real bounces (> 30 degrees change) - more conservative to reduce syncs
+          if (dot < 0.87) {
+            shouldSync = true
+          }
+          // Also sync if speed changed significantly (>15%)
+          const speedRatio = newSpeed / oldSpeed
+          if (speedRatio < 0.85 || speedRatio > 1.15) {
             shouldSync = true
           }
         } else if (newSpeed > 0.001 && oldSpeed < 0.001) {
@@ -458,9 +476,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           target.velocityX = serverVelX
           target.velocityZ = serverVelZ
         } else {
-          // Move at constant stored velocity - no corrections, no drift checks
+          // Move at constant stored velocity with gradual drift correction
           mesh.position.x += target.velocityX * dtSeconds
           mesh.position.z += target.velocityZ * dtSeconds
+          
+          // Gradual drift correction: if we're drifting too far, slowly correct
+          // This prevents sudden jumps while keeping positions accurate
+          const driftX = serverX - mesh.position.x
+          const driftZ = serverZ - mesh.position.z
+          const driftDist = Math.sqrt(driftX * driftX + driftZ * driftZ)
+          
+          // Only correct if drift exceeds threshold (0.1 world units = 5 backend units)
+          // Use very gentle correction to avoid visible jitter
+          if (driftDist > 0.1) {
+            const correctionFactor = Math.min(0.02, driftDist * 0.01) // Max 2% correction per frame
+            mesh.position.x += driftX * correctionFactor
+            mesh.position.z += driftZ * correctionFactor
+          }
         }
         
         // Rolling rotation based on actual movement
@@ -591,10 +623,25 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           }
         }
       }
+      
+      // Powerup rotation (consolidated here instead of separate observer)
+      const rotSpeed = 2.5 // radians per second
+      for (const mesh of powerupsRef.current.values()) {
+        mesh.rotation.x = Math.PI / 2
+        mesh.rotation.y += rotSpeed * dtSeconds
+      }
     })
 
-    // Render loop
+    // Render loop with deterministic timing
+    let lastRenderTime = performance.now()
     engine.runRenderLoop(() => {
+      const now = performance.now()
+      const elapsed = now - lastRenderTime
+      
+      // Skip frame if running too fast (cap at ~144 FPS to reduce CPU churn)
+      if (elapsed < 6.9) return
+      
+      lastRenderTime = now
       scene.render()
     })
 
@@ -625,7 +672,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       if (document.hidden) {
         engine.stopRenderLoop()
       } else {
-        engine.runRenderLoop(() => scene.render())
+        // Restore the frame-capped render loop
+        lastRenderTime = performance.now()
+        engine.runRenderLoop(() => {
+          const now = performance.now()
+          const elapsed = now - lastRenderTime
+          if (elapsed < 6.9) return // Cap at ~144 FPS
+          lastRenderTime = now
+          scene.render()
+        })
         // Force resize in case viewport changed while hidden
         handleResize()
       }
@@ -1092,23 +1147,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         }
       }
 
-      // Register a simple rotation if not already registered
-      if (!scene.onBeforeRenderObservable.hasObservers()) {
-        // If there are other before-render observers we don't want to clobber them; add our own observer anyway.
-      }
-      // Add a dedicated rotation observer (idempotent by checking custom flag)
-      if (!(scene as any).__powerupRotationRegistered) {
-        (scene as any).__powerupRotationRegistered = true
-        scene.onBeforeRenderObservable.add(() => {
-          const dt = scene.getEngine().getDeltaTime() / 1000 // seconds
-          const rotSpeed = 2.5 // radians per second - fast spin like a coin
-          for (const mesh of powerupsRef.current.values()) {
-            // Keep X rotation fixed at 90deg (standing up), only spin around Y
-            mesh.rotation.x = Math.PI / 2
-            mesh.rotation.y += rotSpeed * dt
-          }
-        })
-      }
+      // Powerup rotation is now handled in the main render observer (consolidated for performance)
     }
     for (const [id, mesh] of ballsRef.current) {
       if (!activeBallIds.has(id)) {
