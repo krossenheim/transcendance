@@ -451,54 +451,37 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
         const newSpeed = Math.sqrt(serverVelX * serverVelX + serverVelZ * serverVelZ)
         
-        let shouldSync = false
+        let shouldSnapPosition = false
         
-        // Check for large position difference (teleport/respawn) - always sync immediately
+        // Check for large position difference (teleport/respawn) - always snap immediately
         const posDistSq = (serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2
         if (posDistSq > 1.0) {  // > 1 world unit (~50 backend units) = teleport
-          shouldSync = true
+          shouldSnapPosition = true
         }
         
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
-          // Only sync on real bounces (> 30 degrees change) - more conservative to reduce syncs
+          // Only snap position on real bounces (> 30 degrees change)
           if (dot < 0.87) {
-            shouldSync = true
-          }
-          // Also sync if speed changed significantly (>15%)
-          const speedRatio = newSpeed / oldSpeed
-          if (speedRatio < 0.85 || speedRatio > 1.15) {
-            shouldSync = true
+            shouldSnapPosition = true
           }
         } else if (newSpeed > 0.001 && oldSpeed < 0.001) {
           // Ball started moving
-          shouldSync = true
+          shouldSnapPosition = true
         }
         
-        if (shouldSync) {
-          // Sync to server and adopt new velocity
+        // Always keep velocity in sync with server to avoid drift
+        target.velocityX = serverVelX
+        target.velocityZ = serverVelZ
+        
+        if (shouldSnapPosition) {
+          // Snap to server position on bounces/teleports
           mesh.position.x = serverX
           mesh.position.z = serverZ
-          target.velocityX = serverVelX
-          target.velocityZ = serverVelZ
         } else {
-          // Move at constant stored velocity with gradual drift correction
-          mesh.position.x += target.velocityX * dtSeconds
-          mesh.position.z += target.velocityZ * dtSeconds
-          
-          // Gradual drift correction: if we're drifting too far, slowly correct
-          // This prevents sudden jumps while keeping positions accurate
-          const driftX = serverX - mesh.position.x
-          const driftZ = serverZ - mesh.position.z
-          const driftDist = Math.sqrt(driftX * driftX + driftZ * driftZ)
-          
-          // Only correct if drift exceeds threshold (0.1 world units = 5 backend units)
-          // Use very gentle correction to avoid visible jitter
-          if (driftDist > 0.1) {
-            const correctionFactor = Math.min(0.02, driftDist * 0.01) // Max 2% correction per frame
-            mesh.position.x += driftX * correctionFactor
-            mesh.position.z += driftZ * correctionFactor
-          }
+          // Move at server velocity (no local prediction drift)
+          mesh.position.x += serverVelX * dtSeconds
+          mesh.position.z += serverVelZ * dtSeconds
         }
         
         // Rolling rotation based on actual movement

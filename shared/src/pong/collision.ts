@@ -28,58 +28,8 @@ export interface ILine {
 }
 
 /**
- * Calculate collision time between a circle and a point.
- * Used for detecting collisions with wall endpoints/corners.
- */
-function getCirclePointCollisionTime(
-    ball: ICircle,
-    point: Vec2,
-    pointVelocity: Vec2,
-): number | null {
-    // Relative position and velocity
-    const relPos = ball.center.sub(point);
-    const relVel = ball.velocity.sub(pointVelocity);
-    
-    // Check if already penetrating
-    const distSq = relPos.lenSq();
-    const radiusSq = ball.radius * ball.radius;
-    if (distSq < radiusSq - EPS) {
-        return 0; // Already penetrating
-    }
-    
-    // Solve quadratic: |relPos + t*relVel|^2 = radius^2
-    const a = relVel.lenSq();
-    if (a < EPS) {
-        return null; // Not moving relative to point
-    }
-    
-    const b = 2 * relPos.dot(relVel);
-    const c = distSq - radiusSq;
-    
-    const discriminant = b * b - 4 * a * c;
-    if (discriminant < 0) {
-        return null; // No collision
-    }
-    
-    const sqrtDisc = Math.sqrt(discriminant);
-    const t1 = (-b - sqrtDisc) / (2 * a);
-    const t2 = (-b + sqrtDisc) / (2 * a);
-    
-    // Return earliest non-negative time
-    if (t1 >= -EPS) {
-        return Math.max(0, t1);
-    }
-    if (t2 >= -EPS) {
-        return Math.max(0, t2);
-    }
-    
-    return null;
-}
-
-/**
  * Calculate collision time between a circle and a line segment.
- * Returns 0 if already penetrating (immediate collision), or the time until collision.
- * Also checks collision with segment endpoints to prevent corner tunneling.
+ * Returns the time until collision, or null if no collision.
  */
 export function getWallCollisionTime(
     ball: ICircle,
@@ -98,18 +48,6 @@ export function getWallCollisionTime(
     
     const wallLen = Math.sqrt(wallLenSq);
     
-    // Check if ball is already penetrating the wall segment
-    const projT = pointRelativeStart.dot(wallVec) / wallLenSq;
-    const clampedT = Math.max(0, Math.min(1, projT));
-    const closestPoint = wallVec.mul(clampedT);
-    const toBall = pointRelativeStart.sub(closestPoint);
-    const distToSegment = toBall.len();
-    
-    // If ball is already penetrating the segment, return immediate collision (t=0)
-    if (distToSegment < ball.radius - EPS) {
-        return 0; // Immediate collision - ball is inside
-    }
-    
     let wallNormal = wallVec.perp().normalize();
 
     // Choose the normal that faces the ball's approach direction
@@ -119,12 +57,11 @@ export function getWallCollisionTime(
     const vecAlongNormal = pointRelativeVelocity.dot(wallNormal);
     const distanceToLine = pointRelativeStart.dot(wallNormal);
     
-    let tHitSegment: number | null = null;
-    
     // Check collision with the infinite line (if not moving parallel)
     if (Math.abs(vecAlongNormal) >= EPS) {
         const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
         
+        // Only consider future collisions (with small tolerance for touching)
         if (tHit >= -EPS) {
             const clampedTHit = Math.max(0, tHit);
             
@@ -134,29 +71,12 @@ export function getWallCollisionTime(
             
             // Allow small margin for numerical precision
             if (shadowLength >= -ball.radius && shadowLength <= wallLen + ball.radius) {
-                tHitSegment = clampedTHit;
+                return clampedTHit;
             }
         }
     }
     
-    // Also check collision with segment endpoints (prevents corner tunneling at steep angles)
-    const tHitEndpointA = getCirclePointCollisionTime(ball, wall.pointA, wall.velocity);
-    const tHitEndpointB = getCirclePointCollisionTime(ball, wall.pointB, wall.velocity);
-    
-    // Return the earliest valid collision
-    let earliest: number | null = null;
-    
-    if (tHitSegment !== null && (earliest === null || tHitSegment < earliest)) {
-        earliest = tHitSegment;
-    }
-    if (tHitEndpointA !== null && (earliest === null || tHitEndpointA < earliest)) {
-        earliest = tHitEndpointA;
-    }
-    if (tHitEndpointB !== null && (earliest === null || tHitEndpointB < earliest)) {
-        earliest = tHitEndpointB;
-    }
-    
-    return earliest;
+    return null;
 }
 
 /**
