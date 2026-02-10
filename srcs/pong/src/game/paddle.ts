@@ -189,17 +189,11 @@ export class PongPaddle extends MultiObject {
 		let maxTravelDistance = 0;
 		const center = this.getCenter();
 		if (moveDirection > 0) {
-			maxTravelDistance = center.distanceTo(this.bounds.max) - this.paddleWidth / 2;
-			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
-			const otherSideDist = center.distanceTo(this.bounds.min) + this.paddleWidth / 2;
-			if (otherSideDist > totalLength)
-				maxTravelDistance = 0;
+			// bounds.max already accounts for paddle width, so just measure distance to it
+			maxTravelDistance = center.distanceTo(this.bounds.max);
 		} else {
-			maxTravelDistance = center.distanceTo(this.bounds.min) - this.paddleWidth / 2;
-			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
-			const otherSideDist = center.distanceTo(this.bounds.max) + this.paddleWidth / 2;
-			if (otherSideDist > totalLength)
-				maxTravelDistance = 0;
+			// bounds.min already accounts for paddle width, so just measure distance to it
+			maxTravelDistance = center.distanceTo(this.bounds.min);
 		}
 
 		scaledDesiredVelocity.copy(this.clockwiseBaseVelocity).normalize().mul(moveDirection * this.boardPaddleSpeed);
