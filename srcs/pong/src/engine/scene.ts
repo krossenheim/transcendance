@@ -145,7 +145,7 @@ export class Scene {
             const handleMethod = Math.max(aTask, bTask);
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
-                    // Use velocity-aware nudge to prevent high-speed objects from tunneling
+                    // Nudge AFTER handling to prevent objects from tunneling
                     this.safeNudge(collision.objectA);
                     this.safeNudge(collision.objectB);
                     break;
@@ -153,17 +153,16 @@ export class Scene {
                     // Nudge the surviving object to prevent getting stuck at collision point
                     if (aTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentA);
-                        this.safeNudge(collision.objectB);
                     }
                     if (bTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentB);
-                        this.safeNudge(collision.objectA);
                     }
+                    // Nudge surviving objects after removal
+                    if (aTask !== CollisionResponse.RESET) this.safeNudge(collision.objectA);
+                    if (bTask !== CollisionResponse.RESET) this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.BOUNCE:
-                    // Use velocity-aware nudge to prevent high-speed objects from tunneling
-                    this.safeNudge(collision.objectA);
-                    this.safeNudge(collision.objectB);
+                    // Resolve collision FIRST, then nudge to prevent tunneling
                     if (collision.objectA instanceof CircleObject && collision.objectB instanceof CircleObject) {
                         resolveBallCollision(collision.objectA, collision.objectB);
                         // Normalize both balls to target speed after collision
@@ -180,6 +179,9 @@ export class Scene {
                     } else {
                         console.warn(`Collision resolution not implemented for ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name}`);
                     }
+                    // Nudge AFTER resolving collision to prevent re-collision on same frame
+                    this.safeNudge(collision.objectA);
+                    this.safeNudge(collision.objectB);
                     break;
             }
         }

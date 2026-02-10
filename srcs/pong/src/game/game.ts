@@ -273,6 +273,33 @@ export class PongGame {
         this.powerupSpawnRadius = powerupBaseRadius - (this.gameOptions.paddleHeight / 2 + 160);
     }
 
+    /**
+     * Safety check: Reset any balls that have somehow escaped the arena bounds.
+     * This catches edge cases where collision detection might have missed due to
+     * high speed, numerical precision issues, or other race conditions.
+     */
+    private checkBallBounds(): void {
+        const margin = 50; // Extra margin beyond arena bounds
+        const minX = -margin;
+        const maxX = this.gameOptions.canvasWidth + margin;
+        const minY = -margin;
+        const maxY = this.gameOptions.canvasHeight + margin;
+        const centerX = this.gameOptions.canvasWidth / 2;
+        const centerY = this.gameOptions.canvasHeight / 2;
+
+        for (const ball of this.balls) {
+            if (ball.center.x < minX || ball.center.x > maxX ||
+                ball.center.y < minY || ball.center.y > maxY) {
+                // Ball has escaped - reset to center with random direction
+                if (ENABLE_GAME_LOGS) {
+                    console.warn(`[PongGame] Ball ${ball.id} escaped bounds at (${ball.center.x.toFixed(2)}, ${ball.center.y.toFixed(2)}) - resetting`);
+                }
+                ball.center.set(centerX, centerY);
+                ball.velocity.set(0, -1).rotate(this.rng.nextAngle()).mul(this.gameOptions.ballSpeed);
+            }
+        }
+    }
+
     private spawnNewBall(position: Vec2, velocity: Vec2, radius: number, inverseMass: number, gameOptions: PongGameOptions): void {
         const ball = new PongBall(position, radius, velocity);
         ball.setCollisionHandler((other: BaseObject, elapsedTime: number): CollisionResponse => {
@@ -375,6 +402,10 @@ export class PongGame {
             this.scene.playSimulation(timeStep, this.balls);
             leftOverTime -= timeStep;
         }
+
+        // Safety check: Reset any balls that have escaped the arena bounds
+        // This catches edge cases where collision detection might have missed
+        this.checkBallBounds();
 
         // Increment tick counter based on deltaTime (approximately)
         this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
