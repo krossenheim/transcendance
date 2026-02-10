@@ -275,12 +275,9 @@ export class PongGame {
 
     /**
      * BULLETPROOF: Check if a point is inside the arena polygon.
-     * Uses the signed distance to each wall - if negative for any wall, point is outside.
-     * For a convex polygon with walls ordered consistently, inside points are on the same side of all walls.
+     * For our CW polygon, inside points have positive cross product with each wall.
      */
     private isPointInsideArena(x: number, y: number, margin: number = 0): boolean {
-        // The arena is a convex polygon. For each wall (A->B), check which side the point is on.
-        // If the point is on the "outside" of ANY wall, it's outside the arena.
         for (const wall of this.walls) {
             // Wall vector A -> B
             const wx = wall.pointB.x - wall.pointA.x;
@@ -290,19 +287,15 @@ export class PongGame {
             const px = x - wall.pointA.x;
             const py = y - wall.pointA.y;
             
-            // Cross product (2D): wx * py - wy * px
-            // For our arena (walls go clockwise in screen coords), inside is on the RIGHT (negative cross)
+            // Cross product: positive = inside, negative = outside
             const cross = wx * py - wy * px;
             
-            // Wall length for normalizing
+            // Wall length for normalizing to get actual distance
             const wallLen = Math.sqrt(wx * wx + wy * wy);
             if (wallLen < 0.001) continue;
             
-            // Signed distance from point to wall line
-            const signedDist = cross / wallLen;
-            
-            // If point is outside this wall (positive cross means outside for CW polygon), it's outside arena
-            if (signedDist > margin) {
+            // If cross is negative (with margin), point is outside this wall
+            if (cross < -margin * wallLen) {
                 return false;
             }
         }
