@@ -335,9 +335,6 @@ export class ClientPongSimulation {
             // Resolve collision
             this.resolveCollision(collision);
         }
-        
-        // BULLETPROOF FIX: If ball escaped the arena, reset to center
-        this.checkBallsInsideArena();
     }
     
     /**

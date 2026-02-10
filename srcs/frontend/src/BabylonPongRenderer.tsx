@@ -453,6 +453,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         
         let shouldSync = false
         
+        // Check for large position difference (teleport/respawn) - always sync immediately
+        const posDistSq = (serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2
+        if (posDistSq > 1.0) {  // > 1 world unit (~50 backend units) = teleport
+          shouldSync = true
+        }
+        
         if (oldSpeed > 0.001 && newSpeed > 0.001) {
           const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
           // Only sync on real bounces (> 30 degrees change) - more conservative to reduce syncs

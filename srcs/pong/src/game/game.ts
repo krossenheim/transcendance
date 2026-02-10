@@ -426,10 +426,6 @@ export class PongGame {
             leftOverTime -= timeStep;
         }
 
-        // Safety check: Reset any balls that have escaped the arena bounds
-        // This catches edge cases where collision detection might have missed
-        this.checkBallBounds();
-
         // Increment tick counter based on deltaTime (approximately)
         this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
 
