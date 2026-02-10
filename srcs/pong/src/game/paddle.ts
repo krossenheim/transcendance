@@ -123,13 +123,15 @@ export class PongPaddle extends MultiObject {
 		this.playerId = -1;
 
 		const paddleDirectionCopy = paddleDirection.clone();
+		// Use a tiny radius (EPS) for collision detection to get accurate wall distance
+		// Then subtract halfWidth so the paddle edge reaches the wall
 		const maxTravelDistance = Math.min(
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
 			protectedWallWidth / 2,
-		) - halfWidth - 1;
+		) - halfWidth;
 		if (ENABLE_PADDLE_LOGS) console.log("Max travel distance:", maxTravelDistance);
 
 		this.bounds = {

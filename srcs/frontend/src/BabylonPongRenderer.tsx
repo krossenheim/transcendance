@@ -447,41 +447,38 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Only sync on actual bounces (significant velocity direction change)
-        const oldSpeed = Math.sqrt(target.velocityX * target.velocityX + target.velocityZ * target.velocityZ)
-        const newSpeed = Math.sqrt(serverVelX * serverVelX + serverVelZ * serverVelZ)
-        
-        let shouldSnapPosition = false
-        
         // Check for large position difference (teleport/respawn) - always snap immediately
         const posDistSq = (serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2
-        if (posDistSq > 1.0) {  // > 1 world unit (~50 backend units) = teleport
-          shouldSnapPosition = true
-        }
+        const posDist = Math.sqrt(posDistSq)
         
-        if (oldSpeed > 0.001 && newSpeed > 0.001) {
-          const dot = (target.velocityX * serverVelX + target.velocityZ * serverVelZ) / (oldSpeed * newSpeed)
-          // Only snap position on real bounces (> 30 degrees change)
-          if (dot < 0.87) {
-            shouldSnapPosition = true
-          }
-        } else if (newSpeed > 0.001 && oldSpeed < 0.001) {
-          // Ball started moving
-          shouldSnapPosition = true
-        }
-        
-        // Always keep velocity in sync with server to avoid drift
-        target.velocityX = serverVelX
-        target.velocityZ = serverVelZ
-        
-        if (shouldSnapPosition) {
-          // Snap to server position on bounces/teleports
+        if (posDist > 1.0) {
+          // Large teleport (respawn after goal) - snap immediately
           mesh.position.x = serverX
           mesh.position.z = serverZ
+          target.velocityX = serverVelX
+          target.velocityZ = serverVelZ
         } else {
-          // Move at server velocity (no local prediction drift)
+          // Normal movement: move at server velocity + gentle position correction
+          // This eliminates all snapping/teleporting while keeping positions accurate
+          
+          // Move at server velocity
           mesh.position.x += serverVelX * dtSeconds
           mesh.position.z += serverVelZ * dtSeconds
+          
+          // Gentle continuous correction toward server position
+          // This is smooth and imperceptible but prevents drift accumulation
+          const errorX = serverX - mesh.position.x
+          const errorZ = serverZ - mesh.position.z
+          
+          // Correction strength: blend 5% toward server position each frame
+          // At 60fps this corrects ~95% of error per second
+          const correction = 0.05
+          mesh.position.x += errorX * correction
+          mesh.position.z += errorZ * correction
+          
+          // Always keep velocity in sync
+          target.velocityX = serverVelX
+          target.velocityZ = serverVelZ
         }
         
         // Rolling rotation based on actual movement
