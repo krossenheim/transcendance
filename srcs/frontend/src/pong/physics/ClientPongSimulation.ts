@@ -338,51 +338,6 @@ export class ClientPongSimulation {
     }
     
     /**
-     * BULLETPROOF: Check if a point is inside the arena polygon.
-     * For our CW polygon, inside points have positive cross product with each wall.
-     */
-    private isPointInsideArena(x: number, y: number): boolean {
-        for (const wall of this.walls) {
-            // Wall vector A -> B
-            const wx = wall.bx - wall.ax;
-            const wy = wall.by - wall.ay;
-            
-            // Vector from A to point
-            const px = x - wall.ax;
-            const py = y - wall.ay;
-            
-            // Cross product: positive = inside, negative = outside
-            const cross = wx * py - wy * px;
-            
-            // If cross is negative, point is outside this wall
-            if (cross < 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-    
-    /**
-     * BULLETPROOF: Reset any balls that escaped the arena polygon.
-     */
-    private checkBallsInsideArena(): void {
-        const centerX = this.gameOptions.canvasWidth / 2;
-        const centerY = this.gameOptions.canvasHeight / 2;
-        
-        for (const ball of this.balls) {
-            if (!this.isPointInsideArena(ball.x, ball.y)) {
-                // Ball escaped - reset to center
-                ball.x = centerX;
-                ball.y = centerY;
-                // Random direction
-                const angle = Math.random() * 2 * Math.PI;
-                ball.dx = Math.cos(angle) * this.gameOptions.ballSpeed;
-                ball.dy = Math.sin(angle) * this.gameOptions.ballSpeed;
-            }
-        }
-    }
-
-    /**
      * Find the next collision in the simulation
      * Uses pre-allocated scratch vectors to avoid GC pressure
      */
