@@ -962,10 +962,17 @@ export default function PongComponent({
             })()}
           </div>
 
-          {/* Debug Bar */}
-          <div className="px-2.5 py-1 bg-black/70 text-[#0f0] text-xs font-mono shrink-0">
-            balls: {gameState?.balls?.length ?? 0} | paddles: {gameState?.paddles?.length ?? 0} | myPaddle: {playerOnePaddleID}
-          </div>
+          {/* Score Display */}
+          {gameState?.score && Object.keys(gameState.score).length > 0 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-8 px-6 py-3 bg-black/60 rounded-xl backdrop-blur-sm">
+              {Object.entries(gameState.score).map(([playerId, score]: [string, any]) => (
+                <div key={playerId} className="flex flex-col items-center">
+                  <span className="text-gray-400 text-sm">Player {playerId}</span>
+                  <span className="text-white text-3xl font-bold">{score}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Game Over Overlay */}
           {gameState?.gameOver && (
