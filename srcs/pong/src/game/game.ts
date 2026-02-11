@@ -433,14 +433,8 @@ export class PongGame {
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
         const powerupType = powerup.getPowerupType();
         
-        // Track instant (non-time-based) powerups as recent events for UI notifications
-        if (!powerup.isTimeBased()) {
-            this.recentPowerupEvents.push({
-                type: powerupType,
-                typeName: PowerupType[powerupType],
-                tick: this.currentTick,
-            });
-        }
+        // Track whether the effect was actually applied (for instant powerups)
+        let effectApplied = true;
 
         switch (powerupType) {
             case PowerupType.ADD_BALL:
@@ -463,20 +457,39 @@ export class PongGame {
                 break;
 
             case PowerupType.INCREASE_BALL_SIZE:
-                if (ball.radius >= 50) break;
-                ball.radius *= 1.5;
-                ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
+                if (ball.radius >= 50) {
+                    effectApplied = false;
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size already at max (${ball.radius}), skipping INCREASE_BALL_SIZE`);
+                } else {
+                    ball.radius *= 1.5;
+                    ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size increased to ${ball.radius}`);
+                }
                 break;
 
             case PowerupType.DECREASE_BALL_SIZE:
-                if (ball.radius <= 3) break;
-                ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
-                ball.radius *= 0.75;
+                if (ball.radius <= 3) {
+                    effectApplied = false;
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size already at min (${ball.radius}), skipping DECREASE_BALL_SIZE`);
+                } else {
+                    ball.radius *= 0.75;
+                    ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size decreased to ${ball.radius}`);
+                }
                 break;
 
             case PowerupType.REVERSE_CONTROLS:
                 this.paddles.forEach(paddle => paddle.setReverseControls(true));
                 break;
+        }
+
+        // Only track instant powerups as recent events if the effect was actually applied
+        if (effectApplied && !powerup.isTimeBased()) {
+            this.recentPowerupEvents.push({
+                type: powerupType,
+                typeName: PowerupType[powerupType],
+                tick: this.currentTick,
+            });
         }
 
         powerup.activate(this.currentTick);

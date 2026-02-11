@@ -9,6 +9,7 @@ export type PongBallJSON = [
     number, // velocity.y
     number, // radius
     number, // inverseMass
+    number, // id
 ];
 
 export class PongBall extends CircleObject {
@@ -32,6 +33,7 @@ export class PongBall extends CircleObject {
             this.velocity.y,
             this.radius,
             this.inverseMass,
+            this.id,
         ]
     }
 
@@ -42,6 +44,7 @@ export class PongBall extends CircleObject {
         this.velocity.y = data[3];
         this.radius = data[4];
         this.inverseMass = data[5];
+        // Note: id is read-only, set at construction
         return this;
     }
 }
