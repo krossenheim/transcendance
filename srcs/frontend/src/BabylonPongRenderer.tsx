@@ -460,8 +460,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const posDistSq = (serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2
         const posDist = Math.sqrt(posDistSq)
         
-        if (posDist > 1.0) {
-          // Large teleport (respawn after goal) - snap immediately
+        // Detect velocity direction change (bounce) - snap to avoid ball appearing in front of wall
+        const prevVelX = target.velocityX
+        const prevVelZ = target.velocityZ
+        const velocityReversedX = prevVelX !== 0 && serverVelX !== 0 && Math.sign(prevVelX) !== Math.sign(serverVelX)
+        const velocityReversedZ = prevVelZ !== 0 && serverVelZ !== 0 && Math.sign(prevVelZ) !== Math.sign(serverVelZ)
+        const bounceDetected = velocityReversedX || velocityReversedZ
+        
+        if (posDist > 1.0 || bounceDetected) {
+          // Large teleport or bounce - snap immediately to avoid ball appearing in front of wall/paddle
           mesh.position.x = serverX
           mesh.position.z = serverZ
         } else {
@@ -471,7 +478,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           mesh.position.z += (serverZ - mesh.position.z) * 0.3
         }
         
-        // Keep velocity for rotation calculation
+        // Keep velocity for rotation calculation and bounce detection
         target.velocityX = serverVelX
         target.velocityZ = serverVelZ
         
