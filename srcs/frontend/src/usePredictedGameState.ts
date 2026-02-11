@@ -8,7 +8,7 @@
  * without the complexity of client-side physics prediction.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface PredictedBall {
     id: number;
@@ -57,8 +57,10 @@ export function usePredictedGameState(
         // Parse balls from server format
         const balls: PredictedBall[] = (serverGameState.balls || []).map((b: any, idx: number) => {
             if (Array.isArray(b)) {
+                // Backend sends: [x, y, dx, dy, radius, inverseMass, id]
+                const ballId = Number.isFinite(Number(b[6])) ? Number(b[6]) : idx
                 return {
-                    id: idx,
+                    id: ballId,
                     x: b[0] ?? 0,
                     y: b[1] ?? 0,
                     dx: b[2] ?? 0,

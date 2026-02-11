@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import type { TypeActiveEffect, TypeRecentEvent } from "./types/pong-interfaces"
 import { PowerupType } from "./types/pong-interfaces"
 
@@ -56,8 +56,8 @@ interface PowerupDisplayProps {
 }
 
 export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupDisplayProps) {
-  // Track which events we've already shown to prevent duplicates
-  const [processedEvents, setProcessedEvents] = useState<Set<string>>(new Set())
+  // Track which event types we've recently shown (by type, reset after 3s)
+  const lastShownTimeRef = useRef<Map<number, number>>(new Map())
   const [notifications, setNotifications] = useState<Array<{ id: string; type: number; timestamp: number }>>([])
 
   // Process new recent events and create notifications
@@ -66,19 +66,21 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
     const newNotifications: Array<{ id: string; type: number; timestamp: number }> = []
     
     for (const event of recentEvents) {
-      // Create a unique key for this event based on type and age
-      const eventKey = `${event.type}-${Math.floor(event.ageSeconds * 10)}`
+      // Only process very recent events (just collected)
+      if (event.ageSeconds > 0.3) continue
       
-      // Only show very recent events (less than 0.5 seconds old) that we haven't processed
-      if (event.ageSeconds < 0.5 && !processedEvents.has(eventKey)) {
-        const notificationId = `${event.type}-${now}-${Math.random()}`
-        newNotifications.push({
-          id: notificationId,
-          type: event.type,
-          timestamp: now,
-        })
-        setProcessedEvents(prev => new Set([...prev, eventKey]))
-      }
+      // Check if we've shown this powerup type recently (within 2 seconds)
+      const lastShownTime = lastShownTimeRef.current.get(event.type) || 0
+      if (now - lastShownTime < 2000) continue
+      
+      // Create notification and mark as shown
+      const notificationId = `${event.type}-${now}`
+      newNotifications.push({
+        id: notificationId,
+        type: event.type,
+        timestamp: now,
+      })
+      lastShownTimeRef.current.set(event.type, now)
     }
     
     if (newNotifications.length > 0) {
@@ -88,12 +90,17 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
     // Clean up old notifications (older than 3 seconds)
     const cutoff = now - 3000
     setNotifications(prev => prev.filter(n => n.timestamp > cutoff))
-  }, [recentEvents, processedEvents])
+  }, [recentEvents])
 
-  // Clean up old processed events periodically
+  // Clean up old shown times periodically
   useEffect(() => {
     const interval = setInterval(() => {
-      setProcessedEvents(new Set())
+      const now = Date.now()
+      for (const [type, time] of lastShownTimeRef.current.entries()) {
+        if (now - time > 5000) {
+          lastShownTimeRef.current.delete(type)
+        }
+      }
     }, 5000)
     return () => clearInterval(interval)
   }, [])
