@@ -438,22 +438,41 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const serverVelX = (b.dx || 0) * 0.02
         const serverVelZ = (b.dy || 0) * 0.02
         
+        // Update ball scale if radius changed (for INCREASE_BALL_SIZE / DECREASE_BALL_SIZE powerups)
+        const backendRadius = Number(b.radius || 10)
+        const worldRadius = Math.max(0.05, backendRadius * 0.02) // SCALE_FACTOR = 0.02
+        const desiredDiameter = Math.max(0.05, worldRadius * 2)
+        const baseDiameter = (mesh as any).metadata?.baseDiameter || desiredDiameter
+        const scale = desiredDiameter / baseDiameter
+        const actualVisualRadius = (baseDiameter / 2) * scale
+        
+        // Apply scale if changed
+        if (Math.abs(mesh.scaling.x - scale) > 0.001) {
+          mesh.scaling.set(scale, scale, scale)
+          // Adjust Y position so ball stays on floor
+          const FLOOR_Y = -0.1
+          mesh.position.y = FLOOR_Y + actualVisualRadius
+        }
+        
         // Get or create tracking state
         let target = ballTargetsRef.current.get(b.id)
         if (!target) {
           target = {
             targetPos: new Vector3(serverX, mesh.position.y, serverZ),
-            targetScaleX: 1, targetScaleY: 1, targetScaleZ: 1,
+            targetScaleX: scale, targetScaleY: scale, targetScaleZ: scale,
             velocityX: serverVelX,
             velocityZ: serverVelZ,
             lastUpdateTime: 0,
-            visualRadius: 0.2
+            visualRadius: actualVisualRadius
           }
           ballTargetsRef.current.set(b.id, target)
           mesh.position.x = serverX
           mesh.position.z = serverZ
           continue
         }
+        
+        // Update visual radius for rotation calculation
+        target.visualRadius = actualVisualRadius
         
         // Store previous position for rotation calculation
         const prevX = mesh.position.x
