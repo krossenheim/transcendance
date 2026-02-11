@@ -456,32 +456,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Check for large position difference (teleport/respawn) - always snap immediately
-        const posDistSq = (serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2
-        const posDist = Math.sqrt(posDistSq)
+        // KISS: Just follow server position directly
+        // 60Hz server updates are smooth enough without client-side interpolation
+        mesh.position.x = serverX
+        mesh.position.z = serverZ
         
-        // Detect velocity direction change (bounce) - use faster lerp to catch up
-        const prevVelX = target.velocityX
-        const prevVelZ = target.velocityZ
-        const velocityReversedX = prevVelX !== 0 && serverVelX !== 0 && Math.sign(prevVelX) !== Math.sign(serverVelX)
-        const velocityReversedZ = prevVelZ !== 0 && serverVelZ !== 0 && Math.sign(prevVelZ) !== Math.sign(serverVelZ)
-        const bounceDetected = velocityReversedX || velocityReversedZ
-        
-        if (posDist > 1.0) {
-          // Large teleport (respawn after goal) - snap immediately
-          mesh.position.x = serverX
-          mesh.position.z = serverZ
-        } else if (bounceDetected) {
-          // Bounce detected - use fast lerp (0.7) to quickly reach wall without harsh snap
-          mesh.position.x += (serverX - mesh.position.x) * 0.7
-          mesh.position.z += (serverZ - mesh.position.z) * 0.7
-        } else {
-          // Normal movement - smooth lerp
-          mesh.position.x += (serverX - mesh.position.x) * 0.3
-          mesh.position.z += (serverZ - mesh.position.z) * 0.3
-        }
-        
-        // Keep velocity for rotation calculation and bounce detection
+        // Keep velocity for rotation calculation
         target.velocityX = serverVelX
         target.velocityZ = serverVelZ
         
