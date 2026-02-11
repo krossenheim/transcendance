@@ -20,6 +20,7 @@ export const StartNewPongGameSchema = z
   .object({
     balls: z.coerce.number().int().gt(0).lt(1000),
     player_list: player_list_rule,
+    allowPowerups: z.boolean().optional(),
   })
   .strict();
 

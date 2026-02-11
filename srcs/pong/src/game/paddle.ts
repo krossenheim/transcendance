@@ -80,9 +80,9 @@ export class PongPaddle extends MultiObject {
 			1.0,
 		)
 
-		// Corner radius prevents ball from slipping through paddle corners
-		// Using half the paddle height creates a smooth rounded rectangle shape
-		const cornerRadius = halfHeight * 0.8;
+		// Corner radius should be small - just enough to round the corners
+		// Using a small fraction of halfHeight to avoid affecting bounces on the flat face
+		const cornerRadius = halfHeight * 0.3;
 
 		const topLeftCorner = new CircleObject(
 			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
@@ -122,13 +122,15 @@ export class PongPaddle extends MultiObject {
 		this.playerId = -1;
 
 		const paddleDirectionCopy = paddleDirection.clone();
+		// Use a tiny radius (EPS) for collision detection to get accurate wall distance
+		// Then subtract halfWidth so the paddle edge reaches the wall
 		const maxTravelDistance = Math.min(
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), 10, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
 			protectedWallWidth / 2,
-		) - halfWidth - 1;
+		) - halfWidth;
 		if (ENABLE_PADDLE_LOGS) console.log("Max travel distance:", maxTravelDistance);
 
 		this.bounds = {
@@ -186,17 +188,11 @@ export class PongPaddle extends MultiObject {
 		let maxTravelDistance = 0;
 		const center = this.getCenter();
 		if (moveDirection > 0) {
-			maxTravelDistance = center.distanceTo(this.bounds.max) - this.paddleWidth / 2;
-			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
-			const otherSideDist = center.distanceTo(this.bounds.min) + this.paddleWidth / 2;
-			if (otherSideDist > totalLength)
-				maxTravelDistance = 0;
+			// bounds.max already accounts for paddle width, so just measure distance to it
+			maxTravelDistance = center.distanceTo(this.bounds.max);
 		} else {
-			maxTravelDistance = center.distanceTo(this.bounds.min) - this.paddleWidth / 2;
-			const totalLength = this.bounds.max.distanceTo(this.bounds.min);
-			const otherSideDist = center.distanceTo(this.bounds.max) + this.paddleWidth / 2;
-			if (otherSideDist > totalLength)
-				maxTravelDistance = 0;
+			// bounds.min already accounts for paddle width, so just measure distance to it
+			maxTravelDistance = center.distanceTo(this.bounds.min);
 		}
 
 		scaledDesiredVelocity.copy(this.clockwiseBaseVelocity).normalize().mul(moveDirection * this.boardPaddleSpeed);

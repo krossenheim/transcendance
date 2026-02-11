@@ -78,8 +78,14 @@ export class Powerup extends CircleObject {
 
         this.setCollisionHandler((other: BaseObject) => {
             if (other instanceof PongBall) {
-                if (ENABLE_GAME_LOGS) console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
-                this.game.applyPowerupEffect(this, other);
+                // Only apply effect if powerup hasn't been collected yet
+                if (this.activationTick === null) {
+                    if (ENABLE_GAME_LOGS) console.log(`Powerup of type ${PowerupType[this.metadata.type]} collected by ball ID ${other.id}.`);
+                    this.game.applyPowerupEffect(this, other);
+                    return CollisionResponse.RESET;
+                }
+                // Already collected - ignore collision
+                return CollisionResponse.IGNORE;
             }
 
             return CollisionResponse.RESET;
@@ -101,7 +107,8 @@ export class Powerup extends CircleObject {
             newPowerup = powerupData[0]!;
         }
 
-        return new Powerup(center, 10, velocity, newPowerup, game);
+        // Use larger radius (20) for more reliable collision detection
+        return new Powerup(center, 20, velocity, newPowerup, game);
     }
 
     public getPowerupType(): PowerupType {
@@ -171,6 +178,10 @@ export class PongGame {
     private nextPowerupSpawnTick: number = 0; // Tick-based powerup spawn
     private powerupSpawnRadius: number = 0;
     private players: number[];
+
+    // Track recent instant powerup events (for notifications)
+    private recentPowerupEvents: { type: number; typeName: string; tick: number }[] = [];
+    private static readonly RECENT_EVENT_TICKS = 3 * TICK_RATE; // Show for 3 seconds
 
     // Deterministic simulation state
     private currentTick: number = 0;
@@ -308,6 +319,9 @@ export class PongGame {
         this.powerups = [];
         this.players = Array.from(players);
         this.gameOptions = gameOptions;
+        
+        // Initialize scene with ball speed for constant speed enforcement
+        this.scene = new Scene(gameOptions.ballSpeed);
 
         // Initialize deterministic RNG with provided seed or random seed
         this.rng = gameOptions.seed !== undefined
@@ -349,6 +363,10 @@ export class PongGame {
 
         if (this.currentTick >= this.nextPowerupSpawnTick) {
             this.spawnNewPowerup();
+            // Schedule next powerup spawn with some randomness
+            const baseFrequencyTicks = Math.floor(this.gameOptions.powerupFrequency * TICK_RATE);
+            const jitterFactor = 0.8 + this.rng.next() * 0.4;
+            this.nextPowerupSpawnTick = this.currentTick + Math.floor(baseFrequencyTicks * jitterFactor);
         }
 
         let leftOverTime = deltaTime;
@@ -361,6 +379,9 @@ export class PongGame {
             this.scene.playSimulation(timeStep, this.balls);
             leftOverTime -= timeStep;
         }
+
+        // Increment tick counter based on deltaTime (approximately)
+        this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
 
         // console.log(`[PongGame] playSimulation called with deltaTime=${deltaTime.toFixed(4)}s`);
         // const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);
@@ -410,7 +431,12 @@ export class PongGame {
     } */
 
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
-        switch (powerup.getPowerupType()) {
+        const powerupType = powerup.getPowerupType();
+        
+        // Track whether the effect was actually applied (for instant powerups)
+        let effectApplied = true;
+
+        switch (powerupType) {
             case PowerupType.ADD_BALL:
                 if (ENABLE_GAME_LOGS) console.log(`Spawning new ball due to powerup effect.`);
                 // Use seeded RNG for deterministic ball direction offset
@@ -431,20 +457,39 @@ export class PongGame {
                 break;
 
             case PowerupType.INCREASE_BALL_SIZE:
-                if (ball.radius >= 50) break;
-                ball.radius *= 1.5;
-                ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
+                if (ball.radius >= 50) {
+                    effectApplied = false;
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size already at max (${ball.radius}), skipping INCREASE_BALL_SIZE`);
+                } else {
+                    ball.radius *= 1.5;
+                    ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size increased to ${ball.radius}`);
+                }
                 break;
 
             case PowerupType.DECREASE_BALL_SIZE:
-                if (ball.radius <= 3) break;
-                ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
-                ball.radius *= 0.75;
+                if (ball.radius <= 3) {
+                    effectApplied = false;
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size already at min (${ball.radius}), skipping DECREASE_BALL_SIZE`);
+                } else {
+                    ball.radius *= 0.75;
+                    ball.inverseMass = 1.0 / (Math.PI * ball.radius * ball.radius);
+                    if (ENABLE_GAME_LOGS) console.log(`Ball size decreased to ${ball.radius}`);
+                }
                 break;
 
             case PowerupType.REVERSE_CONTROLS:
                 this.paddles.forEach(paddle => paddle.setReverseControls(true));
                 break;
+        }
+
+        // Only track instant powerups as recent events if the effect was actually applied
+        if (effectApplied && !powerup.isTimeBased()) {
+            this.recentPowerupEvents.push({
+                type: powerupType,
+                typeName: PowerupType[powerupType],
+                tick: this.currentTick,
+            });
         }
 
         powerup.activate(this.currentTick);
@@ -482,6 +527,7 @@ export class PongGame {
             const isActive = powerup.isPowerupActive(currentTick);
             const isTaken = powerup.isPowerupTaken();
 
+            // Remove powerups that have been taken but are no longer active (expired)
             const shouldRemove = !isActive && isTaken;
             if (shouldRemove) {
                 if (ENABLE_GAME_LOGS) console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
@@ -489,6 +535,7 @@ export class PongGame {
                 this.scene.removeObject(powerup);
                 this.removePowerupEffects(powerup);
 
+                // Swap-and-pop removal for O(1) removal
                 const lastIndex = this.powerups.length - 1;
                 if (i !== lastIndex) {
                     this.powerups[i] = this.powerups[lastIndex]!;
@@ -496,16 +543,6 @@ export class PongGame {
                 this.powerups.pop();
             }
         }
-
-        this.powerups = this.powerups.filter(powerup => {
-            const couldBeRemoved = !(powerup.isPowerupActive(currentTick) || !powerup.isPowerupTaken());
-            if (couldBeRemoved) {
-                if (ENABLE_GAME_LOGS) console.log(`Removing expired powerup of type ${PowerupType[powerup.getPowerupType()]}.`);
-                this.scene.removeObject(powerup);
-                this.removePowerupEffects(powerup);
-            }
-            return !couldBeRemoved;
-        });
     }
 
     public handleKeyPress(key: string, isPressed: boolean): void {
@@ -568,6 +605,30 @@ export class PongGame {
     }
 
     public fetchBoardJSON(): any {
+        // Collect active effects (time-based powerups that are currently active)
+        const activeEffects: { type: number; typeName: string; remainingTicks: number; remainingSeconds: number }[] = [];
+        for (const powerup of this.powerups) {
+            if (powerup.isPowerupTaken() && powerup.isPowerupActive(this.currentTick)) {
+                const remainingTicks = powerup.getRemainingPowerupTicks(this.currentTick);
+                activeEffects.push({
+                    type: powerup.getPowerupType(),
+                    typeName: PowerupType[powerup.getPowerupType()],
+                    remainingTicks: remainingTicks,
+                    remainingSeconds: remainingTicks / TICK_RATE,
+                });
+            }
+        }
+
+        // Clean up old recent events and collect current ones
+        this.recentPowerupEvents = this.recentPowerupEvents.filter(
+            event => (this.currentTick - event.tick) < PongGame.RECENT_EVENT_TICKS
+        );
+        const recentEvents = this.recentPowerupEvents.map(event => ({
+            type: event.type,
+            typeName: event.typeName,
+            ageSeconds: (this.currentTick - event.tick) / TICK_RATE,
+        }));
+
         return {
             board_id: this.id,
             boardId: this.id,
@@ -578,11 +639,17 @@ export class PongGame {
                 seed: this.rng.getSeed(),
                 players: this.players,
                 id: this.id,
+                timeScale: this.scene.getTimeScale(), // For SUPER_SPEED powerup sync
             },
             walls: this.walls.map(wall => wall.toJSON()),
             balls: this.balls.map(ball => ball.toJSON()),
             paddles: this.paddles.map(paddle => paddle.toJSON()),
-            powerups: this.powerups.map(powerup => powerup.toJSON()),
+            // Only send powerups that haven't been collected yet (visual should disappear when taken)
+            powerups: this.powerups.filter(powerup => !powerup.isPowerupTaken()).map(powerup => powerup.toJSON()),
+            // Active time-based effects with remaining duration
+            activeEffects: activeEffects,
+            // Recent instant powerup events (for notifications)
+            recentEvents: recentEvents,
             score: Object.fromEntries(this.fetchPlayerScoreMap()),
             serverTime: Date.now(),
             gameOver: this.isGameOver(),

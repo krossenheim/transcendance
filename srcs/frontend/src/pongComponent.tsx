@@ -11,6 +11,7 @@ import { useWebSocket, HandlerResult } from "./socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
+import PowerupDisplay from "./PowerupDisplay"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
 import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
@@ -116,6 +117,8 @@ export default function PongComponent({
       balls,
       metadata: raw.metadata ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
+      activeEffects: raw.activeEffects ?? [],
+      recentEvents: raw.recentEvents ?? [],
       score: raw.score ?? null,
       gameOver: raw.gameOver ?? false,
       winner: raw.winner ?? null,
@@ -795,6 +798,7 @@ export default function PongComponent({
                     const payload: TypeStartNewPongGame = {
                       player_list: [authResponse.user.id],
                       balls: 1,
+                      allowPowerups: true,
                     }
                     handleUserInput(user_url.ws.pong.startGame, payload)
                     setCurrentView("game")
@@ -945,6 +949,17 @@ export default function PongComponent({
                 paddleRotationOffset={paddleRotationOffset}
               />
             )}
+            {/* Powerup Display Overlay */}
+            {gameState && (() => {
+              const effects = gameState.activeEffects ?? []
+              const events = gameState.recentEvents ?? []
+              return (
+                <PowerupDisplay
+                  activeEffects={effects}
+                  recentEvents={events}
+                />
+              )
+            })()}
           </div>
 
           {/* Debug Bar */}

@@ -32,7 +32,7 @@ export default function PongInviteModal({
   const [selectedPlayers, setSelectedPlayers] = useState<number[]>([])
   const [ballCount, setBallCount] = useState(1)
   const [maxScore, setMaxScore] = useState(5)
-  const [allowPowerups, setAllowPowerups] = useState(false)
+  const [allowPowerups, setAllowPowerups] = useState(true)
 
   if (!isOpen) return null
 

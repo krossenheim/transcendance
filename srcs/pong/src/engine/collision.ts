@@ -13,6 +13,10 @@ const scratchWallVec = new Vec2(0, 0);
 const scratchNormal = new Vec2(0, 0);
 const scratchBallPosAtHit = new Vec2(0, 0);
 
+/**
+ * Calculate collision time between a circle and a line segment.
+ * Returns the time until collision, or null if no collision.
+ */
 export function getWallCollisionTime(
     ball: CircleObject,
     wall: LineObject,
@@ -21,31 +25,51 @@ export function getWallCollisionTime(
     scratchRelativeStart.copy(ball.center).sub(wall.pointA);
 
     scratchWallVec.copy(wall.pointB).sub(wall.pointA);
+    const wallLenSq = scratchWallVec.lenSq();
+    
+    // Avoid zero-length walls
+    if (wallLenSq < EPS) {
+        return null;
+    }
+    
+    const wallLen = Math.sqrt(wallLenSq);
+    
+    // Get wall normal
     scratchNormal.copy(scratchWallVec).perp().normalize();
 
+    // Choose the normal that faces the ball's approach direction
     if (scratchRelativeVelocity.dot(scratchNormal) >= -EPS)
         scratchNormal.mul(-1);
+    
     const vecAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
-
     const distanceToLine = scratchRelativeStart.dot(scratchNormal);
-    const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
-
-    if (tHit < 0)
-        return null;
-
-    scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, tHit);
-    const shadowLengthSq = scratchBallPosAtHit.dot(scratchWallVec);
-
-    if (shadowLengthSq < -EPS)
-        return null;
-
-    const segmentT = shadowLengthSq / scratchWallVec.dot(scratchWallVec);
-    if (segmentT < 0 || segmentT > 1)
-        return null;
-
-    return tHit;
+    
+    // Check collision with the infinite line (if not moving parallel)
+    if (Math.abs(vecAlongNormal) >= EPS) {
+        const tHit = (ball.radius - distanceToLine) / vecAlongNormal;
+        
+        // Only consider future collisions (with small tolerance for touching)
+        if (tHit >= -EPS) {
+            const clampedTHit = Math.max(0, tHit);
+            
+            // Check if hit point is within segment bounds
+            scratchBallPosAtHit.copy(scratchRelativeStart).addScaled(scratchRelativeVelocity, clampedTHit);
+            const shadowLength = scratchBallPosAtHit.dot(scratchWallVec) / wallLen;
+            
+            // Allow small margin for numerical precision
+            if (shadowLength >= -ball.radius && shadowLength <= wallLen + ball.radius) {
+                return clampedTHit;
+            }
+        }
+    }
+    
+    return null;
 }
 
+/**
+ * Calculate collision time between two circles.
+ * Returns 0 if already penetrating (immediate collision), or the time until collision.
+ */
 export function getBallCollisionTime(
     ballA: CircleObject,
     ballB: CircleObject,
@@ -53,31 +77,75 @@ export function getBallCollisionTime(
     scratchRelativeStart.copy(ballB.center).sub(ballA.center);
     scratchRelativeVelocity.copy(ballB.velocity).sub(ballA.velocity);
     const combinedRadius = ballA.radius + ballB.radius;
+    
+    // Check if circles are already penetrating
+    const currentDistSq = scratchRelativeStart.lenSq();
+    const combinedRadiusSq = combinedRadius * combinedRadius;
+    if (currentDistSq < combinedRadiusSq - EPS) {
+        // Already overlapping - return immediate collision
+        return 0;
+    }
 
     const a = scratchRelativeVelocity.lenSq();
+    
+    // If not moving relative to each other, no future collision
+    if (a < EPS) {
+        return null;
+    }
+    
     const b = 2 * scratchRelativeStart.dot(scratchRelativeVelocity);
-    const c = scratchRelativeStart.lenSq() - Math.pow(combinedRadius, 2);
+    const c = currentDistSq - combinedRadiusSq;
 
     const numRoots = solveQuadratic(a, b, c, QUAD_BUFFER);
     if (numRoots > 0) {
         const t = QUAD_BUFFER[0]!;
 
-        if (t >= -EPS && t <= 1 + EPS) {
-            return t;
+        // Allow slightly negative t for numerical precision, clamp to 0
+        if (t >= -EPS) {
+            return Math.max(0, t);
         }
     }
 
     return null;
 }
 
+/**
+ * Resolve elastic collision between two circles.
+ * Includes positional correction to push overlapping circles apart.
+ */
 export function resolveBallCollision(
     ballA: CircleObject,
     ballB: CircleObject,
 ): void {
-    scratchNormal.copy(ballB.center).sub(ballA.center).normalize();
+    scratchNormal.copy(ballB.center).sub(ballA.center);
+    const dist = scratchNormal.len();
+    
+    // Avoid division by zero
+    if (dist < EPS) {
+        // Circles exactly overlapping - pick arbitrary separation direction
+        scratchNormal.set(1, 0);
+    } else {
+        scratchNormal.div(dist);
+    }
+    
     scratchRelativeVelocity.copy(ballB.velocity).sub(ballA.velocity);
     const velocityAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
 
+    // Positional correction: push circles apart if overlapping
+    const combinedRadius = ballA.radius + ballB.radius;
+    const overlap = combinedRadius - dist;
+    if (overlap > 0) {
+        const inverseMassSum = ballA.inverseMass + ballB.inverseMass;
+        if (inverseMassSum > 0) {
+            // Distribute correction based on inverse mass
+            const correctionA = overlap * (ballA.inverseMass / inverseMassSum);
+            const correctionB = overlap * (ballB.inverseMass / inverseMassSum);
+            ballA.center.addScaled(scratchNormal, -correctionA);
+            ballB.center.addScaled(scratchNormal, correctionB);
+        }
+    }
+
+    // If moving apart, don't apply impulse
     if (velocityAlongNormal > 0) {
         return;
     }
