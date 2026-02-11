@@ -423,6 +423,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       const deltaTime = Math.min(rawDeltaTime, 33)
       const dtSeconds = deltaTime / 1000.0
       
+      // Get timeScale from server (for SUPER_SPEED powerup) - default to 1.0
+      const timeScale = (gs.metadata as any)?.timeScale ?? 1.0
+      
       // Update balls
       for (let i = 0; i < gs.balls.length; i++) {
         const b = gs.balls[i]!
@@ -476,8 +479,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           mesh.position.z = serverZ
         } else {
           // Normal motion: extrapolate using velocity for smooth movement
-          mesh.position.x += target.velocityX * dtSeconds
-          mesh.position.z += target.velocityZ * dtSeconds
+          // Multiply by timeScale to match server simulation speed (e.g., 1.5x during SUPER_SPEED)
+          mesh.position.x += target.velocityX * dtSeconds * timeScale
+          mesh.position.z += target.velocityZ * dtSeconds * timeScale
         }
         
         // Update tracking state when server sends new data

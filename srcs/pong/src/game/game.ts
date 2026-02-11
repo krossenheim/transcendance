@@ -587,6 +587,7 @@ export class PongGame {
                 seed: this.rng.getSeed(),
                 players: this.players,
                 id: this.id,
+                timeScale: this.scene.getTimeScale(), // For SUPER_SPEED powerup sync
             },
             walls: this.walls.map(wall => wall.toJSON()),
             balls: this.balls.map(ball => ball.toJSON()),
