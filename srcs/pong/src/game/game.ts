@@ -179,6 +179,10 @@ export class PongGame {
     private powerupSpawnRadius: number = 0;
     private players: number[];
 
+    // Track recent instant powerup events (for notifications)
+    private recentPowerupEvents: { type: number; typeName: string; tick: number }[] = [];
+    private static readonly RECENT_EVENT_TICKS = 3 * TICK_RATE; // Show for 3 seconds
+
     // Deterministic simulation state
     private currentTick: number = 0;
     private rng: SeededRandom;
@@ -427,7 +431,18 @@ export class PongGame {
     } */
 
     public applyPowerupEffect(powerup: Powerup, ball: PongBall): void {
-        switch (powerup.getPowerupType()) {
+        const powerupType = powerup.getPowerupType();
+        
+        // Track instant (non-time-based) powerups as recent events for UI notifications
+        if (!powerup.isTimeBased()) {
+            this.recentPowerupEvents.push({
+                type: powerupType,
+                typeName: PowerupType[powerupType],
+                tick: this.currentTick,
+            });
+        }
+
+        switch (powerupType) {
             case PowerupType.ADD_BALL:
                 if (ENABLE_GAME_LOGS) console.log(`Spawning new ball due to powerup effect.`);
                 // Use seeded RNG for deterministic ball direction offset
@@ -577,6 +592,30 @@ export class PongGame {
     }
 
     public fetchBoardJSON(): any {
+        // Collect active effects (time-based powerups that are currently active)
+        const activeEffects: { type: number; typeName: string; remainingTicks: number; remainingSeconds: number }[] = [];
+        for (const powerup of this.powerups) {
+            if (powerup.isPowerupTaken() && powerup.isPowerupActive(this.currentTick)) {
+                const remainingTicks = powerup.getRemainingPowerupTicks(this.currentTick);
+                activeEffects.push({
+                    type: powerup.getPowerupType(),
+                    typeName: PowerupType[powerup.getPowerupType()],
+                    remainingTicks: remainingTicks,
+                    remainingSeconds: remainingTicks / TICK_RATE,
+                });
+            }
+        }
+
+        // Clean up old recent events and collect current ones
+        this.recentPowerupEvents = this.recentPowerupEvents.filter(
+            event => (this.currentTick - event.tick) < PongGame.RECENT_EVENT_TICKS
+        );
+        const recentEvents = this.recentPowerupEvents.map(event => ({
+            type: event.type,
+            typeName: event.typeName,
+            ageSeconds: (this.currentTick - event.tick) / TICK_RATE,
+        }));
+
         return {
             board_id: this.id,
             boardId: this.id,
@@ -594,6 +633,10 @@ export class PongGame {
             paddles: this.paddles.map(paddle => paddle.toJSON()),
             // Only send powerups that haven't been collected yet (visual should disappear when taken)
             powerups: this.powerups.filter(powerup => !powerup.isPowerupTaken()).map(powerup => powerup.toJSON()),
+            // Active time-based effects with remaining duration
+            activeEffects: activeEffects,
+            // Recent instant powerup events (for notifications)
+            recentEvents: recentEvents,
             score: Object.fromEntries(this.fetchPlayerScoreMap()),
             serverTime: Date.now(),
             gameOver: this.isGameOver(),
