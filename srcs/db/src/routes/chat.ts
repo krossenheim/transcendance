@@ -1,11 +1,11 @@
+import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models";
 import { ChatRoomType } from "@app/shared/api/service/chat/chat_interfaces";
 import { registerRoute } from "@app/shared/api/service/common/fastify";
 import { int_url } from "@app/shared/api/service/common/endpoints";
 import { chatService } from "../main.js";
 
-import type { FastifyInstance } from "fastify";
-
-export async function chatRoutes(fastify: FastifyInstance) {
+// Use 'any' to avoid FastifyInstance type mismatch between shared and local fastify versions
+export async function chatRoutes(fastify: any) {
     registerRoute(fastify, int_url.http.db.createChatRoom, async (request, reply) => {
         const createRoomResult = chatService.createNewRoom(request.body.roomName, ChatRoomType.PRIVATE, request.body.owner);
         if (createRoomResult.isErr())
@@ -31,11 +31,23 @@ export async function chatRoutes(fastify: FastifyInstance) {
         else return reply.status(200).send(roomInfoResult.unwrap());
     });
 
+    registerRoute(fastify, int_url.http.db.getAllRooms, async (request, reply) => {
+        const allRoomsResult = chatService.getAllRooms();
+        if (allRoomsResult.isErr()) {
+            console.error("Error fetching all rooms:", allRoomsResult.unwrapErr());
+            return reply.status(500).send({ message: allRoomsResult.unwrapErr() });
+        }
+        else return reply.status(200).send(allRoomsResult.unwrap());
+    });
+
     registerRoute(fastify, int_url.http.db.getUserRooms, async (request, reply) => {
-        const userRoomsResult = chatService.getUserRooms(request.params.userId);
+        const userRoomsResult = chatService.getUserRooms(request.params.userId, ChatRoomUserAccessType.JOINED);
+        console.log("Fetching rooms for user:", request.params.userId);
+        console.log("Result of fetching user rooms:", userRoomsResult);
         if (userRoomsResult.isErr())
             return reply.status(500).send({ message: userRoomsResult.unwrapErr() });
-        else return reply.status(200).send(userRoomsResult.unwrap());
+        console.log("Fetched user rooms:", userRoomsResult.unwrap());
+        return reply.status(200).send(userRoomsResult.unwrap());
     });
 
     registerRoute(fastify, int_url.http.db.addUserToRoom, async (request, reply) => {

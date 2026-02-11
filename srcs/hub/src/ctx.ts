@@ -1,12 +1,10 @@
-import { PayloadToUsersSchema, UserToHubSchema, InvokeWSFunctionSchema } from "@app/shared/api/service/hub/hub_interfaces";
+import { ClientToHubMessage, HubToServiceMessage, ServiceToHubMessage, ServiceToHubClientMessage, ServiceToHubBroadcastMessage, HubToClientMessage, HubToServiceReceiverMessage } from "@app/shared/socket_messages";
 import { int_url } from "@app/shared/api/service/common/endpoints";
-import { JSONtoZod } from "@app/shared/api/service/common/json";
 import { Result } from "@app/shared/api/service/common/result";
 import { isWSAuthenticated } from "./auth.js";
 import WebSocket from "ws";
 
-import type { TypePayloadHubToUsersSchema, T_ForwardToContainer } from "@app/shared/api/service/hub/hub_interfaces";
-import type { GetUserType } from "@app/shared/api/service/db/user";
+import type { TypePayloadHubToUsersSchema } from "@app/shared/api/service/hub/hub_interfaces";
 
 export class HubCTX {
   private userSockets: Map<number, UserSocket>;
@@ -25,17 +23,16 @@ export class HubCTX {
 
   private _notifyContainersOfConnectionStateChange(user_id: number, connected: boolean) {
     for (const [socket, socket_obj] of this.internalContainerSocketBySocket.entries()) {
-      const payload: GetUserType = { userId: user_id };
-      const wrapper: TypePayloadHubToUsersSchema = {
-        source_container: "hub",
-        funcId: connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
-        code: 0,
-        payload: payload,
-      };
+      const message = new HubToServiceReceiverMessage(
+        "hub",
+        connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
+        0,
+        `{"userId":${user_id}}`
+      )
       if (socket.readyState > 1)
         console.error("Socket to container not open, cannot send.");
       else {
-        socket.send(JSON.stringify(wrapper));
+        socket.send(message.toString());
         console.log(`Informed container ${socket_obj.getContainerName()} of user ${connected ? 'connection' : 'dis-connection'}: ${user_id}`);
       }
     }
@@ -113,30 +110,23 @@ export class InternalSocket {
     this.messageStack = [];
   }
 
-  private _sendMessageToUsers<T extends TypePayloadHubToUsersSchema>(ctx: HubCTX, recipients: Array<number>, message: T) {
-    for (const userId of recipients) {
+  private _sendMessageToUsers(ctx: HubCTX, message: ServiceToHubClientMessage): Result<null, string> {
+    for (const userId of message.getRecipientUserIds()) {
       const userSocket = ctx.getUserSocketById(userId);
       if (userSocket)
-        userSocket.sendMessage(message);
+        userSocket.sendMessage(message.convertHubToClientMessage());
     }
+    return Result.Ok(null);
   }
 
-  private _handlePotentialInternalMessage(ctx: HubCTX, message: string): boolean {
-    const validateIncoming = JSONtoZod(message, InvokeWSFunctionSchema);
-    if (validateIncoming.isErr()) return false;
+  private _handleInternalMessage(ctx: HubCTX, message: ServiceToHubBroadcastMessage): Result<null, string> {
+    const internalContainer = ctx.getInternalContainerSocketByName(message.getTargetContainer());
+    if (!internalContainer) return Result.Err("Internal container not found");
 
-    const internalMessage = validateIncoming.unwrap();
-    const internalContainer = ctx.getInternalContainerSocketByName(internalMessage.target_container);
-    if (!internalContainer) return false;
+    for (const userId of message.getRecipientUserIds())
+      internalContainer.sendMessage(message.toServiceMessage(userId));
 
-    for (const userId of internalMessage.userIds) {
-      internalContainer.sendMessage({
-        user_id: userId,
-        funcId: internalMessage.funcId,
-        payload: internalMessage.payload,
-      });
-    }
-    return true;
+    return Result.Ok(null);
   }
 
   public getSocket(): Result<WebSocket, null> {
@@ -166,37 +156,29 @@ export class InternalSocket {
     return this.containerName;
   }
 
-  public async sendMessage<T extends T_ForwardToContainer>(message: T): Promise<void> {
-    const messageString = JSON.stringify(message);
+  public async sendMessage(message: HubToServiceMessage): Promise<void> {
     if (this.isSocketOpen()) {
-      this.ws!.send(messageString);
+      this.ws!.send(message.toString());
     } else {
-      this.messageStack.push(messageString);
+      this.messageStack.push(message.toString());
     }
   }
 
   public async handleMessage(ctx: HubCTX, message: string): Promise<Result<null, string>> {
-    const parsedData = JSONtoZod(message, PayloadToUsersSchema);
+    const parsedData = ServiceToHubMessage.fromRawString(this.containerName, message);
     if (parsedData.isErr()) {
-      if (this._handlePotentialInternalMessage(ctx, message))
-        return Result.Ok(null);
-
       console.error("Invalid payload to users schema: " + parsedData.unwrapErr());
       return Result.Err("Invalid payload to users schema");
     }
 
     const data = parsedData.unwrap();
-    this._sendMessageToUsers(
-      ctx,
-      data.recipients,
-      {
-        source_container: this.containerName,
-        funcId: data.funcId,
-        code: data.code,
-        payload: data.payload,
-      }
-    );
-    return Result.Ok(null);
+    if (data instanceof ServiceToHubBroadcastMessage)
+      return this._handleInternalMessage(ctx, data);
+
+    else if (data instanceof ServiceToHubClientMessage)
+      return this._sendMessageToUsers(ctx, data);
+
+    return Result.Err("Unhandled internal container message type");
   }
 }
 
@@ -257,19 +239,15 @@ export class UserSocket {
   }
 
   private async _handleClientMessage(ctx: HubCTX, message: string): Promise<Result<null, string>> {
-    const validateIncoming = JSONtoZod(message, UserToHubSchema);
+    const validateIncoming = ClientToHubMessage.fromRawString(message);
     if (validateIncoming.isErr()) {
-      console.error("Invalid user to hub schema: " + validateIncoming.unwrapErr());
+      console.error("Invalid client to hub message: " + validateIncoming.unwrapErr());
       return Result.Err("Input data validation failed");
     }
 
     const userMessage = validateIncoming.unwrap();
-    const containerSocket = ctx.getInternalContainerSocketByName(userMessage.target_container);
-    containerSocket.sendMessage({
-      user_id: this.id!,
-      funcId: userMessage.funcId,
-      payload: userMessage.payload,
-    });
+    const containerSocket = ctx.getInternalContainerSocketByName(userMessage.getTargetContainer());
+    containerSocket.sendMessage(userMessage.convertHubToServiceMessage(this.id!));
     return Result.Ok(null);
   }
 
@@ -281,8 +259,8 @@ export class UserSocket {
     return this.ws;
   }
 
-  public sendMessage<T extends TypePayloadHubToUsersSchema>(message: T): void {
-    this.ws.send(JSON.stringify(message));
+  public sendMessage<T extends TypePayloadHubToUsersSchema>(message: HubToClientMessage): void {
+    this.ws.send(message.toString());
   }
 
   public sendHubError(message: string, original: any): void {

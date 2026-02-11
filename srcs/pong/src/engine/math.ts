@@ -11,20 +11,51 @@ export function isNearly(x: number, n: number): boolean {
 export class Vec2 {
     constructor(public x: number, public y: number) { }
 
-    add(v: Vec2): Vec2 {
-        return new Vec2(this.x + v.x, this.y + v.y);
+    set(x: number, y: number): this {
+        this.x = x;
+        this.y = y;
+        return this;
     }
 
-    sub(v: Vec2): Vec2 {
-        return new Vec2(this.x - v.x, this.y - v.y);
+    copy(v: Vec2): this {
+        this.x = v.x;
+        this.y = v.y;
+        return this;
     }
 
-    mul(s: number): Vec2 {
-        return new Vec2(this.x * s, this.y * s);
+    clone(): Vec2 {
+        return new Vec2(this.x, this.y);
     }
 
-    div(s: number): Vec2 {
-        return new Vec2(this.x / s, this.y / s);
+    add(v: Vec2): this {
+        this.x += v.x;
+        this.y += v.y;
+        return this;
+    }
+
+    sub(v: Vec2): this {
+        this.x -= v.x;
+        this.y -= v.y;
+        return this;
+    }
+
+    mul(s: number): this {
+        this.x *= s;
+        this.y *= s;
+        return this;
+    }
+
+    div(s: number): this {
+        const inv = 1 / s;
+        this.x *= inv;
+        this.y *= inv;
+        return this;
+    }
+
+    addScaled(v: Vec2, s: number): this {
+        this.x += v.x * s;
+        this.y += v.y * s;
+        return this;
     }
 
     dot(v: Vec2): number {
@@ -39,46 +70,65 @@ export class Vec2 {
         return this.dot(this);
     }
 
-    normalize(): Vec2 {
-        const length = this.len();
-        if (length !== 0) {
-            return this.div(length);
-        }
-        return new Vec2(0, 0);
-    }
-
     angle(): number {
         return Math.atan2(this.y, this.x);
+    }
+
+    distanceTo(v: Vec2): number {
+        const dx = this.x - v.x;
+        const dy = this.y - v.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    normalize(): this {
+        const length = this.len();
+        if (length > EPS) {
+            this.div(length);
+        } else {
+            this.x = 0;
+            this.y = 0;
+        }
+        return this;
     }
 
     rotate(angle: number): Vec2 {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
-        const x = this.x * cos - this.y * sin;
-        const y = this.x * sin + this.y * cos;
-        return new Vec2(x, y);
+        const currentX = this.x;
+        const currentY = this.y;
+
+        this.x = currentX * cos - currentY * sin;
+        this.y = currentX * sin + currentY * cos;
+        return this;
     }
 
     perp(): Vec2 {
-        return new Vec2(-this.y, this.x);
-    }
-
-    clone(): Vec2 {
-        return new Vec2(this.x, this.y);
+        const tempX = this.x;
+        this.x = -this.y;
+        this.y = tempX;
+        return this;
     }
 }
 
-export function solveQuadratic(a: number, b: number, c: number): number[] {
+export const QUAD_BUFFER = new Float64Array(2);
+
+export function solveQuadratic(a: number, b: number, c: number, out: Float64Array): number {
     if (isNearly(a, 0)) {
         if (isNearly(b, 0))
-            return [];
-        return [-c / b];
+            return 0;
+        out[0] = -c / b;
+        return 1;
     }
 
     const disc = b * b - 4 * a * c;
-    if (disc < -EPS) return [];
-    if (disc < 0) return [-b / (2 * a)];
+    if (disc < -EPS) return 0;
+    if (disc < 0) {
+        out[0] = -b / (2 * a);
+        return 1;
+    }
 
     const sqrtDisc = Math.sqrt(disc);
-    return [(-b - sqrtDisc) / (2 * a), (-b + sqrtDisc) / (2 * a)];
+    out[0] = (-b - sqrtDisc) / (2 * a);
+    out[1] = (-b + sqrtDisc) / (2 * a);
+    return 2;
 }

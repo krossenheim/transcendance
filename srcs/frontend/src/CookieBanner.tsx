@@ -11,6 +11,8 @@ function getCookie(name: string) {
 }
 
 export default function CookieBanner() {
+  return null;
+
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
 

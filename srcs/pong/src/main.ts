@@ -7,7 +7,6 @@ import websocketPlugin from "@fastify/websocket";
 import { OurSocket } from "@app/shared/socket_to_hub";
 import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
-import type { FastifyInstance } from "fastify";
 import { createFastify } from "@app/shared/api/service/common/fastify";
 // Prometheus metrics
 import client from "prom-client";
@@ -18,7 +17,8 @@ client.collectDefaultMetrics({ prefix: 'pong_' });
 // Expose metrics on /metrics
 import BlockchainService from "./services/blockchainService.js";
 
-const fastify: FastifyInstance = createFastify();
+// Cast to any to avoid FastifyInstance type mismatch with websocket plugin
+const fastify: any = createFastify();
 
 fastify.register(websocketPlugin);
 
@@ -42,21 +42,6 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
     }
   }
 });
-
-function createBasicGameOptions(): PongGameOptions {
-  return {
-    canvasWidth: 1000,
-    canvasHeight: 1000,
-    ballSpeed: 450,
-    paddleSpeedFactor: 4.0,
-    paddleWidthFactor: 0.15,
-    paddleHeight: 30,
-    paddleWallOffset: 40,
-    amountOfBalls: 1,
-    powerupFrequency: 10,
-    gameDuration: 180,
-  };
-}
 
 function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number): PongGameOptions {
   console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}`);
@@ -82,7 +67,7 @@ function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, m
 
 socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) => {
   singletonPong.handleUserInput(
-    body.user_id,
+    body.userId,
     body.payload.pressed_keys,
     body.payload.clientTimestamp,  // Pass client timestamp for lag compensation
   );
@@ -91,9 +76,11 @@ socket.registerHandler(user_url.ws.pong.handleGameKeys, async (body, response) =
 
 socket.registerHandler(user_url.ws.pong.startGame, async (body, response) => {
   const player_list_requested = body.payload.player_list;
+  const allowPowerups = body.payload.allowPowerups ?? false;
+  const gameOptions = createGameOptionsFromLobby(body.payload.balls || 1, allowPowerups);
   const startGameResult = singletonPong.startGame(
     player_list_requested,
-    createBasicGameOptions()
+    gameOptions
   );
 
   if (startGameResult.isErr()) {
@@ -113,7 +100,7 @@ socket.registerHandler(user_url.ws.pong.startGame, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => {
-  const userId = body.user_id;
+  const userId = body.userId;
   const gameId = body.payload.gameId;
   const gameDataResult = singletonPong.getGameState(userId, gameId);
   if (gameDataResult.isErr()) {
@@ -128,7 +115,7 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => 
 
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = body.payload;
 
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
@@ -198,7 +185,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { lobbyId } = body.payload;
 
   const toggleResult = lobbyManager.togglePlayerReady(lobbyId, user_id);
@@ -230,7 +217,7 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
 });
 
 socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { lobbyId } = body.payload;
 
   const lobby = lobbyManager.getLobby(lobbyId);
@@ -294,7 +281,7 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
 });
 
 socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) => {
-  const user_id = body.user_id;
+  const user_id = body.userId;
   const { lobbyId } = body.payload;
 
   const lobby = lobbyManager.getLobby(lobbyId);
@@ -417,7 +404,7 @@ const port = parseInt(
 const host = process.env.PONG_BIND_TO || "0.0.0.0";
 
 // register a /metrics route for Prometheus to scrape
-fastify.get('/metrics', async (request, reply) => {
+fastify.get('/metrics', async (request: any, reply: any) => {
   try {
     reply.header('Content-Type', client.register.contentType);
     const metrics = await client.register.metrics();
@@ -428,7 +415,7 @@ fastify.get('/metrics', async (request, reply) => {
 });
 
 // Public API: Get tournament stats including on-chain tx hashes
-fastify.get('/public_api/pong/tournaments/:id/stats', async (request, reply) => {
+fastify.get('/public_api/pong/tournaments/:id/stats', async (request: any, reply: any) => {
   const idParam = (request.params as any).id;
   const tid = Number(idParam);
   if (Number.isNaN(tid)) return reply.status(400).send({ message: 'invalid tournament id' });
@@ -442,7 +429,7 @@ fastify.get('/public_api/pong/tournaments/:id/stats', async (request, reply) => 
 
 // Internal endpoint to record a tournament score on-chain.
 // Protect with INTERNAL_API_SECRET header for simple access control in dev.
-fastify.post('/api/pong/blockchain/record_score', async (request, reply) => {
+fastify.post('/api/pong/blockchain/record_score', async (request: any, reply: any) => {
   const body: any = request.body as any;
   const secret = (request.headers['x-internal-secret'] as string) || undefined;
   if (process.env.INTERNAL_API_SECRET && secret !== process.env.INTERNAL_API_SECRET) {
@@ -469,7 +456,7 @@ fastify.post('/api/pong/blockchain/record_score', async (request, reply) => {
   }
 });
 
-fastify.listen({ port, host }, (err, address) => {
+fastify.listen({ port, host }, (err: any, address: any) => {
   if (err) {
     fastify.log.error(err);
     process.exit(1);

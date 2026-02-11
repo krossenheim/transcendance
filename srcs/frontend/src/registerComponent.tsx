@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { pub_url } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "./types/auth-response"
+import { apiCall } from "@utils/useApi"
 import { useLanguage } from "./i18n"
+import { useState } from "react"
 
 interface RegisterComponentProps {
   whenCompletedSuccesfully: (data: any) => void
@@ -62,21 +64,14 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
   }
 
   const registerAsUser = async (username: string, email: string, password: string): Promise<AuthResponseType> => {
-    const url = `https://${window.location.host}/public_api/auth/create/user`
+    const result = await apiCall(pub_url.http.auth.createNormalUser, {
+      body: { username, email, password },
+    });
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password }),
-    })
+    if (result.code !== 201)
+      throw new Error(result.payload.message || "Registration failed")
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(errorText || "Registration failed")
-    }
-
-    const data: AuthResponseType = await response.json()
-    return data
+    return result.payload;
   }
 
   const handleRegister = async () => {

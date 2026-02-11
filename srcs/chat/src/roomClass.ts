@@ -213,12 +213,25 @@ class ChatRooms {
   public static instance: ChatRooms;
 
   constructor() {
-    this.rooms = new Map();
-
     if (ChatRooms.instance) {
+      this.rooms = ChatRooms.instance.rooms;
       return ChatRooms.instance;
     }
+
+    this.rooms = new Map();
     ChatRooms.instance = this;
+
+    containers.db.get(int_url.http.db.getAllRooms).then((allRoomsResult) => {
+      if (allRoomsResult.isOk() && allRoomsResult.unwrap().status === 200) {
+        const rooms = allRoomsResult.unwrap().data as Array<TypeFullRoomInfoSchema>;
+        for (const roomInfo of rooms) {
+          this.rooms.set(roomInfo.room.roomId, new Room(roomInfo.room, roomInfo.userConnections.map(uc => [uc.userId, uc.userState])));
+          console.log("Loaded room from DB on startup:", roomInfo.room.roomId);
+        }
+      } else {
+        console.error("Failed to load rooms from DB on startup.", allRoomsResult.isErr() ? allRoomsResult.unwrapErr() : allRoomsResult.unwrap());
+      }
+    });
 
     return this;
   }
@@ -258,6 +271,7 @@ class ChatRooms {
     const userConnections: Array<[number, number]> = roomInfo.userConnections.map(uc => [uc.userId, uc.userState]);
     const newRoom = new Room(roomInfo.room, userConnections);
     this.rooms.set(newRoom.roomId, newRoom);
+    console.log("Loaded room from DB:", newRoom);
     return Result.Ok(newRoom);
   }
 
@@ -284,6 +298,18 @@ class ChatRooms {
     }
 
     const roomInfo = roomInfoResult.unwrap().data as TypeFullRoomInfoSchema;
+    const isUserMemberOfRoom = roomInfo.userConnections.some(uc => uc.userId === userId && uc.userState === ChatRoomUserAccessType.JOINED);
+    if (!isUserMemberOfRoom) {
+      console.warn(`User ${userId} tried to access room ${roomId} without being a member.`);
+      return Result.Ok({
+        recipients: [userId],
+        code: user_url.ws.chat.getRoomData.schema.output.NoSuchRoom.code,
+        payload: {
+          message: `No such room (ID: ${roomId}) or you are not in it.`,
+        },
+      });
+    }
+
     return Result.Ok({
       recipients: [userId],
       code: user_url.ws.chat.getRoomData.schema.output.RoomDataProvided.code,
@@ -429,6 +455,21 @@ class ChatRooms {
 
       room.users.push(user_id);
       console.log(`User ${user_id} joined room ${room.roomId}.`);
+
+      const userDataResult = await containers.db.fetchUserData(user_id, true);
+      console.log("Fetched user data for join message:", userDataResult);
+      if (userDataResult.isOk()) {
+        const result = await containers.chat.post(int_url.http.chat.sendSystemMessage, {
+          roomId: room.roomId,
+          messageString: `${userDataResult.unwrap().username} has joined the room!`,
+        }).catch((err) => {
+          console.error('Failed to send system message for new room:', err);
+        });
+        console.log("Sent join system message result:", result);
+      } else {
+        console.error(`Failed to fetch user data for user ${user_id} to send join message.`);
+      }
+
       internal_socket.invokeHandler(
         user_url.ws.users.userOnlineStatusUpdate,
         room.users,

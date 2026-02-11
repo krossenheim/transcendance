@@ -29,6 +29,7 @@ export async function fetchAllowedOnlineStatusViewers(userId: number): Promise<A
     int_url.http.chat.getUserConnections,
     { userId: userId }
   );
+  console.log("Chat connections for user", userId, ":", chatConnections);
 
   if (chatConnections.isOk() && chatConnections.unwrap().status === 200) {
     const result_array = chatConnections.unwrap().data as Array<number>;
@@ -42,13 +43,13 @@ export async function fetchAllowedOnlineStatusViewers(userId: number): Promise<A
 
 // {"funcId":"user_online_status_update","payload":null,"target_container":"users"}
 export function wsUserOnlineStatusHandler(socket: OurSocket, onlineUsers: Set<number>) {
-	socket.registerHandler(
-		user_url.ws.users.userOnlineStatusUpdate,
-		async (body, response) => {
-      const allowedViewers = await fetchAllowedOnlineStatusViewers(body.user_id);
+  socket.registerHandler(
+    user_url.ws.users.userOnlineStatusUpdate,
+    async (body, response) => {
+      const allowedViewers = await fetchAllowedOnlineStatusViewers(body.userId);
       return Result.Ok(response.select("GetOnlineUsers").reply(
         Array.from(allowedViewers).filter((uid) => onlineUsers.has(uid))
       ));
-		}
-	);
+    }
+  );
 }

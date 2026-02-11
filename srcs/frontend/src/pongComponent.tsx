@@ -1,18 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useState, useRef } from "react"
-import ReactDOM from "react-dom"
+
 import type {
   TypeHandleGameKeysSchema,
   TypeStartNewPongGame,
   TypeGameStateSchema,
-  TypePlayerReadyForGameSchema,
-  TypePlayerDeclaresReadyForGame,
 } from "./types/pong-interfaces"
-import { useWebSocket } from "./socketComponent"
-import { user_url } from "./endpoints"
+import { useWebSocket, HandlerResult } from "./socketComponent"
+import { user_url } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
+import PowerupDisplay from "./PowerupDisplay"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
 import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
@@ -20,6 +19,7 @@ import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
 import { usePredictedGameState } from "./usePredictedGameState"
 import { useLanguage } from "./i18n/LanguageContext"
+import { usePongStore } from "./stores/pongStore"
 // local: avoid importing server-side db helpers
 
 // =========================
@@ -117,54 +117,56 @@ export default function PongComponent({
       balls,
       metadata: raw.metadata ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
+      activeEffects: raw.activeEffects ?? [],
+      recentEvents: raw.recentEvents ?? [],
       score: raw.score ?? null,
       gameOver: raw.gameOver ?? false,
       winner: raw.winner ?? null,
     }
   }
-  const { socket, payloadReceived } = useWebSocket()
-  const [latestPlayerReadyPayload, setLatestPlayerReadyPayload] = useState<TypePlayerReadyForGameSchema | null>(null)
-  const [gameSelectedInput, setGameSelectedInput] = useState<number>(1)
-  const [gameState, setGameState] = useState<TypeGameStateSchema | null>(null)
-  const [playerOnePaddleID, setPlayerOnePaddleID] = useState<number>(-1)
-  const [playerTwoPaddleID, setPlayerTwoPaddleID] = useState<number>(-2)
+  const { isConnected, sendMessage, subscribe } = useWebSocket()
+  
+  // Get state from Zustand store
+  const gameState = usePongStore((state) => state.gameState)
+  const setGameState = usePongStore((state) => state.setGameState)
+  const playerOnePaddleID = usePongStore((state) => state.playerOnePaddleID)
+  const setPlayerOnePaddleID = usePongStore((state) => state.setPlayerOnePaddleID)
+  const playerTwoPaddleID = usePongStore((state) => state.playerTwoPaddleID)
+  const setPlayerTwoPaddleID = usePongStore((state) => state.setPlayerTwoPaddleID)
+  const lastCreatedBoardId = usePongStore((state) => state.lastCreatedBoardId)
+  const setLastCreatedBoardId = usePongStore((state) => state.setLastCreatedBoardId)
+  const pressedKeys = usePongStore((state) => state.pressedKeys)
+  const setPressedKeys = usePongStore((state) => state.setPressedKeys)
+  const currentView = usePongStore((state) => state.currentView)
+  const setCurrentView = usePongStore((state) => state.setCurrentView)
+  const lobby = usePongStore((state) => state.lobby)
+  const setLobby = usePongStore((state) => state.setLobby)
+  const tournament = usePongStore((state) => state.tournament)
+  const setTournament = usePongStore((state) => state.setTournament)
+  const activeTournamentId = usePongStore((state) => state.activeTournamentId)
+  const setActiveTournamentId = usePongStore((state) => state.setActiveTournamentId)
+  const showInviteModalLocal = usePongStore((state) => state.showInviteModalLocal)
+  const setShowInviteModalLocal = usePongStore((state) => state.setShowInviteModalLocal)
+  const showTournamentStats = usePongStore((state) => state.showTournamentStats)
+  const setShowTournamentStats = usePongStore((state) => state.setShowTournamentStats)
+  
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
-  const [lastCreatedBoardId, setLastCreatedBoardId] = useState<number | null>(null)
   // Renderer controls for tuning paddle rotation and screenshots
   const rendererRef = useRef<any>(null)
-  const [paddleRotationOffset, setPaddleRotationOffset] = useState<number>(0)
-  
-  // Track pressed keys for client-side prediction
-  const [pressedKeys, setPressedKeys] = useState<string[]>([])
+  const [paddleRotationOffset] = useState<number>(0)
   
   // Get user ID for prediction
   const myUserId = authResponse?.user?.id ?? -1
   
   // Use client-side prediction for smooth rendering
   const predictedGameState = usePredictedGameState(gameState, myUserId, pressedKeys)
-
-  // New state for lobby and tournament
-  const [currentViewInternal, setCurrentViewInternal] = useState<"menu" | "lobby" | "game" | "tournament">("menu")
   
-  // Wrapper to log WHO is changing the view
-  const setCurrentView = (newView: "menu" | "lobby" | "game" | "tournament") => {
-    console.log("[Pong] VIEW CHANGE:", currentViewInternal, "->", newView);
-    console.trace("[Pong] Stack trace for view change:");
-    setCurrentViewInternal(newView);
-  };
-  const currentView = currentViewInternal;
+  // Debug: Log all view changes (disabled for performance)
+  // useEffect(() => {
+  //   console.log("[Pong] VIEW IS NOW:", currentView);
+  // }, [currentView]);
   
-  // Debug: Log all view changes
-  useEffect(() => {
-    console.log("[Pong] VIEW IS NOW:", currentView);
-  }, [currentView]);
-  
-  const [lobby, setLobby] = useState<PongLobbyData | null>(null)
-  const [tournament, setTournament] = useState<TournamentData | null>(null)
-  const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null) // Track tournament ID during game
-  const [showInviteModalLocal, setShowInviteModalLocal] = useState(false)
-  const [showTournamentStats, setShowTournamentStats] = useState(false)
   // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
   // Cleanup polling on unmount (in case any leftover intervals exist)
@@ -193,215 +195,254 @@ export default function PongComponent({
   useEffect(() => {
     // Only run cleanup on actual unmount
     return () => {
-      if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
+      if (lobbyRef.current) {
         console.log("[Pong] Component unmounting, leaving lobby:", lobbyRef.current.lobbyId)
-        socket.current.send(JSON.stringify({
-          funcId: "leave_pong_lobby",
-          payload: { lobbyId: lobbyRef.current.lobbyId },
-          target_container: "pong",
-        }))
+        sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobbyRef.current.lobbyId })
       }
     }
-  }, [])
+  }, [sendMessage])
 
   // =========================
   // Fetch game state on mount
   // =========================
   useEffect(() => {
-    if (!socket.current) {
+    if (!isConnected) {
       console.log("[Pong] Socket not ready yet");
       return;
     }
 
     // Only request game state if socket is ready
-    const attemptGameStateRequest = () => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        console.log("[Pong] Requesting game state...");
-        console.log("[Pong] getGameState config:", {
-          funcId: user_url.ws.pong.getGameState.funcId,
-          container: user_url.ws.pong.getGameState.container,
-        });
-        const payload = {
-          funcId: user_url.ws.pong.getGameState.funcId,
-          payload: {
-            gameId: lastCreatedBoardId,
-          },
-          target_container: user_url.ws.pong.getGameState.container,
-        };
-        const strToSend = JSON.stringify(payload);
-        console.log("[Pong] Sending payload:", strToSend);
-        socket.current.send(strToSend);
-        console.log("[Pong] Game state request sent");
-      } else {
-        console.warn("[Pong] WebSocket not ready, retrying in 500ms");
-        setTimeout(attemptGameStateRequest, 500);
+    console.log("[Pong] Requesting game state...");
+    console.log("[Pong] getGameState config:", {
+      funcId: user_url.ws.pong.getGameState.funcId,
+      container: user_url.ws.pong.getGameState.container,
+    });
+    console.log("[Pong] Sending payload for gameId:", lastCreatedBoardId);
+    if (lastCreatedBoardId != null) {
+      sendMessage(user_url.ws.pong.getGameState, { gameId: lastCreatedBoardId });
+    }
+    console.log("[Pong] Game state request sent");
+  }, [isConnected, lastCreatedBoardId, sendMessage]);
+
+  // =========================
+  // Subscribe to pong WebSocket events
+  // =========================
+  
+  // Helper function for setting player paddle IDs
+  const setPlayerIDsHelper = useCallback(
+    (game_data: TypeGameStateSchema) => {
+      if (!game_data) {
+        console.log("[Pong] setPlayerIDsHelper: game_data is null");
+        return;
       }
-    };
-
-    attemptGameStateRequest();
-  }, [socket]);
-
-  // =========================
-  // Handle incoming GameState and Lobby updates
-  // =========================
-
-  const aPlayerHasReadied = useCallback(
-    (player_readied_info: TypePlayerReadyForGameSchema) => {
-      console.log(
-        `Player with ID '${player_readied_info.user_id}' is ready for game with ID '${player_readied_info.game_id}'`,
-      )
+      if (!authResponse) {
+        console.log("[Pong] setPlayerIDsHelper: authResponse is null");
+        return;
+      }
+      let odd = true;
+      for (const paddle of game_data.paddles) {
+        if (paddle.owner_id === authResponse.user.id) {
+          if (odd) {
+            setPlayerOnePaddleID(paddle.paddle_id);
+            odd = false;
+          } else {
+            setPlayerTwoPaddleID(paddle.paddle_id);
+          }
+        }
+      }
     },
-    [latestPlayerReadyPayload],
+    [authResponse, setPlayerOnePaddleID, setPlayerTwoPaddleID],
   )
 
-  // Handle incoming pong invitations and lobby updates
+  // Subscribe to game state updates
   useEffect(() => {
-    if (!payloadReceived) return
-
-    // Debug: Log all pong-related messages
-    if (payloadReceived.funcId === 'create_pong_lobby' || payloadReceived.funcId === 'pong_lobby_invitation' || payloadReceived.funcId === 'lobby_state_update' || payloadReceived.funcId === 'start_game_from_lobby') {
-      console.log("[Pong] DEBUG: Received message:", payloadReceived.funcId, "source_container:", payloadReceived.source_container, "code:", payloadReceived.code)
-    }
-
-    if (payloadReceived.source_container !== 'pong') {
-      if (payloadReceived.funcId === 'create_pong_lobby' || payloadReceived.funcId === 'start_game_from_lobby') {
-        console.log("[Pong] DEBUG:", payloadReceived.funcId, "filtered out! source_container:", payloadReceived.source_container)
+    const unsubscribers: (() => void)[] = [];
+    
+    // Subscribe to getGameState
+    unsubscribers.push(subscribe(user_url.ws.pong.getGameState, (message, schema) => {
+      // Debug logging disabled for performance
+      // console.log("[Pong] Received getGameState:", message.code);
+      
+      if (message.code === schema.output.GameUpdate.code) {
+        const normalized = normalizeGameState(message.payload);
+        if (message.payload?.gameOver) {
+          console.log("[Pong] 🎮 GAME OVER RECEIVED!", { 
+            gameOver: message.payload.gameOver, 
+            winner: message.payload.winner,
+            score: message.payload.score 
+          });
+        }
+        setGameState(normalized);
+        gameStateReceivedRef.current = true;
+        if (normalized) {
+          setPlayerIDsHelper(normalized);
+        }
+        // If we received valid game state and we're not in game view, switch to it
+        if (currentView !== 'game' && message.payload?.board_id && normalized && !normalized.gameOver) {
+          console.log("[Pong] Received game state while not in game view, transitioning to game");
+          setLobby(null);
+          setCurrentView("game");
+        }
+        return HandlerResult.Handled;
+      } else if (message.code === schema.output.NotInRoom.code) {
+        console.log("[Pong] User not in any game room - this is normal if no game exists");
+        return HandlerResult.Handled;
       }
-      return
-    }
-
-    // Handle lobby creation (used as invitation for non-host players)
-    if (payloadReceived.funcId === 'create_pong_lobby' && payloadReceived.code === 0) {
-      console.log("[Pong] Received lobby creation/invitation:", payloadReceived.payload)
-
-      // Check if we're the host (we created this)
-      const isHost = authResponse && payloadReceived.payload.players?.some((p: any) =>
-        (p.userId === authResponse.user.id || p.id === authResponse.user.id) && p.isHost
-      )
-
-      console.log("[Pong] isHost check: myId=", authResponse?.user.id, "isHost=", isHost, "players=", payloadReceived.payload.players)
-
-      // Note: Invitation notifications are now handled by PongInvitationHandler in AppRoot
-      // This handler only sets up the lobby for the host
-      if (isHost) {
-        // We're the host - go directly to lobby
-        setLobby({
-          lobbyId: payloadReceived.payload.lobbyId,
-          gameMode: payloadReceived.payload.gameMode,
-          players: payloadReceived.payload.players.map((p: any) => ({
-            id: p.userId || p.id,
-            username: p.username,
-            isReady: p.isReady,
-            isHost: p.isHost,
-          })),
-          settings: {
-            ballCount: payloadReceived.payload.ballCount ?? 1,
-            maxScore: payloadReceived.payload.maxScore ?? 5,
-            allowPowerups: payloadReceived.payload.allowPowerups ?? false,
-          },
-          status: payloadReceived.payload.status,
-        })
-
-        // If this is a tournament lobby, capture the SERVER's tournament ID (not the client-generated one)
-        if (payloadReceived.payload.tournament?.tournamentId) {
-          const serverTournament = payloadReceived.payload.tournament
-          console.log("[Pong] Tournament lobby created, setting activeTournamentId:", serverTournament.tournamentId)
-          setActiveTournamentId(serverTournament.tournamentId)
-
-          // Set tournament state from server data (overwrite any client-generated tournament)
-          setTournament({
-            tournamentId: serverTournament.tournamentId,
-            name: serverTournament.name || "Tournament",
-            mode: serverTournament.mode || payloadReceived.payload.gameMode,
-            players: serverTournament.players?.map((p: any) => ({
+      
+      return HandlerResult.NotHandled;
+    }));
+    
+    // Subscribe to startGame
+    unsubscribers.push(subscribe(user_url.ws.pong.startGame, (message, schema) => {
+      console.log("[Pong] Received startGame:", message.code);
+      
+      if (message.code === schema.output.GameInstanceCreated.code) {
+        console.log("[Pong] Game started, received game info:", message.payload);
+        if (message.payload && typeof message.payload.board_id === 'number') {
+          setLastCreatedBoardId(message.payload.board_id);
+          // Request game state after game creation
+          if (isConnected) {
+            sendMessage(user_url.ws.pong.getGameState, { gameId: message.payload.board_id });
+            console.log("[Pong] Requested game state after game creation");
+          }
+        }
+        return HandlerResult.Handled;
+      }
+      
+      return HandlerResult.NotHandled;
+    }));
+    
+    // Subscribe to createLobby
+    unsubscribers.push(subscribe(user_url.ws.pong.createLobby, (message, schema) => {
+      console.log("[Pong] Received createLobby:", message.code, message.payload);
+      
+      if (message.code === schema.output.LobbyCreated.code) {
+        // Check if we're the host
+        const isHost = authResponse && message.payload.players?.some((p: any) =>
+          (p.userId === authResponse.user.id || p.id === authResponse.user.id) && p.isHost
+        );
+        
+        console.log("[Pong] isHost check: myId=", authResponse?.user.id, "isHost=", isHost);
+        
+        if (isHost) {
+          // We're the host - go directly to lobby
+          setLobby({
+            lobbyId: message.payload.lobbyId,
+            gameMode: message.payload.gameMode,
+            players: message.payload.players.map((p: any) => ({
               id: p.userId || p.id,
-              username: p.username || `Player ${p.userId || p.id}`,
-              alias: p.alias,
-            })) || [],
-            matches: serverTournament.matches || [],
-            currentRound: serverTournament.currentRound || 1,
-            totalRounds: serverTournament.totalRounds || 2,
-            status: serverTournament.status || "in_progress",
-            winner: serverTournament.winnerId || null,
-          })
+              username: p.username,
+              isReady: p.isReady,
+              isHost: p.isHost,
+            })),
+            settings: {
+              ballCount: message.payload.ballCount ?? 1,
+              maxScore: message.payload.maxScore ?? 5,
+              allowPowerups: message.payload.allowPowerups ?? false,
+            },
+            status: message.payload.status,
+          });
+          
+          // If this is a tournament lobby, capture the SERVER's tournament ID
+          if (message.payload.tournament?.tournamentId) {
+            const serverTournament = message.payload.tournament;
+            console.log("[Pong] Tournament lobby created, setting activeTournamentId:", serverTournament.tournamentId);
+            setActiveTournamentId(serverTournament.tournamentId);
+            
+            setTournament({
+              tournamentId: serverTournament.tournamentId,
+              name: serverTournament.name || "Tournament",
+              mode: serverTournament.mode || message.payload.gameMode,
+              players: serverTournament.players?.map((p: any) => ({
+                id: p.userId || p.id,
+                username: p.username || `Player ${p.userId || p.id}`,
+                alias: p.alias,
+              })) || [],
+              matches: serverTournament.matches || [],
+              currentRound: serverTournament.currentRound || 1,
+              totalRounds: serverTournament.totalRounds || 2,
+              status: serverTournament.status || "in_progress",
+              winner: serverTournament.winnerId || null,
+            });
+          }
+          
+          setCurrentView("lobby");
         }
-
-        setCurrentView("lobby")
+        return HandlerResult.Handled;
       }
-    }
-
-    // Handle lobby invitation (legacy support)
-    if (payloadReceived.funcId === 'pong_lobby_invitation') {
-      console.log("[Pong] Received lobby invitation:", payloadReceived.payload)
-      const invitation: PongInvitation = {
-        inviteId: payloadReceived.payload.lobbyId || Date.now(),
-        lobbyId: payloadReceived.payload.lobbyId,
-        hostId: payloadReceived.payload.hostId,
-        hostUsername: payloadReceived.payload.hostUsername || `User ${payloadReceived.payload.hostId}`,
-        gameMode: payloadReceived.payload.gameMode,
-        playerCount: payloadReceived.payload.playerCount || 0,
-        timestamp: Date.now(),
-      }
-      setPongInvitations((prev) => [...prev, invitation])
-    }
-
-    // Handle toggle ready response and lobby state updates
-    if ((payloadReceived.funcId === 'toggle_player_ready_in_lobby' && payloadReceived.code === 0) ||
-      payloadReceived.funcId === 'lobby_state_update') {
-      console.log("[Pong] Received lobby update:", payloadReceived.funcId, payloadReceived.payload)
-      const lobbyData = payloadReceived.payload
-
-      if (authResponse && lobbyData.players.some((p: any) => (p.userId === authResponse.user.id || p.id === authResponse.user.id))) {
-        setLobby({
-          lobbyId: lobbyData.lobbyId,
-          gameMode: lobbyData.gameMode,
-          players: lobbyData.players.map((p: any) => ({
-            id: p.userId || p.id,
-            username: p.username,
-            isReady: p.isReady,
-            isHost: p.isHost,
-          })),
-          settings: {
-            ballCount: lobbyData.ballCount ?? 1,
-            maxScore: lobbyData.maxScore ?? 5,
-            allowPowerups: lobbyData.allowPowerups ?? false,
-          },
-          status: lobbyData.status,
-        })
-
-        // If we're not in lobby view, switch to it
-        if (currentView === "menu") {
-          setCurrentView("lobby")
+      
+      return HandlerResult.NotHandled;
+    }));
+    
+    // Subscribe to togglePlayerReady
+    unsubscribers.push(subscribe(user_url.ws.pong.togglePlayerReady, (message, schema) => {
+      console.log("[Pong] Received togglePlayerReady:", message.code);
+      
+      if (message.code === schema.output.LobbyUpdate.code) {
+        const lobbyData = message.payload;
+        if (authResponse && lobbyData.players.some((p: any) => 
+          p.userId === authResponse.user.id || p.id === authResponse.user.id
+        )) {
+          setLobby({
+            lobbyId: lobbyData.lobbyId,
+            gameMode: lobbyData.gameMode,
+            players: lobbyData.players.map((p: any) => ({
+              id: p.userId || p.id,
+              username: p.username,
+              isReady: p.isReady,
+              isHost: p.isHost,
+            })),
+            settings: {
+              ballCount: lobbyData.ballCount ?? 1,
+              maxScore: lobbyData.maxScore ?? 5,
+              allowPowerups: lobbyData.allowPowerups ?? false,
+            },
+            status: lobbyData.status,
+          });
+          
+          if (currentView === "menu") {
+            setCurrentView("lobby");
+          }
         }
+        return HandlerResult.Handled;
       }
-    }
-
-    // Handle game start from lobby - sent to all players
-    if (payloadReceived.funcId === 'start_game_from_lobby') {
-      console.log("[Pong] Received start_game_from_lobby! code:", payloadReceived.code, "payload:", payloadReceived.payload)
-      if (payloadReceived.code === 0) {
-        console.log("[Pong] Game started from lobby! Processing game state")
-        const gameState = payloadReceived.payload
-
+      
+      return HandlerResult.NotHandled;
+    }));
+    
+    // Subscribe to startFromLobby
+    unsubscribers.push(subscribe(user_url.ws.pong.startFromLobby, (message, schema) => {
+      console.log("[Pong] Received startFromLobby:", message.code);
+      
+      if (message.code === schema.output.GameStarted.code) {
+        console.log("[Pong] Game started from lobby! Processing game state");
+        const gameStatePayload = message.payload;
+        
         // Preserve tournament ID before clearing lobby
-        const tournamentIdToPreserve = activeTournamentId || tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId
+        const tournamentIdToPreserve = activeTournamentId || tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId;
         if (tournamentIdToPreserve) {
-          console.log("[Pong] Preserving tournament ID:", tournamentIdToPreserve)
-          setActiveTournamentId(tournamentIdToPreserve)
+          console.log("[Pong] Preserving tournament ID:", tournamentIdToPreserve);
+          setActiveTournamentId(tournamentIdToPreserve);
         }
-
-        // Normalize and set up the game for all players
-        console.log("[Pong] Setting game state and transitioning to game view")
-        const normalized = normalizeGameState(gameState)
-        setPlayerIDsHelper(normalized)
-        setGameState(normalized)
-        setLobby(null) // Clear lobby state
-        setCurrentView("game") // Transition immediately
-      } else {
-        console.warn("[Pong] start_game_from_lobby failed with code:", payloadReceived.code)
+        
+        console.log("[Pong] Setting game state and transitioning to game view");
+        const normalized = normalizeGameState(gameStatePayload);
+        if (normalized) {
+          setPlayerIDsHelper(normalized);
+          setGameState(normalized);
+        }
+        setLobby(null);
+        setCurrentView("game");
+        return HandlerResult.Handled;
       }
-    }
-  }, [payloadReceived, authResponse, currentView, activeTournamentId])
+      
+      return HandlerResult.NotHandled;
+    }));
+    
+    return () => {
+      unsubscribers.forEach((unsub) => unsub());
+    };
+  }, [subscribe, authResponse, currentView, activeTournamentId, tournament, lobby, isConnected, sendMessage, setGameState, setLobby, setTournament, setActiveTournamentId, setCurrentView, setLastCreatedBoardId, setPlayerIDsHelper]);
 
   // Handle accepted invitation from AppRoot
   useEffect(() => {
@@ -439,159 +480,17 @@ export default function PongComponent({
       // Clear after use
       delete (window as any).__acceptedLobbyData
     }
-  }, [acceptedLobbyId, onLobbyJoined])
+  }, [acceptedLobbyId, onLobbyJoined, setLobby, setActiveTournamentId, setCurrentView])
 
-  const setPlayerIDsHelper = useCallback(
-    (game_data: TypeGameStateSchema) => {
-      if (!game_data) {
-        console.log("[Pong] setPlayerIDsHelper: game_data is null");
-        return;
-      }
-      if (!authResponse) {
-        console.log("[Pong] setPlayerIDsHelper: authResponse is null");
-        return;
-      }
-      let odd = true;
-      for (const paddle of game_data.paddles) {
-        if (paddle.owner_id === authResponse.user.id) {
-          if (odd) {
-            setPlayerOnePaddleID(paddle.paddle_id);
-            odd = false;
-          } else {
-            setPlayerTwoPaddleID(paddle.paddle_id);
-          }
-        }
-      }
-    },
-    [authResponse],
-  )
-
-  useEffect(() => {
-    if (!payloadReceived) {
-      return;
-    }
-
-    // Only log non-game-state messages to reduce spam
-    if (payloadReceived.funcId !== 'get_game_state' && payloadReceived.source_container === 'pong') {
-      console.log("[Pong] Processing:", payloadReceived.funcId);
-    }
-
-    for (const webSocketRoute of Object.values(user_url.ws.pong)) {
-      if (payloadReceived.funcId !== webSocketRoute.funcId) continue;
-
-      // Handle each route type directly without complex schema validation
-      switch (payloadReceived.funcId) {
-        case user_url.ws.pong.startGame.funcId:
-          console.log("[Pong] Game started, received game info:", payloadReceived.payload);
-          if (payloadReceived.payload && typeof payloadReceived.payload.board_id === 'number') {
-            setLastCreatedBoardId(payloadReceived.payload.board_id)
-          }
-          // Game has been created, now request the game state once
-          const requestGameStatePayload = {
-            funcId: user_url.ws.pong.getGameState.funcId,
-            payload: {
-              gameId: payloadReceived.payload?.board_id,
-            },
-            target_container: user_url.ws.pong.getGameState.container,
-          };
-          if (socket.current?.readyState === WebSocket.OPEN) {
-            socket.current.send(JSON.stringify(requestGameStatePayload));
-            console.log("[Pong] Requested game state after game creation");
-          }
-          return;
-
-        case user_url.ws.pong.handleGameKeys.funcId:
-          // Key handling doesn't need response processing
-          return;
-
-        case user_url.ws.pong.userReportsReady.funcId:
-          console.log("[Pong] Player ready:", payloadReceived.payload);
-          setLatestPlayerReadyPayload(payloadReceived.payload);
-          return;
-
-        case user_url.ws.pong.getGameState.funcId:
-          // Code 0 = GameUpdate (success), Code 1 = NotInRoom
-          if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.GameUpdate.code) {
-            // Update game state silently (happens frequently)
-            const normalized = normalizeGameState(payloadReceived.payload)
-            // Log gameOver state for debugging
-            if (payloadReceived.payload?.gameOver) {
-              console.log("[Pong] 🎮 GAME OVER RECEIVED!", { 
-                gameOver: payloadReceived.payload.gameOver, 
-                winner: payloadReceived.payload.winner,
-                score: payloadReceived.payload.score 
-              });
-              // Note: Game over overlay is handled via useEffect injection
-            }
-            // Expose last normalized game state to window for quick debugging in the browser
-            try { (window as any).__lastNormalizedPongState = normalized } catch (e) { /* ignore in server env */ }
-            setGameState(normalized);
-            gameStateReceivedRef.current = true;
-            setPlayerIDsHelper(normalized);
-            // If we received valid game state and we're not in game view, switch to it
-            // BUT don't switch back if the game is already over (user might have clicked back)
-            if (currentView !== 'game' && payloadReceived.payload?.board_id && !normalized.gameOver) {
-              console.log("[Pong] Received game state while not in game view, transitioning to game");
-              setLobby(null);
-              setCurrentView("game");
-            }
-          } else if (payloadReceived.code === user_url.ws.pong.getGameState.schema.output.NotInRoom.code) {
-            console.log("[Pong] User not in any game room - this is normal if no game exists");
-          } else {
-            // Unknown code (like -1) - just log and continue
-            console.log("[Pong] getGameState returned code:", payloadReceived.code, "- ignoring");
-          }
-          return;
-
-        default:
-          console.log("[Pong] Unhandled pong funcId:", payloadReceived.funcId);
-          return;
-      }
-    }
-  }, [payloadReceived, setPlayerIDsHelper, currentView]);
-
-  // useEffect(() => {
-  //   if (!payloadReceived) return;
-
-  //   if (payloadReceived.funcId === user_url.ws.pong.startGame.funcId) {
-  //     const parsed =
-  //       user_url.ws.pong.startGame.schema.output.GameInstanceCreated.payload.safeParse(
-  //         payloadReceived.payload
-  //       );
-  //     if (parsed.success) setGame_id(parsed.data.board_id);
-  //     else console.warn("Invalid new game payload:", parsed.error);
-  //   } else if (
-  //     payloadReceived.funcId === user_url.ws.pong.getGameState.funcId
-  //   ) {
-  //     const parsed =
-  //       user_url.ws.pong.getGameState.schema.output.GameUpdate.payload.safeParse(
-  //         payloadReceived.payload
-  //       );
-  //     if (parsed.success) {
-  //       if (game_id === null) setGame_id(parsed.data.board_id); // Client rejoined
-  //       setGameState(parsed.data);
-  //     } else console.warn("Invalid GameState payload:", parsed.error);
-  //   }
-  // }, [payloadReceived]);
-
-  // // =========================
+  // =========================
   // WebSocket Send Helpers
   // =========================
 
   const handleUserInput = useCallback(
     (wshandlerinfo: any, payload: any) => {
-      const strToSend = JSON.stringify({
-        funcId: wshandlerinfo.funcId,
-        payload: payload,
-        target_container: wshandlerinfo.container,
-      })
-      if (socket.current?.readyState === WebSocket.OPEN) {
-        socket.current.send(strToSend)
-      } else {
-        console.warn("WebSocket not open, cannot send:", wshandlerinfo.funcId)
-      }
+      sendMessage(wshandlerinfo, payload)
     },
-    [socket],
+    [sendMessage],
   )
 
   // =========================
@@ -691,38 +590,6 @@ export default function PongComponent({
   // 3D Rendering is handled by BabylonPongRenderer component
   // =========================
 
-  // =========================
-  // Simple UI for Start Game
-  // =========================
-  const [playerListInput, setPlayerListInput] = useState("4,5,6,7,8")
-  const [ballInput, setBallInput] = useState(1)
-
-  const handleStartGameClick = useCallback(() => {
-    console.log("[Pong] Start Game clicked");
-    const ids = playerListInput
-      .split(",")
-      .map((x) => Number.parseInt(x.trim(), 10))
-      .filter((x) => !isNaN(x))
-
-    console.log("[Pong] Parsed player IDs:", ids);
-
-    const payload: TypeStartNewPongGame = {
-      player_list: ids,
-      balls: ballInput,
-    }
-    console.log("[Pong] Sending start game payload:", payload);
-    handleUserInput(user_url.ws.pong.startGame, payload)
-  }, [playerListInput, ballInput, handleUserInput])
-
-  const handleDeclareReadyClick = useCallback(
-    (readyForWhichId: number) => {
-      const payload: TypePlayerDeclaresReadyForGame = {
-        game_id: readyForWhichId,
-      }
-      handleUserInput(user_url.ws.pong.userReportsReady, payload)
-    },
-    [handleUserInput],
-  )
 
   // Handler for creating a game from invite modal
   const handleCreateGame = useCallback(
@@ -770,8 +637,8 @@ export default function PongComponent({
         target_container: "pong",
       }
 
-      if (socket.current?.readyState === WebSocket.OPEN) {
-        socket.current.send(JSON.stringify(payload))
+      if (isConnected) {
+        sendMessage(user_url.ws.pong.createLobby, payload.payload)
         console.log("[Pong] Sent lobby creation to backend:", payload)
       }
 
@@ -800,7 +667,7 @@ export default function PongComponent({
       setShowInviteModalLocal(false)
       onCloseInviteModal?.()
     },
-    [authResponse, inviteRoomUsers, onCloseInviteModal]
+    [authResponse, inviteRoomUsers, onCloseInviteModal, isConnected, sendMessage, setTournament, setCurrentView, setShowInviteModalLocal]
   )
 
   // Handler for toggling ready state in lobby
@@ -814,17 +681,13 @@ export default function PongComponent({
       lobbyId: lobby.lobbyId,
     }
 
-    if (socket.current?.readyState === WebSocket.OPEN) {
-      socket.current.send(JSON.stringify({
-        funcId: "toggle_player_ready_in_lobby",
-        payload: payload,
-        target_container: "pong",
-      }))
+    if (isConnected) {
+      sendMessage(user_url.ws.pong.togglePlayerReady, payload)
       console.log("[Pong] Sent toggle ready to backend")
     } else {
       console.warn("[Pong] WebSocket not open, cannot toggle ready")
     }
-  }, [lobby, authResponse, socket])
+  }, [lobby, authResponse, isConnected, sendMessage])
 
   // Handler for starting game from lobby
   const handleStartGameFromLobby = useCallback(() => {
@@ -844,12 +707,8 @@ export default function PongComponent({
       lobbyId: lobby.lobbyId,
     }
 
-    if (socket.current?.readyState === WebSocket.OPEN) {
-      socket.current.send(JSON.stringify({
-        funcId: "start_game_from_lobby",
-        payload: payload,
-        target_container: "pong",
-      }))
+    if (isConnected) {
+      sendMessage(user_url.ws.pong.startFromLobby, payload)
       console.log("[Pong] Sent start game from lobby to backend")
       setLobby({ ...lobby, status: "starting" })
 
@@ -858,30 +717,20 @@ export default function PongComponent({
       setTimeout(() => {
         console.log("[Pong] Fallback check: currentView after start request")
         // Request game state - if we're in a game, the response will trigger the transition
-        if (socket.current?.readyState === WebSocket.OPEN) {
-          socket.current.send(JSON.stringify({
-            funcId: "get_game_state",
-            payload: {
-              gameId: 1,
-            },
-            target_container: "pong",
-          }))
+        if (isConnected) {
+          sendMessage(user_url.ws.pong.getGameState, { gameId: 1 })
         }
       }, 1500)
     } else {
       console.warn("[Pong] WebSocket not open, cannot start game")
     }
-  }, [lobby, authResponse, socket, tournament])
+  }, [lobby, authResponse, isConnected, sendMessage, tournament, setActiveTournamentId, setLobby])
 
   // Handler for leaving lobby
   const handleLeaveLobby = useCallback(() => {
-    if (lobby && socket.current?.readyState === WebSocket.OPEN) {
+    if (lobby && isConnected) {
       console.log("[Pong] Leaving lobby:", lobby.lobbyId)
-      socket.current.send(JSON.stringify({
-        funcId: "leave_pong_lobby",
-        payload: { lobbyId: lobby.lobbyId },
-        target_container: "pong",
-      }))
+      sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobby.lobbyId })
     }
     setLobby(null)
     setTournament(null)
@@ -891,7 +740,7 @@ export default function PongComponent({
     } else {
       setCurrentView("menu")
     }
-  }, [lobby, socket, onNavigateToChat])
+  }, [lobby, isConnected, sendMessage, onNavigateToChat, setLobby, setTournament, setCurrentView])
 
   // Tournament handlers
   const handleEnterAlias = useCallback(
@@ -916,300 +765,11 @@ export default function PongComponent({
     []
   )
 
-  // Handle accepting pong invitation
-  const handleAcceptInvitation = useCallback(
-    (inviteId: number) => {
-      console.log("[Pong] Accepting invitation:", inviteId)
-      const invitation = pongInvitations.find((inv) => inv.inviteId === inviteId)
-      if (!invitation) return
-
-      // Remove invitation from list
-      setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId))
-
-      // Switch to lobby view - apply lobby data from the invitation so invitee sees the lobby
-      if (invitation.lobbyData) {
-        const lobbyData = invitation.lobbyData as any
-        const lobbyState: PongLobbyData = {
-          lobbyId: lobbyData.lobbyId || Date.now(),
-          gameMode: lobbyData.gameMode,
-          players: (lobbyData.players || []).map((p: any) => ({
-            id: p.userId || p.id,
-            username: p.username,
-            isReady: p.isReady || false,
-            isHost: p.isHost || false,
-          })),
-          settings: {
-            ballCount: lobbyData.ballCount ?? 1,
-            maxScore: lobbyData.maxScore ?? 5,
-            allowPowerups: lobbyData.allowPowerups ?? false,
-          },
-          status: lobbyData.status || "waiting",
-        }
-        setLobby(lobbyState)
-
-        // If the invite contains a tournament payload, set tournament state and go to tournament view
-        if (lobbyData.tournament) {
-          const t = lobbyData.tournament
-          const newTournament: TournamentData = {
-            tournamentId: t.tournamentId,
-            name: t.name,
-            mode: t.mode,
-            players: (t.players || []).map((p: any) => ({ id: p.userId, username: p.username, alias: p.alias })),
-            matches: t.matches || [],
-            currentRound: t.currentRound,
-            totalRounds: t.totalRounds,
-            status: t.status,
-            winner: t.winnerId || null,
-          }
-          setTournament(newTournament)
-          setCurrentView("tournament")
-          return
-        }
-
-        setCurrentView("lobby")
-        return
-      }
-
-      // Fallback: just switch to lobby view
-      setCurrentView("lobby")
-    },
-    [pongInvitations]
-  )
-
-  // Handle declining pong invitation
-  const handleDeclineInvitation = useCallback(
-    (inviteId: number) => {
-      console.log("[Pong] Declining invitation:", inviteId)
-      // Just remove from list - backend will handle timeout
-      setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId))
-    },
-    []
-  )
-
-  // Manage game overlay via useEffect (DOM injection that works)
-  useEffect(() => {
-    if (currentView === "game") {
-      console.log("[Pong] useEffect: Creating game overlay");
-      
-      let gameContainer = document.getElementById("pong-game-container");
-      if (!gameContainer) {
-        gameContainer = document.createElement("div");
-        gameContainer.id = "pong-game-container";
-        gameContainer.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          background: #1a1a2e;
-          z-index: 2147483647;
-          display: flex;
-          flex-direction: column;
-        `;
-        document.body.appendChild(gameContainer);
-      }
-      
-      // Inject header and container via innerHTML
-      gameContainer.innerHTML = `
-        <div style="padding: 10px 20px; background: rgba(0,0,0,0.5); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-          <span style="color: white; font-size: 18px;">🏓 Pong Game</span>
-          <button id="pong-back-btn" style="padding: 8px 16px; background: red; color: white; border: none; cursor: pointer; border-radius: 4px;">← Back to Menu</button>
-        </div>
-        <div id="pong-babylon-mount" style="flex: 1; position: relative; overflow: hidden;"></div>
-        <div id="pong-debug-bar" style="padding: 5px 10px; background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; font-family: monospace; flex-shrink: 0;">Loading game...</div>
-      `;
-      
-      // Add back button click handler
-      const backBtn = document.getElementById("pong-back-btn");
-      if (backBtn) {
-        backBtn.onclick = () => {
-          console.log("[Pong] Back button clicked during game");
-          // Unmount babylon renderer first
-          const mountEl = document.getElementById("pong-babylon-mount");
-          if (mountEl && (mountEl as any).__reactRoot) {
-            try {
-              (mountEl as any).__reactRoot.unmount();
-            } catch (e) {
-              console.warn("[Pong] Error unmounting babylon root:", e);
-            }
-          }
-          document.getElementById("pong-game-container")?.remove();
-          document.getElementById("pong-game-over-overlay")?.remove();
-          // Leave the pong lobby if we have one
-          if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
-            console.log("[Pong] Leaving lobby on back button:", lobbyRef.current.lobbyId);
-            socket.current.send(JSON.stringify({
-              funcId: "leave_pong_lobby",
-              payload: { lobbyId: lobbyRef.current.lobbyId },
-              target_container: "pong",
-            }));
-          }
-          setLobby(null);
-          setTournament(null);
-          setGameState(null);
-          // Navigate back to chat if available, otherwise menu
-          if (onNavigateToChatRef.current) {
-            onNavigateToChatRef.current();
-          } else {
-            setCurrentView("menu");
-          }
-        };
-      }
-    } else {
-      // Clean up when leaving game view
-      const mountEl = document.getElementById("pong-babylon-mount");
-      if (mountEl && (mountEl as any).__reactRoot) {
-        (mountEl as any).__reactRoot.unmount();
-      }
-      document.getElementById("pong-game-container")?.remove();
-    }
-    
-    return () => {
-      // Cleanup on unmount
-      if (currentView !== "game") {
-        const mountEl = document.getElementById("pong-babylon-mount");
-        if (mountEl && (mountEl as any).__reactRoot) {
-          (mountEl as any).__reactRoot.unmount();
-        }
-        document.getElementById("pong-game-container")?.remove();
-      }
-    };
-  }, [currentView]);
-
-  // Render BabylonPongRenderer into mount point when gameState is available
-  useEffect(() => {
-    if (currentView !== "game" || !gameState) return;
-    
-    const mountEl = document.getElementById("pong-babylon-mount");
-    if (!mountEl) return;
-    
-    console.log("[Pong] Mounting BabylonPongRenderer into pong-babylon-mount");
-    
-    // Create or get React root for the mount element
-    let root = (mountEl as any).__reactRoot;
-    if (!root) {
-      root = ReactDOM.createRoot(mountEl);
-      (mountEl as any).__reactRoot = root;
-    }
-    
-    // Render BabylonPongRenderer with predicted state for smoother rendering
-    // Falls back to raw gameState if prediction not available
-    const stateToRender = predictedGameState || gameState;
-    root.render(
-      <BabylonPongRenderer
-        ref={rendererRef}
-        gameState={stateToRender}
-        darkMode={darkMode}
-        paddleRotationOffset={paddleRotationOffset}
-        localPlayerId={playerOnePaddleID}
-      />
-    );
-  }, [currentView, gameState, predictedGameState, playerOnePaddleID, playerTwoPaddleID, darkMode, paddleRotationOffset]);
-
-  // Update debug bar with game state info
-  useEffect(() => {
-    const debugBar = document.getElementById("pong-debug-bar");
-    if (debugBar && currentView === "game") {
-      debugBar.textContent = `balls: ${gameState?.balls?.length ?? 0} | paddles: ${gameState?.paddles?.length ?? 0} | myPaddle: ${playerOnePaddleID}`;
-    }
-  }, [gameState, currentView, playerOnePaddleID]);
-
-  // Handle Game Over overlay injection
-  useEffect(() => {
-    if (currentView !== "game") return;
-    
-    const existingOverlay = document.getElementById("pong-game-over-overlay");
-    
-    if (gameState?.gameOver) {
-      console.log("[Pong] GAME OVER! Winner:", gameState.winner, "Score:", gameState.score);
-      
-      if (!existingOverlay) {
-        const overlay = document.createElement("div");
-        overlay.id = "pong-game-over-overlay";
-        overlay.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          background: rgba(0, 0, 0, 0.85);
-          z-index: 2147483648;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        `;
-        
-        const scoreDisplay = gameState.score 
-          ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `Player ${p}: ${s}`).join(' | ')
-          : '';
-        
-        overlay.innerHTML = `
-          <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 4px solid #fbbf24; border-radius: 20px; padding: 50px 80px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-            <h1 style="color: #fbbf24; font-size: 64px; margin: 0 0 20px 0; text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);">GAME OVER!</h1>
-            <p style="color: white; font-size: 32px; margin: 0 0 30px 0;">Winner: <span style="color: #22c55e; font-weight: bold;">Player ${gameState.winner}</span></p>
-            <p style="color: #9ca3af; font-size: 24px; margin: 0 0 40px 0;">${scoreDisplay}</p>
-            <button id="pong-game-over-back-btn" style="padding: 15px 50px; font-size: 20px; background: #22c55e; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.2s;">
-              Back to Menu
-            </button>
-          </div>
-        `;
-        
-        document.body.appendChild(overlay);
-        
-        const backBtn = document.getElementById("pong-game-over-back-btn");
-        if (backBtn) {
-          backBtn.onclick = () => {
-            console.log("[Pong] Game over back button clicked");
-            overlay.remove();
-            const mountEl = document.getElementById("pong-babylon-mount");
-            if (mountEl && (mountEl as any).__reactRoot) {
-              try {
-                (mountEl as any).__reactRoot.unmount();
-              } catch (e) {
-                console.warn("[Pong] Error unmounting babylon root:", e);
-              }
-            }
-            document.getElementById("pong-game-container")?.remove();
-            // Leave the pong lobby if we have one
-            if (lobbyRef.current && socket.current?.readyState === WebSocket.OPEN) {
-              console.log("[Pong] Leaving lobby on game over:", lobbyRef.current.lobbyId);
-              socket.current.send(JSON.stringify({
-                funcId: "leave_pong_lobby",
-                payload: { lobbyId: lobbyRef.current.lobbyId },
-                target_container: "pong",
-              }));
-            }
-            setLobby(null);
-            setTournament(null);
-            setGameState(null);
-            // Navigate back to chat if available, otherwise menu
-            if (onNavigateToChatRef.current) {
-              onNavigateToChatRef.current();
-            } else {
-              setCurrentView("menu");
-            }
-          };
-        }
-      }
-    } else if (existingOverlay) {
-      existingOverlay.remove();
-    }
-  }, [currentView, gameState?.gameOver, gameState?.winner, gameState?.score]);
-
   // RENDER LOGIC
-  console.log("[Pong] RENDER called, currentView =", currentView);
-  
+  // Debug logging disabled for performance
+  // console.log("[Pong] RENDER called, currentView =", currentView);
+
   const { t } = useLanguage();
-  
-  // If game view, return null (we render via useEffect into injected DOM)
-  if (currentView === "game") {
-    return null;
-  }
-  
-  console.log("[Pong] Rendering NON-GAME view:", currentView);
-  
-  console.log("[Pong] Rendering NON-GAME view:", currentView);
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
@@ -1238,6 +798,7 @@ export default function PongComponent({
                     const payload: TypeStartNewPongGame = {
                       player_list: [authResponse.user.id],
                       balls: 1,
+                      allowPowerups: true,
                     }
                     handleUserInput(user_url.ws.pong.startGame, payload)
                     setCurrentView("game")
@@ -1353,170 +914,99 @@ export default function PongComponent({
 
       {/* Game View */}
       {currentView === "game" && (
-        <>
-          {/* FIXED POSITION TEST - MUST BE VISIBLE */}
-          <div style={{ 
-            position: "fixed", 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            background: "green", 
-            zIndex: 99999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "column"
-          }}>
-            <h1 style={{ color: "white", fontSize: "48px", fontWeight: "bold" }}>
-              🎮 GAME VIEW IS RENDERING
-            </h1>
-            <p style={{ color: "yellow", fontSize: "24px", marginTop: 20 }}>
-              If you see this GREEN screen, React is working!
-            </p>
-            <p style={{ color: "white", fontSize: "18px", marginTop: 20 }}>
-              gameState: {gameState ? "PRESENT" : "null"} | 
-              balls: {gameState?.balls?.length ?? 0} | 
-              paddles: {gameState?.paddles?.length ?? 0}
-            </p>
-            {/* Score Display */}
-            {gameState?.score && (
-              <div style={{ marginTop: 20, background: "rgba(0,0,0,0.5)", padding: "15px 30px", borderRadius: 10 }}>
-                <h2 style={{ color: "white", fontSize: "24px", marginBottom: 10 }}>📊 Scores</h2>
-                <div style={{ display: "flex", gap: 30 }}>
-                  {Object.entries(gameState.score).map(([playerId, score]) => (
-                    <div key={playerId} style={{ color: "white", fontSize: "20px" }}>
-                      Player {playerId}: <span style={{ color: "#fbbf24", fontWeight: "bold" }}>{score}</span>
-                    </div>
-                  ))}
-                </div>
-                {lobby?.settings?.maxScore && (
-                  <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: 10 }}>
-                    First to {lobby.settings.maxScore} wins!
-                  </p>
-                )}
-              </div>
-            )}
-            {/* Game Over Overlay */}
-            {gameState?.gameOver && (
-              <div style={{ 
-                marginTop: 30, 
-                background: "rgba(255,215,0,0.9)", 
-                padding: "30px 50px", 
-                borderRadius: 15,
-                textAlign: "center"
-              }}>
-                <h1 style={{ color: "#000", fontSize: "48px", fontWeight: "bold", margin: 0 }}>
-                  🏆 GAME OVER! 🏆
-                </h1>
-                <p style={{ color: "#000", fontSize: "28px", marginTop: 15 }}>
-                  Winner: Player {gameState.winner}
-                </p>
-                {gameState.score && (
-                  <p style={{ color: "#333", fontSize: "20px", marginTop: 10 }}>
-                    Final Score: {Object.entries(gameState.score).map(([p, s]) => `Player ${p}: ${s}`).join(' | ')}
-                  </p>
-                )}
-              </div>
-            )}
-            <button 
-              onClick={() => setCurrentView("menu")}
-              style={{ marginTop: 30, padding: "15px 30px", fontSize: "20px", background: "red", color: "white", border: "none", cursor: "pointer" }}
+        <div className="fixed inset-0 z-[2147483647] bg-[#1a1a2e] flex flex-col">
+          {/* Header */}
+          <div className="px-5 py-2.5 bg-black/50 flex justify-between items-center shrink-0">
+            <span className="text-white text-lg">🏓 Pong Game</span>
+            <button
+              onClick={() => {
+                console.log("[Pong] Back button clicked during game");
+                if (lobbyRef.current && isConnected) {
+                  sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobbyRef.current.lobbyId })
+                }
+                setLobby(null);
+                setTournament(null);
+                setGameState(null);
+                if (onNavigateToChatRef.current) {
+                  onNavigateToChatRef.current();
+                } else {
+                  setCurrentView("menu");
+                }
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition"
             >
-              Go Back to Menu
+              ← Back to Menu
             </button>
           </div>
-        </>
-      )}
 
-      {/* OLD GAME VIEW - COMMENTED OUT
-      {currentView === "game" && (
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "stretch", background: "#111" }}>
-          <div style={{ background: "yellow", color: "black", padding: "20px", fontSize: "24px", fontWeight: "bold", textAlign: "center" }}>
-            🎮 GAME VIEW IS ACTIVE - currentView = "{currentView}"
+          {/* Game Area */}
+          <div className="flex-1 relative overflow-hidden">
+            {gameState && (
+              <BabylonPongRenderer
+                ref={rendererRef}
+                gameState={predictedGameState || gameState}
+                darkMode={darkMode}
+                paddleRotationOffset={paddleRotationOffset}
+              />
+            )}
+            {/* Powerup Display Overlay */}
+            {gameState && (() => {
+              const effects = gameState.activeEffects ?? []
+              const events = gameState.recentEvents ?? []
+              return (
+                <PowerupDisplay
+                  activeEffects={effects}
+                  recentEvents={events}
+                />
+              )
+            })()}
           </div>
-          <div style={{ width: "100%", height: "70vh", minHeight: "500px", position: "relative", border: "4px solid lime", background: "blue" }}>
-            <div style={{ color: "white", padding: 20, fontSize: 18 }}>
-              <p>🧪 TEST: BabylonPongRenderer is DISABLED</p>
-              <p>If you see this blue box with text, the game view is working!</p>
-              <p>gameState: {gameState ? "present" : "null"}</p>
-              <p>balls: {gameState?.balls?.length ?? 0}</p>
-              <p>paddles: {gameState?.paddles?.length ?? 0}</p>
-            </div>
-            <div style={{ position: 'absolute', left: 8, top: 8, zIndex: 50 }}>
-              <div style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '8px', borderRadius: 6, fontSize: 12, minWidth: 180 }}>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>Pong Debug</div>
-                <div>- gameState: {gameState ? 'present' : 'null'}</div>
-                <div>- boardId: {gameState?.board_id ?? gameState?.boardId ?? '—'}</div>
-                <div>- balls: {gameState?.balls?.length ?? 0}</div>
-                <div>- paddles: {gameState?.paddles?.length ?? 0}</div>
-                <div style={{ marginTop: 6, maxWidth: 360, wordBreak: 'break-all' }}>
-                  <div style={{ fontWeight: 600 }}>Last normalized (window):</div>
-                  <div style={{ fontSize: 11, opacity: 0.9 }}>{(() => {
-                    try { const s = (window as any).__lastNormalizedPongState; return s ? `b:${s.board_id} balls:${(s.balls||[]).length} pads:${(s.paddles||[]).length}` : 'none' } catch (e) { return 'err' }
-                  })()}</div>
+
+          {/* Score Display */}
+          {gameState?.score && Object.keys(gameState.score).length > 0 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-8 px-6 py-3 bg-black/60 rounded-xl backdrop-blur-sm">
+              {Object.entries(gameState.score).map(([playerId, score]: [string, any]) => (
+                <div key={playerId} className="flex flex-col items-center">
+                  <span className="text-gray-400 text-sm">Player {playerId}</span>
+                  <span className="text-white text-3xl font-bold">{score}</span>
                 </div>
-              </div>
+              ))}
             </div>
-            <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 40 }}>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setPaddleRotationOffset(0)}
-                  className={`px-2 py-1 text-sm font-medium rounded ${paddleRotationOffset === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
-                >
-                  Offset 0
-                </button>
-                <button
-                  onClick={() => setPaddleRotationOffset(Math.PI / 2)}
-                  className={`px-2 py-1 text-sm font-medium rounded ${Math.abs(paddleRotationOffset - Math.PI/2) < 0.001 ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
-                >
-                  Offset 90°
-                </button>
-                <button
-                  onClick={() => {
-                    try {
-                      const data = rendererRef.current?.takeScreenshot?.()
-                      if (data) {
-                        const w = window.open()
-                        if (w) w.document.write(`<img src="${data}" style="max-width:100%"/>`)
-                      } else {
-                        console.warn('[Pong] Screenshot not available')
-                      }
-                    } catch (e) {
-                      console.warn('[Pong] Screenshot failed', e)
-                    }
-                  }}
-                  className="px-2 py-1 text-sm font-medium rounded bg-green-500 text-white"
-                >
-                  Screenshot
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {!gameState && (
-            <div className="text-sm text-gray-600 dark:text-gray-300">Waiting for game state...</div>
           )}
 
-          <button
-            onClick={() => {
-              // Leave lobby if we're in one
-              if (lobby && socket.current?.readyState === WebSocket.OPEN) {
-                console.log("[Pong] Leaving lobby from game:", lobby.lobbyId)
-                socket.current.send(JSON.stringify({
-                  funcId: "leave_pong_lobby",
-                  payload: { lobbyId: lobby.lobbyId },
-                  target_container: "pong",
-                }))
-              }
-              setCurrentView("menu")
-              setGameState(null)
-              setLobby(null)
-            }}
-            className="px-6 py-2 bg-red-500 text-white hover:bg-red-600 transition-colors"
-          >
-            Leave Game
-          </button>
+          {/* Game Over Overlay */}
+          {gameState?.gameOver && (
+            <div className="fixed inset-0 z-[2147483648] bg-black/85 flex flex-col items-center justify-center">
+              <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-4 border-yellow-400 rounded-2xl p-12 text-center shadow-2xl">
+                <h1 className="text-yellow-400 text-6xl mb-5 shadow-yellow-400/50 drop-shadow-lg">GAME OVER!</h1>
+                <p className="text-white text-3xl mb-8">Winner: <span className="text-green-500 font-bold">Player {gameState.winner}</span></p>
+                <p className="text-gray-400 text-2xl mb-10">
+                  {gameState.score
+                    ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `Player ${p}: ${s}`).join(' | ')
+                    : ''}
+                </p>
+                <button
+                  onClick={() => {
+                    console.log("[Pong] Game over back button clicked");
+                    if (lobbyRef.current && isConnected) {
+                      sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobbyRef.current.lobbyId })
+                    }
+                    setLobby(null);
+                    setTournament(null);
+                    setGameState(null);
+                    if (onNavigateToChatRef.current) {
+                      onNavigateToChatRef.current();
+                    } else {
+                      setCurrentView("menu");
+                    }
+                  }}
+                  className="px-12 py-4 text-xl bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-all"
+                >
+                  Back to Menu
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1532,73 +1022,7 @@ export default function PongComponent({
         onCreateGame={handleCreateGame}
       />
 
-      {/* Debug overlay - only show in game view */}
-      {currentView === "game" && (
-        <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 9999 }}>
-          <button
-            onClick={() => {
-              console.log("[Pong][DEBUG] Overlay Start Game clicked")
-              const ids = playerListInput
-                .split(",")
-                .map((x) => Number.parseInt(x.trim(), 10))
-                .filter((x) => !isNaN(x))
-              const payload: TypeStartNewPongGame = { player_list: ids, balls: ballInput }
-              handleUserInput(user_url.ws.pong.startGame, payload)
-            }}
-            style={{ backgroundColor: "#2563eb", color: "white", padding: "8px 12px", borderRadius: 8 }}
-          >
-            DEBUG: Start Game
-          </button>
-          {lastCreatedBoardId !== null && (
-            <div style={{ marginTop: 8 }}>
-              <button
-                onClick={() => {
-                  console.log("[Pong][DEBUG] Overlay Declare Ready clicked, board:", lastCreatedBoardId)
-                  const payload = { game_id: lastCreatedBoardId }
-                  handleUserInput(user_url.ws.pong.userReportsReady, payload)
-                }}
-                style={{ backgroundColor: "#059669", color: "white", padding: "8px 12px", borderRadius: 8 }}
-              >
-                DEBUG: Declare Ready
-              </button>
-            </div>
-          )}
-          {/* DEBUG: Complete Tournament - calls server endpoint to finish tournament */}
-          {(tournament || activeTournamentId || (lobby as any)?.tournamentId) && (
-            <div style={{ marginTop: 8 }}>
-              <button
-                onClick={async () => {
-                  const tid = tournament?.tournamentId || activeTournamentId || (lobby as any)?.tournamentId
-                  const winnerId = authResponse?.user?.id || 0
-                  console.log("[Pong][DEBUG] Completing tournament", tid, "winner:", winnerId)
-                  try {
-                    const res = await fetch("/public_api/pong/debug/complete_tournament", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ tournamentId: tid, winnerId })
-                    })
-                    const data = await res.json()
-                    console.log("[Pong][DEBUG] Tournament completed:", data)
-                    if (data.tournament) {
-                      setTournament(data.tournament)
-                      setActiveTournamentId(null) // Clear after completion
-                      alert(`Tournament completed! Winner: ${data.tournament.winnerId}\nOn-chain TX: ${data.tournament.onchainTxHashes?.join(", ") || "none"}`)
-                    } else {
-                      alert("Error: " + (data.message || JSON.stringify(data)))
-                    }
-                  } catch (e) {
-                    console.error("[Pong][DEBUG] Failed to complete tournament:", e)
-                    alert("Failed to complete tournament: " + e)
-                  }
-                }}
-                style={{ backgroundColor: "#dc2626", color: "white", padding: "8px 12px", borderRadius: 8 }}
-              >
-                🏆 DEBUG: Complete Tournament
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+
     </div>
   )
 }

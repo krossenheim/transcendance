@@ -147,6 +147,16 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(200).send(updateResult.unwrap());
 	});
 
+	registerRoute(fastify, int_url.http.db.getUserNotifications, async (request, reply) => {
+		const { userId } = request.params;
+		const notificationsResult = userService.fetchUserNotifications(userId);
+
+		if (notificationsResult.isErr())
+			return reply.status(500).send({ message: notificationsResult.unwrapErr() });
+		else
+			return reply.status(200).send(notificationsResult.unwrap());
+	});
+
 	// GDPR: anonymize user data
 	registerRoute(fastify, int_url.http.db.anonymizeUser, async (request, reply) => {
 		const { userId } = request.params;

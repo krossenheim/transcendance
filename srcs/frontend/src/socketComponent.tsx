@@ -1,285 +1,199 @@
 "use client"
-import type React from "react"
-import { useState, useEffect, useRef, createContext, type ReactNode, useContext, useCallback } from "react"
+import { useState, useEffect, useRef, createContext, useContext, useCallback } from "react"
+import { ClientToHubMessage, HubToClientMessage } from "@app/shared/socket_messages"
+import type { WebSocketRouteDef } from "@app/shared/api/service/common/endpoints"
+import type { AuthResponseType } from "@app/shared/api/service/auth/loginResponse"
+import { z } from "zod"
 
-interface SocketComponentProps {
-  children: ReactNode
-  AuthResponseObject: any
-  showToast?: (message: string, type: 'success' | 'error') => void
+import { HubToClientMessageScheme } from "@app/shared/socket_messages"
+
+type SocketCallback<T extends WebSocketRouteDef> = (message: HubToClientMessageScheme<T>, schema: T["schema"]) => HandlerResult;
+type SocketMessageSubscriber = <T extends WebSocketRouteDef>(route: T, callback: SocketCallback<T>) => () => void;
+
+export type SocketMessageSender = <T extends WebSocketRouteDef>(route: T, payload: z.infer<T["schema"]["args"]>) => void;
+
+export enum HandlerResult {
+  Handled,
+  NotHandled
 }
 
-interface WebSocketContextValue {
-  socket: React.MutableRefObject<WebSocket | null>
-  payloadReceived: any | null
-  isConnected: boolean
-  refreshToken: () => Promise<void>
-  sendMessage: (message: string | object) => boolean
+interface SocketContextType {
+  isConnected: boolean;
+  sendMessage: SocketMessageSender;
+  subscribe: SocketMessageSubscriber;
 }
 
-// Global singleton socket
+interface SocketCallbackSubscribtion<T extends WebSocketRouteDef> {
+  route: T;
+  callback: SocketCallback<T>;
+}
+
+const SocketContext = createContext<SocketContextType | null>(null);
+
 let globalSocket: WebSocket | null = null
-
-const WebSocketContext = createContext<WebSocketContextValue | null>(null)
-
-// Exported helper to forcibly close the global socket (useful on logout)
-export function closeGlobalSocket() {
+export const closeGlobalSocket = () => {
   if (globalSocket) {
     try {
-      console.log('[v0] Closing global WebSocket connection')
-      globalSocket.close(1000, 'User logout')  // Clean close code
+      console.log('Closing global websocket connection');
+      globalSocket.close(1000);
+      globalSocket = null;
     } catch (e) {
-      console.warn('[v0] Error while closing global socket:', e)
+      console.warn('Error while closing global socket:', e);
     }
-    globalSocket = null
   }
 }
 
-export default function SocketComponent({ children, AuthResponseObject, showToast }: SocketComponentProps) {
-  const socket = useRef<WebSocket | null>(globalSocket)
-  const [payloadReceived, setPayloadReceived] = useState<any | null>(null)
+export function useWebSocket() {
+  const context = useContext(SocketContext);
+  if (!context) throw new Error("useWebSocket must be used inside <SocketComponent>");
+  return context;
+}
+
+export default function SocketComponent({
+  AuthResponseObject,
+  children,
+  showToast,
+}: {
+  AuthResponseObject: AuthResponseType | null
+  children: React.ReactNode
+  showToast: (msg: string, type: 'success' | 'error') => void
+}) {
+  const socket = useRef<WebSocket | null>(null)
+  const messageQueue = useRef<string[]>([])
   const [isConnected, setIsConnected] = useState(false)
-  const [currentJwt, setCurrentJwt] = useState(AuthResponseObject.tokens.jwt)
-  const [reconnectTrigger, setReconnectTrigger] = useState(0) // Used to trigger reconnection
-  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const reconnectAttemptsRef = useRef(0)
-  const messageQueueRef = useRef<string[]>([]) // Queue messages while disconnected
+  
+  const subscribers = useRef<Map<string, Set<SocketCallbackSubscribtion<any>>>>(new Map())
 
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-  const wsUrl = protocol + "//" + window.location.host + "/ws"
+  const subscribe = useCallback(<T extends WebSocketRouteDef>(route: T, callback: SocketCallback<T>) => {
+    const funcId = route.funcId;
 
-  // Safe send function that queues messages when disconnected
-  const sendMessage = useCallback((message: string | object): boolean => {
-    const messageStr = typeof message === 'string' ? message : JSON.stringify(message)
+    if (!subscribers.current.has(funcId)) {
+      subscribers.current.set(funcId, new Set())
+    }
 
-    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-      socket.current.send(messageStr)
-      return true
-    } else {
-      console.log('[v0] Socket not connected, queueing message')
-      console.log(`[V0] Current queue length: ${messageQueueRef.current.length}`)
-      console.log(`[V0] Socket readyState: ${socket.current ? socket.current.readyState : 'null'}`)
-      messageQueueRef.current.push(messageStr)
-      return false
+    const subscription: SocketCallbackSubscribtion<T> = { route, callback };
+    subscribers.current.get(funcId)?.add(subscription);
+
+    return () => {
+      const callbacks = subscribers.current.get(funcId)
+      if (callbacks) {
+        callbacks.delete(subscription);
+        if (callbacks.size === 0) {
+          subscribers.current.delete(funcId)
+        }
+      }
     }
   }, [])
 
-  // Function to refresh the JWT token
-  const refreshToken = useCallback(async () => {
-    try {
-      console.log("[Auth] Refreshing JWT token...")
-      console.log("[Auth] Using refresh token:", AuthResponseObject.tokens.refresh?.substring(0, 20) + "...")
-
-      const response = await fetch("/public_api/auth/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token: AuthResponseObject.tokens.refresh, // Based on SingleToken schema
-        }),
-        credentials: "include", // Important: includes cookies if backend sets them
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Unknown error" }))
-        console.error("[Auth] Token refresh failed with status:", response.status, errorData)
-        throw new Error(`Token refresh failed: ${response.status} - ${errorData.message}`)
-      }
-
-      const data = await response.json()
-      console.log("[Auth] Token refreshed successfully")
-      console.log("[Auth] New JWT:", data.tokens.jwt?.substring(0, 20) + "...")
-
-      // Update the current JWT
-      setCurrentJwt(data.tokens.jwt)
-
-      // Update AuthResponseObject to persist the new tokens
-      AuthResponseObject.tokens.jwt = data.tokens.jwt
-      if (data.tokens.refresh) {
-        AuthResponseObject.tokens.refresh = data.tokens.refresh
-        console.log("[Auth] New refresh token received")
-      }
-
-      // Re-authenticate the WebSocket with new token
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        console.log("[Auth] Re-authenticating WebSocket with new token")
-        socket.current.send(JSON.stringify({
-          target_container: "hub",
-          funcId: "user_connected",
-          payload: { token: data.tokens.jwt },
-        }))
-      } else {
-        console.warn("[Auth] WebSocket not connected, cannot re-authenticate")
-      }
-
-    } catch (error) {
-      console.error("[Auth] Token refresh failed:", error)
-
-      // Handle refresh failure - redirect to login after a short delay
-      console.error("[Auth] Redirecting to login in 3 seconds...")
-      setTimeout(() => {
-        window.location.href = '/login'
-      }, 3000)
-    }
-  }, [AuthResponseObject])
-
-  // Setup token refresh interval (every 10 minutes)
-  useEffect(() => {
-    // Clear any existing interval
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current)
-    }
-
-    // Refresh token every 10 minutes (600,000 ms)
-    // You might want to adjust this based on your JWT expiration time
-    // Generally, refresh before the token expires (e.g., if token expires in 15min, refresh at 10min)
-    refreshIntervalRef.current = setInterval(() => {
-      refreshToken()
-    }, 10 * 60 * 1000) // 10 minutes
-
-    console.log("[Auth] Token refresh scheduled every 10 minutes")
-
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current)
-        console.log("[Auth] Token refresh interval cleared")
-      }
-    }
-  }, [refreshToken])
-
-  useEffect(() => {
-    console.log("[v0] useEffect triggered to (re)connect WebSocket")
-    if (!socket.current || socket.current.readyState === WebSocket.CLOSED || socket.current.readyState === WebSocket.CLOSING) {
-      console.log("[v0] Creating new WebSocket connection to:", wsUrl)
-      socket.current = new WebSocket(wsUrl)
-      globalSocket = socket.current
-
-      socket.current.onopen = () => {
-        console.log("[v0] WebSocket connected, authorizing with JWT")
-        socket.current!.send(JSON.stringify({ authorization: currentJwt }))
-        setIsConnected(true)
-
-        // Reset reconnection attempts on successful connection
-        reconnectAttemptsRef.current = 0
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current)
-          reconnectTimeoutRef.current = null
-        }
-
-        // Send any queued messages
-        if (messageQueueRef.current.length > 0) {
-          console.log(`[v0] Sending ${messageQueueRef.current.length} queued messages`)
-          messageQueueRef.current.forEach(msg => {
-            socket.current?.send(msg)
-          })
-          messageQueueRef.current = []
-        }
-
-        // Show success notification if this was a reconnection
-        if (reconnectAttemptsRef.current > 0 && showToast) {
-          showToast("Reconnected successfully", 'success')
-        }
-      }
-
-      socket.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          // Only log non-game-state messages to reduce spam
-          if (data.funcId !== 'get_game_state') {
-            console.log("[v0] WebSocket message:", data.funcId)
-          }
-
-          // Check if this is an auth error that requires token refresh
-          if (data.code === 401 || data.message?.includes("unauthorized") || data.message?.includes("token expired")) {
-            console.warn("[Auth] Received auth error, attempting token refresh")
-            refreshToken()
-          }
-
-          setPayloadReceived(data)
-        } catch {
-          // Handle non-JSON error messages
-          const errorMessage = String(event.data)
-          console.log("[v0] Couldn't parse:", errorMessage)
-
-          // Show user-friendly error notification for service connection issues
-          if (errorMessage.includes("Failed to forward to container") || errorMessage.includes("has never opened a socket")) {
-            if (showToast) {
-              showToast("Service temporarily unavailable. Please wait a moment and try again.", 'error')
-            }
-          } else if (showToast && errorMessage.length > 0 && errorMessage.length < 500) {
-            // Show other short error messages
-            showToast(errorMessage, 'error')
-          }
-        }
-      }
-
-      socket.current.onclose = (event) => {
-        console.log("[v0] WebSocket disconnected, code:", event.code, "reason:", event.reason)
-        globalSocket = null
-        setIsConnected(false)
-
-        // Don't reconnect if it was a normal closure (code 1000) initiated by client
-        if (event.code === 1000 && event.wasClean) {
-          console.log("[v0] Clean disconnect, not reconnecting")
-          return
-        }
-
-        // Implement reconnection with exponential backoff
-        const maxAttempts = 10
-        const baseDelay = 1000 // Start with 1 second
-
-        if (reconnectAttemptsRef.current < maxAttempts) {
-          const delay = Math.min(baseDelay * Math.pow(2, reconnectAttemptsRef.current), 30000) // Cap at 30 seconds
-          reconnectAttemptsRef.current += 1
-
-          console.log(`[v0] Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxAttempts})`)
-
-          if (showToast && reconnectAttemptsRef.current === 1) {
-            showToast("Connection lost. Reconnecting...", 'error')
-          }
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log("[v0] Reconnecting...")
-            socket.current = null
-            globalSocket = null
-            // Trigger the useEffect to create a new connection
-            setReconnectTrigger(prev => prev + 1)
-          }, delay)
-        } else {
-          console.error("[v0] Max reconnection attempts reached. Please refresh the page.")
-          if (showToast) {
-            showToast("Unable to reconnect. Please refresh the page.", 'error')
-          }
-        }
-      }
-
-      socket.current.onerror = (err) => {
-        console.error("[v0] WebSocket error:", err)
-        setIsConnected(false)
-      }
+  const sendMessage = useCallback(<T extends WebSocketRouteDef>(route: T, payload: z.infer<T["schema"]["args"]>) => {
+    const messagePayload = new ClientToHubMessage(route.container, route.funcId, JSON.stringify(payload)).toString();
+    if (socket.current?.readyState === WebSocket.OPEN) {
+      socket.current.send(messagePayload);
     } else {
-      setIsConnected(socket.current.readyState === WebSocket.OPEN)
+      messageQueue.current.push(messagePayload);
     }
+  }, [])
 
-    return () => {
-      // Don't close the socket since it's a singleton
-      // But clear any pending reconnection attempts
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
+  // Handle incoming messages
+  const handleMessage = useCallback((event: MessageEvent) => {
+    try {
+      // Debug logging disabled for performance
+      // console.log('[Socket] Message received:', event.data, typeof event.data);
+      const messageParseResult = HubToClientMessage.fromRawString(event.data);
+
+      if (messageParseResult.isErr()) {
+        console.error('[Socket] Failed to parse message:', messageParseResult.unwrapErr());
+        return;
+      }
+      
+      const message = messageParseResult.unwrap();
+      const callbacks = subscribers.current.get(message.getFuncId());
+
+      let fatalError = false;
+      let parsedMessage: any = null;
+
+      const currentCallbacks = callbacks ? Array.from(callbacks) : [];
+
+      for (const sub of currentCallbacks) {
+        const { route, callback } = sub;
+        if (parsedMessage === null) {
+          const parsedPayloadResult = message.asValidated(route);
+          if (parsedPayloadResult.isErr()) {
+            console.error('[Socket] Payload validation failed for funcId', message.getFuncId(), ':', parsedPayloadResult.unwrapErr());
+            return;
+          }
+          parsedMessage = parsedPayloadResult.unwrap();
+        }
+
+        let handlerResult = HandlerResult.NotHandled;
+        try {
+          handlerResult = callback(parsedMessage, route.schema);
+        } catch (e) {
+          console.error('[Socket] Error in callback for funcId', message.getFuncId(), ':', e);
+        }
+
+        if (handlerResult === HandlerResult.NotHandled) {
+          fatalError = true;
+        }
+      }
+
+      if (fatalError) {
+        console.error('[Socket] No handlers processed the message for funcId', message.getFuncId());
+      }
+
+      if (currentCallbacks.length === 0) {
+        console.warn('[Socket] No subscribers for message funcId', message.getFuncId());
+      }
+    } catch (e) {
+      console.error('[Socket] Failed to parse message', e)
+    }
+  }, [])
+
+  const connect = useCallback(() => {
+    if (!AuthResponseObject || socket.current) return
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+    const wsUrl = protocol + "//" + window.location.host + "/ws"
+
+    const ws = new WebSocket(wsUrl)
+    socket.current = ws
+    globalSocket = ws
+
+    ws.onopen = () => {
+      console.log('[Socket] Connected')
+      setIsConnected(true)
+      ws.send(JSON.stringify({
+        authorization: AuthResponseObject!.tokens.jwt,
+      }))
+      // Flush message queue
+      while (messageQueue.current.length > 0) {
+        const msg = messageQueue.current.shift()!
+        ws.send(msg)
       }
     }
-  }, [wsUrl, currentJwt, refreshToken, reconnectTrigger, showToast])
+
+    ws.onmessage = handleMessage
+
+    ws.onclose = () => {
+      console.log('[Socket] Disconnected')
+      setIsConnected(false)
+      socket.current = null
+    }
+
+    ws.onerror = (err) => {
+      console.error('[Socket] Error', err)
+      ws.close()
+    }
+  }, [AuthResponseObject, handleMessage])
+
+  useEffect(() => {
+    connect()
+    return () => closeGlobalSocket()
+  }, [connect])
 
   return (
-    <WebSocketContext.Provider value={{ socket, payloadReceived, isConnected, refreshToken, sendMessage } as WebSocketContextValue}>
+    <SocketContext.Provider value={{ isConnected, sendMessage, subscribe }}>
       {children}
-    </WebSocketContext.Provider>
+    </SocketContext.Provider>
   )
-}
-
-export function useWebSocket() {
-  const context = useContext(WebSocketContext)
-  if (!context) throw new Error("useWebSocket must be used inside <SocketComponent>")
-  return context
 }

@@ -4,14 +4,16 @@ import { OurSocket } from "@app/shared/socket_to_hub";
 
 import ChatRooms from "./roomClass";
 
-import type { FastifyInstance } from "fastify";
-
-export async function chatEndpoints(fastify: FastifyInstance, singletonChatRooms: ChatRooms, socket: OurSocket) {
+// Use 'any' to avoid FastifyInstance type mismatch between shared and local fastify versions
+export async function chatEndpoints(fastify: any, singletonChatRooms: ChatRooms, socket: OurSocket) {
     registerRoute(fastify, int_url.http.chat.getUserConnections, async (request, reply) => {
         const userId = Number(request.params.userId);
         const result: Set<number> = new Set();
 
+        console.log("Chatrooms available:", singletonChatRooms.rooms);
         for (const room of singletonChatRooms.rooms.values()) {
+            console.log("Checking room", room.getId(), "for user", userId);
+            console.log("Room users:", room.users);
             if (room.users.find((id) => id === userId)) {
                 for (const uid of room.users) {
                     result.add(uid);

@@ -1,12 +1,29 @@
 import { MultiObject, LineObject, CircleObject } from "../engine/baseObjects.js";
 import { getWallCollisionTime } from "../engine/collision.js";
-import { Vec2 } from "../engine/math.js";
+import { Vec2, EPS } from "../engine/math.js";
+
+// Toggle heavy paddle logging for debugging (set to `true` only when debugging).
+const ENABLE_PADDLE_LOGS = false;
 
 type PongPaddleKeyData = {
-    key: string;
-    isPressed: boolean;
-    isClockwise: boolean;
+	key: string;
+	isPressed: boolean;
+	isClockwise: boolean;
 }
+
+type PongPaddleJSON = [
+	number, // center.x
+	number, // center.y
+	number, // paddleAngle
+	number, // paddleWidth
+	number, // paddleHeight
+	number, // velocity.x
+	number, // velocity.y
+	number, // playerId
+	number, // boardPaddleSpeed
+];
+
+const scaledDesiredVelocity = new Vec2(0, 0);
 
 export class PongPaddle extends MultiObject {
 	public keyData: PongPaddleKeyData[];
@@ -25,65 +42,75 @@ export class PongPaddle extends MultiObject {
 		const halfWidth = width / 2;
 		const halfHeight = height / 2;
 
+		const paddelPerpPositive = paddleDirection.clone().normalize().perp().mul(halfWidth);
+		const paddelPerpNegative = paddleDirection.clone().normalize().perp().mul(-halfWidth);
+		const paddelNormalized = paddleDirection.clone().normalize().mul(halfHeight);
+		const paddelNegNormalized = paddleDirection.clone().normalize().mul(-halfHeight);
+		const copyCenter = new Vec2(center.x, center.y);
+
 		const topLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const bottomLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const leftLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
 		const rightLine = new LineObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
 			new Vec2(0, 0),
 			0,
 			1.0,
 		)
 
+		// Corner radius should be small - just enough to round the corners
+		// Using a small fraction of halfHeight to avoid affecting bounces on the flat face
+		const cornerRadius = halfHeight * 0.3;
+
 		const topLeftCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			0,
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNegNormalized).clone(),
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
 		);
 
 		const topRightCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(-halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
-			0,
+			copyCenter.set(center.x, center.y).add(paddelPerpNegative).add(paddelNormalized).clone(),
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
 		);
 
 		const bottomLeftCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(-halfHeight)),
-			0,
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNegNormalized).clone(),
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
 		);
 
 		const bottomRightCorner = new CircleObject(
-			center.add(paddleDirection.normalize().perp().mul(halfWidth)).add(paddleDirection.normalize().mul(halfHeight)),
-			0,
+			copyCenter.set(center.x, center.y).add(paddelPerpPositive).add(paddelNormalized).clone(),
+			cornerRadius,
 			new Vec2(0, 0),
 			0,
 			1.0,
@@ -94,18 +121,23 @@ export class PongPaddle extends MultiObject {
 		this.keyData = [];
 		this.playerId = -1;
 
+		const paddleDirectionCopy = paddleDirection.clone();
+		// Use a tiny radius (EPS) for collision detection to get accurate wall distance
+		// Then subtract halfWidth so the paddle edge reaches the wall
 		const maxTravelDistance = Math.min(
-			getWallCollisionTime(new CircleObject(center.sub(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(center.sub(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(1)), walls[1]!) || Infinity,
-			getWallCollisionTime(new CircleObject(center.add(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(-1)), walls[0]!) || Infinity,
-			getWallCollisionTime(new CircleObject(center.add(paddleDirection.normalize().mul(halfHeight)), 10, paddleDirection.perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
+			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).add(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
 			protectedWallWidth / 2,
-		) - halfWidth - 1;
+		) - halfWidth;
+		if (ENABLE_PADDLE_LOGS) console.log("Max travel distance:", maxTravelDistance);
 
 		this.bounds = {
-			min: center.sub(paddleDirection.normalize().perp().mul(maxTravelDistance)),
-			max: center.add(paddleDirection.normalize().perp().mul(maxTravelDistance)),
+			min: copyCenter.set(center.x, center.y).sub(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
+			max: copyCenter.set(center.x, center.y).add(paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).normalize().perp().mul(maxTravelDistance)).clone(),
 		};
+		if (ENABLE_PADDLE_LOGS) console.log("Paddle bounds:", this.bounds, this.getCenter());
 
 		const isTopHalf = (new Vec2(0, -1).dot(paddleDirection) > 0);
 		this.keyData = [
@@ -149,20 +181,30 @@ export class PongPaddle extends MultiObject {
 		}
 
 		if (moveDirection === 0) {
-			this.velocity = new Vec2(0, 0);
+			this.velocity.set(0, 0);
 			return Infinity;
 		}
 
-		const desiredVelocity = this.clockwiseBaseVelocity.normalize().mul(moveDirection * this.boardPaddleSpeed);
-		const maxTravelDistance = moveDirection > 0 ? this.bounds.max.sub(this.getCenter()).len() : this.getCenter().sub(this.bounds.min).len();
+		let maxTravelDistance = 0;
+		const center = this.getCenter();
+		if (moveDirection > 0) {
+			// bounds.max already accounts for paddle width, so just measure distance to it
+			maxTravelDistance = center.distanceTo(this.bounds.max);
+		} else {
+			// bounds.min already accounts for paddle width, so just measure distance to it
+			maxTravelDistance = center.distanceTo(this.bounds.min);
+		}
 
-		if (maxTravelDistance < 1) {
-			this.velocity = new Vec2(0, 0);
+		scaledDesiredVelocity.copy(this.clockwiseBaseVelocity).normalize().mul(moveDirection * this.boardPaddleSpeed);
+		const maxTravelTime = maxTravelDistance / scaledDesiredVelocity.len();
+
+		if (maxTravelTime < EPS) {
+			if (ENABLE_PADDLE_LOGS) console.log("Paddle cannot move further in this direction");
+			this.velocity.set(0, 0);
 			return Infinity;
 		}
 
-		const maxTravelTime = maxTravelDistance / desiredVelocity.len();
-		this.velocity = desiredVelocity;
+		this.velocity.set(scaledDesiredVelocity.x, scaledDesiredVelocity.y);
 		return maxTravelTime;
 	}
 
@@ -178,7 +220,7 @@ export class PongPaddle extends MultiObject {
 		this.boardPaddleSpeed = newSpeed;
 	}
 
-	public toJSON(): any {
+	public toJSON(): PongPaddleJSON {
 		const center = this.getCenter();
 		const velocity = this.velocity;
 		return [

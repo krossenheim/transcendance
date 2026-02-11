@@ -74,10 +74,10 @@ export class ChatService {
 
   getRoomMessages(roomId: number, limit: number): Result<TypeStoredMessageSchema[], string> {
     return this.db.all(
-      `SELECT messageId, roomId, messageString, messageDate, userId FROM chat_messages WHERE roomId = ? ORDER BY messageDate ASC LIMIT ?`,
+      `SELECT messageId, roomId, messageString, messageDate, userId FROM chat_messages WHERE roomId = ? ORDER BY messageDate DESC LIMIT ?`,
       StoredMessageSchema,
       [roomId, limit]
-    );
+    ).map((rows) => rows.reverse());
   }
 
   getRoomUserConnections(roomId: number): Result<TypeRoomUserConnectionSchema[], string> {
@@ -93,14 +93,14 @@ export class ChatService {
     return userService.fetchPublicUsersByIds(userIds);
   }
 
-  getUserRooms(userId: number): Result<TypeRoomSchema[], string> {
+  getUserRooms(userId: number, connection: ChatRoomUserAccessType): Result<TypeRoomSchema[], string> {
     return this.db.all(
       `SELECT r.roomId, r.roomType, r.roomName
        FROM chat_rooms r
        JOIN users_room_relationships rc ON r.roomId = rc.roomId
-       WHERE rc.userId = ?`,
+       WHERE rc.userId = ? AND rc.userState = ?`,
       RoomSchema,
-      [userId]
+      [userId, connection]
     );
   }
 
@@ -116,6 +116,32 @@ export class ChatService {
     } catch (e) {
       return Result.Err((e as Error).message);
     }
+  }
+
+  getAllRooms(): Result<TypeFullRoomInfoSchema[], string> {
+    const all_ids = this.db.all(
+      `SELECT roomId FROM chat_rooms`,
+      z.object({ roomId: z.number().int() }),
+      []
+    );
+
+    console.log("Fetched all room IDs:", all_ids);
+    if (all_ids.isErr() || all_ids.unwrap().length === 0) {
+      return Result.Err("Could not fetch room IDs.");
+    }
+
+    const roomResults = all_ids.unwrap().map((data) => this.fetchRoomById(data.roomId));
+    console.log("Fetched all room details:", roomResults);
+    return roomResults.reduce((acc, res) => {
+      if (res.isErr()) {
+        return Result.Err(res.unwrapErr());
+      }
+      if (acc.isErr()) {
+        return acc;
+      }
+      acc.unwrap().push(res.unwrap());
+      return acc;
+    }, Result.Ok([] as TypeFullRoomInfoSchema[]) as Result<TypeFullRoomInfoSchema[], string>);
   }
 
   fetchDMRoom(userA: number, userB: number): Result<{ room: TypeFullRoomInfoSchema, created: boolean }, string> {
@@ -141,7 +167,7 @@ export class ChatService {
     if (this.addUserToRoom(userTwoId, room.roomId).isErr()) {
       return Result.Err("Could not add second user to newly created DM room.");
     }
-  
+
     const mappingCreationResult = this.db.run(
       `INSERT INTO dm_chat_rooms_mapping (userOneId, userTwoId, roomId) VALUES (?, ?, ?)`,
       [userOneId, userTwoId, room.roomId]

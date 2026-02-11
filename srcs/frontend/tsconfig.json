@@ -38,6 +38,21 @@
             ],
             "@shared/*": [
                 "../../shared/src/*"
+            ],
+            "@stores/*": [
+                "./src/stores/*"
+            ],
+            "@chat/*": [
+                "./src/chat/*"
+            ],
+            "@utils/*": [
+                "./src/utils/*"
+            ],
+            "@src/*": [
+                "./src/*"
+            ],
+            "@features/*": [
+                "./src/features/*"
             ]
         }
     }

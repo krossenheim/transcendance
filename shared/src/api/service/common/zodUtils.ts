@@ -1,7 +1,16 @@
 import { Result } from "@app/shared/api/service/common/result";
 import { z } from "zod";
 
-export function zodParse<T extends z.ZodTypeAny>(schema: T, data: unknown): Result<z.infer<T>, string> {
+export function zodParse<T extends z.ZodTypeAny>(schema: T | undefined, data: unknown): Result<z.infer<T>, string> {
+	if (schema === undefined)
+		return Result.Err('No schema provided for validation.');
+
+	if (typeof data === 'string') {
+		try {
+			data = JSON.parse(data);
+		} catch (e) { }
+	}
+
 	const parsed = schema.safeParse(data);
 	if (parsed.success) return Result.Ok(parsed.data);
 

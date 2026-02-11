@@ -64,12 +64,12 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
     user_url.ws.users.requestFriendship,
     async (body, response) => {
       const usersMapResult = await getUsersById([
-        body.user_id,
+        body.userId,
         body.payload,
       ]);
       if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
-      const me = usersMapResult.unwrap()[body.user_id];
+      const me = usersMapResult.unwrap()[body.userId];
       const friend = usersMapResult.unwrap()[body.payload];
       if (me === undefined || friend === undefined)
         return Result.Ok(response.select("UserDoesNotExist").reply({
@@ -92,11 +92,8 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
           }));
       }
 
-      socket.invokeHandler(
-        user_url.ws.users.fetchUserConnections,
-        [me.id, friend.id],
-        null
-      );
+      socket.invokeHandler(user_url.ws.users.fetchUserConnections, me.id, null);
+      socket.invokeHandler(user_url.ws.users.fetchUserNotifications, friend.id, null);
 
       return Result.Ok(response.select("ConnectionUpdated").reply(null));
     }

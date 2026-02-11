@@ -4,12 +4,11 @@ import { UserService } from "./database/userService.js";
 import { ChatService } from "./database/chatService.js";
 import Database from "./database/database.js";
 
-import type { FastifyInstance } from "fastify";
-
 // Setup database
 const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
-const userService = new UserService(db);
+const chatService = new ChatService(db);
+const userService = new UserService(db, chatService);
 // debug!!
 // debug!!
 // debug!!
@@ -22,12 +21,12 @@ makedebugusers(userService).catch((err) => {
 // debug!!
 // debug!!
 
-const chatService = new ChatService(db);
 
 import { TwoFactorService } from "./database/twoFactorService.js";
 const twoFactorService = new TwoFactorService(db);
 
-const fastify: FastifyInstance = createFastify();
+// Cast to any to avoid FastifyInstance type mismatch with route plugins
+const fastify: any = createFastify();
 
 // Register routes
 import userRoutes from "./routes/users.js";
@@ -49,7 +48,7 @@ const port = parseInt(
 );
 const host = process.env.AUTH_BIND_TO || "0.0.0.0";
 
-fastify.listen({ port, host }, (err, address) => {
+fastify.listen({ port, host }, (err: any, address: any) => {
   if (err) {
     fastify.log.error(err);
     process.exit(1);

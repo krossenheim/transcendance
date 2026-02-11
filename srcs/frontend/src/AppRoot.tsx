@@ -1,14 +1,13 @@
 // Full updated AppRoot.tsx with border fix and chat-only scrolling
 // (Insert your import statements here exactly as before)
 
+import { GlobalSocketListeners } from "./features/global/listeners/GlobalSocketListeners";
 import SocketComponent, { closeGlobalSocket } from "./socketComponent";
 import LoginComponent from "./loginComponent";
 import PongComponent from "./pongComponent";
-import ChatInputComponent from "./chatInputComponent";
 import RegisterComponent from "./registerComponent";
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { AuthResponseType } from "../../../nodejs_base_image/utils/api/service/auth/loginResponse";
 import GDPRPage from "./GDPRPage";
 import { FriendshipProvider } from "./friendshipContext";
 import FriendshipNotifications from "./friendshipNotifications";
@@ -21,6 +20,16 @@ import CookieBanner from "./CookieBanner";
 import StarfieldBackground from "./StarfieldBackground";
 import { useLanguage } from "./i18n";
 import LanguageSwitcher from "./components/LanguageSwitcher";
+import AuthenticatedApp from "./AuthenticatedApp";
+import { enableMapSet } from "immer";
+
+import { useGlobalStore } from "./features/global/store/globalStore";
+import { useWebSocket } from "./socketComponent";
+import { user_url } from "@app/shared/api/service/common/endpoints";
+import { HandlerResult } from "./socketComponent";
+import { Cookie } from "lucide-react";
+
+enableMapSet();
 
 export default function AppRoot() {
   const navigate = useNavigate();
@@ -417,141 +426,14 @@ export default function AppRoot() {
         {authResponse ? (
           <FriendshipProvider>
             <SocketComponent AuthResponseObject={authResponse} showToast={showToast}>
-              {/* Global Pong Invitation Handler */}
-              <PongInvitationHandler
+              <StarfieldBackground starCount={300} />
+              <CookieBanner />
+              <GlobalSocketListeners />
+
+              <AuthenticatedApp
                 authResponse={authResponse}
-                setPongInvitations={setPongInvitations}
+                onLogout={handleLogout}
               />
-
-              {/* Global Pong Invitation Notifications */}
-                  <PongInviteNotifications
-                invitations={pongInvitations}
-                onAccept={(inviteId) => {
-                  console.log("[AppRoot] Accepting invitation:", inviteId);
-                  const invitation = pongInvitations.find(inv => inv.inviteId === inviteId);
-                  if (invitation) {
-                    setAcceptedLobbyId(invitation.lobbyId);
-                    // Store the lobby data for PongComponent to use
-                    if (invitation.lobbyData) {
-                      (window as any).__acceptedLobbyData = invitation.lobbyData;
-                    }
-                  }
-                  setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
-                  navigate('/pong'); // Switch to pong page
-                }}
-                onDecline={(inviteId) => {
-                  console.log("[AppRoot] Declining invitation:", inviteId);
-                  setPongInvitations((prev) => prev.filter((inv) => inv.inviteId !== inviteId));
-                }}
-              />
-
-              <div className="flex flex-col h-screen">
-                <header className="bg-gray-100/95 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 shadow dark:shadow-dark-700 relative">
-                  <div className="max-w-5xl mx-auto px-4 py-4">
-                    <div className={`flex justify-between items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('app.title')}</h1>
-                      <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
-                        <nav className={`flex ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
-                          <button
-                            onClick={() => navigate('/chat')}
-                            className={`px-4 py-2 ${currentPage === 'chat' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
-                          >{t('nav.chat')}</button>
-                          <button
-                            onClick={() => navigate('/pong')}
-                            className={`px-4 py-2 ${currentPage === 'pong' ? 'bg-blue-500 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'}`}
-                          >{t('nav.pong')}</button>
-                        </nav>
-
-                        <LanguageSwitcher />
-
-                        <button onClick={() => setShowAccessibilitySettings(true)} className="p-2" aria-label={t('accessibility.openSettings')}>
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                          </svg>
-                        </button>
-
-                        <FriendshipNotifications isLoading={false} />
-
-                        <UserMenu
-                          username={authResponse.user.username}
-                          userId={authResponse.user.id}
-                          avatarUrl={userAvatarUrl!}
-                          onLogout={handleLogout}
-                          isLoggingOut={isLoggingOut}
-                          onFriendsClick={() => setShowFriendsManager(true)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </header>
-
-                <main id="main-content" className="flex-1 overflow-hidden flex justify-center relative" role="main" style={{ zIndex: 1 }}>
-                  <div className="w-full max-w-5xl px-4 py-6 flex flex-col">
-
-                    {/* Card wrapper (fixes border clipping) */}
-                    <div className="shadow dark:shadow-dark-700 h-full">
-                      <div className="glass-light-sm dark:glass-dark-sm border border-gray-200 dark:border-gray-700 h-full flex flex-col">
-
-                        {currentPage === 'chat' ? (
-                          // CHAT PAGE — only inner content scrolls
-                          <div className="p-6 h-full flex flex-col">
-                            <div className="flex-1 overflow-hidden">
-                              <ChatInputComponent
-                                selfUserId={authResponse.user.id}
-                                showToast={showToast}
-                                onOpenPongInvite={(roomUsers) => {
-                                  setPongInviteRoomUsers(roomUsers);
-                                  setShowPongInviteModal(true);
-                                  navigate('/pong'); // Switch to pong page
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : currentPage === 'gdpr' ? (
-                          <div className="p-6 h-full flex flex-col">
-                            <GDPRPage showToast={showToast} onNavigateBack={() => navigate('/chat')} />
-                          </div>
-                        ) : (
-                          // PONG PAGE — no scroll
-                          <div className="p-6 h-full flex">
-                            <PongComponent
-                              authResponse={authResponse}
-                              darkMode={darkMode}
-                              showInviteModal={showPongInviteModal}
-                              inviteRoomUsers={pongInviteRoomUsers}
-                              onCloseInviteModal={() => {
-                                setShowPongInviteModal(false);
-                                setPongInviteRoomUsers([]);
-                              }}
-                              pongInvitations={pongInvitations}
-                              setPongInvitations={setPongInvitations}
-                              acceptedLobbyId={acceptedLobbyId}
-                              onLobbyJoined={() => setAcceptedLobbyId(null)}
-                              onNavigateToChat={() => navigate('/chat')}
-                            />
-                          </div>
-                        )}
-
-                      </div>
-                    </div>
-
-                  </div>
-                </main>
-
-                {showFriendsManager && (
-                  <FriendsManager isOpen={showFriendsManager} onClose={() => setShowFriendsManager(false)} />
-                )}
-
-                {showAccessibilitySettings && (
-                  <AccessibilitySettings
-                    isOpen={showAccessibilitySettings}
-                    onClose={() => setShowAccessibilitySettings(false)}
-                    settings={accessibilitySettings}
-                    onUpdateSettings={setAccessibilitySettings}
-                  />
-                )}
-
-              </div>
             </SocketComponent>
           </FriendshipProvider>
         ) : (

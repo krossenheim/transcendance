@@ -5,6 +5,7 @@ export {
     getBallCollisionTime as getBallCollisionTimeInterface,
     resolveBallCollision,
     resolveCircleLineCollision,
+    MAX_BALL_SPEED,
 } from "@app/shared/pong/collision";
 
 export type { ICircle, ILine } from "@app/shared/pong/collision";

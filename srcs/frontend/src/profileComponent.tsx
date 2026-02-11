@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react"
 import { getUserColorCSS } from "./userColorUtils"
-import { useWebSocket } from "./socketComponent"
+import { useWebSocket, HandlerResult } from "./socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import { TwoFactorSettings } from "./twoFactorSettings"
 import { getCurrentUserId } from "./jwtUtils"
@@ -37,7 +37,7 @@ interface ProfileComponentProps {
 
 export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, showToast }: ProfileComponentProps) {
   const { t } = useLanguage()
-  const { socket, payloadReceived, isConnected, sendMessage } = useWebSocket()
+  const { isConnected, sendMessage, subscribe } = useWebSocket()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,26 +54,6 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
   const [gameResults, setGameResults] = useState<Array<{ id: number; userId: number; score: number; rank: number }>>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const sendToSocket = useCallback(
-    (funcId: string, payload: any) => {
-      const toSend = {
-        funcId,
-        payload,
-        target_container: "users",
-      }
-      console.log("[v0] Sending profile request:", toSend)
-      console.log("[v0] Payload detail:", JSON.stringify(payload, null, 2))
-      console.log("[v0] Payload type:", typeof payload)
-
-      const sent = sendMessage(toSend)
-      if (!sent) {
-        console.warn("[v0] Socket not connected, message queued")
-        setLoading(false)
-        setError("WebSocket is not connected. Reconnecting...")
-      }
-    },
-    [sendMessage],
-  )
 
   // Get current user ID from JWT token
   useEffect(() => {
@@ -85,19 +65,117 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
     }
   }, []);
 
+  // Subscribe to profile-related WebSocket messages
+  useEffect(() => {
+    const unsubscribers: (() => void)[] = [];
+
+    // Subscribe to user profile data
+    unsubscribers.push(subscribe(user_url.ws.users.requestUserProfileData, (message, schema) => {
+      console.log("[v0] Profile data received:", message);
+      
+      // Clear timeout on any response
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      if (message.code === schema.output.Success.code) {
+        const backendData = message.payload;
+        const transformedProfile: UserProfile = {
+          userId: backendData.id,
+          username: backendData.username,
+          email: backendData.email,
+          avatar: backendData.avatarUrl || undefined,
+          bio: backendData.bio,
+          status: "online",
+          joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
+          stats: backendData.stats,
+          isGuest: backendData.accountType === 1,
+          matchHistory: [],
+        };
+        
+        console.log("[v0] Transformed profile:", transformedProfile);
+        setProfile(transformedProfile);
+        setEditedBio(transformedProfile.bio || "");
+        setEditedUsername(transformedProfile.username);
+        setEditedEmail(transformedProfile.email || "");
+        setLoading(false);
+        setError(null);
+        return HandlerResult.Handled;
+      } else {
+        console.error("[v0] Failed to fetch profile:", message.payload);
+        setLoading(false);
+        setError(message.payload?.message || "Failed to load profile");
+        return HandlerResult.Handled;
+      }
+    }));
+
+    // Subscribe to update profile
+    unsubscribers.push(subscribe(user_url.ws.users.updateProfile, (message, schema) => {
+      if (message.code === schema.output.Success.code) {
+        setProfile((prev) => (prev ? { ...prev, bio: message.payload.bio } : null));
+        setEditing(false);
+        return HandlerResult.Handled;
+      }
+      return HandlerResult.NotHandled;
+    }));
+
+    // Subscribe to friend request
+    unsubscribers.push(subscribe(user_url.ws.users.requestFriendship, (message, schema) => {
+      if (message.code === schema.output.Success.code) {
+        console.log("[ProfileComponent] Friend request sent successfully");
+        if (showToast) {
+          showToast('Friend request sent successfully!', 'success');
+        }
+        return HandlerResult.Handled;
+      } else {
+        console.error("[ProfileComponent] Failed to send friend request:", message);
+        if (showToast) {
+          const errorMsg = message.payload?.message || message.payload?.error || 'Failed to send friend request';
+          showToast(errorMsg, 'error');
+        }
+        return HandlerResult.Handled;
+      }
+    }));
+
+    // Subscribe to game results
+    unsubscribers.push(subscribe(user_url.ws.users.fetchUserGameResults, (message, schema) => {
+      if (message.code === schema.output.Success.code) {
+        const results: Array<{ id: number; userId: number; score: number; rank: number }> =
+          Array.isArray(message.payload) ? message.payload : [];
+        setGameResults(results);
+        const gamesPlayed = results.length;
+        const wins = results.filter((r) => r.rank === 1).length;
+        const losses = gamesPlayed - wins;
+        setProfile(prev => prev ? {
+          ...prev,
+          stats: { gamesPlayed, wins, losses },
+          matchHistory: results.map((r) => ({ id: r.id, score: r.score, rank: r.rank }))
+        } : prev);
+        return HandlerResult.Handled;
+      }
+      return HandlerResult.NotHandled;
+    }));
+
+    return () => {
+      unsubscribers.forEach((unsub) => unsub());
+    };
+  }, [subscribe, showToast]);
+
+  // Fetch profile when modal opens
   useEffect(() => {
     if (isOpen && userId) {
       console.log("[v0] ProfileComponent: Fetching profile for userId:", userId)
       setLoading(true)
       setError(null)
 
-      // ✅ Clear any previous timeout before starting a new one
+      // Clear any previous timeout before starting a new one
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
       // Send request
-      sendToSocket(user_url.ws.users.requestUserProfileData.funcId, userId)
+      sendMessage(user_url.ws.users.requestUserProfileData, userId)
 
-      // ✅ Set a new timeout
+      // Set a new timeout
       timeoutRef.current = setTimeout(() => {
         setLoading(false)
         setError(t('profile.requestTimeout'))
@@ -112,95 +190,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
         timeoutRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, userId])
-
-
-  useEffect(() => {
-    if (!payloadReceived) return
-
-    console.log("[v0] Profile component received payload:", payloadReceived)
-    console.log("[v0] Expected funcId:", user_url.ws.users.requestUserProfileData.funcId)
-    console.log("[v0] Received funcId:", payloadReceived.funcId)
-
-    if (payloadReceived.funcId === user_url.ws.users.requestUserProfileData.funcId) {
-      // ✅ Clear timeout once we receive the profile response
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-
-      console.log("[v0] Profile data response matched! Code:", payloadReceived.code)
-      if (payloadReceived.code === 0) {
-        console.log("[v0] Profile data:", payloadReceived.payload)
-
-        // Transform backend response to our UserProfile format
-        const backendData = payloadReceived.payload
-        const transformedProfile: UserProfile = {
-          userId: backendData.id,
-          username: backendData.username,
-          email: backendData.email,
-          avatar: backendData.avatarUrl || undefined,
-          bio: backendData.bio,
-          status: "online", // Default status, backend doesn't provide this
-          joinDate: backendData.createdAt ? new Date(backendData.createdAt * 1000).toISOString() : undefined,
-          stats: backendData.stats, // Pass through if exists
-          isGuest: backendData.accountType === 1,
-          matchHistory: [],
-        }
-
-        console.log("[v0] Transformed profile:", transformedProfile)
-        setProfile(transformedProfile)
-        setEditedBio(transformedProfile.bio || "")
-        setEditedUsername(transformedProfile.username)
-        setEditedEmail(transformedProfile.email || "")
-        setLoading(false)
-        setError(null)
-      } else {
-        console.error("[v0] Failed to fetch profile:", payloadReceived.payload)
-        setLoading(false)
-        setError(payloadReceived.payload?.message || "Failed to load profile")
-      }
-    }
-
-    if (payloadReceived.funcId === user_url.ws.users.updateProfile.funcId) {
-      if (payloadReceived.code === 0) {
-        setProfile((prev) => (prev ? { ...prev, bio: payloadReceived.payload.bio } : null))
-        setEditing(false)
-      }
-    }
-
-    if (payloadReceived.funcId === user_url.ws.users.requestFriendship.funcId) {
-      if (payloadReceived.code === 0) {
-        console.log("[ProfileComponent] Friend request sent successfully")
-        if (showToast) {
-          showToast('Friend request sent successfully!', 'success')
-        }
-      } else {
-        console.error("[ProfileComponent] Failed to send friend request:", payloadReceived)
-        if (showToast) {
-          const errorMsg = payloadReceived.payload?.message || payloadReceived.payload?.error || 'Failed to send friend request'
-          showToast(errorMsg, 'error')
-        }
-      }
-    }
-    if (payloadReceived.funcId === user_url.ws.users.fetchUserGameResults.funcId) {
-      if (payloadReceived.code === 0) {
-        const results: Array<{ id: number; userId: number; score: number; rank: number }> =
-          Array.isArray(payloadReceived.payload) ? payloadReceived.payload : []
-        setGameResults(results)
-        // Derive stats
-        const gamesPlayed = results.length
-        const wins = results.filter((r) => r.rank === 1).length
-        const losses = gamesPlayed - wins
-        setProfile(prev => prev ? {
-          ...prev,
-          stats: { gamesPlayed, wins, losses },
-          matchHistory: results.map((r) => ({ id: r.id, score: r.score, rank: r.rank }))
-        } : prev)
-      }
-    }
-  }, [payloadReceived, showToast])
+  }, [isOpen, userId, sendMessage, t])
 
   // 🔒 Fetch avatar securely with JWT
   useEffect(() => {
@@ -287,7 +277,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
         }
         : undefined
 
-      sendToSocket(user_url.ws.users.updateProfile.funcId, {
+      sendMessage(user_url.ws.users.updateProfile, {
         alias: editedUsername,
         email: editedEmail,
         bio: editedBio,
@@ -343,7 +333,7 @@ export default function ProfileComponent({ userId, isOpen, onClose, onStartDM, s
   const handleAddFriend = () => {
     if (!userId) return
     console.log("[ProfileComponent] Sending friend request to userId:", userId)
-    sendToSocket(user_url.ws.users.requestFriendship.funcId, userId)
+    sendMessage(user_url.ws.users.requestFriendship, userId)
   }
 
   const requestHistory = () => {

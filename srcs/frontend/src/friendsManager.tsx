@@ -41,16 +41,12 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
     } catch { }
   }, [])
 
-  const sendToSocket = useCallback((funcId: string, payload: any) => {
-    const toSend = { funcId, payload, target_container: 'users' }
-    sendMessage(toSend)
-  }, [sendMessage])
 
   // Fetch connections when opened
   useEffect(() => {
     if (!isOpen) return
     setLoading(true)
-    sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null)
+    sendMessage(user_url.ws.users.fetchUserConnections, null)
     const timeout = setTimeout(() => setLoading(false), 2000)
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,7 +69,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
     ) {
       console.log("Received action response:", payloadReceived.funcId)
       // Refresh list after action completes
-      setTimeout(() => sendToSocket(user_url.ws.users.fetchUserConnections.funcId, null), 200)
+      setTimeout(() => sendMessage(user_url.ws.users.fetchUserConnections, null), 200)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payloadReceived])
@@ -94,13 +90,13 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
             {selfUserId !== null && item.friendId === selfUserId ? (
               <>
                 <button
-                  onClick={() => sendToSocket(user_url.ws.users.confirmFriendship.funcId, item.id)}
+                  onClick={() => sendMessage(user_url.ws.users.confirmFriendship, item.id)}
                   className="px-3 py-1 text-xs font-medium bg-green-500 text-white hover:bg-green-600"
                 >
                   {t('friends.accept')}
                 </button>
                 <button
-                  onClick={() => sendToSocket(user_url.ws.users.denyFriendship.funcId, item.id)}
+                  onClick={() => sendMessage(user_url.ws.users.denyFriendship, item.id)}
                   className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
                 >
                   {t('friends.deny')}
@@ -110,7 +106,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
               <>
                 <span className="px-3 py-1 text-xs font-medium bg-yellow-400 text-white">{t('friends.pending')}</span>
                 <button
-                  onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
+                  onClick={() => sendMessage(user_url.ws.users.removeFriendship, item.friendId)}
                   className="px-3 py-1 text-xs font-medium bg-gray-500 text-white hover:bg-gray-600"
                 >
                   {t('friends.cancel')}
@@ -122,13 +118,13 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
         {item.status === 2 && (
           <>
             <button
-              onClick={() => sendToSocket(user_url.ws.users.removeFriendship.funcId, item.friendId)}
+              onClick={() => sendMessage(user_url.ws.users.removeFriendship, item.friendId)}
               className="px-3 py-1 text-xs font-medium bg-gray-500 text-white hover:bg-gray-600"
             >
               {t('friends.unfriend')}
             </button>
             <button
-              onClick={() => sendToSocket(user_url.ws.users.blockUser.funcId, item.friendId)}
+              onClick={() => sendMessage(user_url.ws.users.blockUser, item.friendId)}
               className="px-3 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600"
               disabled={item.friendId === selfUserId || item.friendId === 1}
             >
@@ -138,7 +134,7 @@ export default function FriendsManager({ isOpen, onClose }: FriendsManagerProps)
         )}
         {item.status === 3 && (
           <button
-            onClick={() => sendToSocket(user_url.ws.users.unblockUser.funcId, item.friendId)}
+            onClick={() => sendMessage(user_url.ws.users.unblockUser, item.friendId)}
             className="px-3 py-1 text-xs font-medium bg-gray-100/40 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50/40 dark:hover:bg-dark-600"
           >
             {t('friends.unblock')}

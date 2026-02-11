@@ -45,6 +45,7 @@ import {
   JoinTournamentMatchSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
 import { GameResult } from "@app/shared/api/service/db/gameResult";
+import { UserNotifications } from "@app/shared/api/service/db/notification";
 
 export const defaultResponses: Record<number, z.ZodType | null> = {
   400: ErrorResponse,
@@ -60,7 +61,7 @@ export type HTTPRouteDef = {
     body?: z.ZodType;
     query?: any;
     params?: any;
-    response: Record<number, z.ZodType | null>;
+    response: Record<number, z.ZodType>;
   };
 };
 
@@ -573,6 +574,27 @@ export const user_url = defineRoutes({
           },
         },
       },
+
+      fetchUserNotifications: {
+        funcId: "fetch_user_notifications",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.null(),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: UserNotifications,
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       fetchUserGameResults: {
         funcId: "fetch_user_game_results",
         container: "users",
@@ -945,6 +967,10 @@ export const user_url = defineRoutes({
               code: 4,
               payload: ErrorResponse,
             },
+            CannotDMYourself: {
+              code: 5,
+              payload: ErrorResponse,
+            },
           },
         },
       },
@@ -980,6 +1006,10 @@ export const user_url = defineRoutes({
               code: 5,
               payload: ErrorResponse,
             },
+            UnknownUser: {
+              code: 6,
+              payload: ErrorResponse,
+            }
           },
         },
       },
@@ -1220,6 +1250,18 @@ export const int_url = defineRoutes({
         },
       },
 
+      getUserNotifications: {
+        endpoint: "/internal_api/db/users/notifications/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: UserNotifications, // Retrieved notifications
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
       searchUserByUsername: {
         endpoint: "/internal_api/db/users/search/:username",
         method: "GET",
@@ -1435,6 +1477,17 @@ export const int_url = defineRoutes({
         },
       },
 
+      getAllRooms: {
+        endpoint: "/internal_api/chat/rooms/all",
+        method: "GET",
+        schema: {
+          response: {
+            200: z.array(FullRoomInfoSchema), // Retrieved list of all rooms
+            500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
       fetchDMRoomInfo: {
         endpoint: "/internal_api/chat/rooms/dm_info/:userId1/:userId2",
         method: "GET",
@@ -1483,7 +1536,7 @@ export const int_url = defineRoutes({
         endpoint: "/internal_api/chat/rooms/add_user",
         method: "POST",
         schema: {
-          body: AddToRoomPayloadSchema.extend({ type: z.number() }),
+          body: AddToRoomPayloadSchema.extend({ type: z.number(), user_to_add: userIdValue }),
           response: {
             200: z.null(), // User added successfully
             500: ErrorResponse, // Internal server error

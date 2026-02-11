@@ -1,6 +1,6 @@
 import { getBallCollisionTime, getWallCollisionTime, CollisionResponse, resolveBallCollision, resolveCircleLineCollision } from "./collision.js";
 import { BaseObject, LineObject, CircleObject } from "./baseObjects.js";
-import { EPS, FAT_EPS } from "./math.js";
+import { EPS, FAT_EPS, Vec2 } from "./math.js";
 
 interface Collision {
     time: number;
@@ -8,13 +8,22 @@ interface Collision {
     objectB: BaseObject;
 };
 
+const scratchRelativeVelocity = new Vec2(0, 0);
+
+// Maximum distance an object should move per nudge (prevents high-speed tunneling)
+const MAX_NUDGE_DISTANCE = 0.5;
+
+// Target ball speed (will be set by game when constructing scene)
+let targetBallSpeed: number = 450;
+
 export class Scene {
     private objects: BaseObject[];
     private elapsedTime: number = 0;
     private timeScale: number = 1.0;
 
-    constructor() {
+    constructor(ballSpeed: number = 450) {
         this.objects = [];
+        targetBallSpeed = ballSpeed;
     }
 
     public setTimeScale(scale: number): void {
@@ -63,7 +72,10 @@ export class Scene {
             for (let j = 0; j < this.objects.length; j++) {
                 const parentB = this.objects[j]!;
                 if (parentA === parentB) continue;
-                if (parentA.velocity.sub(parentB.velocity).lenSq() < EPS) continue;
+                
+                // Skip if objects have no relative velocity
+                const relVelSq = scratchRelativeVelocity.copy(parentA.velocity).sub(parentB.velocity).lenSq();
+                if (relVelSq < EPS) continue;
 
                 for (const objA of parentA.iter()) {
                     for (const objB of parentB.iter()) {
@@ -85,6 +97,10 @@ export class Scene {
                                 objectA: objA,
                                 objectB: objB,
                             };
+                        }
+
+                        if (tHit !== null && tHit < 0) {
+                            console.warn(`Negative collision time detected between ${objA.constructor.name} and ${objB.constructor.name}: tHit=${tHit}`);
                         }
                     }
                 }
@@ -127,32 +143,81 @@ export class Scene {
             const bTask = parentB.onCollision(parentA, this.elapsedTime);
 
             const handleMethod = Math.max(aTask, bTask);
-            // Collision logging removed for performance
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
-                    collision.objectA.moveByDelta(FAT_EPS);
-                    collision.objectB.moveByDelta(FAT_EPS);
+                    // Nudge AFTER handling to prevent objects from tunneling
+                    this.safeNudge(collision.objectA);
+                    this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.RESET:
-                    if (aTask === CollisionResponse.RESET)
+                    // Nudge the surviving object to prevent getting stuck at collision point
+                    if (aTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentA);
-                    if (bTask === CollisionResponse.RESET)
+                    }
+                    if (bTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentB);
+                    }
+                    // Nudge surviving objects after removal
+                    if (aTask !== CollisionResponse.RESET) this.safeNudge(collision.objectA);
+                    if (bTask !== CollisionResponse.RESET) this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.BOUNCE:
-                    collision.objectA.moveByDelta(FAT_EPS);
-                    collision.objectB.moveByDelta(FAT_EPS);
+                    // Resolve collision FIRST, then nudge to prevent tunneling
                     if (collision.objectA instanceof CircleObject && collision.objectB instanceof CircleObject) {
                         resolveBallCollision(collision.objectA, collision.objectB);
+                        // Normalize both balls to target speed after collision
+                        this.normalizeBallSpeed(collision.objectA);
+                        this.normalizeBallSpeed(collision.objectB);
                     } else if (collision.objectA instanceof CircleObject && collision.objectB instanceof LineObject) {
                         resolveCircleLineCollision(collision.objectA, collision.objectB);
+                        // Normalize ball speed after bouncing off wall/paddle
+                        this.normalizeBallSpeed(collision.objectA);
                     } else if (collision.objectA instanceof LineObject && collision.objectB instanceof CircleObject) {
                         resolveCircleLineCollision(collision.objectB, collision.objectA);
+                        // Normalize ball speed after bouncing off wall/paddle
+                        this.normalizeBallSpeed(collision.objectB);
                     } else {
                         console.warn(`Collision resolution not implemented for ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name}`);
                     }
+                    // Nudge AFTER resolving collision to prevent re-collision on same frame
+                    this.safeNudge(collision.objectA);
+                    this.safeNudge(collision.objectB);
                     break;
             }
+        }
+        // Note: Ball bounds checking is handled by game.ts checkBallBounds() - the simple bulletproof solution
+    }
+
+    /**
+     * Safely nudge an object forward by FAT_EPS, but limit the actual distance
+     * traveled to prevent high-speed objects from tunneling through walls.
+     */
+    private safeNudge(obj: BaseObject): void {
+        const speed = obj.velocity.len();
+        if (speed < EPS) return;
+        
+        // Calculate how far the object would move in FAT_EPS time
+        const nudgeDistance = speed * FAT_EPS;
+        
+        // If that distance is too large, reduce the time step proportionally
+        if (nudgeDistance > MAX_NUDGE_DISTANCE) {
+            const safeDeltaTime = MAX_NUDGE_DISTANCE / speed;
+            obj.moveByDelta(safeDeltaTime);
+        } else {
+            obj.moveByDelta(FAT_EPS);
+        }
+    }
+
+    /**
+     * Normalize a circle object's velocity to the target ball speed.
+     * This ensures constant ball speed regardless of collision dynamics.
+     */
+    private normalizeBallSpeed(obj: CircleObject): void {
+        const speed = obj.velocity.len();
+        if (speed > EPS) {
+            // Scale velocity to maintain constant speed
+            const scale = targetBallSpeed / speed;
+            obj.velocity = obj.velocity.mul(scale);
         }
     }
 
