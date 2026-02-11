@@ -456,37 +456,38 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // Check if server position actually changed (new server update received)
-        const serverPosChanged = Math.abs(serverX - target.targetPos.x) > 0.0001 || 
-                                 Math.abs(serverZ - target.targetPos.z) > 0.0001
+        // Check for large position difference (teleport/respawn) - always snap immediately
+        const posDistSq = (serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2
+        const posDist = Math.sqrt(posDistSq)
         
-        if (serverPosChanged) {
-          // Update tracking to new server position
-          target.targetPos.x = serverX
-          target.targetPos.z = serverZ
-          target.velocityX = serverVelX
-          target.velocityZ = serverVelZ
-        }
-        
-        // Check distance from current server position
-        const errorX = serverX - mesh.position.x
-        const errorZ = serverZ - mesh.position.z
-        const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
-        
-        if (errorDist > 0.5) {
-          // Large error (ball respawn, lag spike recovery) - snap immediately
+        if (posDist > 1.0) {
+          // Large teleport (respawn after goal) - snap immediately
           mesh.position.x = serverX
           mesh.position.z = serverZ
+          target.velocityX = serverVelX
+          target.velocityZ = serverVelZ
         } else {
-          // Normal operation: extrapolate with velocity + small continuous correction
-          // Extrapolate using server velocity
+          // Normal movement: move at server velocity + gentle position correction
+          // This eliminates all snapping/teleporting while keeping positions accurate
+          
+          // Move at server velocity
           mesh.position.x += serverVelX * dtSeconds
           mesh.position.z += serverVelZ * dtSeconds
           
-          // Tiny correction (1% per frame) prevents drift without visible snapping
-          // This is imperceptible but accumulates to keep us on track
-          mesh.position.x += errorX * 0.01
-          mesh.position.z += errorZ * 0.01
+          // Gentle continuous correction toward server position
+          // This is smooth and imperceptible but prevents drift accumulation
+          const errorX = serverX - mesh.position.x
+          const errorZ = serverZ - mesh.position.z
+          
+          // Correction strength: blend 5% toward server position each frame
+          // At 60fps this corrects ~95% of error per second
+          const correction = 0.05
+          mesh.position.x += errorX * correction
+          mesh.position.z += errorZ * correction
+          
+          // Always keep velocity in sync
+          target.velocityX = serverVelX
+          target.velocityZ = serverVelZ
         }
         
         // Rolling rotation based on actual movement
