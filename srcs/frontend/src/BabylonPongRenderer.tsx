@@ -456,14 +456,37 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const prevX = mesh.position.x
         const prevZ = mesh.position.z
         
-        // KISS: Just follow server position directly
-        // 60Hz server updates are smooth enough without client-side interpolation
-        mesh.position.x = serverX
-        mesh.position.z = serverZ
+        // Detect if server sent new data (position changed from last known server pos)
+        const serverPosChanged = Math.abs(serverX - target.targetPos.x) > 0.0001 || 
+                                 Math.abs(serverZ - target.targetPos.z) > 0.0001
         
-        // Keep velocity for rotation calculation
-        target.velocityX = serverVelX
-        target.velocityZ = serverVelZ
+        // Check for bounce (velocity direction reversal) only when server sends new data
+        const bounceX = serverPosChanged && target.velocityX !== 0 && serverVelX !== 0 && 
+                        Math.sign(target.velocityX) !== Math.sign(serverVelX)
+        const bounceZ = serverPosChanged && target.velocityZ !== 0 && serverVelZ !== 0 && 
+                        Math.sign(target.velocityZ) !== Math.sign(serverVelZ)
+        const bounced = bounceX || bounceZ
+        
+        // Check for large teleport (respawn)
+        const dist = Math.sqrt((serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2)
+        
+        if (dist > 1.0 || bounced) {
+          // Teleport or bounce: snap to server position
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+        } else {
+          // Normal motion: extrapolate using velocity for smooth movement
+          mesh.position.x += target.velocityX * dtSeconds
+          mesh.position.z += target.velocityZ * dtSeconds
+        }
+        
+        // Update tracking state when server sends new data
+        if (serverPosChanged) {
+          target.targetPos.x = serverX
+          target.targetPos.z = serverZ
+          target.velocityX = serverVelX
+          target.velocityZ = serverVelZ
+        }
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
