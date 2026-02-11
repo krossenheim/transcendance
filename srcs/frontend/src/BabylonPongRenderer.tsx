@@ -411,7 +411,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     scene.onBeforeRenderObservable.add(() => {
       const gs = gameStateRef.current
       if (!gs) return
-      const deltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
+      // Cap deltaTime to prevent jumps when frames are dropped (browser throttling, GC pauses, etc.)
+      // Max ~50ms (20 FPS minimum) - anything larger would cause visible teleportation
+      const rawDeltaTime = sceneRef.current?.getEngine().getDeltaTime() ?? 16.67
+      const deltaTime = Math.min(rawDeltaTime, 50)
       const dtSeconds = deltaTime / 1000.0
       
       // Update balls
@@ -470,9 +473,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const errorX = serverX - mesh.position.x
           const errorZ = serverZ - mesh.position.z
           
-          // Correction strength: blend 5% toward server position each frame
-          // At 60fps this corrects ~95% of error per second
-          const correction = 0.05
+          // Frame-rate independent correction: corrects ~95% of error per second
+          // Uses exponential decay formula: correction = 1 - (1 - rate)^dt
+          // where rate is fraction corrected per second (0.95 = 95%)
+          // This ensures smooth behavior regardless of frame rate fluctuations
+          const correctionPerSecond = 0.95
+          const correction = 1 - Math.pow(1 - correctionPerSecond, dtSeconds)
           mesh.position.x += errorX * correction
           mesh.position.z += errorZ * correction
           
