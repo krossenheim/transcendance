@@ -409,63 +409,6 @@ registerRoute(fastify, user_url.http.auth.logoutUser, async (request, reply) => 
 	}
 });
 
-// GDPR: fetch personal data (requires auth wrapper on client side)
-registerRoute(fastify, user_url.http.auth.fetchPersonalData, async (request, reply) => {
-	const { userId } = request.body;
-	const responseResult = await containers.db.get(int_url.http.db.getUser, { userId });
-
-	if (responseResult.isErr()) {
-		return reply.status(500).send({ message: responseResult.unwrapErr() });
-	}
-
-	const response = responseResult.unwrap();
-	if (response.status === 200) {
-		const parse = FullUser.safeParse(response.data);
-		if (!parse.success) return reply.status(500).send({ message: 'DB returned malformed user data' });
-		return reply.status(200).send(parse.data);
-	}
-
-	return reply.status(500).send(response.data);
-});
-
-// GDPR: request anonymization of personal data
-registerRoute(fastify, user_url.http.auth.requestAnonymize, async (request, reply) => {
-	const { userId } = request.body;
-	const responseResult = await containers.db.post(int_url.http.db.anonymizeUser as any, null as any, { userId });
-
-	if (responseResult.isErr()) {
-		return reply.status(500).send({ message: responseResult.unwrapErr() });
-	}
-
-	const response = responseResult.unwrap();
-	if (response.status === 200) {
-		const parse = FullUser.safeParse(response.data);
-		if (!parse.success) return reply.status(500).send({ message: 'DB returned malformed user data' });
-		return reply.status(200).send(parse.data);
-	}
-
-	if (response.status === 400) return reply.status(400).send(response.data);
-	return reply.status(500).send(response.data);
-});
-
-// GDPR: request account deletion (permanent)
-registerRoute(fastify, user_url.http.auth.requestAccountDeletion, async (request, reply) => {
-	const { userId } = request.body;
-	const responseResult = await containers.db.post(int_url.http.db.deleteUser as any, null as any, { userId });
-
-	if (responseResult.isErr()) {
-		return reply.status(500).send({ message: responseResult.unwrapErr() });
-	}
-
-	const response = responseResult.unwrap();
-	if (response.status === 200) {
-		return reply.status(200).send(null);
-	}
-
-	if (response.status === 400) return reply.status(400).send(response.data);
-	return reply.status(500).send(response.data);
-});
-
 // 2FA Setup: Generate QR code
 registerRoute(fastify, pub_url.http.auth.setup2FA, async (request, reply) => {
 	const { userId, username } = request.body;
