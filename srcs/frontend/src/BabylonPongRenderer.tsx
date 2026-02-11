@@ -464,31 +464,16 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           // Large teleport (respawn after goal) - snap immediately
           mesh.position.x = serverX
           mesh.position.z = serverZ
-          target.velocityX = serverVelX
-          target.velocityZ = serverVelZ
         } else {
-          // Normal movement: move at server velocity + gentle position correction
-          // This eliminates all snapping/teleporting while keeping positions accurate
-          
-          // Move at server velocity
-          mesh.position.x += serverVelX * dtSeconds
-          mesh.position.z += serverVelZ * dtSeconds
-          
-          // Gentle continuous correction toward server position
-          // This is smooth and imperceptible but prevents drift accumulation
-          const errorX = serverX - mesh.position.x
-          const errorZ = serverZ - mesh.position.z
-          
-          // Correction strength: blend 5% toward server position each frame
-          // At 60fps this corrects ~95% of error per second
-          const correction = 0.05
-          mesh.position.x += errorX * correction
-          mesh.position.z += errorZ * correction
-          
-          // Always keep velocity in sync
-          target.velocityX = serverVelX
-          target.velocityZ = serverVelZ
+          // Pure lerp toward server position - no velocity extrapolation
+          // Constant lerp factor gives smooth consistent motion
+          mesh.position.x += (serverX - mesh.position.x) * 0.3
+          mesh.position.z += (serverZ - mesh.position.z) * 0.3
         }
+        
+        // Keep velocity for rotation calculation
+        target.velocityX = serverVelX
+        target.velocityZ = serverVelZ
         
         // Rolling rotation based on actual movement
         if (mesh.rotationQuaternion) {
