@@ -8,7 +8,7 @@
  * without the complexity of client-side physics prediction.
  */
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 
 interface PredictedBall {
     id: number;
@@ -46,12 +46,11 @@ export function usePredictedGameState(
     myUserId: number,
     pressedKeys: string[]
 ): PredictedGameState | null {
-    const [predictedState, setPredictedState] = useState<PredictedGameState | null>(null);
-    
-    // Convert server state to the format BabylonPongRenderer expects
-    useEffect(() => {
+    // Convert server state synchronously using useMemo
+    // This ensures ball radius changes are reflected immediately
+    return useMemo(() => {
         if (!serverGameState || !serverGameState.board_id) {
-            return;
+            return null;
         }
         
         // Parse balls from server format
@@ -102,7 +101,7 @@ export function usePredictedGameState(
             };
         });
         
-        const convertedState: PredictedGameState = {
+        return {
             board_id: serverGameState.board_id,
             balls,
             paddles,
@@ -113,10 +112,5 @@ export function usePredictedGameState(
             gameOver: serverGameState.gameOver || false,
             winner: serverGameState.winner || null,
         };
-        
-        setPredictedState(convertedState);
-        
     }, [serverGameState]);
-
-    return predictedState;
 }
