@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { getVisualUserName } from "@utils/users";
 import { useNavigate } from "react-router-dom";
 import { getUserColorCSS } from "@utils/users";
-import { useLanguage } from "./i18n";
+import { useLanguage } from "@src/i18n";
 
 interface UserMenuProps {
   onLogout: () => void;

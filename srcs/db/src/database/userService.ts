@@ -19,6 +19,11 @@ function createGuestUsername(): string {
 	return `guest_${randomStr}`;
 }
 
+const PFP_DIR = '/etc/database_data/pfps';
+function getPfpFileName(filename: string, userId: number): string {
+	return `${userId}${filename}`;
+}
+
 function svgPfpToPng(svg: string): Buffer<ArrayBufferLike> {
 	const resvg = new Resvg(svg, {
 		fitTo: {
@@ -35,10 +40,9 @@ async function createDefaultAvatar(userId: number): Promise<Result<string, strin
 	const pngBuffer = svgPfpToPng(avatar.data);
 
 	try {
-		const dirPath = '/etc/database_data/pfps';
-		const fileName = `${userId}default.png`;
-		await fs.mkdir(dirPath, { recursive: true });
-		await fs.writeFile(`${dirPath}/${fileName}`, pngBuffer);
+		const fileName = getPfpFileName('default.png', userId);
+		await fs.mkdir(PFP_DIR, { recursive: true });
+		await fs.writeFile(`${PFP_DIR}/${fileName}`, pngBuffer);
 		return Result.Ok(fileName);
 	} catch (error) {
 		console.error('Failed to store avatar PNG:', error);
@@ -287,9 +291,8 @@ export class UserService {
 			}
 			
 			// Ensure the resolved path is within the allowed directory
-			const basePath = '/etc/database_data/pfps';
-			const resolvedPath = path.resolve(basePath, sanitizedFile);
-			if (!resolvedPath.startsWith(basePath + path.sep)) {
+			const resolvedPath = path.resolve(PFP_DIR, sanitizedFile);
+			if (!resolvedPath.startsWith(PFP_DIR + path.sep)) {
 				console.error('Path traversal attempt detected:', file);
 				return Result.Err('Invalid filename');
 			}
@@ -335,11 +338,10 @@ export class UserService {
 		if (pfp !== undefined) {
 			const pngBuffer = Buffer.from(pfp.data, 'base64');
 			try {
-				const dirPath = '/etc/database_data/pfps';
-				await fs.mkdir(dirPath, { recursive: true });
-				await fs.writeFile(`${dirPath}/${pfp.filename}`, pngBuffer);
+				await fs.mkdir(PFP_DIR, { recursive: true });
+				await fs.writeFile(`${PFP_DIR}/${getPfpFileName(pfp.filename, userId)}`, pngBuffer);
 				updates.push('avatarUrl = ?');
-				params.push(pfp.filename);
+				params.push(getPfpFileName(pfp.filename, userId));
 			} catch (error) {
 				console.error('Failed to store new profile picture:', error);
 				return Result.Err('Failed to store new profile picture');
@@ -370,7 +372,7 @@ export class UserService {
 		// attempt to remove avatar file if present
 		if (user.avatarUrl) {
 			try {
-				await fs.unlink(`/etc/database_data/pfps/${user.avatarUrl}`);
+				await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
 			} catch (e) {
 				// ignore file removal errors
 			}
@@ -401,7 +403,7 @@ export class UserService {
 		// remove avatar file if present
 		if (user.avatarUrl) {
 			try {
-				await fs.unlink(`/etc/database_data/pfps/${user.avatarUrl}`);
+				await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
 			} catch (e) {
 				// ignore file removal errors
 			}

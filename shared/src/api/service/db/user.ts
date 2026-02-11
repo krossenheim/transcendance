@@ -56,6 +56,7 @@ export const GetUser = z.object({
 }).strict();
 
 export const UpdateUserData = z.object({
+	userId: userIdValue,
 	bio: z.string().optional(),
 	alias: z.string().optional(),
 	email: z.string().optional(),

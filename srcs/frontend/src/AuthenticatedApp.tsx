@@ -4,7 +4,6 @@ import { useLanguage } from "./i18n";
 
 // Components
 import PongComponent from "./pongComponent";
-import GDPRPage from "./GDPRPage";
 import PongInvitationHandler from "./pongInvitationHandler";
 import PongInviteNotifications, { PongInvitation } from "./pongInviteNotifications";
 import SettingsPage from "./pages/settings"; // Imported the new page
@@ -83,7 +82,6 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
                     />
                   } />
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/gdpr" element={<GDPRPage showToast={() => {}} onNavigateBack={() => navigate('/')} />} />
                 </Routes>
               </div>
            </div>

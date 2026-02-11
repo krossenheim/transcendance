@@ -56,11 +56,15 @@ export function getUserColorHex(userId: number, darkMode = true): string {
  * Get the visual display name for a user
  * @param user - The user object containing username and optional alias + id
  * @param id - The user ID (used if user is undefined)
+ * @param max_length - Optional maximum length for the display name (truncated with ellipsis if exceeded). Default is 20 characters.
  * @returns The display name
  */
-export function getVisualUserName(user?: { alias: string | null; username: string, id: number } | null, id?: number): string {
+export function getVisualUserName(user?: { alias: string | null; username: string, id: number } | null, id?: number, max_length: number | null = 20): string {
     if (!user) return `User ${id ?? ''}`;
-    return (user.alias && user.alias.trim().length > 0 ? user.alias : user.username) || `User ${user.id}`;
+    const visualUsername: string = (user.alias && user.alias.trim().length > 0 ? user.alias : user.username) || `User ${user.id}`;
+    if (max_length !== null && visualUsername.length > max_length)
+        return visualUsername.slice(0, Math.max(0, max_length - 3)) + '...';
+    return visualUsername;
 }
 
 /**
@@ -70,7 +74,7 @@ export function getVisualUserName(user?: { alias: string | null; username: strin
  * @returns The initials as string
  */
 export function getPlayerInitials(user?: { alias: string | null; username: string, id: number } | null, id?: number): string {
-    const displayName = getVisualUserName(user, id);
+    const displayName = getVisualUserName(user, id, null);
     const nameParts = displayName.split('_').filter(part => part.length > 0);
     if (nameParts.length === 0) return '';
     if (nameParts.length === 1) return nameParts[0]!.slice(0, 2).toUpperCase();

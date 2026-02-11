@@ -1,9 +1,9 @@
 import NotificationArea from "@features/global/widgets/notificationArea";
 import LanguageSwitcher from "@src/components/LanguageSwitcher";
 import { useLocation, useNavigate } from "react-router-dom";
+import UserMenu from "@features/global/widgets/userMenu";
 import { WebPage } from "@src/pages/navigation"
 import { useLanguage } from "@src/i18n";
-import UserMenu from "@src/userMenu";
 
 interface TopHeaderBarProps {
   onLogout: () => void;
@@ -38,7 +38,6 @@ export default function TopHeaderBar({ onLogout, isLoggingOut }: TopHeaderBarPro
 
 				<div className="flex items-center gap-4">
 					<LanguageSwitcher />
-					{/* <button onClick={() => setShowAccessibilitySettings(true)} className="p-2 text-gray-300 hover:text-white">⚙️</button> */}
 					<NotificationArea />
 					<UserMenu
 						onLogout={onLogout}

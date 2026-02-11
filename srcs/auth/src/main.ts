@@ -2,18 +2,17 @@
 import { registerRoute, createFastify, type FastifyInstance } from '@app/shared/api/service/common/fastify';
 import { StoreTokenPayload, VerifyTokenPayload } from '@app/shared/api/service/db/token';
 import { int_url, pub_url, user_url } from '@app/shared/api/service/common/endpoints';
-import { TokenPayload } from '@app/shared/api/service/auth/tokenData';
 import { ErrorResponse } from '@app/shared/api/service/common/error';
 import { Result } from '@app/shared/api/service/common/result';
+import { createJWT, verifyJWT } from "@app/shared/utils/jwt";
 import { FullUser } from '@app/shared/api/service/db/user';
-import containers from '@app/shared/internal_api'
+import containers from '@app/shared/internal_api';
 
 import type { ErrorResponseType } from '@app/shared/api/service/common/error';
 import type { TokenDataType } from '@app/shared/api/service/auth/tokenData';
 import type { FullUserType } from '@app/shared/api/service/db/user';
 
 import { randomBytes } from 'crypto';
-import jwt from 'jsonwebtoken';
 import axios from 'axios';
 
 // Temporary storage for pending 2FA logins (in production, use Redis)
@@ -49,14 +48,6 @@ fastify.addHook('preHandler', async (request, reply) => {
 	}
 });
 
-// JWT Secret - logs warning if using default (for development only)
-if (!process.env.JWT_SECRET) {
-	console.warn('WARNING: JWT_SECRET not set, using insecure default - DO NOT USE IN PRODUCTION');
-}
-const jwtSecretKey = process.env.JWT_SECRET || "shgdfkjwriuhfsdjkghdfjvnsdk";
-const jwtExpiry = '15min'; // 15 min
-
-// Frontend URL for OAuth redirects - should be set via environment variable in production
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://localhost';
 
 // OAuth state management
@@ -83,27 +74,9 @@ async function generateToken(userId: number): Promise<Result<TokenDataType, Erro
 		return Result.Err({ message: 'Token service could not process request' });
 
 	return Result.Ok({
-		jwt: jwt.sign(TokenPayload.parse({ uid: userId }), jwtSecretKey, { expiresIn: jwtExpiry }),
+		jwt: createJWT({ uid: userId }),
 		refresh: newRefreshToken,
 	});
-}
-
-function validateToken(token: string): Result<number, string> {
-	let decoded: { uid: number; iat: number; exp: number; };
-	try {
-		decoded = jwt.verify(token, jwtSecretKey) as { uid: number; iat: number; exp: number; };
-	} catch (err) {
-		return Result.Err('Invalid JWT');
-	}
-
-	if (typeof decoded.exp !== 'number' || Date.now() >= decoded.exp * 1000) {
-		return Result.Err('JWT expired');
-	}
-
-	if (typeof decoded.uid !== 'number' || decoded.uid < 1)
-		return Result.Err('Invalid JWT payload');
-	else
-		return Result.Ok(decoded.uid);
 }
 
 registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
@@ -295,12 +268,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 
 		// Optionally set avatar/email via updateUserData
 		try {
-			// Update basic profile fields
-			await containers.db.post(int_url.http.db.updateUserData, {
-				bio: newUser.bio ?? '',
-				email: email,
-			});
-
 			// Fetch GitHub avatar and store as base64 pfp
 			if (ghAvatar) {
 				const avatarResp = await axios.get(ghAvatar, {
@@ -394,11 +361,11 @@ registerRoute(fastify, pub_url.http.auth.createGuestUser, async (request, reply)
 });
 
 registerRoute(fastify, pub_url.http.auth.validateToken, async (request, reply) => {
-	const validation = validateToken(request.body.token);
+	const validation = verifyJWT(request.body.token);
 	if (validation.isErr())
 		return reply.status(401).send({ message: validation.unwrapErr() });
 	else
-		return reply.status(200).send(validation.unwrap());
+		return reply.status(200).send(validation.unwrap().uid);
 });
 
 registerRoute(fastify, pub_url.http.auth.refreshToken, async (request, reply) => {
