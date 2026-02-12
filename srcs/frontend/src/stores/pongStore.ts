@@ -19,6 +19,9 @@ interface PongState {
     // Lobby state
     lobby: PongLobbyData | null;
 
+    // Debug players (for debug mode when no lobby exists)
+    debugPlayers: Array<{ id: number; username: string }> | null;
+
     // Tournament state
     tournament: TournamentData | null;
     activeTournamentId: number | null;
@@ -40,6 +43,7 @@ interface PongState {
     // Actions - Lobby
     setLobby: (lobby: PongLobbyData | null) => void;
     updateLobbyFromPayload: (payload: any, authUserId?: number) => void;
+    setDebugPlayers: (players: Array<{ id: number; username: string }> | null) => void;
 
     // Actions - Tournament
     setTournament: (tournament: TournamentData | null) => void;
@@ -68,6 +72,7 @@ export const usePongStore = create<PongState>((set, get) => ({
     activeTournamentId: null,
     showTournamentStats: false,
     showInviteModalLocal: false,
+    debugPlayers: null,
 
     // Actions - Game state
     setGameState: (gameState) => {
@@ -89,6 +94,7 @@ export const usePongStore = create<PongState>((set, get) => ({
 
     // Actions - Lobby
     setLobby: (lobby) => set({ lobby }),
+    setDebugPlayers: (debugPlayers) => set({ debugPlayers }),
 
     updateLobbyFromPayload: (payload, authUserId) => {
         const lobbyData = payload;
@@ -152,6 +158,7 @@ export const usePongStore = create<PongState>((set, get) => ({
         gameState: null,
         lobby: null,
         tournament: null,
+        debugPlayers: null,
         playerOnePaddleID: -1,
         playerTwoPaddleID: -2,
         currentView: "menu",

@@ -12,6 +12,7 @@ import { user_url } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "./types/auth-response"
 import BabylonPongRenderer from "./BabylonPongRenderer"
 import PowerupDisplay from "./PowerupDisplay"
+import PongLeaderboard from "./PongLeaderboard"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
 import PongLobby, { type PongLobbyData } from "./pongLobby"
 import TournamentBracket, { type TournamentData } from "./tournamentBracket"
@@ -149,6 +150,8 @@ export default function PongComponent({
   const setShowInviteModalLocal = usePongStore((state) => state.setShowInviteModalLocal)
   const showTournamentStats = usePongStore((state) => state.showTournamentStats)
   const setShowTournamentStats = usePongStore((state) => state.setShowTournamentStats)
+  const debugPlayers = usePongStore((state) => state.debugPlayers)
+  const setDebugPlayers = usePongStore((state) => state.setDebugPlayers)
   
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
@@ -813,18 +816,28 @@ export default function PongComponent({
                 onClick={() => {
                   // Debug: 8-player game with multiple balls
                   if (authResponse) {
+                    // Use offsets that give different colors (modulo 8)
+                    const baseId = authResponse.user.id
+                    const playerIds = [
+                      baseId,
+                      baseId + 1,
+                      baseId + 2,
+                      baseId + 3,
+                      baseId + 4,
+                      baseId + 5,
+                      baseId + 6,
+                      baseId + 7,
+                    ]
+                    const debugPlayerNames = [
+                      'Player 1', 'Player 2', 'Player 3', 'Player 4',
+                      'Player 5', 'Player 6', 'Player 7', 'Player 8'
+                    ]
+                    // Set debug players for leaderboard
+                    setDebugPlayers(playerIds.map((id, i) => ({ id, username: debugPlayerNames[i] })))
                     const payload: TypeStartNewPongGame = {
-                      player_list: [
-                        authResponse.user.id,
-                        authResponse.user.id + 1000,
-                        authResponse.user.id + 2000,
-                        authResponse.user.id + 3000,
-                        authResponse.user.id + 4000,
-                        authResponse.user.id + 5000,
-                        authResponse.user.id + 6000,
-                        authResponse.user.id + 7000,
-                      ],
+                      player_list: playerIds,
                       balls: 3,
+                      allowPowerups: true,
                     }
                     handleUserInput(user_url.ws.pong.startGame, payload)
                     setCurrentView("game")
@@ -947,6 +960,13 @@ export default function PongComponent({
                 gameState={predictedGameState || gameState}
                 darkMode={darkMode}
                 paddleRotationOffset={paddleRotationOffset}
+              />
+            )}
+            {/* Leaderboard Overlay */}
+            {gameState && (lobby || debugPlayers) && (
+              <PongLeaderboard
+                players={lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || [])}
+                scores={gameState.score}
               />
             )}
             {/* Powerup Display Overlay */}

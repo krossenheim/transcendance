@@ -112,7 +112,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
   }
 
   return (
-    <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-50">
+    <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-none z-50">
       {/* Active time-based effects */}
       {activeEffects.map((effect, index) => {
         const config = POWERUP_CONFIG[effect.type] || {

@@ -1,0 +1,12 @@
+# GitGuardian configuration - exclude false positives in i18n translation files
+# These files contain translation strings with words like "password", "contraseña", etc.
+# which are NOT actual secrets - they are UI labels for password input fields
+
+version: 2
+
+secret:
+  # Ignore the entire i18n locales directory
+  ignored-paths:
+    - "**/i18n/locales/**"
+    - "**/locales/*.ts"
+    - "**/locales/*.json"
