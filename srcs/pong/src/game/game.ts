@@ -745,21 +745,24 @@ export class PongGame {
         return this.rng.getSeed();
     }
 
+
     // ============================================
     // DEBUG POWERUP METHODS (for manual triggering)
     // ============================================
 
     /**
-     * Spawn a specific powerup type at center of arena (for debug testing).
-     * Does NOT use RNG to preserve determinism.
+     * Spawn a specific powerup type at a random location (for debug testing).
      */
     public debugSpawnPowerup(type: PowerupType): void {
         const powerupDataItem = powerupData.find(p => p.type === type) || powerupData[0]!;
-        const center = new Vec2(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2);
-        const powerup = new Powerup(center, 20, new Vec2(0, 0), powerupDataItem, this);
+        const angle = this.rng.nextAngle();
+        const distance = Math.sqrt(this.rng.next()) * this.powerupSpawnRadius;
+        scratchSpawnDir.set(1, 0).rotate(angle).mul(distance);
+        scratchSpawnPos.set(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2).add(scratchSpawnDir);
+        const powerup = new Powerup(scratchSpawnPos.clone(), 20, new Vec2(0, 0), powerupDataItem, this);
         this.powerups.push(powerup);
         this.scene.addObject(powerup);
-        console.log(`[DEBUG] Spawned powerup of type ${PowerupType[type]} at center.`);
+        console.log(`[DEBUG] Spawned powerup of type ${PowerupType[type]} at position (${scratchSpawnPos.x.toFixed(2)}, ${scratchSpawnPos.y.toFixed(2)}).`);
     }
 
     /**
