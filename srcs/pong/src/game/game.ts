@@ -799,7 +799,8 @@ export class PongGame {
                 break;
 
             case PowerupType.SUPER_SPEED:
-                this.scene.setTimeScale(1.5);
+                // Stack by multiplying current time scale
+                this.scene.setTimeScale(this.scene.getTimeScale() * 1.5);
                 this.recentPowerupEvents.push({
                     type: type,
                     typeName: PowerupType[type],
@@ -808,7 +809,8 @@ export class PongGame {
                 break;
 
             case PowerupType.REVERSE_CONTROLS:
-                this.paddles.forEach(paddle => paddle.setReverseControls(true));
+                // Toggle reverse controls (allows stacking to undo)
+                this.paddles.forEach(paddle => paddle.setReverseControls(!paddle.getReverseControls()));
                 this.recentPowerupEvents.push({
                     type: type,
                     typeName: PowerupType[type],

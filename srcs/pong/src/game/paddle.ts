@@ -171,6 +171,10 @@ export class PongPaddle extends MultiObject {
 		this.reverseControls = reverse;
 	}
 
+	public getReverseControls(): boolean {
+		return this.reverseControls;
+	}
+
 	/// Update the paddle velocity based on the current key states and the given paddle speed. Return the amount of time this move will maximally take before hitting the bounds.
 	public updatePaddleVelocity(): number {
 		let moveDirection = 0;
