@@ -1,6 +1,6 @@
 import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
-import { PongGame, PongGameOptions } from "./game/game";
+import { PongGame, PongGameOptions, PowerupType } from "./game/game";
 import { OurSocket } from "@app/shared/socket_to_hub";
 import containers from "@app/shared/internal_api";
 
@@ -30,6 +30,21 @@ const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost 
 const GAME_CLEANUP_DELAY_MS = 30000; // Clean up game 30 seconds after it ends
 const INPUT_HISTORY_MAX_AGE_MS = 500; // Keep inputs for 500ms for lag compensation
 const DEFAULT_RTT_MS = 50; // Default assumed RTT
+
+// DEBUG: Key mappings for manual powerup triggering (for testing)
+// Keys that spawn powerups at random locations:
+const DEBUG_POWERUP_SPAWN_KEYS: Record<string, PowerupType> = {
+  '1': PowerupType.ADD_BALL,
+  '2': PowerupType.INCREASE_BALL_SIZE,
+  '3': PowerupType.DECREASE_BALL_SIZE,
+};
+// Keys that apply instant effects:
+const DEBUG_POWERUP_INSTANT_KEYS: Record<string, PowerupType> = {
+  '4': PowerupType.INCREASE_PADDLE_SPEED,
+  '5': PowerupType.DECREASE_PADDLE_SPEED,
+  '6': PowerupType.SUPER_SPEED,
+  '7': PowerupType.REVERSE_CONTROLS,
+};
 
 // Callback type for tournament match completion
 type TournamentMatchEndCallback = (tournamentId: number, matchId: number, winnerId: number) => Promise<void>;
@@ -197,6 +212,20 @@ export class PongManager {
     // The lag compensation happens on the DISPLAY side - we send paddle velocity
     // and let the client extrapolate forward
     game.handlePressedKeysForPlayer(parsedKeys, userId);
+
+    // DEBUG: Handle manual powerup trigger keys (for 8-player debug mode testing)
+    for (const key of parsedKeys) {
+      // Check for spawn powerup keys
+      if (key in DEBUG_POWERUP_SPAWN_KEYS) {
+        const powerupType = DEBUG_POWERUP_SPAWN_KEYS[key]!;
+        game.spawnSpecificPowerup(powerupType);
+      }
+      // Check for instant powerup keys
+      if (key in DEBUG_POWERUP_INSTANT_KEYS) {
+        const powerupType = DEBUG_POWERUP_INSTANT_KEYS[key]!;
+        game.applyInstantPowerupEffect(powerupType);
+      }
+    }
   }
 
   public getGameState(

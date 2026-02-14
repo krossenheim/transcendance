@@ -590,6 +590,44 @@ export default function PongComponent({
   }, [gameState, handleUserInput, playerTwoPaddleID])
 
   // =========================
+  // Debug Powerup Keys (1-7)
+  // For testing - triggers powerups manually
+  // =========================
+  useEffect(() => {
+    const debugPowerupKeys = ['1', '2', '3', '4', '5', '6', '7']
+    const keysPressed = new Set<string>()
+
+    function handleKeyDown(e: KeyboardEvent) {
+      // Only handle debug powerup keys
+      if (!debugPowerupKeys.includes(e.key)) return
+      if (gameState === null || gameState.board_id === null) return
+      if (keysPressed.has(e.key)) return
+      
+      keysPressed.add(e.key)
+      
+      const payload: TypeHandleGameKeysSchema = {
+        board_id: gameState.board_id,
+        pressed_keys: Array.from(keysPressed),
+      }
+      console.debug('[Pong] Debug powerup key:', e.key)
+      handleUserInput(user_url.ws.pong.handleGameKeys, payload)
+    }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      if (!debugPowerupKeys.includes(e.key)) return
+      keysPressed.delete(e.key)
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("keyup", handleKeyUp)
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [gameState, handleUserInput])
+
+  // =========================
   // 3D Rendering is handled by BabylonPongRenderer component
   // =========================
 

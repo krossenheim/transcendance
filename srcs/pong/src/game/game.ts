@@ -111,6 +111,11 @@ export class Powerup extends CircleObject {
         return new Powerup(center, 20, velocity, newPowerup, game);
     }
 
+    static generateSpecificPowerup(center: Vec2, velocity: Vec2, game: PongGame, type: PowerupType): Powerup {
+        const powerupDataItem = powerupData.find(p => p.type === type) || powerupData[0]!;
+        return new Powerup(center, 20, velocity, powerupDataItem, game);
+    }
+
     public getPowerupType(): PowerupType {
         return this.metadata.type;
     }
@@ -743,5 +748,77 @@ export class PongGame {
      */
     public getSeed(): number {
         return this.rng.getSeed();
+    }
+
+    // ============================================
+    // DEBUG POWERUP METHODS (for manual triggering)
+    // ============================================
+
+    /**
+     * Spawn a specific powerup type at a random location (for debug testing).
+     * Used for: ADD_BALL, INCREASE_BALL_SIZE, DECREASE_BALL_SIZE
+     */
+    public spawnSpecificPowerup(type: PowerupType): void {
+        const angle = this.rng.nextAngle();
+        const distance = Math.sqrt(this.rng.next()) * this.powerupSpawnRadius;
+
+        scratchSpawnDir.set(1, 0).rotate(angle).mul(distance);
+        scratchSpawnPos.set(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2).add(scratchSpawnDir);
+        
+        const powerup = Powerup.generateSpecificPowerup(scratchSpawnPos.clone(), new Vec2(0, 0), this, type);
+        this.powerups.push(powerup);
+        this.scene.addObject(powerup);
+        console.log(`[DEBUG] Spawned powerup of type ${PowerupType[type]} at position (${scratchSpawnPos.x.toFixed(2)}, ${scratchSpawnPos.y.toFixed(2)}).`);
+    }
+
+    /**
+     * Instantly apply a powerup effect (for debug testing).
+     * Used for: INCREASE_PADDLE_SPEED, DECREASE_PADDLE_SPEED, SUPER_SPEED, REVERSE_CONTROLS
+     */
+    public applyInstantPowerupEffect(type: PowerupType): void {
+        console.log(`[DEBUG] Applying instant powerup effect: ${PowerupType[type]}`);
+        
+        switch (type) {
+            case PowerupType.INCREASE_PADDLE_SPEED:
+                this.paddles.forEach(paddle => paddle.setSpeed(paddle.getSpeed() * 2));
+                // Track for UI
+                this.recentPowerupEvents.push({
+                    type: type,
+                    typeName: PowerupType[type],
+                    tick: this.currentTick,
+                });
+                break;
+
+            case PowerupType.DECREASE_PADDLE_SPEED:
+                this.paddles.forEach(paddle => paddle.setSpeed(paddle.getSpeed() * 0.5));
+                this.recentPowerupEvents.push({
+                    type: type,
+                    typeName: PowerupType[type],
+                    tick: this.currentTick,
+                });
+                break;
+
+            case PowerupType.SUPER_SPEED:
+                this.scene.setTimeScale(1.5);
+                this.recentPowerupEvents.push({
+                    type: type,
+                    typeName: PowerupType[type],
+                    tick: this.currentTick,
+                });
+                break;
+
+            case PowerupType.REVERSE_CONTROLS:
+                this.paddles.forEach(paddle => paddle.setReverseControls(true));
+                this.recentPowerupEvents.push({
+                    type: type,
+                    typeName: PowerupType[type],
+                    tick: this.currentTick,
+                });
+                break;
+
+            default:
+                console.warn(`[DEBUG] PowerupType ${PowerupType[type]} is not an instant effect type.`);
+                break;
+        }
     }
 }
