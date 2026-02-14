@@ -32,19 +32,19 @@ const INPUT_HISTORY_MAX_AGE_MS = 500; // Keep inputs for 500ms for lag compensat
 const DEFAULT_RTT_MS = 50; // Default assumed RTT
 
 // DEBUG: Key mappings for manual powerup triggering (for testing)
-// Keys that spawn powerups at random locations:
-const DEBUG_POWERUP_SPAWN_KEYS: Record<string, PowerupType> = {
+const DEBUG_SPAWN_KEYS: Record<string, PowerupType> = {
   '1': PowerupType.ADD_BALL,
   '2': PowerupType.INCREASE_BALL_SIZE,
   '3': PowerupType.DECREASE_BALL_SIZE,
 };
-// Keys that apply instant effects:
-const DEBUG_POWERUP_INSTANT_KEYS: Record<string, PowerupType> = {
+const DEBUG_INSTANT_KEYS: Record<string, PowerupType> = {
   '4': PowerupType.INCREASE_PADDLE_SPEED,
   '5': PowerupType.DECREASE_PADDLE_SPEED,
   '6': PowerupType.SUPER_SPEED,
   '7': PowerupType.REVERSE_CONTROLS,
 };
+// Track previous debug key state per user (for edge detection)
+const lastDebugKeys = new Map<number, Set<string>>();
 
 // Callback type for tournament match completion
 type TournamentMatchEndCallback = (tournamentId: number, matchId: number, winnerId: number) => Promise<void>;
@@ -213,19 +213,21 @@ export class PongManager {
     // and let the client extrapolate forward
     game.handlePressedKeysForPlayer(parsedKeys, userId);
 
-    // DEBUG: Handle manual powerup trigger keys (for 8-player debug mode testing)
-    for (const key of parsedKeys) {
-      // Check for spawn powerup keys
-      if (key in DEBUG_POWERUP_SPAWN_KEYS) {
-        const powerupType = DEBUG_POWERUP_SPAWN_KEYS[key]!;
-        game.spawnSpecificPowerup(powerupType);
-      }
-      // Check for instant powerup keys
-      if (key in DEBUG_POWERUP_INSTANT_KEYS) {
-        const powerupType = DEBUG_POWERUP_INSTANT_KEYS[key]!;
-        game.applyInstantPowerupEffect(powerupType);
+    // DEBUG: Handle manual powerup trigger keys
+    const prevDebugKeys = lastDebugKeys.get(userId) || new Set<string>();
+    const currDebugKeys = new Set(parsedKeys.filter(k => k in DEBUG_SPAWN_KEYS || k in DEBUG_INSTANT_KEYS));
+    
+    // Only trigger effects for NEWLY pressed debug keys
+    for (const key of currDebugKeys) {
+      if (!prevDebugKeys.has(key)) {
+        if (key in DEBUG_SPAWN_KEYS) {
+          game.debugSpawnPowerup(DEBUG_SPAWN_KEYS[key]!);
+        } else if (key in DEBUG_INSTANT_KEYS) {
+          game.debugApplyPowerupEffect(DEBUG_INSTANT_KEYS[key]!);
+        }
       }
     }
+    lastDebugKeys.set(userId, currDebugKeys);
   }
 
   public getGameState(
