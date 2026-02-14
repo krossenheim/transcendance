@@ -113,13 +113,26 @@ build_react:
 	npm install --prefix $(REACT_DIR)
 	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
-check-deps:
+check-deps: check-system-deps check-npm-deps
+	@echo "All required dependencies present."
+
+check-system-deps:
 	@echo "Checking system dependencies (docker, docker compose)..."
 	@if ! command -v docker >/dev/null 2>&1; then \
 		echo "Missing docker. Follow installation: sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" >&2; exit 1; \
 	fi
 	@docker compose version >/dev/null 2>&1 || { echo "Missing docker compose plugin. Install with: sudo apt install docker-compose-plugin" >&2; exit 1; }
-	@echo "All required system dependencies present."
+
+check-npm-deps:
+	@echo "Checking npm dependencies..."
+	@if [ ! -d "$(BLOCKCHAIN_DIR)/node_modules" ]; then \
+		echo "Installing blockchain npm dependencies..."; \
+		npm install --prefix "$(BLOCKCHAIN_DIR)" --legacy-peer-deps; \
+	fi
+	@if [ ! -d "$(PROJECT_ROOT)shared/node_modules" ]; then \
+		echo "Installing shared npm dependencies..."; \
+		npm install --prefix "$(PROJECT_ROOT)shared"; \
+	fi
 
 print_config: create_shared_volume_folder
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
@@ -150,4 +163,4 @@ re-front:
 list:
 	docker ps -a
 
-.PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed
+.PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps check-system-deps check-npm-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed
