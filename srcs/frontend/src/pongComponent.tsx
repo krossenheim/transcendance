@@ -283,6 +283,10 @@ export default function PongComponent({
         // If we received valid game state and we're not in game view, switch to it
         if (currentView !== 'game' && message.payload?.board_id && normalized && !normalized.gameOver) {
           console.log("[Pong] Received game state while not in game view, transitioning to game");
+          // Preserve player data for leaderboard before clearing lobby
+          if (lobby?.players) {
+            setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+          }
           setLobby(null);
           setCurrentView("game");
         }
@@ -434,6 +438,10 @@ export default function PongComponent({
           setPlayerIDsHelper(normalized);
           setGameState(normalized);
         }
+        // Preserve player data for leaderboard before clearing lobby
+        if (lobby?.players) {
+          setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+        }
         setLobby(null);
         setCurrentView("game");
         return HandlerResult.Handled;
@@ -445,7 +453,7 @@ export default function PongComponent({
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [subscribe, authResponse, currentView, activeTournamentId, tournament, lobby, isConnected, sendMessage, setGameState, setLobby, setTournament, setActiveTournamentId, setCurrentView, setLastCreatedBoardId, setPlayerIDsHelper]);
+  }, [subscribe, authResponse, currentView, activeTournamentId, tournament, lobby, isConnected, sendMessage, setGameState, setLobby, setTournament, setActiveTournamentId, setCurrentView, setLastCreatedBoardId, setPlayerIDsHelper, setDebugPlayers]);
 
   // Handle accepted invitation from AppRoot
   useEffect(() => {
