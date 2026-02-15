@@ -29,6 +29,7 @@ interface PongState {
 
     // Modals
     showInviteModalLocal: boolean;
+    inviteRoomUsers: Array<{ id: number; username: string; onlineStatus?: number }>;
 
     // Actions - Game state
     setGameState: (state: TypeGameStateSchema | null) => void;
@@ -53,6 +54,7 @@ interface PongState {
 
     // Actions - Modals
     setShowInviteModalLocal: (show: boolean) => void;
+    setInviteRoomUsers: (users: Array<{ id: number; username: string; onlineStatus?: number }>) => void;
 
     // Actions - Compound
     resetGameState: () => void;
@@ -72,6 +74,7 @@ export const usePongStore = create<PongState>((set, get) => ({
     activeTournamentId: null,
     showTournamentStats: false,
     showInviteModalLocal: false,
+    inviteRoomUsers: [],
     debugPlayers: null,
 
     // Actions - Game state
@@ -152,6 +155,7 @@ export const usePongStore = create<PongState>((set, get) => ({
 
     // Actions - Modals
     setShowInviteModalLocal: (showInviteModalLocal) => set({ showInviteModalLocal }),
+    setInviteRoomUsers: (inviteRoomUsers) => set({ inviteRoomUsers }),
 
     // Actions - Compound
     resetGameState: () => set({

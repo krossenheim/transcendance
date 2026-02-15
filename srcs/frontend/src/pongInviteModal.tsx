@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { getUserColorCSS } from "@utils/users"
 import { useLanguage } from "./i18n/LanguageContext"
+import { useGlobalStore } from "./features/global/store/globalStore"
+import { usePongStore } from "./stores/pongStore"
 
 export type GameMode = "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi"
 
@@ -33,6 +35,55 @@ export default function PongInviteModal({
   const [ballCount, setBallCount] = useState(1)
   const [maxScore, setMaxScore] = useState(5)
   const [allowPowerups, setAllowPowerups] = useState(true)
+
+  // Get room users from pong store (set by ChatHeader)
+  const storeInviteRoomUsers = usePongStore((state) => state.inviteRoomUsers)
+  const setInviteRoomUsers = usePongStore((state) => state.setInviteRoomUsers)
+
+  // Get online friends from global store when roomUsers is empty (e.g. opened from Pong page directly)
+  const onlineUsers = useGlobalStore((state) => state.users.data.onlineUsers)
+  const friends = useGlobalStore((state) => state.users.data.friends)
+  const userCache = useGlobalStore((state) => state.users.data.userCache)
+  const fetchUserConnections = useGlobalStore((state) => state.users.actions.fetchUserConnections)
+
+  // Clear store inviteRoomUsers when modal closes
+  const handleClose = () => {
+    setInviteRoomUsers([])
+    setSelectedPlayers([])
+    onClose()
+  }
+
+  // Fetch user connections when modal opens and no roomUsers are provided
+  useEffect(() => {
+    if (isOpen && roomUsers.length === 0 && storeInviteRoomUsers.length === 0) {
+      fetchUserConnections()
+    }
+  }, [isOpen, roomUsers.length, storeInviteRoomUsers.length, fetchUserConnections])
+
+  // Build available players list: use roomUsers prop, then store inviteRoomUsers, then friends
+  const availablePlayers = useMemo(() => {
+    // Priority 1: prop roomUsers (from AuthenticatedApp legacy flow)
+    if (roomUsers.length > 0) {
+      return roomUsers.filter((u) => u.id !== currentUserId)
+    }
+    
+    // Priority 2: store inviteRoomUsers (from ChatHeader)
+    if (storeInviteRoomUsers.length > 0) {
+      return storeInviteRoomUsers.filter((u) => u.id !== currentUserId)
+    }
+    
+    // Priority 3: all friends from global store (opened from Pong page directly)
+    return [...friends]
+      .filter((id) => id !== currentUserId)
+      .map((id) => {
+        const cached = userCache.get(id)
+        return {
+          id,
+          username: cached?.username || `User ${id}`,
+          onlineStatus: onlineUsers.has(id) ? 1 : 0,
+        }
+      })
+  }, [roomUsers, storeInviteRoomUsers, currentUserId, onlineUsers, friends, userCache])
 
   if (!isOpen) return null
 
@@ -75,7 +126,7 @@ export default function PongInviteModal({
     }
 
     onCreateGame(gameMode, players, settings)
-    onClose()
+    handleClose()
   }
 
   const getGameModeDescription = () => {
@@ -104,8 +155,6 @@ export default function PongInviteModal({
     }
   }
 
-  const availablePlayers = roomUsers.filter((u) => u.id !== currentUserId)
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
@@ -114,7 +163,7 @@ export default function PongInviteModal({
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-white">🏓 {t('pong.createPongGame')}</h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-white hover:text-gray-200 transition-colors text-2xl"
             >
               ×
@@ -285,7 +334,7 @@ export default function PongInviteModal({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-900/70 flex justify-end gap-3">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 bg-gray-200 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600/80 transition-colors"
           >
             {t('common.cancel')}

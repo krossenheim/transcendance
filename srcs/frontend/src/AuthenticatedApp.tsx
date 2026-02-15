@@ -34,6 +34,19 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
   const [pongInviteRoomUsers, setPongInviteRoomUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([]);
   const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
 
+  const handleAcceptInvitation = (inviteId: number) => {
+    // Find the invitation
+    const invitation = pongInvitations.find(inv => inv.inviteId === inviteId);
+    if (invitation) {
+      // Store lobby data in window for PongComponent to pick up
+      (window as any).__acceptedLobbyData = invitation.lobbyData;
+      setAcceptedLobbyId(invitation.lobbyId);
+      // Remove the invitation from list
+      setPongInvitations(prev => prev.filter(i => i.inviteId !== inviteId));
+    }
+    navigate('/pong');
+  };
+
   return (
     <div className={`flex flex-col h-screen overflow-hidden bg-slate-900 text-gray-100 font-sans ${isRTL ? 'rtl' : 'ltr'}`}>
       
@@ -43,7 +56,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
       {/* Global UI Overlays */}
       <PongInviteNotifications 
          invitations={pongInvitations} 
-         onAccept={() => navigate('/pong')} 
+         onAccept={handleAcceptInvitation} 
          onDecline={(id) => setPongInvitations(prev => prev.filter(i => i.inviteId !== id))}
       />
 

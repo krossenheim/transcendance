@@ -44,12 +44,12 @@ export class LobbyManager {
       return ResultClass.Err({ message: "Lobby requires at least 1 player" });
     }
 
-    // Check if any players are already in a lobby
+    // Auto-remove players from existing lobbies before creating the new one
     for (const playerId of playerIds) {
-      if (this.playerToLobby.has(playerId)) {
-        return ResultClass.Err({
-          message: `Player ${playerId} is already in a lobby`,
-        });
+      const existingLobbyId = this.playerToLobby.get(playerId);
+      if (existingLobbyId !== undefined) {
+        console.log(`[LobbyManager] Auto-removing player ${playerId} from lobby ${existingLobbyId}`);
+        this.removePlayerFromLobby(existingLobbyId, playerId);
       }
     }
 
