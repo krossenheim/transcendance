@@ -107,6 +107,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   // Favicon animation refs
   const faviconCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const faviconAnimationRef = useRef<number | null>(null)
+  const faviconRunningRef = useRef<boolean>(false)
   const simulatedBallRef = useRef({ x: 16, y: 16, dx: 1.5, dy: 1 })
 
   // Store references
@@ -298,7 +299,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // Skip powerups for performance (they're small anyway)
     };
     
+    faviconRunningRef.current = true;
+
     const animate = (timestamp: number) => {
+      if (!faviconRunningRef.current) return; // Stop if animation was cancelled
       if (timestamp - lastUpdate >= updateInterval && !pendingFrame) {
         pendingFrame = true;
         // Use requestIdleCallback to avoid blocking render loop
@@ -322,6 +326,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     faviconAnimationRef.current = requestAnimationFrame(animate);
     
     return () => {
+      faviconRunningRef.current = false;
       if (faviconAnimationRef.current) {
         cancelAnimationFrame(faviconAnimationRef.current);
       }

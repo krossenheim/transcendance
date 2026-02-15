@@ -83,6 +83,7 @@ export function usePongFavicon({
   const animationFrameRef = useRef<number | null>(null);
   const originalFaviconRef = useRef<string | null>(null);
   const originalTitleRef = useRef<string | null>(null);
+  const isRunningRef = useRef<boolean>(false);
   
   // Simulated ball state for when real position isn't provided
   const simulatedBallRef = useRef({
@@ -246,7 +247,10 @@ export function usePongFavicon({
     let lastUpdate = 0;
     const updateInterval = 50; // Update favicon every 50ms (20 FPS for the favicon)
 
+    isRunningRef.current = true;
+
     const animate = (timestamp: number) => {
+      if (!isRunningRef.current) return; // Stop if animation was cancelled
       if (timestamp - lastUpdate >= updateInterval) {
         drawPongFrame(ctx);
         faviconLink.href = canvas.toDataURL('image/png');
@@ -260,6 +264,7 @@ export function usePongFavicon({
     console.log('[PongFavicon] Animation started');
 
     return () => {
+      isRunningRef.current = false;
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
