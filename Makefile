@@ -125,6 +125,10 @@ check-system-deps:
 
 check-npm-deps:
 	@echo "Checking npm dependencies..."
+	@if ! command -v npm >/dev/null 2>&1; then \
+		echo "npm not found. Installing Node.js and npm..."; \
+		sudo apt update && sudo apt install -y nodejs npm; \
+	fi
 	@if [ ! -d "$(BLOCKCHAIN_DIR)/node_modules" ]; then \
 		echo "Installing blockchain npm dependencies..."; \
 		npm install --prefix "$(BLOCKCHAIN_DIR)" --legacy-peer-deps; \
