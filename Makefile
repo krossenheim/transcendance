@@ -8,6 +8,7 @@ VOLUMES_DIR := $(OUTPUT_FILES_DIR)/volumes/
 PATH_TO_COMPOSE_ENV_FILE := globals.env
 PATH_TO_COMPOSE_SECRETS_FILE := secrets.env
 PATH_TO_COMPOSE := compose.yml
+COMPOSE_PROGRESS ?= auto
 
 # Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
@@ -83,12 +84,12 @@ rebuild:
 	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --build --no-deps ${s}
 
 build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" build db auth chat hub pong users nginx
+	VOLUMES_DIR=${VOLUMES_DIR} docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build db auth chat hub pong users nginx
 
 build_hardhat_if_needed:
 	@if ! docker image inspect $(HARDHAT_IMAGE_TAG) >/dev/null 2>&1; then \
 		echo "Building Hardhat image (first time)..."; \
-		docker build -f "$(BLOCKCHAIN_DIR)/Dockerfile" -t $(HARDHAT_IMAGE_TAG) "$(BLOCKCHAIN_DIR)"; \
+		docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build hardhat; \
 	else \
 		echo "Hardhat image exists, skipping rebuild (use 'make build-hardhat' to force)"; \
 	fi
@@ -103,7 +104,11 @@ build_explorer_if_needed:
 
 build-hardhat:
 	@echo "Force rebuilding Hardhat image..."
-	docker build -f "$(BLOCKCHAIN_DIR)/Dockerfile" -t $(HARDHAT_IMAGE_TAG) "$(BLOCKCHAIN_DIR)"
+	docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build hardhat
+
+build-hardhat-plain:
+	@echo "Force rebuilding Hardhat image (plain output)..."
+	COMPOSE_PROGRESS=plain $(MAKE) build-hardhat
 
 build-explorer:
 	@echo "Force rebuilding Block Explorer image..."
