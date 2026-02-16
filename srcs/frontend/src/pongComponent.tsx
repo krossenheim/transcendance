@@ -940,7 +940,7 @@ export default function PongComponent({
         <div className="fixed inset-0 z-[2147483647] bg-[#1a1a2e] flex flex-col">
           {/* Header */}
           <div className="px-5 py-2.5 bg-black/50 flex justify-between items-center shrink-0">
-            <span className="text-white text-lg">🏓 Pong Game</span>
+            <span className="text-white text-lg">🏓 {t('pong.title')}</span>
             <button
               onClick={() => {
                 console.log("[Pong] Back button clicked during game");
@@ -958,7 +958,7 @@ export default function PongComponent({
               }}
               className="px-4 py-2 bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition"
             >
-              ← Back to Menu
+              ← {t('pong.backToMenu')}
             </button>
           </div>
 
@@ -992,20 +992,15 @@ export default function PongComponent({
             })()}
           </div>
 
-          {/* Debug Bar */}
-          <div className="px-2.5 py-1 bg-black/70 text-[#0f0] text-xs font-mono shrink-0">
-            balls: {gameState?.balls?.length ?? 0} | paddles: {gameState?.paddles?.length ?? 0} | myPaddle: {playerOnePaddleID}
-          </div>
-
           {/* Game Over Overlay */}
           {gameState?.gameOver && (
             <div className="fixed inset-0 z-[2147483648] bg-black/85 flex flex-col items-center justify-center">
               <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-4 border-yellow-400 rounded-2xl p-12 text-center shadow-2xl">
-                <h1 className="text-yellow-400 text-6xl mb-5 shadow-yellow-400/50 drop-shadow-lg">GAME OVER!</h1>
-                <p className="text-white text-3xl mb-8">Winner: <span className="text-green-500 font-bold">Player {gameState.winner}</span></p>
+                <h1 className="text-yellow-400 text-6xl mb-5 shadow-yellow-400/50 drop-shadow-lg">{t('pong.gameOverText')}</h1>
+                <p className="text-white text-3xl mb-8">{t('pong.winner')}: <span className="text-green-500 font-bold">{t('pong.player')} {gameState.winner}</span></p>
                 <p className="text-gray-400 text-2xl mb-10">
                   {gameState.score
-                    ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `Player ${p}: ${s}`).join(' | ')
+                    ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `${t('pong.player')} ${p}: ${s}`).join(' | ')
                     : ''}
                 </p>
                 <button
@@ -1025,7 +1020,7 @@ export default function PongComponent({
                   }}
                   className="px-12 py-4 text-xl bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-all"
                 >
-                  Back to Menu
+                  {t('pong.backToMenu')}
                 </button>
               </div>
             </div>

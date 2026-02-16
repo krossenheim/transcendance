@@ -248,6 +248,20 @@ export const cy = {
     alertTournament1v1Players: 'Mae twrnamaint 1v1 angen o leiaf 4 chwaraewr',
     alertTournamentMultiPlayers: 'Mae twrnamaint aml angen o leiaf 4 chwaraewr',
     alertMultiplayerPlayers: 'Mae modd aml-chwaraewr angen o leiaf 2 chwaraewr',
+    // Game UI
+    leaderboard: 'Bwrdd sgorio',
+    backToMenu: 'Yn ôl i\'r ddewislen',
+    player: 'Chwaraewr',
+    gameOverText: 'GÊM DROSODD!',
+    // Powerups
+    powerupBallAdded: 'Pêl wedi\'i hychwanegu',
+    powerupFastPaddles: 'Padlau cyflym',
+    powerupSlowPaddles: 'Padlau araf',
+    powerupSuperSpeed: 'Cyflymder uwch',
+    powerupBiggerBall: 'Pêl fwy',
+    powerupSmallerBall: 'Pêl llai',
+    powerupReversed: 'Gwrthdroi!',
+    powerupUnknown: 'Anhysbys',
   },
 
   // Two Factor Authentication

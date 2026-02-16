@@ -248,6 +248,20 @@ export const nl = {
     alertTournament1v1Players: '1v1 toernooi vereist minimaal 4 spelers',
     alertTournamentMultiPlayers: 'Multi toernooi vereist minimaal 4 spelers',
     alertMultiplayerPlayers: 'Multiplayer modus vereist minimaal 2 spelers',
+    // Game UI
+    leaderboard: 'Ranglijst',
+    backToMenu: 'Terug naar menu',
+    player: 'Speler',
+    gameOverText: 'SPEL VOORBIJ!',
+    // Powerups
+    powerupBallAdded: 'Bal toegevoegd',
+    powerupFastPaddles: 'Snelle paddles',
+    powerupSlowPaddles: 'Langzame paddles',
+    powerupSuperSpeed: 'Super snelheid',
+    powerupBiggerBall: 'Grotere bal',
+    powerupSmallerBall: 'Kleinere bal',
+    powerupReversed: 'Omgekeerd!',
+    powerupUnknown: 'Onbekend',
   },
 
   // Two Factor Authentication

@@ -3,48 +3,49 @@
 import { useEffect, useState, useRef } from "react"
 import type { TypeActiveEffect, TypeRecentEvent } from "./types/pong-interfaces"
 import { PowerupType } from "./types/pong-interfaces"
+import { useLanguage } from "./i18n/LanguageContext"
 
 // Icon and color configurations for each powerup type
-const POWERUP_CONFIG: Record<number, { icon: string; label: string; color: string; bgColor: string }> = {
+const POWERUP_CONFIG: Record<number, { icon: string; labelKey: string; color: string; bgColor: string }> = {
   [PowerupType.ADD_BALL]: {
     icon: "⚽",
-    label: "Ball Added",
+    labelKey: "pong.powerupBallAdded",
     color: "#f59e0b",
     bgColor: "rgba(245, 158, 11, 0.2)",
   },
   [PowerupType.INCREASE_PADDLE_SPEED]: {
     icon: "⚡",
-    label: "Fast Paddles",
+    labelKey: "pong.powerupFastPaddles",
     color: "#ef4444",
     bgColor: "rgba(239, 68, 68, 0.2)",
   },
   [PowerupType.DECREASE_PADDLE_SPEED]: {
     icon: "🐢",
-    label: "Slow Paddles",
+    labelKey: "pong.powerupSlowPaddles",
     color: "#3b82f6",
     bgColor: "rgba(59, 130, 246, 0.2)",
   },
   [PowerupType.SUPER_SPEED]: {
     icon: "🚀",
-    label: "Super Speed",
+    labelKey: "pong.powerupSuperSpeed",
     color: "#a855f7",
     bgColor: "rgba(168, 85, 247, 0.2)",
   },
   [PowerupType.INCREASE_BALL_SIZE]: {
     icon: "🔴",
-    label: "Bigger Ball",
+    labelKey: "pong.powerupBiggerBall",
     color: "#22c55e",
     bgColor: "rgba(34, 197, 94, 0.2)",
   },
   [PowerupType.DECREASE_BALL_SIZE]: {
     icon: "⚫",
-    label: "Smaller Ball",
+    labelKey: "pong.powerupSmallerBall",
     color: "#eab308",
     bgColor: "rgba(234, 179, 8, 0.2)",
   },
   [PowerupType.REVERSE_CONTROLS]: {
     icon: "🔄",
-    label: "Reversed!",
+    labelKey: "pong.powerupReversed",
     color: "#ec4899",
     bgColor: "rgba(236, 72, 153, 0.2)",
   },
@@ -56,6 +57,7 @@ interface PowerupDisplayProps {
 }
 
 export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupDisplayProps) {
+  const { t } = useLanguage()
   // Track which event types we've recently shown (by type, reset after 3s)
   const lastShownTimeRef = useRef<Map<number, number>>(new Map())
   const [notifications, setNotifications] = useState<Array<{ id: string; type: number; timestamp: number }>>([])
@@ -117,7 +119,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
       {activeEffects.map((effect, index) => {
         const config = POWERUP_CONFIG[effect.type] || {
           icon: "❓",
-          label: effect.typeName,
+          labelKey: "pong.powerupUnknown",
           color: "#888",
           bgColor: "rgba(136, 136, 136, 0.2)",
         }
@@ -136,7 +138,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
             <span className="text-2xl">{config.icon}</span>
             <div className="flex flex-col min-w-[100px]">
               <span className="text-sm font-semibold text-white drop-shadow-lg">
-                {config.label}
+                {t(config.labelKey)}
               </span>
               <div className="w-full h-1.5 bg-black/30 rounded-full overflow-hidden">
                 <div
@@ -159,7 +161,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
       {notifications.map((notification) => {
         const config = POWERUP_CONFIG[notification.type] || {
           icon: "❓",
-          label: "Unknown",
+          labelKey: "pong.powerupUnknown",
           color: "#888",
           bgColor: "rgba(136, 136, 136, 0.2)",
         }
@@ -181,7 +183,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
           >
             <span className="text-2xl animate-bounce">{config.icon}</span>
             <span className="text-sm font-bold text-white drop-shadow-lg">
-              {config.label}!
+              {t(config.labelKey)}!
             </span>
           </div>
         )

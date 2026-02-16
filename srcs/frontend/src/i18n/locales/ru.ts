@@ -255,6 +255,20 @@ export const ru: TranslationKeys = {
     alertTournament1v1Players: 'Турнир 1 на 1 требует минимум 4 игрока',
     alertTournamentMultiPlayers: 'Мульти-турнир требует минимум 4 игрока',
     alertMultiplayerPlayers: 'Режим мультиплеера требует минимум 2 игрока',
+    // Game UI
+    leaderboard: 'Таблица лидеров',
+    backToMenu: 'Назад в меню',
+    player: 'Игрок',
+    gameOverText: 'КОНЕЦ ИГРЫ!',
+    // Powerups
+    powerupBallAdded: 'Мяч добавлен',
+    powerupFastPaddles: 'Быстрые ракетки',
+    powerupSlowPaddles: 'Медленные ракетки',
+    powerupSuperSpeed: 'Супер скорость',
+    powerupBiggerBall: 'Большой мяч',
+    powerupSmallerBall: 'Маленький мяч',
+    powerupReversed: 'Инверсия!',
+    powerupUnknown: 'Неизвестно',
   },
 
   // 2FA

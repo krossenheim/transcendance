@@ -248,6 +248,20 @@ export const fy = {
     alertTournament1v1Players: '1v1 toernoai fereasket minimaal 4 spilers',
     alertTournamentMultiPlayers: 'Multi toernoai fereasket minimaal 4 spilers',
     alertMultiplayerPlayers: 'Multiplayer modus fereasket minimaal 2 spilers',
+    // Game UI
+    leaderboard: 'Ranglyst',
+    backToMenu: 'Werom nei menu',
+    player: 'Spiler',
+    gameOverText: 'SPUL FOARBY!',
+    // Powerups
+    powerupBallAdded: 'Bal tafoege',
+    powerupFastPaddles: 'Flugge paddles',
+    powerupSlowPaddles: 'Stadige paddles',
+    powerupSuperSpeed: 'Super snelheid',
+    powerupBiggerBall: 'Gruttere bal',
+    powerupSmallerBall: 'Lytsere bal',
+    powerupReversed: 'Omkeard!',
+    powerupUnknown: 'Unbekend',
   },
 
   // Two Factor Authentication

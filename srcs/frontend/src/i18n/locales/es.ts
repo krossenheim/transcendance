@@ -253,6 +253,20 @@ export const es = {
     alertTournament1v1Players: 'El torneo 1v1 requiere al menos 4 jugadores',
     alertTournamentMultiPlayers: 'El torneo multijugador requiere al menos 4 jugadores',
     alertMultiplayerPlayers: 'El modo multijugador requiere al menos 2 jugadores',
+    // Game UI
+    leaderboard: 'Clasificación',
+    backToMenu: 'Volver al menú',
+    player: 'Jugador',
+    gameOverText: '¡FIN DEL JUEGO!',
+    // Powerups
+    powerupBallAdded: 'Bola añadida',
+    powerupFastPaddles: 'Paletas rápidas',
+    powerupSlowPaddles: 'Paletas lentas',
+    powerupSuperSpeed: 'Super velocidad',
+    powerupBiggerBall: 'Bola más grande',
+    powerupSmallerBall: 'Bola más pequeña',
+    powerupReversed: '¡Invertido!',
+    powerupUnknown: 'Desconocido',
   },
 
   // 2FA

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { getUserColorCSS } from "@utils/users"
+import { useLanguage } from "./i18n/LanguageContext"
 
 interface LeaderboardPlayer {
   id: number
@@ -15,6 +16,7 @@ interface PongLeaderboardProps {
 }
 
 export default function PongLeaderboard({ players, scores }: PongLeaderboardProps) {
+  const { t } = useLanguage()
   // Combine player info with scores and sort by score descending
   const sortedPlayers = useMemo<LeaderboardPlayer[]>(() => {
     if (!players || players.length === 0) return []
@@ -35,7 +37,7 @@ export default function PongLeaderboard({ players, scores }: PongLeaderboardProp
   return (
     <div className="absolute top-4 left-4 flex flex-col gap-1 pointer-events-none z-50">
       <div className="text-white text-xs font-bold mb-1 drop-shadow-lg uppercase tracking-wider">
-        Leaderboard
+        {t('pong.leaderboard')}
       </div>
       {sortedPlayers.map((player, index) => {
         const bgColor = getUserColorCSS(player.id, true)

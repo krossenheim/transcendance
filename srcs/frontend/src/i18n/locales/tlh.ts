@@ -250,6 +250,20 @@ export const tlh: TranslationKeys = {
     alertTournament1v1Players: "qeS'a' 1v1 loS QujwI' poQ",
     alertTournamentMultiPlayers: "law' qeS'a' loS QujwI' poQ",
     alertMultiplayerPlayers: "law' nuv DuH cha' QujwI' poQ",
+    // Game UI
+    leaderboard: "QujwI' patlh",
+    backToMenu: "wuv ghIq chegh",
+    player: "QujwI'",
+    gameOverText: "QUJ RINTA'!",
+    // Powerups
+    powerupBallAdded: "moQ chelta'",
+    powerupFastPaddles: "nom ngev",
+    powerupSlowPaddles: "QIt ngev",
+    powerupSuperSpeed: "pov Do'",
+    powerupBiggerBall: "tIn moQ",
+    powerupSmallerBall: "mach moQ",
+    powerupReversed: "chIm!",
+    powerupUnknown: "Sovbe'",
   },
 
   // 2FA

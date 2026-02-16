@@ -256,6 +256,20 @@ export const en = {
     alertTournament1v1Players: 'Tournament 1v1 requires at least 4 players',
     alertTournamentMultiPlayers: 'Multiplayer tournament requires at least 4 players',
     alertMultiplayerPlayers: 'Multiplayer mode requires at least 2 players',
+    // Game UI
+    leaderboard: 'Leaderboard',
+    backToMenu: 'Back to Menu',
+    player: 'Player',
+    gameOverText: 'GAME OVER!',
+    // Powerups
+    powerupBallAdded: 'Ball Added',
+    powerupFastPaddles: 'Fast Paddles',
+    powerupSlowPaddles: 'Slow Paddles',
+    powerupSuperSpeed: 'Super Speed',
+    powerupBiggerBall: 'Bigger Ball',
+    powerupSmallerBall: 'Smaller Ball',
+    powerupReversed: 'Reversed!',
+    powerupUnknown: 'Unknown',
   },
 
   // 2FA

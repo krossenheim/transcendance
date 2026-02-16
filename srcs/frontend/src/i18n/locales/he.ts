@@ -255,6 +255,20 @@ export const he: TranslationKeys = {
     alertTournament1v1Players: 'טורניר 1 נגד 1 דורש לפחות 4 שחקנים',
     alertTournamentMultiPlayers: 'טורניר רב-משתתפים דורש לפחות 4 שחקנים',
     alertMultiplayerPlayers: 'מצב רב-משתתפים דורש לפחות 2 שחקנים',
+    // Game UI
+    leaderboard: 'טבלת הישגים',
+    backToMenu: 'חזרה לתפריט',
+    player: 'שחקן',
+    gameOverText: 'המשחק נגמר!',
+    // Powerups
+    powerupBallAdded: 'כדור נוסף',
+    powerupFastPaddles: 'מחבטים מהירים',
+    powerupSlowPaddles: 'מחבטים איטיים',
+    powerupSuperSpeed: 'מהירות על',
+    powerupBiggerBall: 'כדור גדול',
+    powerupSmallerBall: 'כדור קטן',
+    powerupReversed: 'הפוך!',
+    powerupUnknown: 'לא ידוע',
   },
 
   // 2FA

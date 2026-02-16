@@ -250,6 +250,20 @@ export const sjn: TranslationKeys = {
     alertTournament1v1Players: "Dagor 1v1 bui canar teilienrim",
     alertTournamentMultiPlayers: "Rim dagor bui canar teilienrim",
     alertMultiplayerPlayers: "Rim bui tad teilienrim",
+    // Game UI
+    leaderboard: "Parf teilienrim",
+    backToMenu: "Gwanno na wuv",
+    player: "Teilien",
+    gameOverText: "TEILIEN AWARTHAN!",
+    // Powerups
+    powerupBallAdded: "Corn pannen",
+    powerupFastPaddles: "Lin padellath",
+    powerupSlowPaddles: "Him padellath",
+    powerupSuperSpeed: "Agor galu",
+    powerupBiggerBall: "Daer corn",
+    powerupSmallerBall: "Tithen corn",
+    powerupReversed: "Dornol!",
+    powerupUnknown: "Úgostannen",
   },
 
   // 2FA

@@ -255,6 +255,20 @@ export const zh: TranslationKeys = {
     alertTournament1v1Players: '1对1锦标赛至少需要4名玩家',
     alertTournamentMultiPlayers: '多人锦标赛至少需要4名玩家',
     alertMultiplayerPlayers: '多人模式至少需要2名玩家',
+    // Game UI
+    leaderboard: '排行榜',
+    backToMenu: '返回菜单',
+    player: '玩家',
+    gameOverText: '游戏结束！',
+    // Powerups
+    powerupBallAdded: '添加球',
+    powerupFastPaddles: '快速球拍',
+    powerupSlowPaddles: '慢速球拍',
+    powerupSuperSpeed: '超级速度',
+    powerupBiggerBall: '大球',
+    powerupSmallerBall: '小球',
+    powerupReversed: '反转！',
+    powerupUnknown: '未知',
   },
 
   // 2FA
