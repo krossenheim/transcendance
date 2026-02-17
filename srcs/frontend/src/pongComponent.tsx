@@ -1212,7 +1212,12 @@ export default function PongComponent({
             {/* Leaderboard Overlay */}
             {gameState && (lobby || debugPlayers) && (
               <PongLeaderboard
-                players={lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || [])}
+                players={(() => {
+                  // Only show players who are actually playing in this game (have a paddle)
+                  const activePaddleOwnerIds = new Set(gameState.paddles.map(p => p.owner_id));
+                  const allPlayers = lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || []);
+                  return allPlayers.filter(p => activePaddleOwnerIds.has(p.id));
+                })()}
                 scores={gameState.score}
               />
             )}
