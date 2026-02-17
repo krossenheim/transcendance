@@ -232,4 +232,14 @@ export function resolveCircleLineCollision(
 
     ball.velocity.addScaled(scratchNormal, j * ball.inverseMass);
     wall.velocity.addScaled(scratchNormal, -j * wall.inverseMass);
+
+    // Add slight angle perturbation to prevent ball getting stuck in perfect bounce loops
+    // This adds a small random rotation (±3 degrees max) to the velocity
+    const perturbAngle = (Math.random() - 0.5) * 0.1; // ~±3 degrees in radians
+    const cos = Math.cos(perturbAngle);
+    const sin = Math.sin(perturbAngle);
+    const vx = ball.velocity.x;
+    const vy = ball.velocity.y;
+    ball.velocity.x = vx * cos - vy * sin;
+    ball.velocity.y = vx * sin + vy * cos;
 }

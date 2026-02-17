@@ -1,9 +1,19 @@
 import { create } from 'zustand';
 import type { TypeGameStateSchema } from '../types/pong-interfaces';
 import type { PongLobbyData } from '../pongLobby';
-import type { TournamentData } from '../tournamentBracket';
+import type { TournamentData, TournamentMatch } from '../tournamentBracket';
 
 export type PongView = "menu" | "lobby" | "game" | "tournament";
+
+// Tournament match result received after a match ends
+export interface TournamentMatchResultInfo {
+    tournamentId: number;
+    matchId: number;
+    winnerId: number | null;
+    loserId: number | null;
+    nextMatch: TournamentMatch | null;
+    isTournamentComplete: boolean;
+}
 
 interface PongState {
     // Core game state
@@ -26,6 +36,7 @@ interface PongState {
     tournament: TournamentData | null;
     activeTournamentId: number | null;
     showTournamentStats: boolean;
+    tournamentMatchResult: TournamentMatchResultInfo | null;
 
     // Modals
     showInviteModalLocal: boolean;
@@ -51,6 +62,7 @@ interface PongState {
     setActiveTournamentId: (id: number | null) => void;
     setShowTournamentStats: (show: boolean) => void;
     updateTournamentPlayerAlias: (userId: number, alias: string) => void;
+    setTournamentMatchResult: (result: TournamentMatchResultInfo | null) => void;
 
     // Actions - Modals
     setShowInviteModalLocal: (show: boolean) => void;
@@ -73,6 +85,7 @@ export const usePongStore = create<PongState>((set, get) => ({
     tournament: null,
     activeTournamentId: null,
     showTournamentStats: false,
+    tournamentMatchResult: null,
     showInviteModalLocal: false,
     inviteRoomUsers: [],
     debugPlayers: null,
@@ -153,6 +166,11 @@ export const usePongStore = create<PongState>((set, get) => ({
         });
     },
 
+    setTournamentMatchResult: (tournamentMatchResult) => {
+        console.log("[PongStore] Setting tournament match result:", tournamentMatchResult);
+        set({ tournamentMatchResult });
+    },
+
     // Actions - Modals
     setShowInviteModalLocal: (showInviteModalLocal) => set({ showInviteModalLocal }),
     setInviteRoomUsers: (inviteRoomUsers) => set({ inviteRoomUsers }),
@@ -162,6 +180,7 @@ export const usePongStore = create<PongState>((set, get) => ({
         gameState: null,
         lobby: null,
         tournament: null,
+        tournamentMatchResult: null,
         debugPlayers: null,
         playerOnePaddleID: -1,
         playerTwoPaddleID: -2,

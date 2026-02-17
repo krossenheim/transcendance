@@ -133,6 +133,8 @@ export const TournamentMatchSchema = z
     player2Id: userIdValue.nullable(),
     winnerId: userIdValue.nullable(),
     status: z.enum(["pending", "in_progress", "completed"]),
+    gameId: gameIdValue.optional(), // Associated pong game ID when match is in progress
+    readyPlayers: z.array(userIdValue).optional(), // Players who clicked "Join Match"
   })
   .strict();
 
@@ -195,6 +197,23 @@ export const PongInvitationNotificationSchema = z
     playerCount: z.coerce.number(),
   })
   .strict();
+
+// Schema for tournament match result pushed to all tournament participants after a match ends
+export const TournamentMatchResultSchema = z
+  .object({
+    tournamentId: gameIdValue,
+    matchId: gameIdValue,
+    winnerId: userIdValue.nullable(), // null for non-participants
+    loserId: userIdValue.nullable(),  // null for non-participants
+    tournament: TournamentDataSchema,
+    // Next match info for the requesting user (null if eliminated or tournament complete)
+    nextMatch: TournamentMatchSchema.nullable(),
+    // Is this the final match of the tournament?
+    isTournamentComplete: z.boolean(),
+  })
+  .strict();
+
+export type TypeTournamentMatchResult = z.infer<typeof TournamentMatchResultSchema>;
 
 export type TypePlayerDeclaresReadyForGame = z.infer<
   typeof PlayerDeclaresReadyForGame

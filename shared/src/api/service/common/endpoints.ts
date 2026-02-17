@@ -41,6 +41,7 @@ import {
   CreateLobbySchema,
   LobbyDataSchema,
   TournamentDataSchema,
+  TournamentMatchResultSchema,
   SetPlayerAliasSchema,
   JoinTournamentMatchSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
@@ -898,6 +899,27 @@ export const user_url = defineRoutes({
             NotYourMatch: {
               code: 2,
               payload: ErrorResponse,
+            },
+            WaitingForOpponent: {
+              code: 3,
+              payload: z.object({ message: z.string(), readyCount: z.number() }),
+            },
+          },
+        },
+      },
+
+      // Server-push notification when a tournament match ends
+      tournamentMatchResult: {
+        funcId: "tournament_match_result",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({}), // No args - this is a server push
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            MatchResult: {
+              code: 0,
+              payload: TournamentMatchResultSchema,
             },
           },
         },

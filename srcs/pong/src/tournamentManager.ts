@@ -16,6 +16,7 @@ export interface TournamentMatch {
   winnerId: number | null;
   status: "pending" | "in_progress" | "completed";
   gameId?: number; // Associated pong game ID when started
+  readyPlayers: number[]; // Players who clicked "Join Match"
 }
 
 export interface Tournament {
@@ -135,6 +136,20 @@ export class TournamentManager {
   }
 
   /**
+   * Get all pending matches that are ready to start (both players set)
+   */
+  getAllReadyMatches(tournamentId: number): TournamentMatch[] {
+    const tournament = this.tournaments.get(tournamentId);
+    if (!tournament) return [];
+
+    return tournament.matches.filter(m =>
+      m.status === "pending" &&
+      m.player1Id !== null &&
+      m.player2Id !== null
+    );
+  }
+
+  /**
    * Get the next pending match for a given player
    */
   getNextPendingMatchForPlayer(tournamentId: number, userId: number): TournamentMatch | null {
@@ -147,6 +162,60 @@ export class TournamentManager {
       m.player2Id !== null &&
       (m.player1Id === userId || m.player2Id === userId)
     ) || null;
+  }
+
+  /**
+   * Mark a player as ready for a tournament match.
+   * Returns: { match, bothReady } where bothReady indicates if both players are now ready.
+   */
+  markPlayerReady(
+    tournamentId: number,
+    matchId: number,
+    userId: number
+  ): Result<{ match: TournamentMatch; bothReady: boolean }, ErrorResponseType> {
+    const tournament = this.tournaments.get(tournamentId);
+    if (!tournament) {
+      return ResultClass.Err({ message: "Tournament not found" });
+    }
+
+    const match = tournament.matches.find((m) => m.matchId === matchId);
+    if (!match) {
+      return ResultClass.Err({ message: "Match not found" });
+    }
+
+    // Verify player is in this match
+    if (match.player1Id !== userId && match.player2Id !== userId) {
+      return ResultClass.Err({ message: "Player not in this match" });
+    }
+
+    // Check if match is ready to start
+    if (match.status !== "pending" || match.player1Id === null || match.player2Id === null) {
+      return ResultClass.Err({ message: "Match not ready" });
+    }
+
+    // Add player to ready list if not already
+    if (!match.readyPlayers.includes(userId)) {
+      match.readyPlayers.push(userId);
+    }
+
+    // Check if both players are ready
+    const bothReady = match.readyPlayers.includes(match.player1Id) && 
+                      match.readyPlayers.includes(match.player2Id);
+
+    return ResultClass.Ok({ match, bothReady });
+  }
+
+  /**
+   * Clear ready status for a match (e.g., when needing to reset)
+   */
+  clearMatchReadyStatus(tournamentId: number, matchId: number): void {
+    const tournament = this.tournaments.get(tournamentId);
+    if (!tournament) return;
+
+    const match = tournament.matches.find((m) => m.matchId === matchId);
+    if (match) {
+      match.readyPlayers = [];
+    }
   }
 
   private generateBracket(tournament: Tournament): void {
@@ -178,6 +247,7 @@ export class TournamentManager {
         player2Id: player2 ? player2.userId : null,
         winnerId: null,
         status: "pending",
+        readyPlayers: [],
       };
 
       // If player2 is null (odd number), player1 gets a bye
@@ -203,6 +273,7 @@ export class TournamentManager {
           player2Id: null,
           winnerId: null,
           status: "pending",
+          readyPlayers: [],
         });
       }
       previousRoundSize = currentRoundSize;

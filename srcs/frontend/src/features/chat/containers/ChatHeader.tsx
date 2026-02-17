@@ -26,10 +26,14 @@ export const ChatHeader: React.FC = () => {
 
   const setInviteRoomUsers = usePongStore(state => state.setInviteRoomUsers);
   const setShowInviteModalLocal = usePongStore(state => state.setShowInviteModalLocal);
+  const resetGameState = usePongStore(state => state.resetGameState);
 
   const roomData = currentRoomId ? userChatRooms.get(currentRoomId) : undefined;
 
   const handleInviteToPong = () => {
+    // Clear any stale game state from previous games
+    resetGameState();
+    
     // Build room users list from current room connections
     // userState can be numeric (0/1), string ("INVITED"/"JOINED"), or enum value
     // JOINED = 1, INVITED = 0 - so we filter for "not invited"

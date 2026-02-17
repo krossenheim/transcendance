@@ -34,13 +34,102 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
   const result = await tournamentManager.recordMatchWinner(tournamentId, matchId, winnerId);
   if (result.isErr()) {
     console.error("Failed to record match winner:", result.unwrapErr());
-  } else {
-    const tournament = result.unwrap();
-    console.log(`[Pong] Tournament match recorded. Status: ${tournament.status}, Winner: ${tournament.winnerId}`);
-    if (tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0) {
-      console.log(`[Pong] On-chain tx hashes: ${tournament.onchainTxHashes.join(", ")}`);
-    }
+    return;
   }
+  
+  const tournament = result.unwrap();
+  console.log(`[Pong] Tournament match recorded. Status: ${tournament.status}, Winner: ${tournament.winnerId}`);
+  if (tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0) {
+    console.log(`[Pong] On-chain tx hashes: ${tournament.onchainTxHashes.join(", ")}`);
+  }
+
+  // Find the completed match to get the loser
+  const completedMatch = tournament.matches.find(m => m.matchId === matchId);
+  if (!completedMatch) {
+    console.error(`[Pong] Could not find match ${matchId} in tournament ${tournamentId}`);
+    return;
+  }
+  
+  const loserId = completedMatch.player1Id === winnerId ? completedMatch.player2Id : completedMatch.player1Id;
+  if (loserId === null) {
+    console.error(`[Pong] Could not determine loser for match ${matchId}`);
+    return;
+  }
+
+  // Build tournament data for the schema
+  const tournamentData = {
+    tournamentId: tournament.tournamentId,
+    name: tournament.name,
+    mode: tournament.mode,
+    players: tournament.players,
+    matches: tournament.matches,
+    currentRound: tournament.currentRound,
+    totalRounds: tournament.totalRounds,
+    status: tournament.status,
+    winnerId: tournament.winnerId,
+    ballCount: tournament.ballCount,
+    maxScore: tournament.maxScore,
+    onchainTxHashes: tournament.onchainTxHashes || [],
+  };
+
+  const isTournamentComplete = tournament.status === "completed";
+
+  // Players in this match (will get full match result)
+  const matchPlayerIds = [completedMatch.player1Id, completedMatch.player2Id].filter(id => id !== null) as number[];
+  
+  // All tournament players
+  const allPlayerIds = tournament.players.map(p => p.userId);
+  
+  // Send match result to players who were IN the match
+  for (const playerId of matchPlayerIds) {
+    const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
+    
+    const payload = {
+      tournamentId,
+      matchId,
+      winnerId,
+      loserId,
+      tournament: tournamentData,
+      nextMatch: nextMatch,
+      isTournamentComplete,
+    };
+
+    console.log(`[Pong] Sending match result to participant ${playerId}: winner=${winnerId}, loser=${loserId}, nextMatch=${nextMatch?.matchId || 'none'}`);
+    
+    socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
+      recipients: [playerId],
+      code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
+      payload,
+    });
+  }
+
+  // Send tournament state update to OTHER players (not in this match)
+  // Use winnerId=-1 to indicate this is just a state update, not their match result
+  const otherPlayerIds = allPlayerIds.filter(id => !matchPlayerIds.includes(id));
+  for (const playerId of otherPlayerIds) {
+    const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
+    
+    const payload = {
+      tournamentId,
+      matchId,
+      winnerId: null, // null indicates "not your match"
+      loserId: null,
+      tournament: tournamentData,
+      nextMatch: nextMatch,
+      isTournamentComplete,
+    };
+
+    console.log(`[Pong] Sending tournament update to non-participant ${playerId}: nextMatch=${nextMatch?.matchId || 'none'}`);
+    
+    socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
+      recipients: [playerId],
+      code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
+      payload,
+    });
+  }
+
+  // Don't auto-start remaining matches - let players use "Join Match" in bracket view
+  // This ensures both players are ready before starting
 });
 
 function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number): PongGameOptions {
@@ -279,6 +368,105 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
   // return leftResponse;
 });
 
+// Handler for joining a specific tournament match
+socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, response) => {
+  const user_id = body.userId;
+  const { tournamentId, matchId } = body.payload;
+  
+  console.log(`[Pong] Join tournament match request: user=${user_id}, tournament=${tournamentId}, match=${matchId}`);
+
+  const tournament = tournamentManager.getTournament(tournamentId);
+  if (!tournament) {
+    return Result.Ok(response.select("MatchNotReady").reply({
+      message: "Tournament not found",
+    }));
+  }
+
+  const match = tournament.matches.find(m => m.matchId === matchId);
+  if (!match) {
+    return Result.Ok(response.select("MatchNotReady").reply({
+      message: "Match not found",
+    }));
+  }
+
+  // Verify user is a participant in this match
+  if (match.player1Id !== user_id && match.player2Id !== user_id) {
+    return Result.Ok(response.select("NotYourMatch").reply({
+      message: "You are not a participant in this match",
+    }));
+  }
+
+  // Check if match is ready (both players set and pending)
+  if (match.status !== "pending" || match.player1Id === null || match.player2Id === null) {
+    return Result.Ok(response.select("MatchNotReady").reply({
+      message: "Match is not ready to start",
+    }));
+  }
+
+  // Mark this player as ready
+  const readyResult = tournamentManager.markPlayerReady(tournamentId, matchId, user_id);
+  if (readyResult.isErr()) {
+    return Result.Ok(response.select("MatchNotReady").reply({
+      message: readyResult.unwrapErr().message,
+    }));
+  }
+
+  const { bothReady } = readyResult.unwrap();
+  const playerIds = [match.player1Id, match.player2Id];
+
+  // If not both ready, notify waiting
+  if (!bothReady) {
+    console.log(`[Pong] Player ${user_id} ready for match ${matchId}, waiting for opponent`);
+    return Result.Ok(response.select("WaitingForOpponent").reply({
+      message: "Waiting for your opponent to be ready...",
+      readyCount: match.readyPlayers.length,
+    }));
+  }
+
+  console.log(`[Pong] Both players ready for match ${matchId}, starting game`);
+
+  // Both ready - create the game
+  const gameResult = singletonPong.startGame(
+    playerIds,
+    createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+    tournamentId,
+    matchId
+  );
+
+  if (gameResult.isErr()) {
+    // Clear ready status so they can try again
+    tournamentManager.clearMatchReadyStatus(tournamentId, matchId);
+    return Result.Ok(response.select("MatchNotReady").reply({
+      message: "Failed to start game",
+    }));
+  }
+
+  const gameId = gameResult.unwrap();
+
+  // Update match status
+  const startResult = tournamentManager.startTournamentMatch(tournamentId, matchId, user_id, gameId);
+  if (startResult.isErr()) {
+    console.warn(`[Pong] Failed to start tournament match: ${startResult.unwrapErr().message}`);
+  }
+
+  // Get game state
+  const gameState = singletonPong.getGameState(user_id, gameId);
+  if (gameState.isErr()) {
+    return Result.Ok(response.select("MatchNotReady").reply({
+      message: "Failed to retrieve game state",
+    }));
+  }
+
+  console.log(`[Pong] Tournament match ${matchId} started with game ${gameId}, players: ${playerIds.join(', ')}`);
+
+  // Return game state to both players
+  return Result.Ok({
+    recipients: playerIds,
+    code: user_url.ws.pong.joinTournamentMatch.schema.output.MatchStarted.code,
+    payload: gameState.unwrap(),
+  });
+});
+
 socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) => {
   const user_id = body.userId;
   const { lobbyId } = body.payload;
@@ -383,6 +571,96 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     return Result.Ok(response.select("NotAllReady").reply({
       message: "Failed to retrieve game state",
     }));
+  }
+
+  // For tournament games, notify players NOT in this match to view the bracket
+  if (tournamentId) {
+    const tournament = tournamentManager.getTournament(tournamentId);
+    if (tournament) {
+      const matchPlayerIds = new Set(playerIds);
+      const otherPlayerIds = tournament.players
+        .map(p => p.userId)
+        .filter(id => !matchPlayerIds.has(id));
+      
+      if (otherPlayerIds.length > 0) {
+        console.log(`[Pong] Notifying non-match players ${otherPlayerIds.join(', ')} to view tournament bracket`);
+        
+        // Build tournament data for the notification
+        const tournamentData = {
+          tournamentId: tournament.tournamentId,
+          name: tournament.name,
+          mode: tournament.mode,
+          players: tournament.players,
+          matches: tournament.matches,
+          currentRound: tournament.currentRound,
+          totalRounds: tournament.totalRounds,
+          status: tournament.status,
+          winnerId: tournament.winnerId,
+          ballCount: tournament.ballCount,
+          maxScore: tournament.maxScore,
+          onchainTxHashes: tournament.onchainTxHashes || [],
+        };
+
+        // Send tournament update to players not in current match
+        // They should go to tournament view and wait (or play their own match)
+        for (const playerId of otherPlayerIds) {
+          const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
+          
+          socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
+            recipients: [playerId],
+            code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
+            payload: {
+              tournamentId,
+              matchId: matchId || 0,
+              winnerId: 0, // No winner yet - match just started
+              loserId: 0,
+              tournament: tournamentData,
+              nextMatch: nextMatch,
+              isTournamentComplete: false,
+            },
+          });
+        }
+
+        // Auto-start other first-round matches in parallel when tournament begins
+        const readyMatches = tournamentManager.getAllReadyMatches(tournamentId);
+        for (const pendingMatch of readyMatches) {
+          // Skip the match we just started
+          if (pendingMatch.matchId === matchId) continue;
+          if (pendingMatch.player1Id === null || pendingMatch.player2Id === null) continue;
+
+          const pendingPlayerIds = [pendingMatch.player1Id, pendingMatch.player2Id];
+          console.log(`[Pong] Auto-starting parallel match ${pendingMatch.matchId} for players ${pendingPlayerIds.join(', ')}`);
+
+          const pendingGameResult = singletonPong.startGame(
+            pendingPlayerIds,
+            createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+            tournamentId,
+            pendingMatch.matchId
+          );
+
+          if (pendingGameResult.isErr()) {
+            console.error(`[Pong] Failed to auto-start parallel match ${pendingMatch.matchId}`);
+            continue;
+          }
+
+          const pendingGameId = pendingGameResult.unwrap();
+          tournamentManager.startTournamentMatch(tournamentId, pendingMatch.matchId, pendingMatch.player1Id, pendingGameId);
+
+          const pendingGameState = singletonPong.getGameState(pendingMatch.player1Id, pendingGameId);
+          if (pendingGameState.isErr()) {
+            console.error(`[Pong] Failed to get game state for auto-started parallel match ${pendingMatch.matchId}`);
+            continue;
+          }
+
+          // Send MatchStarted to both players
+          socket.sendMessage(user_url.ws.pong.joinTournamentMatch, {
+            recipients: pendingPlayerIds,
+            code: user_url.ws.pong.joinTournamentMatch.schema.output.MatchStarted.code,
+            payload: pendingGameState.unwrap(),
+          });
+        }
+      }
+    }
   }
 
   // Clean up lobby now that game has started

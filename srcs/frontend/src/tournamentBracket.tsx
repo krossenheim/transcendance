@@ -22,6 +22,7 @@ export interface TournamentData {
   totalRounds: number
   status: "registration" | "in_progress" | "completed"
   winner: { id: number; username: string; alias?: string } | null
+  onchainTxHashes?: string[]
 }
 
 interface TournamentBracketProps {
@@ -39,6 +40,22 @@ export default function TournamentBracket({
 }: TournamentBracketProps) {
   const currentPlayer = tournament.players.find((p) => p.id === currentUserId)
   const [aliasInput, setAliasInput] = React.useState("")
+  const [waitingForMatch, setWaitingForMatch] = React.useState<number | null>(null)
+
+  // Reset waiting state when match status changes
+  React.useEffect(() => {
+    if (waitingForMatch !== null) {
+      const match = tournament.matches.find(m => m.matchId === waitingForMatch);
+      if (match && match.status !== "pending") {
+        setWaitingForMatch(null);
+      }
+    }
+  }, [tournament.matches, waitingForMatch]);
+
+  const handleJoinMatch = (matchId: number) => {
+    setWaitingForMatch(matchId);
+    onJoinMatch(matchId);
+  };
 
   // Group matches by round
   const matchesByRound: Record<number, TournamentMatch[]> = {}
@@ -87,6 +104,34 @@ export default function TournamentBracket({
           )}
         </div>
       </div>
+
+      {/* Blockchain Transaction Display */}
+      {tournament.status === "completed" && tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0 && (
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-500 rounded-lg">
+          <h3 className="font-semibold text-green-700 dark:text-green-300 mb-2">⛓️ Recorded on Blockchain</h3>
+          <div className="space-y-2">
+            {tournament.onchainTxHashes.map((hash, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">TX {idx + 1}:</span>
+                <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono break-all">
+                  {hash}
+                </code>
+                <a
+                  href={`/blockchain-explorer/?tx=${hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-500 hover:text-blue-700 underline"
+                >
+                  View
+                </a>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+            Tournament results permanently recorded on the blockchain
+          </p>
+        </div>
+      )}
 
       {/* Registration Phase - Alias Entry */}
       {tournament.status === "registration" && !currentPlayer?.alias && (
@@ -211,10 +256,15 @@ export default function TournamentBracket({
                           match.player2 &&
                           (match.player1.id === currentUserId || match.player2.id === currentUserId) && (
                             <button
-                              onClick={() => onJoinMatch(match.matchId)}
-                              className="mt-2 w-full py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              onClick={() => handleJoinMatch(match.matchId)}
+                              disabled={waitingForMatch === match.matchId}
+                              className={`mt-2 w-full py-1 text-xs rounded ${
+                                waitingForMatch === match.matchId
+                                  ? "bg-yellow-500 text-white cursor-wait"
+                                  : "bg-blue-500 text-white hover:bg-blue-600"
+                              }`}
                             >
-                              Join Match
+                              {waitingForMatch === match.matchId ? "⏳ Waiting for opponent..." : "Join Match"}
                             </button>
                           )}
                         {match.status === "in_progress" && (

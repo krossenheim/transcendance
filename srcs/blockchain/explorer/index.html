@@ -125,7 +125,7 @@
             <h3>📜 Tournament Score Contract</h3>
             <div class="field">
                 <span class="field-label">Address:</span>
-                <span class="field-value" id="contractAddress">0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0</span>
+                <span class="field-value" id="contractAddress">0x5FbDB2315678afecb367f032d93F642f64180aa3</span>
             </div>
         </div>
 
@@ -156,7 +156,7 @@
     <script>
         // Use local proxy to avoid CORS issues
         const RPC_URL = '/rpc';
-        const CONTRACT_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+        const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
         
         // Event signature for ScoreRecorded(uint256 indexed tournamentId, address indexed player, uint256 score, uint256 timestamp)
         const SCORE_RECORDED_TOPIC = '0x87358b3cc4a72c3fb097f479d5e6289be4bdbbee605caa6576405ede8a4d891f';
@@ -201,7 +201,8 @@
                 }]);
                 
                 if (logs.length > 0) {
-                    let html = '<div class="card"><h2>📊 Recent Tournament Records</h2>';
+                    let html = '<div class="card"><h2>🏆 Recorded Tournament Results</h2>';
+                    html += '<p style="color:#888;margin-bottom:15px;font-size:13px;">These results are permanently stored on the blockchain and cannot be modified.</p>';
                     for (const log of logs.slice(-10).reverse()) {
                         const tournamentId = parseInt(log.topics[1], 16);
                         const blockNum = parseInt(log.blockNumber, 16);
@@ -209,30 +210,30 @@
                         
                         // Parse data field (score and timestamp)
                         const dataHex = log.data.slice(2);
-                        const score = parseInt(dataHex.slice(0, 64), 16);
+                        const winnerId = parseInt(dataHex.slice(0, 64), 16);
                         const timestamp = parseInt(dataHex.slice(64, 128), 16);
                         const date = new Date(timestamp * 1000).toLocaleString();
                         
                         html += `
                             <div class="log-card">
-                                <h3>🏆 Tournament #${tournamentId}</h3>
+                                <h3>🎮 Tournament #${tournamentId}</h3>
                                 <div class="field">
-                                    <span class="field-label">Winner ID:</span>
-                                    <span class="field-value">${score}</span>
+                                    <span class="field-label">Champion:</span>
+                                    <span class="field-value success" style="font-weight:bold;">User #${winnerId}</span>
                                 </div>
                                 <div class="field">
-                                    <span class="field-label">Recorded:</span>
+                                    <span class="field-label">Certified:</span>
                                     <span class="field-value">${date}</span>
                                 </div>
                                 <div class="field">
                                     <span class="field-label">Block:</span>
-                                    <span class="field-value">${blockNum}</span>
+                                    <span class="field-value">#${blockNum} (immutable)</span>
                                 </div>
                                 <div class="field">
-                                    <span class="field-label">Tx Hash:</span>
+                                    <span class="field-label">Proof:</span>
                                     <span class="field-value">
                                         <a href="#" onclick="document.getElementById('txHash').value='${txHash}';searchTransaction();return false;" style="color:#00d4ff">
-                                            ${txHash.slice(0, 20)}...${txHash.slice(-8)}
+                                            ${txHash.slice(0, 16)}...${txHash.slice(-8)}
                                         </a>
                                     </span>
                                 </div>
@@ -320,25 +321,29 @@
                         if (log.topics[0] === SCORE_RECORDED_TOPIC) {
                             const tournamentId = parseInt(log.topics[1], 16);
                             const dataHex = log.data.slice(2);
-                            const score = parseInt(dataHex.slice(0, 64), 16);
+                            const winnerId = parseInt(dataHex.slice(0, 64), 16);
                             const timestamp = parseInt(dataHex.slice(64, 128), 16);
                             
                             html += `
                                 <div class="field">
                                     <span class="field-label">Event:</span>
-                                    <span class="field-value success">ScoreRecorded</span>
+                                    <span class="field-value success">🏆 Tournament Result Recorded</span>
                                 </div>
                                 <div class="field">
-                                    <span class="field-label">Tournament ID:</span>
-                                    <span class="field-value">${tournamentId}</span>
+                                    <span class="field-label">Tournament:</span>
+                                    <span class="field-value">#${tournamentId}</span>
                                 </div>
                                 <div class="field">
-                                    <span class="field-label">Winner ID:</span>
-                                    <span class="field-value">${score}</span>
+                                    <span class="field-label">Champion:</span>
+                                    <span class="field-value" style="color:#ffd700;font-weight:bold;">👑 User #${winnerId}</span>
                                 </div>
                                 <div class="field">
-                                    <span class="field-label">Timestamp:</span>
+                                    <span class="field-label">Certified At:</span>
                                     <span class="field-value">${new Date(timestamp * 1000).toLocaleString()}</span>
+                                </div>
+                                <div class="field">
+                                    <span class="field-label">Status:</span>
+                                    <span class="field-value success">Permanently Recorded on Blockchain</span>
                                 </div>
                             `;
                         } else {
@@ -361,6 +366,14 @@
         
         // Load stats on page load
         loadStats();
+        
+        // Check for tx parameter in URL and auto-search
+        const urlParams = new URLSearchParams(window.location.search);
+        const txFromUrl = urlParams.get('tx');
+        if (txFromUrl) {
+            document.getElementById('txHash').value = txFromUrl;
+            setTimeout(searchTransaction, 500); // Small delay to let stats load first
+        }
         
         // Auto-refresh stats every 10 seconds
         setInterval(loadStats, 10000);
