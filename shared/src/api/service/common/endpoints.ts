@@ -39,13 +39,14 @@ import {
   PlayerReadyForGameSchema,
   StartNewPongGameSchema,
   CreateLobbySchema,
-  LobbyDataSchema,
+  LobbyDataSchema as LobbyDataSchemaOld,
   TournamentDataSchema,
   SetPlayerAliasSchema,
   JoinTournamentMatchSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
 import { GameResult } from "@app/shared/api/service/db/gameResult";
 import { UserNotifications } from "@app/shared/api/service/db/notification";
+import { LobbyDataSchema } from "@app/shared/api/service/pong/lobby_interfaces";
 
 export const defaultResponses: Record<number, z.ZodType | null> = {
   400: ErrorResponse,
@@ -773,7 +774,7 @@ export const user_url = defineRoutes({
           output: {
             LobbyCreated: {
               code: 0,
-              payload: LobbyDataSchema,
+              payload: LobbyDataSchemaOld,
             },
             InvalidInput: {
               code: 1,
@@ -797,7 +798,7 @@ export const user_url = defineRoutes({
           output: {
             LobbyUpdate: {
               code: 0,
-              payload: LobbyDataSchema,
+              payload: LobbyDataSchemaOld,
             },
             NotInLobby: {
               code: 1,
@@ -821,7 +822,7 @@ export const user_url = defineRoutes({
             },
             LobbyUpdate: {
               code: 1,
-              payload: LobbyDataSchema,
+              payload: LobbyDataSchemaOld,
             },
             NotInLobby: {
               code: 2,
@@ -1223,6 +1224,19 @@ export const int_url = defineRoutes({
           },
         },
       },
+
+      createLobby: {
+        endpoint: "/internal_api/pong/create_lobby/:hostId",
+        method: "GET",
+        schema: {
+          params: z.object({ hostId: userIdValue }),
+          response: {
+            201: LobbyDataSchema,
+            401: ErrorResponse,
+            500: ErrorResponse,
+          }
+        }
+      }
     },
     db: {
       // Userdata endpoints

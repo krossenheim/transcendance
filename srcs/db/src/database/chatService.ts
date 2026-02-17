@@ -1,7 +1,7 @@
 import { ChatRoomUserAccessType } from "@app/shared/api/service/chat/db_models";
 import { ChatRoomType } from "@app/shared/api/service/chat/chat_interfaces";
 import { Result } from "@app/shared/api/service/common/result";
-import { Database } from "./database.js";
+import { Database } from "./database";
 import {
   StoredMessageSchema,
   RoomSchema,
@@ -13,22 +13,29 @@ import type {
   TypeRoomUserConnectionSchema,
 } from "@app/shared/api/service/chat/db_models";
 import type { TypeRoomSchema } from "@app/shared/api/service/chat/db_models";
-import { userService } from "../main.js";
+import { userService } from "../main";
 import { z } from "zod";
 import type { PublicUserDataType } from "@app/shared/api/service/db/user";
+import { SqlQueryLoader } from "@app/shared/sql";
+import { Statement } from "better-sqlite3";
 
 export class ChatService {
   private db: Database;
 
+  private setUserRoomAccessTypeStmt: Statement;
+
   constructor(db: Database) {
     this.db = db;
+
+    let loader = new SqlQueryLoader("./statements.sql");
+    this.setUserRoomAccessTypeStmt = this.db.prepare(loader.getQuery("setUserRoomAccessType").unwrap());
+
   }
 
   setUserRoomAccessType(userId: number, roomId: number, userState: number): Result<null, string> {
+    
     return this.db.run(
-      `INSERT INTO users_room_relationships (roomId, userId, userState)
-       VALUES (?, ?, ?)
-       ON CONFLICT(roomId, userId) DO UPDATE SET userState=excluded.userState`,
+      this.setUserRoomAccessTypeStmt,
       [roomId, userId, userState]
     ).map(() => null);
   }

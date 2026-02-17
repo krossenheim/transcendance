@@ -1,6 +1,24 @@
 import type { Result } from "@app/shared/api/service/common/result";
 import { Result as ResultClass } from "@app/shared/api/service/common/result";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
+// import type { LobbyDataType } from "@app/shared/api/service/pong/pong_interfaces";
+
+// class Lobby {
+//   private lobbyData: LobbyDataType;
+
+//   constructor(lobbyData: LobbyDataType) {
+//     this.lobbyData = lobbyData;
+//   }
+
+//   static async buildNewLobby(hostUserId: number): Promise<Result<Lobby, string>> {
+    
+
+    
+//   }
+
+
+// }
+
 
 export interface LobbyPlayer {
   userId: number;

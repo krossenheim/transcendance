@@ -1,12 +1,14 @@
 import { createFastify } from "@app/shared/api/service/common/fastify";
-import { TokenService } from "./database/tokenService.js";
-import { UserService } from "./database/userService.js";
-import { ChatService } from "./database/chatService.js";
-import Database from "./database/database.js";
+import { ChatService } from "./database/chatService";
+import { TokenService } from "./database/tokenService";
+import { LobbyService } from "./database/lobbyService";
+import { UserService } from "./database/userService";
+import Database from "./database/database";
 
 // Setup database
 const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
+const lobbyService = new LobbyService(db);
 const chatService = new ChatService(db);
 const userService = new UserService(db, chatService);
 // debug!!
@@ -14,7 +16,7 @@ const userService = new UserService(db, chatService);
 // debug!!
 // debug!!
 // debug!!
-import { makedebugusers } from "./debug_users.js";
+import { makedebugusers } from "./debug_users";
 makedebugusers(userService).catch((err) => {
   console.error("Error creating debug users:", err);
 });
@@ -41,6 +43,9 @@ fastify.register(chatRoutes);
 import twoFactorRoutes from "./routes/twoFactor.js";
 fastify.register(twoFactorRoutes);
 
+import lobbyRoutes from "./routes/lobby.js";
+fastify.register(lobbyRoutes);
+
 // Run the server
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
@@ -56,4 +61,4 @@ fastify.listen({ port, host }, (err: any, address: any) => {
   fastify.log.info(`Server listening at ${address}`);
 });
 
-export { db, userService, tokenService, chatService, twoFactorService };
+export { db, userService, tokenService, chatService, twoFactorService, lobbyService };

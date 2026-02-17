@@ -1,5 +1,5 @@
 import { generatePublicUserData } from "@app/shared/api/service/db/user";
-import { user_url } from "@app/shared/api/service/common/endpoints";
+import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import { OurSocket } from "@app/shared/socket_to_hub";
 
@@ -24,6 +24,10 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 			}
 
 			const userData = targetUser.unwrap();
+
+			console.log("Attempting to get lobby data for hostId:", body.payload);
+			await containers.db.get(int_url.http.pong.createLobby, { hostId: userData.id });
+
 			return Result.Ok(response.select("Success").reply(
 				generatePublicUserData(userData, onlineUsers.has(userData.id))
 			));

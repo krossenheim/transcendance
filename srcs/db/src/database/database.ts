@@ -1,4 +1,4 @@
-import DatabaseConstructor, { type Database as BetterSqlite3Database, type RunResult } from 'better-sqlite3';
+import DatabaseConstructor, { type Database as BetterSqlite3Database, type RunResult, type Statement } from 'better-sqlite3';
 import { zodParse } from '@app/shared/api/service/common/zodUtils';
 import { Result } from '@app/shared/api/service/common/result';
 import { z } from 'zod';
@@ -14,7 +14,7 @@ export class Database {
 	}
 
 	private _initializeDatabase(): void {
-		const filePath = path.join(__dirname, '..', '..', 'structure.sql');
+		const filePath = path.join(__dirname, '..', '..', 'sql', 'database.sql');
 		const sqlSetup = fs.readFileSync(filePath, 'utf-8');
 		const statements = sqlSetup.split(/;\s*$/m).filter(Boolean);
 		for (const stmt of statements) {
@@ -25,11 +25,13 @@ export class Database {
 				throw err;
 			}
 		}
+
+		this.db.pragma('journal_mode = WAL');
 	}
 
-	all<T extends z.ZodTypeAny>(sql: string, target: T, params: any[] = []): Result<z.infer<T>[], string> {
+	all<T extends z.ZodTypeAny>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>[], string> {
 		try {
-			const stmt = this.db.prepare(sql);
+			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			const rows = stmt.all(...params);
 			return zodParse(z.array(target), rows);
 		} catch (e) {
@@ -38,9 +40,9 @@ export class Database {
 		}
 	}
 
-	get<T extends z.ZodTypeAny>(sql: string, target: T, params: any[] = []): Result<z.infer<T>, string> {
+	get<T extends z.ZodTypeAny>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>, string> {
 		try {
-			const stmt = this.db.prepare(sql);
+			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			const row = stmt.get(...params);
 			if (!row) return Result.Err('Not found');
 			return zodParse(target, row);
@@ -50,14 +52,18 @@ export class Database {
 		}
 	}
 
-	run(sql: string, params: any[] = []): Result<RunResult, string> {
+	run(sql: string | Statement, params: any[] = []): Result<RunResult, string> {
 		try {
-			const stmt = this.db.prepare(sql);
+			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			return Result.Ok(stmt.run(...params));
 		} catch (e) {
 			console.error(e);
 			return Result.Err(`DB run failed`);
 		}
+	}
+
+	prepare(sql: string): Statement {
+		return this.db.prepare(sql);
 	}
 
 	close(): void {
