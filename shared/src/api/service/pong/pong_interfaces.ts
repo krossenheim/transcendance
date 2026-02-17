@@ -95,7 +95,7 @@ export const PlayerDeclaresReadyForGame = z
   .strict();
 
 // Lobby and Tournament schemas
-export const GameModeSchema = z.enum(["1v1", "multiplayer", "tournament_1v1", "tournament_multi"]);
+export const GameModeSchema = z.enum(["1v1", "multiplayer", "tournament"]);
 
 export const CreateLobbySchema = z
   .object({
@@ -140,7 +140,7 @@ export const TournamentDataSchema = z
   .object({
     tournamentId: gameIdValue,
     name: z.string(),
-    mode: z.enum(["tournament_1v1", "tournament_multi"]),
+    mode: z.literal("tournament"),
     players: z.array(TournamentPlayerSchema),
     matches: z.array(TournamentMatchSchema),
     currentRound: z.coerce.number().int().min(1),

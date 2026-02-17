@@ -6,7 +6,7 @@ import { useLanguage } from "./i18n/LanguageContext"
 import { useGlobalStore } from "./features/global/store/globalStore"
 import { usePongStore } from "./stores/pongStore"
 
-export type GameMode = "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi"
+export type GameMode = "1v1" | "multiplayer" | "tournament"
 
 interface PongInviteModalProps {
   isOpen: boolean
@@ -104,13 +104,8 @@ export default function PongInviteModal({
       return
     }
 
-    if (gameMode === "tournament_1v1" && players.length < 4) {
-      alert(t('pong.alertTournament1v1Players'))
-      return
-    }
-
-    if (gameMode === "tournament_multi" && players.length < 4) {
-      alert(t('pong.alertTournamentMultiPlayers'))
+    if (gameMode === "tournament" && players.length < 4) {
+      alert(t('pong.alertTournamentPlayers'))
       return
     }
 
@@ -135,10 +130,8 @@ export default function PongInviteModal({
         return t('pong.desc1v1')
       case "multiplayer":
         return t('pong.descMultiplayer')
-      case "tournament_1v1":
-        return t('pong.descTournament1v1')
-      case "tournament_multi":
-        return t('pong.descTournamentMulti')
+      case "tournament":
+        return t('pong.descTournament')
     }
   }
 
@@ -148,9 +141,7 @@ export default function PongInviteModal({
         return 2
       case "multiplayer":
         return 2
-      case "tournament_1v1":
-        return 4
-      case "tournament_multi":
+      case "tournament":
         return 4
     }
   }
@@ -178,7 +169,7 @@ export default function PongInviteModal({
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
               {t('pong.selectGameMode')}
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setGameMode("1v1")}
                 className={`p-4 border-2 transition-all ${gameMode === "1v1"
@@ -202,26 +193,15 @@ export default function PongInviteModal({
                 <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.freeForAll')}</div>
               </button>
               <button
-                onClick={() => setGameMode("tournament_1v1")}
-                className={`p-4 border-2 transition-all ${gameMode === "tournament_1v1"
+                onClick={() => setGameMode("tournament")}
+                className={`p-4 border-2 transition-all ${gameMode === "tournament"
                   ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                   : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
                   }`}
               >
                 <div className="text-3xl mb-2">🏆</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.tournament1v1')}</div>
+                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.tournament')}</div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.bracketStyle')}</div>
-              </button>
-              <button
-                onClick={() => setGameMode("tournament_multi")}
-                className={`p-4 border-2 transition-all ${gameMode === "tournament_multi"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
-                  }`}
-              >
-                <div className="text-3xl mb-2">🎖️</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.multiTournament')}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.teamBrackets')}</div>
               </button>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{getGameModeDescription()}</p>

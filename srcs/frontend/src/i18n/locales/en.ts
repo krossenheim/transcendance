@@ -218,6 +218,7 @@ export const en = {
     bracketStyle: 'Bracket style',
     multiTournament: 'Multi Tournament',
     teamBrackets: 'Team brackets',
+    tournament: 'Tournament',
     selectPlayers: 'Select Players',
     minPlayers: 'Min',
     youHost: 'You (Host)',
@@ -251,10 +252,12 @@ export const en = {
     descMultiplayer: 'Multiplayer Pong - Multiple players compete in a free-for-all match',
     descTournament1v1: '1v1 Tournament - Players compete in bracket-style matches',
     descTournamentMulti: 'Multiplayer Tournament - Teams compete in bracket-style matches',
+    descTournament: 'Tournament - 4 players compete in 1v1 bracket matches (semi-finals + final)',
     // Validation alerts
     alert1v1Players: '1v1 mode requires exactly 2 players (including yourself)',
     alertTournament1v1Players: 'Tournament 1v1 requires at least 4 players',
     alertTournamentMultiPlayers: 'Multiplayer tournament requires at least 4 players',
+    alertTournamentPlayers: 'Tournament requires at least 4 players',
     alertMultiplayerPlayers: 'Multiplayer mode requires at least 2 players',
     // Game UI
     leaderboard: 'Leaderboard',

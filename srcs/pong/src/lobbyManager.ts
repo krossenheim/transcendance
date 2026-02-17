@@ -11,7 +11,7 @@ export interface LobbyPlayer {
 
 export interface Lobby {
   lobbyId: number;
-  gameMode: "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi";
+  gameMode: "1v1" | "multiplayer" | "tournament";
   players: LobbyPlayer[];
   ballCount: number;
   maxScore: number;
@@ -33,7 +33,7 @@ export class LobbyManager {
   }
 
   createLobby(
-    gameMode: "1v1" | "multiplayer" | "tournament_1v1" | "tournament_multi",
+    gameMode: "1v1" | "multiplayer" | "tournament",
     playerIds: number[],
     playerUsernames: { [key: number]: string },
     ballCount: number,

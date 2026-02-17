@@ -15,7 +15,7 @@ export interface TournamentMatch {
 export interface TournamentData {
   tournamentId: number
   name: string
-  mode: "tournament_1v1" | "tournament_multi"
+  mode: "tournament"
   players: Array<{ id: number; username: string; alias?: string }>
   matches: TournamentMatch[]
   currentRound: number
@@ -70,7 +70,7 @@ export default function TournamentBracket({
           <div>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">🏆 {tournament.name}</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {tournament.mode === "tournament_1v1" ? "1v1 Tournament" : "Multiplayer Tournament"}
+              Tournament
               {" • "}Round {tournament.currentRound} of {tournament.totalRounds}
             </p>
           </div>

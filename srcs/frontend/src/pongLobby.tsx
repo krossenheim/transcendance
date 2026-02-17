@@ -53,10 +53,8 @@ export default function PongLobby({
         return t('pong.oneVsOne')
       case "multiplayer":
         return t('pong.multiplayer')
-      case "tournament_1v1":
-        return t('pong.tournament1v1')
-      case "tournament_multi":
-        return t('pong.multiTournament')
+      case "tournament":
+        return t('pong.tournament')
     }
   }
 

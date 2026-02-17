@@ -656,11 +656,11 @@ export default function PongComponent({
       }
 
       // If it's a tournament, also set up tournament data
-      if (mode === "tournament_1v1" || mode === "tournament_multi") {
+      if (mode === "tournament") {
         const newTournament: TournamentData = {
           tournamentId: Date.now(),
-          name: `${mode === "tournament_1v1" ? "1v1" : "Multiplayer"} Tournament`,
-          mode: mode,
+          name: "Tournament",
+          mode: "tournament",
           players: selectedPlayers.map((id) => ({
             id,
             username: inviteRoomUsers.find((u) => u.id === id)?.username || `User ${id}`,

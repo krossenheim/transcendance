@@ -143,12 +143,11 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   // If this lobby is a tournament, create a Tournament on the server-side
   // and attach it to the lobby so invitees receive tournament context.
   let tournamentPayload = undefined;
-  if (gameMode === "tournament_1v1" || gameMode === "tournament_multi") {
+  if (gameMode === "tournament") {
     try {
-      const tournamentName = `${gameMode === "tournament_1v1" ? "1v1" : "Multiplayer"} Tournament`;
+      const tournamentName = "Tournament";
       const tResult = tournamentManager.createTournament(
         tournamentName,
-        gameMode,
         playerIds,
         ballCount,
         maxScore

@@ -217,6 +217,7 @@ export const he: TranslationKeys = {
     bracketStyle: 'סגנון נוקאאוט',
     multiTournament: 'טורניר רב-משתתפים',
     teamBrackets: 'טורניר קבוצתי',
+    tournament: 'טורניר',
     selectPlayers: 'בחר שחקנים',
     minPlayers: 'מינימום',
     youHost: 'אתה (מארח)',
@@ -250,10 +251,12 @@ export const he: TranslationKeys = {
     descMultiplayer: 'פונג רב-משתתפים - מספר שחקנים מתחרים בחופשיות',
     descTournament1v1: 'טורניר 1 נגד 1 - שחקנים מתחרים במשחקי נוקאאוט',
     descTournamentMulti: 'טורניר רב-משתתפים - קבוצות מתחרות במשחקי נוקאאוט',
+    descTournament: 'טורניר - 4 שחקנים מתחרים במשחקי 1 נגד 1 (חצי גמר + גמר)',
     // Validation alerts
     alert1v1Players: 'מצב 1 נגד 1 דורש בדיוק 2 שחקנים (כולל אותך)',
     alertTournament1v1Players: 'טורניר 1 נגד 1 דורש לפחות 4 שחקנים',
     alertTournamentMultiPlayers: 'טורניר רב-משתתפים דורש לפחות 4 שחקנים',
+    alertTournamentPlayers: 'טורניר דורש לפחות 4 שחקנים',
     alertMultiplayerPlayers: 'מצב רב-משתתפים דורש לפחות 2 שחקנים',
     // Game UI
     leaderboard: 'טבלת הישגים',

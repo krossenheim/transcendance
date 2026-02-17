@@ -217,6 +217,7 @@ export const ru: TranslationKeys = {
     bracketStyle: 'Турнирная сетка',
     multiTournament: 'Мульти-турнир',
     teamBrackets: 'Командные турниры',
+    tournament: 'Турнир',
     selectPlayers: 'Выберите игроков',
     minPlayers: 'Мин',
     youHost: 'Вы (Хост)',
@@ -250,10 +251,12 @@ export const ru: TranslationKeys = {
     descMultiplayer: 'Мультиплеер Понг - Несколько игроков соревнуются в свободном матче',
     descTournament1v1: 'Турнир 1 на 1 - Игроки соревнуются по турнирной сетке',
     descTournamentMulti: 'Мульти-турнир - Команды соревнуются по турнирной сетке',
+    descTournament: 'Турнир - 4 игрока соревнуются в матчах 1 на 1 (полуфиналы + финал)',
     // Validation alerts
     alert1v1Players: 'Режим 1 на 1 требует ровно 2 игрока (включая вас)',
     alertTournament1v1Players: 'Турнир 1 на 1 требует минимум 4 игрока',
     alertTournamentMultiPlayers: 'Мульти-турнир требует минимум 4 игрока',
+    alertTournamentPlayers: 'Для турнира требуется минимум 4 игрока',
     alertMultiplayerPlayers: 'Режим мультиплеера требует минимум 2 игрока',
     // Game UI
     leaderboard: 'Таблица лидеров',

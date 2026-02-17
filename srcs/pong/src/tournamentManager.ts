@@ -21,7 +21,7 @@ export interface TournamentMatch {
 export interface Tournament {
   tournamentId: number;
   name: string;
-  mode: "tournament_1v1" | "tournament_multi";
+  mode: "tournament";
   players: TournamentPlayer[];
   matches: TournamentMatch[];
   currentRound: number;
@@ -46,7 +46,6 @@ export class TournamentManager {
 
   createTournament(
     name: string,
-    mode: "tournament_1v1" | "tournament_multi",
     playerIds: number[],
     ballCount: number,
     maxScore: number
@@ -64,7 +63,7 @@ export class TournamentManager {
     const tournament: Tournament = {
       tournamentId: this.nextTournamentId++,
       name,
-      mode,
+      mode: "tournament",
       players: playerIds.map((userId) => ({
         userId,
         username: `Player ${userId}`,

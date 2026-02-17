@@ -35,10 +35,8 @@ export default function PongInviteNotifications({
         return "1v1"
       case "multiplayer":
         return "Multiplayer"
-      case "tournament_1v1":
-        return "1v1 Tournament"
-      case "tournament_multi":
-        return "Multi Tournament"
+      case "tournament":
+        return "Tournament"
     }
   }
 

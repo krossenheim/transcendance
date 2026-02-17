@@ -215,6 +215,7 @@ export const es = {
     bracketStyle: 'Estilo eliminatorias',
     multiTournament: 'Torneo multi',
     teamBrackets: 'Eliminatorias por equipos',
+    tournament: 'Torneo',
     selectPlayers: 'Seleccionar jugadores',
     minPlayers: 'Mín',
     youHost: 'Tú (Anfitrión)',
@@ -248,10 +249,12 @@ export const es = {
     descMultiplayer: 'Pong multijugador - Varios jugadores compiten en una partida libre',
     descTournament1v1: 'Torneo 1v1 - Los jugadores compiten en formato de eliminatorias',
     descTournamentMulti: 'Torneo multijugador - Los equipos compiten en formato de eliminatorias',
+    descTournament: 'Torneo - 4 jugadores compiten en partidas de eliminatorias 1v1 (semifinales + final)',
     // Validation alerts
     alert1v1Players: 'El modo 1v1 requiere exactamente 2 jugadores (incluyéndote)',
     alertTournament1v1Players: 'El torneo 1v1 requiere al menos 4 jugadores',
     alertTournamentMultiPlayers: 'El torneo multijugador requiere al menos 4 jugadores',
+    alertTournamentPlayers: 'El torneo requiere al menos 4 jugadores',
     alertMultiplayerPlayers: 'El modo multijugador requiere al menos 2 jugadores',
     // Game UI
     leaderboard: 'Clasificación',

@@ -217,6 +217,7 @@ export const zh: TranslationKeys = {
     bracketStyle: '淘汰赛制',
     multiTournament: '多人锦标赛',
     teamBrackets: '团队淘汰赛',
+    tournament: '锦标赛',
     selectPlayers: '选择玩家',
     minPlayers: '最少',
     youHost: '你（主持人）',
@@ -250,10 +251,12 @@ export const zh: TranslationKeys = {
     descMultiplayer: '多人乒乓球 - 多名玩家自由竞技',
     descTournament1v1: '1对1锦标赛 - 玩家以淘汰赛制进行比赛',
     descTournamentMulti: '多人锦标赛 - 团队以淘汰赛制进行比赛',
+    descTournament: '锦标赛 - 4名玩家进行1v1淘汰赛（半决赛+决赛）',
     // Validation alerts
     alert1v1Players: '1对1模式需要正好2名玩家（包括你）',
     alertTournament1v1Players: '1对1锦标赛至少需要4名玩家',
     alertTournamentMultiPlayers: '多人锦标赛至少需要4名玩家',
+    alertTournamentPlayers: '锦标赛至少需要4名玩家',
     alertMultiplayerPlayers: '多人模式至少需要2名玩家',
     // Game UI
     leaderboard: '排行榜',
