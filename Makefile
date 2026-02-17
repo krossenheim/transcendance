@@ -119,9 +119,20 @@ check-deps: check-system-deps check-npm-deps
 check-system-deps:
 	@echo "Checking system dependencies (docker, docker compose)..."
 	@if ! command -v docker >/dev/null 2>&1; then \
-		echo "Missing docker. Follow installation: sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" >&2; exit 1; \
+		echo "Docker not found. Installing Docker..."; \
+		sudo apt update && sudo apt install -y ca-certificates curl && \
+		sudo install -m 0755 -d /etc/apt/keyrings && \
+		sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
+		sudo chmod a+r /etc/apt/keyrings/docker.asc && \
+		echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $$(. /etc/os-release && echo $$VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+		sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
+		sudo usermod -aG docker $$USER && \
+		echo "Docker installed. You may need to log out and back in for group changes to take effect."; \
 	fi
-	@docker compose version >/dev/null 2>&1 || { echo "Missing docker compose plugin. Install with: sudo apt install docker-compose-plugin" >&2; exit 1; }
+	@docker compose version >/dev/null 2>&1 || { \
+		echo "Docker compose plugin not found. Installing..."; \
+		sudo apt update && sudo apt install -y docker-compose-plugin; \
+	}
 
 check-npm-deps:
 	@echo "Checking npm dependencies..."
