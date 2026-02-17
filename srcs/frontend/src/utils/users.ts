@@ -19,7 +19,8 @@ const USER_COLORS = [
  * @returns CSS rgb string
  */
 export function getUserColorCSS(userId: number, darkMode = true): string {
-    const colorIndex = userId % USER_COLORS.length;
+    // Handle negative IDs by using absolute value
+    const colorIndex = Math.abs(userId) % USER_COLORS.length;
     const color = USER_COLORS[colorIndex]!;
     const scale = darkMode ? 1 : 0.6;
     return `rgb(${Math.round(color.r * scale)}, ${Math.round(color.g * scale)}, ${Math.round(color.b * scale)})`;
@@ -31,7 +32,8 @@ export function getUserColorCSS(userId: number, darkMode = true): string {
  * @returns Babylon.js Color3 object
  */
 export function getUserColorBabylon(userId: number): Color3 {
-    const colorIndex = userId % USER_COLORS.length;
+    // Handle negative IDs by using absolute value
+    const colorIndex = Math.abs(userId) % USER_COLORS.length;
     const color = USER_COLORS[colorIndex]!;
     return new Color3(color.r / 255, color.g / 255, color.b / 255);
 }
@@ -43,7 +45,8 @@ export function getUserColorBabylon(userId: number): Color3 {
  * @returns Hex color string
  */
 export function getUserColorHex(userId: number, darkMode = true): string {
-    const colorIndex = userId % USER_COLORS.length
+    // Handle negative IDs by using absolute value
+    const colorIndex = Math.abs(userId) % USER_COLORS.length
     const color = USER_COLORS[colorIndex]!
     const scale = darkMode ? 1 : 0.6
     const r = Math.round(color.r * scale).toString(16).padStart(2, '0')

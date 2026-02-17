@@ -236,6 +236,10 @@ export class PongPaddle extends MultiObject {
 		]
 	}
 
+	public clearKeys(): void {
+		this.keyData = [];
+	}
+
 	public addLeftKey(key: string): void {
 		this.keyData.push({ key: key, isPressed: false, isClockwise: true });
 	}

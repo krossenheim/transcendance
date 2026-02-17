@@ -149,14 +149,31 @@ export class PongManager {
     
     this.games.set(game.id, gameData);
 
+    // Check if this is a local 1v1 mode (has guest player with ID -999)
+    const GUEST_PLAYER_ID = -999;
+    const isLocal1v1 = players.includes(GUEST_PLAYER_ID);
+
     // Register players for O(1) lookup
     for (const playerId of players) {
       this.playerToGame.set(playerId, game.id);
       for (const paddle of game.getPlayerPaddles(playerId)) {
-        paddle.addLeftKey("arrowleft");
-        paddle.addLeftKey("a");
-        paddle.addRightKey("arrowright");
-        paddle.addRightKey("d");
+        if (isLocal1v1) {
+          // Local 1v1: Clear default keys, Host uses WASD, Guest uses arrows
+          paddle.clearKeys();
+          if (playerId === GUEST_PLAYER_ID) {
+            paddle.addLeftKey("arrowleft");
+            paddle.addRightKey("arrowright");
+          } else {
+            paddle.addLeftKey("a");
+            paddle.addRightKey("d");
+          }
+        } else {
+          // Normal mode: all keys for all players
+          paddle.addLeftKey("arrowleft");
+          paddle.addLeftKey("a");
+          paddle.addRightKey("arrowright");
+          paddle.addRightKey("d");
+        }
       }
     }
 
@@ -212,6 +229,16 @@ export class PongManager {
     // The lag compensation happens on the DISPLAY side - we send paddle velocity
     // and let the client extrapolate forward
     game.handlePressedKeysForPlayer(parsedKeys, userId);
+
+    // For local 1v1 mode: the host also controls the guest's paddle with arrow keys
+    const GUEST_PLAYER_ID = -999;
+    const players = game.getPlayers();
+    const isLocal1v1 = players.includes(GUEST_PLAYER_ID);
+    if (isLocal1v1 && userId !== GUEST_PLAYER_ID) {
+      // Host is sending input - forward arrow keys to guest's paddle
+      const arrowKeys = parsedKeys.filter(k => k === "arrowleft" || k === "arrowright");
+      game.handlePressedKeysForPlayer(arrowKeys, GUEST_PLAYER_ID);
+    }
 
     // DEBUG: Handle manual powerup trigger keys
     const prevDebugKeys = lastDebugKeys.get(userId) || new Set<string>();

@@ -330,7 +330,16 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   }
 
   // Create the actual pong game with maxScore
-  const playerIds = lobby.players.map((p) => p.userId);
+  let playerIds = lobby.players.map((p) => p.userId);
+  
+  // For 1v1 local mode with only 1 player, add a virtual guest player
+  // Use -999 to avoid conflict with -1 which means "no player" in wall segments
+  const GUEST_PLAYER_ID = -999;
+  if (lobby.gameMode === "1v1" && playerIds.length === 1) {
+    playerIds.push(GUEST_PLAYER_ID);
+    console.log(`[Pong] Added guest player for local 1v1 mode`);
+  }
+  
   const gameResult = singletonPong.startGame(
     playerIds, 
     createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups, lobby.maxScore),

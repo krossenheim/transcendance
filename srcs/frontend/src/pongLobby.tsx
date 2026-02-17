@@ -45,7 +45,22 @@ export default function PongLobby({
   const currentPlayer = lobby.players.find((p) => p.id === currentUserId)
   const isHost = currentPlayer?.isHost || false
   const allReady = lobby.players.every((p) => p.isReady)
-  const canStart = isHost && allReady && lobby.players.length >= 2
+  
+  // Minimum players based on game mode
+  const getMinPlayers = () => {
+    switch (lobby.gameMode) {
+      case "1v1":
+        return 1 // Local play on same keyboard
+      case "multiplayer":
+        return 2
+      case "tournament":
+        return 4
+      default:
+        return 2
+    }
+  }
+  const minPlayers = getMinPlayers()
+  const canStart = isHost && allReady && lobby.players.length >= minPlayers
 
   const getGameModeLabel = () => {
     switch (lobby.gameMode) {

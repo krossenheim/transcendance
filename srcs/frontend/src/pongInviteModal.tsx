@@ -99,10 +99,7 @@ export default function PongInviteModal({
     const players = [currentUserId, ...selectedPlayers]
 
     // Validate player count based on game mode
-    if (gameMode === "1v1" && players.length !== 2) {
-      alert(t('pong.alert1v1Players'))
-      return
-    }
+    // 1v1 allows just the host (second player is local guest on same keyboard)
 
     if (gameMode === "tournament" && players.length < 4) {
       alert(t('pong.alertTournamentPlayers'))
@@ -138,7 +135,7 @@ export default function PongInviteModal({
   const getMinPlayers = () => {
     switch (gameMode) {
       case "1v1":
-        return 2
+        return 1
       case "multiplayer":
         return 2
       case "tournament":

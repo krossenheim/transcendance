@@ -285,7 +285,18 @@ export default function PongComponent({
           console.log("[Pong] Received game state while not in game view, transitioning to game");
           // Preserve player data for leaderboard before clearing lobby
           if (lobby?.players) {
-            setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+            // For local 1v1 mode with only 1 player, use WASD and Arrow as names
+            if (lobby.gameMode === "1v1" && lobby.players.length === 1) {
+              const hostPlayer = lobby.players[0];
+              if (hostPlayer) {
+                setDebugPlayers([
+                  { id: hostPlayer.id, username: "WASD" },
+                  { id: -999, username: "Arrow" }
+                ]);
+              }
+            } else {
+              setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+            }
           }
           setLobby(null);
           setCurrentView("game");
@@ -440,7 +451,18 @@ export default function PongComponent({
         }
         // Preserve player data for leaderboard before clearing lobby
         if (lobby?.players) {
-          setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+          // For local 1v1 mode with only 1 player, use WASD and Arrow as names
+          if (lobby.gameMode === "1v1" && lobby.players.length === 1) {
+            const hostPlayer = lobby.players[0];
+            if (hostPlayer) {
+              setDebugPlayers([
+                { id: hostPlayer.id, username: "WASD" },
+                { id: -999, username: "Arrow" }
+              ]);
+            }
+          } else {
+            setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+          }
         }
         setLobby(null);
         setCurrentView("game");
@@ -997,10 +1019,24 @@ export default function PongComponent({
             <div className="fixed inset-0 z-[2147483648] bg-black/85 flex flex-col items-center justify-center">
               <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-4 border-yellow-400 rounded-2xl p-12 text-center shadow-2xl">
                 <h1 className="text-yellow-400 text-6xl mb-5 shadow-yellow-400/50 drop-shadow-lg">{t('pong.gameOverText')}</h1>
-                <p className="text-white text-3xl mb-8">{t('pong.winner')}: <span className="text-green-500 font-bold">{t('pong.player')} {gameState.winner}</span></p>
+                <p className="text-white text-3xl mb-8">{t('pong.winner')}: <span className="text-green-500 font-bold">{
+                  // Look up winner name from debugPlayers or lobby
+                  (() => {
+                    const winnerId = gameState.winner;
+                    const players = debugPlayers || lobby?.players?.map(p => ({ id: p.id, username: p.username })) || [];
+                    const winner = players.find(p => p.id === winnerId);
+                    return winner?.username || `${t('pong.player')} ${winnerId}`;
+                  })()
+                }</span></p>
                 <p className="text-gray-400 text-2xl mb-10">
                   {gameState.score
-                    ? Object.entries(gameState.score).map(([p, s]: [string, any]) => `${t('pong.player')} ${p}: ${s}`).join(' | ')
+                    ? Object.entries(gameState.score).map(([p, s]: [string, any]) => {
+                        const playerId = parseInt(p);
+                        const players = debugPlayers || lobby?.players?.map(pl => ({ id: pl.id, username: pl.username })) || [];
+                        const player = players.find(pl => pl.id === playerId);
+                        const name = player?.username || `${t('pong.player')} ${p}`;
+                        return `${name}: ${s}`;
+                      }).join(' | ')
                     : ''}
                 </p>
                 <button

@@ -103,7 +103,8 @@ export class LobbyManager {
     }
 
     const allReady = lobby.players.every((p) => p.isReady);
-    const minPlayers = lobby.gameMode === "1v1" ? 2 : 2;
+    // 1v1 local mode allows just 1 player (second is local guest on same keyboard)
+    const minPlayers = lobby.gameMode === "1v1" ? 1 : 2;
 
     return ResultClass.Ok(allReady && lobby.players.length >= minPlayers);
   }

@@ -211,7 +211,7 @@ export const en = {
     createPongGame: 'Create Pong Game',
     selectGameMode: 'Select Game Mode',
     oneVsOne: '1 vs 1',
-    classicPong: 'Classic Pong',
+    classicPong: 'Local play',
     multiplayer: 'Multiplayer',
     freeForAll: 'Free-for-all',
     tournament1v1: '1v1 Tournament',
@@ -248,7 +248,7 @@ export const en = {
     allReadyRequired: 'All players must be ready before starting',
     needMinPlayers: 'Need at least 2 players to start',
     // Game mode descriptions
-    desc1v1: 'Classic 1 vs 1 Pong - Two players compete directly',
+    desc1v1: 'Classic 1 vs 1 Pong - Local play on same keyboard (WASD vs Arrows)',
     descMultiplayer: 'Multiplayer Pong - Multiple players compete in a free-for-all match',
     descTournament1v1: '1v1 Tournament - Players compete in bracket-style matches',
     descTournamentMulti: 'Multiplayer Tournament - Teams compete in bracket-style matches',
