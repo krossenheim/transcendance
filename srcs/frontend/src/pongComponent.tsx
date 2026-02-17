@@ -172,6 +172,14 @@ export default function PongComponent({
   
   // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
+  // Reset view to menu when in stale game view (no game state) - runs on every render cycle
+  useEffect(() => {
+    if (currentView === "game" && !gameState) {
+      console.log("[Pong] Resetting stale game view to menu (no gameState)")
+      setCurrentView("menu")
+    }
+  }, [currentView, gameState, setCurrentView])
+
   // Cleanup polling on unmount (in case any leftover intervals exist)
   useEffect(() => {
     return () => {
@@ -769,11 +777,10 @@ export default function PongComponent({
     }
     setLobby(null)
     setTournament(null)
+    setCurrentView("menu")
     // Navigate back to chat page
     if (onNavigateToChat) {
       onNavigateToChat()
-    } else {
-      setCurrentView("menu")
     }
   }, [lobby, isConnected, sendMessage, onNavigateToChat, setLobby, setTournament, setCurrentView])
 
@@ -972,10 +979,9 @@ export default function PongComponent({
                 setLobby(null);
                 setTournament(null);
                 setGameState(null);
+                setCurrentView("menu");
                 if (onNavigateToChatRef.current) {
                   onNavigateToChatRef.current();
-                } else {
-                  setCurrentView("menu");
                 }
               }}
               className="px-4 py-2 bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition"
