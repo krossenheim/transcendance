@@ -22,6 +22,7 @@ COPY srcs/frontend/postcss.config.js ./
 COPY srcs/frontend/tailwind.config.js ./
 COPY srcs/frontend/vite.config.mts ./
 COPY srcs/frontend/index.html ./
+COPY srcs/frontend/public ./public
 RUN npm run build
 
 
@@ -135,10 +136,9 @@ RUN chmod 755 /etc/nginx_entryp.sh
 RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/ || true
 COPY srcs/frontend/staticfiles/ /var/www/html/
-COPY srcs/frontend/public/ /var/www/html/react_dist/
-
 RUN mkdir -p /var/www/html/react_dist/
 COPY --from=react_builder /app/srcs/frontend/dist /var/www/html/react_dist
+COPY srcs/frontend/public/ /var/www/html/react_dist/
 
 ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]
