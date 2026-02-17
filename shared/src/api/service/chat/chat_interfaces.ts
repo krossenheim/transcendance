@@ -1,7 +1,7 @@
 import { idValue, userIdentifierValue } from "@app/shared/api/service/common/zodRules";
 import { z } from "zod";
 
-const whitelistedPattern = /^[\p{L}\p{N}\p{Emoji}\p{Emoji_Component} .,!@#\$%&*()_\-+=\[\]{};:'"<>\/?`~]+$/u;
+const whitelistedPattern = /^[\p{L}\p{N}\p{Emoji}\p{Emoji_Component} .,!@#\$%&*()_\-+=\[\]{};:'"<>\/?`~\\]+$/u;
 const ROOMNAME_MIN_LEN = 3;
 export const ROOMNAME_MAX_LEN = 50;
 

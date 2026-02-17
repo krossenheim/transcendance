@@ -311,26 +311,36 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   
   if (lobby.tournamentId) {
     tournamentId = lobby.tournamentId;
-    const tournament = tournamentManager.getTournament(tournamentId);
-    if (tournament) {
-      // Find the current pending match for these players
-      const playerIds = lobby.players.map((p) => p.userId);
-      const pendingMatch = tournament.matches.find(m => 
-        m.status === "pending" && 
-        m.player1Id !== null && 
-        m.player2Id !== null &&
-        playerIds.includes(m.player1Id) && 
-        playerIds.includes(m.player2Id)
-      );
-      if (pendingMatch) {
-        matchId = pendingMatch.matchId;
-        console.log(`[Pong] Starting tournament match: tournament=${tournamentId}, match=${matchId}`);
-      }
+    
+    // Ensure bracket is generated before looking for matches
+    const bracketResult = tournamentManager.ensureBracketGenerated(tournamentId);
+    if (bracketResult.isErr()) {
+      console.warn(`[Pong] Failed to generate bracket: ${bracketResult.unwrapErr().message}`);
+    }
+    
+    // Find the next pending match for the host
+    const pendingMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, user_id);
+    if (pendingMatch) {
+      matchId = pendingMatch.matchId;
+      console.log(`[Pong] Starting tournament match: tournament=${tournamentId}, match=${matchId}, players=${pendingMatch.player1Id} vs ${pendingMatch.player2Id}`);
+    } else {
+      console.warn(`[Pong] No pending match found for user ${user_id} in tournament ${tournamentId}`);
     }
   }
 
   // Create the actual pong game with maxScore
-  let playerIds = lobby.players.map((p) => p.userId);
+  // For tournament matches, use only the match players (not all lobby players)
+  let playerIds: number[];
+  if (matchId && tournamentId) {
+    const pendingMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, user_id);
+    if (pendingMatch && pendingMatch.player1Id !== null && pendingMatch.player2Id !== null) {
+      playerIds = [pendingMatch.player1Id, pendingMatch.player2Id];
+    } else {
+      playerIds = lobby.players.map((p) => p.userId);
+    }
+  } else {
+    playerIds = lobby.players.map((p) => p.userId);
+  }
   
   // For 1v1 local mode with only 1 player, add a virtual guest player
   // Use -999 to avoid conflict with -1 which means "no player" in wall segments

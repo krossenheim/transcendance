@@ -115,6 +115,40 @@ export class TournamentManager {
     return ResultClass.Ok(tournament);
   }
 
+  /**
+   * Ensure tournament bracket is generated and status is in_progress.
+   * Called when first match is about to start.
+   */
+  ensureBracketGenerated(tournamentId: number): Result<Tournament, ErrorResponseType> {
+    const tournament = this.tournaments.get(tournamentId);
+    if (!tournament) {
+      return ResultClass.Err({ message: "Tournament not found" });
+    }
+
+    if (tournament.status === "registration" && tournament.matches.length === 0) {
+      console.log(`[TournamentManager] Auto-generating bracket for tournament ${tournamentId}`);
+      this.generateBracket(tournament);
+      tournament.status = "in_progress";
+    }
+
+    return ResultClass.Ok(tournament);
+  }
+
+  /**
+   * Get the next pending match for a given player
+   */
+  getNextPendingMatchForPlayer(tournamentId: number, userId: number): TournamentMatch | null {
+    const tournament = this.tournaments.get(tournamentId);
+    if (!tournament) return null;
+
+    return tournament.matches.find(m =>
+      m.status === "pending" &&
+      m.player1Id !== null &&
+      m.player2Id !== null &&
+      (m.player1Id === userId || m.player2Id === userId)
+    ) || null;
+  }
+
   private generateBracket(tournament: Tournament): void {
     const players = [...tournament.players];
     
