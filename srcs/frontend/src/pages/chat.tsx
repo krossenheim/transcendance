@@ -12,9 +12,9 @@ export default function ChatPage() {
   }, [getSocketSenderRef]);
 
 	return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-start md:items-center justify-center p-2 md:p-4 pt-4 md:pt-4">
       <div className="w-full max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           <div className="md:col-span-1">
             <RoomList />
           </div>

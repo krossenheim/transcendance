@@ -1,6 +1,6 @@
 import { ChatSocketListeners } from "../../chat/listeners/ChatSocketListeners";
 import { user_url } from "@app/shared/api/service/common/endpoints";
-import { useToastStore } from "@src/features/toast/toastStore";
+import { useToastStore, toast } from "@src/features/toast/toastStore";
 import { setSocketSenderRef } from "@utils/socketRef";
 import { useGlobalStore } from "../store/globalStore";
 import { HandlerResult } from "@src/socketComponent";
@@ -54,6 +54,7 @@ const BaseSocketListeners = () => {
                     const globalUserState = useGlobalStore.getState().users.state;
                     globalUserState.cachePublicUserData({ ...payload.payload, onlineStatus: null });
 
+                    toast.success("Profile updated successfully");
                     return HandlerResult.Handled;
                 }
 

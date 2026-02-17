@@ -6,6 +6,7 @@ import { user_url } from "@app/shared/api/service/common/endpoints";
 import { useWebSocket, HandlerResult } from "@src/socketComponent";
 import { useChatStore } from "@src/features/chat/store/chatStore";
 import { useGlobalStore } from "@src/features/global/store/globalStore";
+import { toast } from "@src/features/toast/toastStore";
 import { useEffect } from "react";
 
 export const ChatSocketListeners = () => {
@@ -101,6 +102,27 @@ export const ChatSocketListeners = () => {
           if (chatStore.rooms.data.currentRoomId === message.payload.roomId)
             chatStore.rooms.state.updateUserRoomState(message.payload.user, ChatRoomUserAccessType.INVITED)
 
+          toast.success(`User invited to room successfully`);
+          return HandlerResult.Handled
+        }
+        if (message.code === schema.output.NoSuchRoom.code) {
+          toast.error(message.payload.message || "Room not found");
+          return HandlerResult.Handled
+        }
+        if (message.code === schema.output.UnknownUser.code) {
+          toast.error(message.payload.message || "User not found");
+          return HandlerResult.Handled
+        }
+        if (message.code === schema.output.FailedToAddUser.code) {
+          toast.error(message.payload.message || "Failed to invite user");
+          return HandlerResult.Handled
+        }
+        if (message.code === schema.output.AlreadyInRoom.code) {
+          toast.info(message.payload.message || "User is already in the room");
+          return HandlerResult.Handled
+        }
+        if (message.code === schema.output.NotInRoom.code) {
+          toast.error(message.payload.message || "You are not in this room");
           return HandlerResult.Handled
         }
         return HandlerResult.NotHandled

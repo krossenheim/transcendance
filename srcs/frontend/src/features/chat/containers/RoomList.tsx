@@ -69,7 +69,7 @@ const RoomList: React.FC = () => {
   }, [sendMessage]);
 
   return (
-    <div className="glass-light-sm dark:glass-dark-sm glass-border h-[600px] flex flex-col overflow-hidden" role="navigation" aria-label="Chat rooms list">
+    <div className="glass-light-sm dark:glass-dark-sm glass-border h-[300px] md:h-[600px] flex flex-col overflow-hidden" role="navigation" aria-label="Chat rooms list">
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500/70 to-pink-500/70">
         <h2 className="text-lg font-semibold text-white" id="room-list-title">{t('chat.rooms')}</h2>
       </div>

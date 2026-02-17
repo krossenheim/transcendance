@@ -11,7 +11,7 @@ const ChatBox: React.FC = () => {
   const roomData = useChatStore(state => state.rooms.data.currentRoomId ? state.rooms.data.userChatRooms.get(state.rooms.data.currentRoomId) : undefined);
 
   return (
-    <div className="glass-light-sm dark:glass-dark-sm glass-border h-full max-h-[600px] flex flex-col overflow-hidden relative">
+    <div className="glass-light-sm dark:glass-dark-sm glass-border h-full min-h-[350px] max-h-[400px] md:max-h-[600px] flex flex-col overflow-hidden relative">
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
