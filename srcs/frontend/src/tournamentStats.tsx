@@ -14,6 +14,16 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
   const [copiedHash, setCopiedHash] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  React.useEffect(() => {
     let cancelled = false
     setLoading(true)
     fetch(`/public_api/pong/tournaments/${tournamentId}/stats`)

@@ -60,6 +60,17 @@ export default function PongInviteModal({
     }
   }, [isOpen, roomUsers.length, storeInviteRoomUsers.length, fetchUserConnections])
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   // Build available players list: use roomUsers prop, then store inviteRoomUsers, then friends
   const availablePlayers = useMemo(() => {
     // Priority 1: prop roomUsers (from AuthenticatedApp legacy flow)

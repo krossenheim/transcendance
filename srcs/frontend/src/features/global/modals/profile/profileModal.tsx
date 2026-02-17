@@ -73,6 +73,16 @@ export default function ProfileComponent() {
     }
   }, [profile?.avatarUrl])
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        closeProfileModal();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, closeProfileModal]);
+
   const handleAddFriend = () => {
     if (targetUserId) sendMessage(user_url.ws.users.requestFriendship, targetUserId);
   }

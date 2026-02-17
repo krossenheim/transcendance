@@ -80,7 +80,33 @@ const BaseSocketListeners = () => {
             switch (payload.code) {
                 case schema.output.Success.code: {
                     const globalUserState = useGlobalStore.getState().users.state;
-                    globalUserState.updateUserNotifications(payload.payload);
+                    const currentNotifications = useGlobalStore.getState().users.data.notifications;
+                    const newNotifications = payload.payload;
+
+                    // Check for new friend requests
+                    const currentFriendRequestIds = new Set(
+                        currentNotifications.pendingFriendRequests.map(r => r.fromUserId)
+                    );
+                    const newFriendRequests = newNotifications.pendingFriendRequests.filter(
+                        r => !currentFriendRequestIds.has(r.fromUserId)
+                    );
+                    for (const req of newFriendRequests) {
+                        const username = req.user?.username || `User ${req.fromUserId}`;
+                        toast.info(`${username} sent you a friend request`);
+                    }
+
+                    // Check for new room invites
+                    const currentRoomInviteIds = new Set(
+                        currentNotifications.pendingRoomInvites.map(r => r.roomId)
+                    );
+                    const newRoomInvites = newNotifications.pendingRoomInvites.filter(
+                        r => !currentRoomInviteIds.has(r.roomId)
+                    );
+                    for (const invite of newRoomInvites) {
+                        toast.info(`You've been invited to room "${invite.roomName}"`);
+                    }
+
+                    globalUserState.updateUserNotifications(newNotifications);
                     return HandlerResult.Handled;
                 }
 

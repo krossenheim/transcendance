@@ -87,6 +87,16 @@ export default function UserConnectionsModal() {
         }
     }, [isOpen, fetchUserConnections]);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isOpen) {
+                closeModal();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, closeModal]);
+
     const userConnections = useGlobalStore(state => state.users.data.userRelationships);
 
     const userConnectionsArray = Array.from(userConnections.values());

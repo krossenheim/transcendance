@@ -28,6 +28,24 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
     }
   }, [startWithSetup]);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showSetup) {
+          setShowSetup(false);
+          onActiveStateChange?.(false);
+        }
+        if (showDisable) {
+          setShowDisable(false);
+          onActiveStateChange?.(false);
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showSetup, showDisable, onActiveStateChange]);
+
   const checkTwoFactorStatus = async () => {
     try {
       // Try to get from localStorage user data first
