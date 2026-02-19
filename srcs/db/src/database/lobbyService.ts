@@ -5,7 +5,7 @@ import Database from "./database";
 
 export class LobbyService {
 	private db: Database;
-	
+
 	// private createLobbyStmt: Statement | null = null;
 	// private setUserLobbyStateStmt: Statement | null = null;
 	// private getLobbyByIdStmt: Statement | null = null;
@@ -19,7 +19,7 @@ export class LobbyService {
 			`INSERT INTO lobby_players (lobbyId, userId, playerState) VALUES (?, ?, ?)
 			 ON CONFLICT(lobbyId, userId) DO UPDATE SET playerState = excluded.playerState`,
 			[lobbyId, userId, state]
-		).map(() => undefined);
+		).map(() => undefined).mapErr(err => err.message);
 	}
 
 	createLobby(hostUserId: number): Result<LobbyDataType, string> {
@@ -29,7 +29,7 @@ export class LobbyService {
 		);
 
 		if (result.isErr())
-			return Result.Err(result.unwrapErr());
+			return Result.Err(result.unwrapErr().message);
 
 		const lobbyId = Number(result.unwrap().lastInsertRowid);
 		if (this.setUserLobbyState(lobbyId, hostUserId, PlayerLobbyStatus.Joined).isErr())

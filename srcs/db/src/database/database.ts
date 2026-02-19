@@ -1,9 +1,35 @@
-import DatabaseConstructor, { type Database as BetterSqlite3Database, type RunResult, type Statement } from 'better-sqlite3';
+import type { Database as BetterSqlite3Database, RunResult, Statement } from 'better-sqlite3';
+import { Result, UnwrapError } from '@app/shared/api/service/common/result';
 import { zodParse } from '@app/shared/api/service/common/zodUtils';
-import { Result } from '@app/shared/api/service/common/result';
+import DatabaseConstructor from 'better-sqlite3';
+import { SqliteError } from 'better-sqlite3';
 import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
+
+const ZOD_VALIDATION: boolean = process.env.DB_ZOD_VALIDATION === 'true';
+console.log(`Zod validation is ${ZOD_VALIDATION ? 'enabled' : 'disabled'}`);
+
+export enum DatabaseErrorType {
+	CONFLICT = 'CONFLICT',
+	NOT_FOUND = 'NOT FOUND',
+	BAD_REQUEST = 'BAD REQUEST',
+	INTERNAL = 'INTERNAL',
+};
+
+export class DatabaseError {
+	type: DatabaseErrorType;
+	message: string;
+
+	constructor(type: DatabaseErrorType, message: string) {
+		this.type = type;
+		this.message = message;
+	}
+
+	static internal(message: string): DatabaseError {
+		return new DatabaseError(DatabaseErrorType.INTERNAL, message);
+	}
+}
 
 export class Database {
 	private db: BetterSqlite3Database;
@@ -13,10 +39,34 @@ export class Database {
 		this._initializeDatabase();
 	}
 
+	private _validationErrorToDatabaseError(err: string): DatabaseError {
+		return new DatabaseError(DatabaseErrorType.BAD_REQUEST, err);
+	}
+
+	public mapErrorToDatabaseError(err: any): DatabaseError {
+		if (err instanceof SqliteError) {
+			switch (err.code) {
+				case 'SQLITE_CONSTRAINT_UNIQUE':
+					return new DatabaseError(DatabaseErrorType.CONFLICT, 'Unique constraint failed');
+				case 'SQLITE_CONSTRAINT_FOREIGNKEY':
+					return new DatabaseError(DatabaseErrorType.BAD_REQUEST, 'Foreign key constraint failed');
+				case 'SQLITE_CONSTRAINT_CHECK':
+					return new DatabaseError(DatabaseErrorType.BAD_REQUEST, 'Check constraint failed');
+				case 'SQLITE_NOTFOUND':
+					return new DatabaseError(DatabaseErrorType.NOT_FOUND, 'Record not found');
+				default:
+					return new DatabaseError(DatabaseErrorType.INTERNAL, 'Database error');
+			}
+		}
+
+		return new DatabaseError(DatabaseErrorType.INTERNAL, 'Unknown error');
+	}
+
 	private _initializeDatabase(): void {
 		const filePath = path.join(__dirname, '..', '..', 'sql', 'database.sql');
 		const sqlSetup = fs.readFileSync(filePath, 'utf-8');
 		const statements = sqlSetup.split(/;\s*$/m).filter(Boolean);
+
 		for (const stmt of statements) {
 			try {
 				this.db.exec(stmt);
@@ -29,41 +79,74 @@ export class Database {
 		this.db.pragma('journal_mode = WAL');
 	}
 
-	all<T extends z.ZodTypeAny>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>[], string> {
+	all<T extends z.ZodType<any>>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>[], DatabaseError> {
 		try {
 			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			const rows = stmt.all(...params);
-			return zodParse(z.array(target), rows);
+
+			if (ZOD_VALIDATION) return zodParse(z.array(target), rows).mapErr(this._validationErrorToDatabaseError);
+			else return Result.Ok(rows as z.infer<T>[]);
 		} catch (e) {
 			console.error(e);
-			return Result.Err(`DB exec failed`);
+			return Result.Err(this.mapErrorToDatabaseError(e));
 		}
 	}
 
-	get<T extends z.ZodTypeAny>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>, string> {
+	get<T extends z.ZodType<any>>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>, DatabaseError> {
 		try {
 			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			const row = stmt.get(...params);
-			if (!row) return Result.Err('Not found');
-			return zodParse(target, row);
+			if (!row) return Result.Err({ type: DatabaseErrorType.NOT_FOUND, message: 'Record not found' });
+
+			if (ZOD_VALIDATION) return zodParse(target, row).mapErr(this._validationErrorToDatabaseError);
+			else return Result.Ok(row as z.infer<T>);
 		} catch (e) {
 			console.error(e);
-			return Result.Err(`DB get failed`);
+			return Result.Err(this.mapErrorToDatabaseError(e));
 		}
 	}
 
-	run(sql: string | Statement, params: any[] = []): Result<RunResult, string> {
+	run(sql: string | Statement, params: any[] = []): Result<RunResult, DatabaseError> {
 		try {
 			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			return Result.Ok(stmt.run(...params));
 		} catch (e) {
 			console.error(e);
-			return Result.Err(`DB run failed`);
+			return Result.Err(this.mapErrorToDatabaseError(e));
 		}
 	}
 
 	prepare(sql: string): Statement {
 		return this.db.prepare(sql);
+	}
+
+	transaction<T>(fn: () => Result<T, DatabaseError>): Result<T, DatabaseError> {
+		const executeTransaction = this.db.transaction(() => {
+			return fn().unwrap();
+		});
+
+		try {
+			return Result.Ok(executeTransaction());
+		} catch (e) {
+			console.error(`Transaction failed: ${e}`);
+			if (e instanceof UnwrapError && e.error instanceof DatabaseError)
+				return Result.Err(e.error);
+			return Result.Err(this.mapErrorToDatabaseError(e));
+		}
+	}
+
+	safeBlock<T>(fn: () => Result<T, DatabaseError>): Result<T, DatabaseError> {
+		return Result.safeTry(fn, (e) => {
+			console.error(`Safe block failed: ${e}`);
+			return this.mapErrorToDatabaseError(e);
+		});
+	}
+
+	safeBlockAsync<T>(fn: () => Promise<Result<T, DatabaseError>>): Promise<Result<T, DatabaseError>> {
+		return Result.safeTryAsync(fn, (e) => {
+			console.error(`Safe block async failed: ${e}`);
+			return this.mapErrorToDatabaseError(e);
+		});
 	}
 
 	close(): void {

@@ -4,7 +4,7 @@ import { tokenService, userService } from '../main.js';
 import type { FastifyInstance } from 'fastify';
 
 import crypto from 'crypto';
-import {  int_url } from '@app/shared/api/service/common/endpoints';
+import { int_url } from '@app/shared/api/service/common/endpoints';
 
 const TokenSecretKey = process.env.TOKEN_ENCRYPTION_TOKEN!;
 
@@ -25,7 +25,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 
 		const userResult = userService.fetchUserById(tokenResult.unwrap());
 		if (userResult.isErr())
-			return reply.status(500).send({ message: userResult.unwrapErr() });
+			return reply.status(500).send({ message: userResult.unwrapErr().message });
 
 		return reply.status(200).send(userResult.unwrap());
 	});

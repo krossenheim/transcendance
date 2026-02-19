@@ -90,7 +90,7 @@ export default function ProfileComponent() {
   if (!isOpen || targetUserId === null) return null;
   if (typeof document === 'undefined') return null;
 
-  const isUserOnline = onlineUsers.has(targetUserId);
+  const isUserOnline = onlineUsers.has(targetUserId) || profile?.accountType === UserAccountType.System;
   const isOwnProfile = currentUserId === targetUserId;
 
   const displayName = getVisualUserName(profile, targetUserId);

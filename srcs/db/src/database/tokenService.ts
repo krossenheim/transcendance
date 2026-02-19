@@ -14,7 +14,7 @@ export class TokenService {
 			`INSERT INTO user_tokens (userId, token, createdAt)
 			VALUES (?, ?, strftime('%s', 'now')) ON CONFLICT(userId) DO UPDATE SET token=excluded.token, createdAt=excluded.createdAt`,
 			[userId, hashedToken]
-		).map(() => null);
+		).map(() => null).mapErr(err => err.message);
 	}
 
 	fetchUserIdFromToken(token: string): Result<number, string> {
@@ -22,14 +22,14 @@ export class TokenService {
 			`SELECT userId FROM user_tokens WHERE token = ?`,
 			z.object({ userId: z.number() }),
 			[token]
-		).map(row => row.userId);
+		).map(row => row.userId).mapErr(err => err.message);
 	}
 
 	removeTokenByUserId(userId: number): Result<null, string> {
 		return this.db.run(
 			`DELETE FROM user_tokens WHERE userId = ?`,
 			[userId]
-		).map(() => null);
+		).map(() => null).mapErr(err => err.message);
 	}
 }
 

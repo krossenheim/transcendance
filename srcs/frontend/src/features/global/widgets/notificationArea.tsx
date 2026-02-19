@@ -95,32 +95,32 @@ const NotificationArea: FC = () => {
                     </div>
                     {pendingFriendshipRequests.map((req) => (
                       <div
-                        key={`friend_${req.fromUserId}`}
+                        key={`friend_${req.id}`}
                         className="flex items-center justify-between p-3 bg-gray-50/40 dark:bg-gray-700/80 rounded-lg hover:bg-gray-100/40 dark:hover:bg-gray-600/80 transition"
                       >
                         <div className="flex-1 min-w-0 pr-3">
                           <p
                             className="text-sm font-bold truncate"
-                            style={{ color: getUserColorCSS(req.fromUserId, true) }}
+                            style={{ color: getUserColorCSS(req.id, true) }}
                           >
-                            {req.user.username}
+                            {req.username}
                           </p>
-                          {req.user.alias && (
+                          {req.alias && (
                             <p className="text-xs text-gray-600 truncate">
-                              {req.user.alias}
+                              {req.alias}
                             </p>
                           )}
                         </div>
 
                         <div className="flex gap-2">
                           <button
-                            onClick={() => acceptFriendshipFunction(req.fromUserId)}
+                            onClick={() => acceptFriendshipFunction(req.id)}
                             className="px-3 py-1 text-xs font-medium bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Accept
                           </button>
                           <button
-                            onClick={() => denyFriendshipFunction(req.fromUserId)}
+                            onClick={() => denyFriendshipFunction(req.id)}
                             className="px-3 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Deny

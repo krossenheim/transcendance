@@ -1,18 +1,17 @@
-import { type UserNotificationsType, type PendingFriendshipRequestType } from '@app/shared/api/service/db/notification.js';
-import type { FullUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
+import { type UserNotificationsType } from '@app/shared/api/service/db/notification.js';
+import type { FullUserType, BaseUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
+import { Friend, UserAuthData, UserAccountType, BaseUser } from '@app/shared/api/service/db/user';
 import type { GameResultsWidgetType, GameResultType } from '@app/shared/api/service/db/gameResult';
 import { ChatRoomUserAccessType, TypeRoomSchema } from '@app/shared/api/service/chat/db_models';
-import { User, Friend, UserAuthData, UserAccountType } from '@app/shared/api/service/db/user';
 import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship';
-import { generatePublicUserData } from '@app/shared/api/service/db/user';
 import { GameResult } from '@app/shared/api/service/db/gameResult';
 import { Result } from '@app/shared/api/service/common/result';
-import { Database } from './database.js';
+import { Database, DatabaseError } from './database';
 import { Resvg } from '@resvg/resvg-js';
 import fs from 'fs/promises';
 import path from 'path';
 import axios from 'axios';
-import { z } from 'zod';
+import { RunResult } from 'better-sqlite3';
 
 function createGuestUsername(): string {
 	const randomStr = Math.random().toString(36).substring(2, 10);
@@ -21,7 +20,18 @@ function createGuestUsername(): string {
 
 const PFP_DIR = '/etc/database_data/pfps';
 function getPfpFileName(filename: string, userId: number): string {
-	return `${userId}${filename}`;
+	return `${userId}${sanitizePfpFilename(filename).unwrapOr('_')}`;
+}
+
+function sanitizePfpFilename(filename: string): Result<string, string> {
+	const base = path.basename(filename);
+	if (!base) return Result.Err('Invalid filename');
+
+	let sanitized = base.replace(/[^a-zA-Z0-9_\-.]/g, '_').replace(/^\.+/, '');
+	if (!sanitized) return Result.Err('Invalid filename');
+
+	if (sanitized.length > 255) sanitized = sanitized.slice(0, 255);
+	return Result.Ok(sanitized);
 }
 
 function svgPfpToPng(svg: string): Buffer<ArrayBufferLike> {
@@ -35,19 +45,22 @@ function svgPfpToPng(svg: string): Buffer<ArrayBufferLike> {
 	return pngData.asPng();
 }
 
+async function storePfp(filename: string, imageData: Buffer): Promise<Result<void, string>> {
+	try {
+		await fs.mkdir(PFP_DIR, { recursive: true });
+		await fs.writeFile(`${PFP_DIR}/${filename}`, imageData);
+		return Result.Ok(undefined);
+	} catch (error) {
+		console.error('Failed to store profile picture:', error);
+		return Result.Err('Failed to store profile picture');
+	}
+}
+
 async function createDefaultAvatar(userId: number): Promise<Result<string, string>> {
 	const avatar = await axios.get(`https://api.dicebear.com/9.x/shapes/svg?seed=${Math.random().toString(36).substring(2, 15)}`);
 	const pngBuffer = svgPfpToPng(avatar.data);
-
-	try {
-		const fileName = getPfpFileName('default.png', userId);
-		await fs.mkdir(PFP_DIR, { recursive: true });
-		await fs.writeFile(`${PFP_DIR}/${fileName}`, pngBuffer);
-		return Result.Ok(fileName);
-	} catch (error) {
-		console.error('Failed to store avatar PNG:', error);
-		return Result.Err('Failed to store avatar PNG');
-	}
+	const fileName = getPfpFileName('default.png', userId);
+	return (await storePfp(fileName, pngBuffer)).map(() => fileName);
 }
 
 export class UserService {
@@ -59,8 +72,76 @@ export class UserService {
 		this.chatService = chatService;
 	}
 
-	fetchUserFriendlist(userId: number): Result<FriendType[], string> {
-		const result = this.db.all(
+	// private _dbFetchAllUserBaseInfo(): Result<BaseUserType[], DatabaseError> {
+	// 	return this.db.all(
+	// 		`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
+	// 		       COALESCE(tfa.isEnabled, 0) as has2FA
+	// 		 FROM users u
+	// 		 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId`,
+	// 		BaseUser
+	// 	);
+	// }
+
+	// private _dbFetchUserFriendData(userId: number, friendshipStatus: UserFriendshipStatusEnum): Result<FriendType, DatabaseError> {
+	// 	return this.db.get(
+	// 		`SELECT u.id as friendId, u.username, u.alias, u.avatarUrl, u.bio, uf.userId as id, uf.status, uf.createdAt
+	// 		FROM user_friendships uf
+	// 		JOIN users u ON u.id = uf.friendId
+	// 		WHERE uf.userId = ? AND uf.status = ?`,
+	// 		Friend.omit({ onlineStatus: true }),
+	// 		[userId, friendshipStatus.valueOf()]
+	// 	);
+	// }
+
+	private _fetchUserBaseInfoById(id: number): Result<BaseUserType, DatabaseError> {
+		return this.db.get(
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.id = ?`,
+			BaseUser,
+			[id]
+		);
+	}
+
+	private _fetchUserBaseInfoByUsername(username: string): Result<BaseUserType, DatabaseError> {
+		return this.db.get(
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.username = ?`,
+			BaseUser,
+			[username]
+		);
+	}
+
+	private _fetchUserBaseInfoByIdList(ids: number[]): Result<BaseUserType[], DatabaseError> {
+		if (ids.length === 0)
+			return Result.Ok([]);
+
+		const placeholders = ids.map(() => '?').join(', ');
+		return this.db.all(
+			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
+			       COALESCE(tfa.isEnabled, 0) as has2FA
+			 FROM users u
+			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
+			 WHERE u.id IN (${placeholders})`,
+			BaseUser,
+			ids
+		).flatMap(users => {
+			const userMap = new Map(users.map(u => [u.id, u]));
+			if (users.length !== ids.length) {
+				const missingIds = ids.filter(id => !userMap.has(id));
+				return Result.Err(DatabaseError.internal(`Users not found for IDs: ${missingIds.join(', ')}`));
+			}
+			return Result.Ok(users);
+		});
+	}
+
+	private _dbFetchUserFriendList(userId: number): Result<FriendType[], DatabaseError> {
+		return this.db.all(
 			`SELECT u.id as friendId, u.username, u.alias, u.avatarUrl, u.bio, uf.userId as id, uf.status, uf.createdAt
 			FROM user_friendships uf
 			JOIN users u ON u.id = uf.friendId
@@ -68,183 +149,167 @@ export class UserService {
 			Friend,
 			[userId]
 		);
-		if (result.isErr()) {
-			console.log('Error fetching friendlist for userId', userId, ':', result.unwrapErr());
-			return Result.Err(result.unwrapErr());
-		}
-
-		return Result.Ok(result.unwrap());
 	}
 
-	fetchAllUsers(): Result<FullUserType[], string> {
+	private _dbFetchUserFriendshipRequests(userId: number): Result<FriendType[], DatabaseError> {
 		return this.db.all(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
-			       COALESCE(tfa.isEnabled, 0) as has2FA
-			 FROM users u
-			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId`,
-			User
-		).map(users =>
-			users.map(user => ({
-				...user,
-				friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
-				gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
-			}))
-		);
-	}
-
-	fetchUserGameResults(userId: number): Result<GameResultType[], string> {
-		const result = this.db.all(
-			`SELECT * FROM player_game_results WHERE userId = ?`,
-			GameResult,
-			[userId]
-		);
-		console.log('Fetched game results for userId', userId, ':', result);
-		return result;
-	}
-
-	createGameResultWidget(userId: number): Result<GameResultsWidgetType | null, string> {
-		const resultsRes = this.fetchUserGameResults(userId);
-		if (resultsRes.isErr()) {
-			return Result.Err(resultsRes.unwrapErr());
-		}
-
-		const results = resultsRes.unwrap();
-		const totalGames = results.length;
-		const totalWins = results.filter(result => result.rank === 1).length;
-
-		if (totalGames === 0)
-			return Result.Err("No game results found for user");
-
-		const ret = Result.Ok({
-			last_games: results.slice(-10),
-			total_games_played: totalGames,
-			wins: totalWins,
-			win_rate: totalGames > 0 ? (totalWins / totalGames) * 100 : 0,
-		});
-		console.log('Game results widget for userId', userId, ':', ret);
-		return ret;
-	}
-
-	fetchPublicUsersByIds(ids: number[]): Result<PublicUserDataType[], string> {
-		if (ids.length === 0)
-			return Result.Ok([]);
-
-		const placeholders = ids.map(() => '?').join(', ');
-		return this.db.all(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl, COALESCE(tfa.isEnabled, 0) as has2FA
-			 FROM users u
-			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
-			 WHERE u.id IN (${placeholders})`,
-			User.omit({ gameResults: true }),
-			ids
-		).map(users =>
-			users.map(user => generatePublicUserData({
-				...user,
-				gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
-			}))
-		);
-	}
-
-	fetchUserById(id: number): Result<FullUserType, string> {
-		return this.db.get(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
-			       COALESCE(tfa.isEnabled, 0) as has2FA
-			 FROM users u
-			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
-			 WHERE u.id = ?`,
-			User.omit({ gameResults: true, }),
-			[id]
-		).map((user) => ({
-			...user,
-			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
-			gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
-		}));
-	}
-
-	fetchUserFriendshipRequests(userId: number): Result<PendingFriendshipRequestType[], string> {
-		const result = this.db.all(
-			`SELECT u.userId, u.createdAt
-			 FROM user_friendships u
-			 WHERE u.friendId = ? AND u.status = ?`,
-			z.object({
-				userId: z.number(),
-				createdAt: z.number(),
-			}),
+			`SELECT u.id, u.username, u.alias, u.avatarUrl, u.bio, uf.friendId, uf.status, uf.createdAt
+			FROM user_friendships uf
+			JOIN users u ON u.id = uf.userId
+			WHERE uf.friendId = ? AND uf.status = ?`,
+			Friend,
 			[userId, UserFriendshipStatusEnum.Pending.valueOf()]
-		)
-
-		if (result.isErr())
-			return Result.Err(result.unwrapErr());
-
-		const allUsers = Array.from(result.unwrap().map(r => r.userId));
-		const userFriendData = this.fetchPublicUsersByIds(allUsers);
-		if (userFriendData.isErr())
-			return Result.Err(userFriendData.unwrapErr());
-
-		const allUserData = userFriendData.unwrap();
-		return Result.Ok(Array.from(result.unwrap().map(data => {
-			const userData = allUserData.find(u => u.id === data.userId)!;
-			return {
-				fromUserId: data.userId,
-				timestamp: data.createdAt,
-				user: {
-					id: userData.id,
-					friendId: userId,
-					username: userData.username,
-					alias: userData.alias,
-					bio: userData.bio,
-					avatarUrl: userData.avatarUrl,
-					status: UserFriendshipStatusEnum.Pending,
-					createdAt: userData.createdAt
-				}
-			}
-		})));
+		);
 	}
 
-	fetchUserRoomInvites(userId: number): Result<TypeRoomSchema[], string> {
+	private _dbFetchUserGameResults(userId: number, limit: number): Result<GameResultType[], DatabaseError> {
+		return this.db.all(
+			`SELECT gameId, userId, score, rank FROM player_game_results WHERE userId = ? ORDER BY gameId DESC LIMIT ?`,
+			GameResult,
+			[userId, limit]
+		);
+	}
+
+	private _utilCreateGameResultWidgetForUser(userId: number): Result<GameResultsWidgetType, DatabaseError> {
+		return this._dbFetchUserGameResults(userId, 9999).map((results) => {
+			const totalGames = results.length;
+			const totalWins = results.filter(result => result.rank === 1).length;
+
+			return {
+				last_games: results.slice(0, 10),
+				total_games_played: totalGames,
+				wins: totalWins,
+				win_rate: totalGames > 0 ? (totalWins / totalGames) * 100 : 0,
+			};
+		});
+	}
+
+	public fetchUserFriendlist(userId: number): Result<FriendType[], DatabaseError> {
+		return this._dbFetchUserFriendList(userId);
+	}
+
+	public fetchUserGameResults(userId: number, limit: number = 10): Result<GameResultType[], DatabaseError> {
+		return this._dbFetchUserGameResults(userId, limit);
+	}
+
+	public generatePublicUserData(user: BaseUserType): Result<PublicUserDataType, DatabaseError> {
+		return this.db.safeBlock(() => {
+			return Result.Ok({
+				id: user.id,
+				createdAt: user.createdAt,
+				username: user.username,
+				alias: user.alias,
+				bio: user.bio,
+				accountType: user.accountType,
+				avatarUrl: user.avatarUrl,
+				gameResults: this._utilCreateGameResultWidgetForUser(user.id).unwrap(),
+				onlineStatus: null,
+			});
+		});
+	}
+
+	public generateFullUserData(user: BaseUserType): Result<FullUserType, DatabaseError> {
+		return this.db.safeBlock(() => {
+			return Result.Ok({
+				id: user.id,
+				createdAt: user.createdAt,
+				username: user.username,
+				alias: user.alias,
+				email: user.email,
+				bio: user.bio,
+				accountType: user.accountType,
+				avatarUrl: user.avatarUrl,
+				friends: this.fetchUserFriendlist(user.id).unwrap(),
+				gameResults: this._utilCreateGameResultWidgetForUser(user.id).unwrap(),
+			})
+		});
+	}
+
+	public fetchPublicUsersByIds(ids: number[]): Result<PublicUserDataType[], DatabaseError> {
+		return this.db.safeBlock(() => {
+			return this._fetchUserBaseInfoByIdList(ids).map(users => {
+				return users.map((user) => this.generatePublicUserData(user).unwrap());
+			});
+		});
+	}
+
+	public fetchUserById(id: number): Result<FullUserType, DatabaseError> {
+		return this._fetchUserBaseInfoById(id)
+			.flatMap(user => this.generateFullUserData(user));
+	}
+
+	public fetchUserByUsername(username: string): Result<FullUserType, DatabaseError> {
+		return this._fetchUserBaseInfoByUsername(username)
+			.flatMap(user => this.generateFullUserData(user));
+	}
+
+	public fetchUserFriendshipRequests(userId: number): Result<FriendType[], DatabaseError> {
+		return this._dbFetchUserFriendshipRequests(userId);
+	}
+
+	public fetchUserRoomInvites(userId: number): Result<TypeRoomSchema[], DatabaseError> {
 		return this.chatService.getUserRooms(userId, ChatRoomUserAccessType.INVITED);
 	}
 
-	fetchUserNotifications(id: number): Result<UserNotificationsType, string> {
-		const pendingFriendshipRequests = this.fetchUserFriendshipRequests(id);
-		if (pendingFriendshipRequests.isErr())
-			return Result.Err(pendingFriendshipRequests.unwrapErr());
-
-		const pendingRoomInvites = this.fetchUserRoomInvites(id);
-		if (pendingRoomInvites.isErr())
-			return Result.Err(pendingRoomInvites.unwrapErr());
-
-		return Result.Ok({
-			pendingFriendRequests: pendingFriendshipRequests.unwrap(),
-			pendingRoomInvites: pendingRoomInvites.unwrap()
+	public fetchUserNotifications(id: number): Result<UserNotificationsType, DatabaseError> {
+		return this.db.safeBlock(() => {
+			return Result.Ok({
+				pendingFriendRequests: this.fetchUserFriendshipRequests(id).unwrap(),
+				pendingRoomInvites: this.fetchUserRoomInvites(id).unwrap(),
+			});
 		});
 	}
 
-	async createNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Promise<Result<FullUserType, string>> {
-		console.log('Creating user in database:', username, email, accountType);
-		const newUser = this.db.run(
+	private _dbCreateNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Result<RunResult, DatabaseError> {
+		return this.db.run(
 			`INSERT INTO users (username, email, passwordHash, accountType) VALUES (?, ?, ?, ?)`,
 			[username, email, passwordHash, accountType.valueOf()]
 		);
-		if (newUser.isErr()) {
-			console.error('Error inserting user:', newUser.unwrapErr());
-			return Result.Err('Failed to create user');
-		}
-
-		const userId = Number(newUser.unwrap().lastInsertRowid);
-		const avatarResult = await createDefaultAvatar(userId);
-
-		if (avatarResult.isOk()) {
-			this.db.run(`
-				UPDATE users SET avatarUrl = ? WHERE id = ?
-			`, [avatarResult.unwrap(), userId]);
-		} else
-			console.error('Failed to create default avatar:', avatarResult.unwrapErr());
-
-		return this.fetchUserById(userId);
 	}
 
-	async createNewGuestUser(): Promise<Result<FullUserType, string>> {
+	private _dbUpdateUserData(userId: number, options?: { bio?: string | undefined, alias?: string | undefined, email?: string | undefined, avatarUrl?: string | undefined }): Result<RunResult, DatabaseError> {
+		const updates = [];
+		const params = [];
+
+		if (options?.bio !== undefined) {
+			updates.push('bio = ?');
+			params.push(options.bio);
+		}
+
+		if (options?.alias !== undefined) {
+			updates.push('alias = ?');
+			params.push(options.alias);
+		}
+
+		if (options?.email !== undefined) {
+			updates.push('email = ?');
+			params.push(options.email);
+		}
+
+		if (options?.avatarUrl !== undefined) {
+			updates.push('avatarUrl = ?');
+			params.push(options.avatarUrl);
+		}
+
+		if (updates.length === 0)
+			return Result.Err(DatabaseError.internal('No data provided for update'));
+
+		return this.db.run(
+			`UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+			[...params, userId]
+		);
+	}
+
+	public async createNewUser(username: string, email: string, passwordHash: string | null, accountType: UserAccountType): Promise<Result<FullUserType, DatabaseError>> {
+		return await this.db.safeBlockAsync(async () => {
+			const newUserId = Number(this._dbCreateNewUser(username, email, passwordHash, accountType).unwrap().lastInsertRowid);
+			const avatarFilename = (await createDefaultAvatar(newUserId)).unwrap();
+			this._dbUpdateUserData(newUserId, { avatarUrl: avatarFilename }).unwrap();
+			return this.fetchUserById(newUserId);
+		});
+	}
+
+	public async createNewGuestUser(): Promise<Result<FullUserType, DatabaseError>> {
 		let max_tries = 5;
 
 		while (max_tries-- > 0) {
@@ -253,26 +318,10 @@ export class UserService {
 			if (creationResult.isOk()) return creationResult;
 		}
 
-		return Result.Err('Failed to create unique guest username');
+		return Result.Err(DatabaseError.internal('Failed to create unique guest username'));
 	}
 
-	fetchUserFromUsername(username: string): Result<FullUserType, string> {
-		return this.db.get(
-			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
-			       COALESCE(tfa.isEnabled, 0) as has2FA
-			 FROM users u
-			 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId
-			 WHERE u.username = ?`,
-			User.omit({ gameResults: true }),
-			[username]
-		).map((user) => ({
-			...user,
-			friends: this.fetchUserFriendlist(user.id).unwrapOr([]),
-			gameResults: this.createGameResultWidget(user.id).unwrapOr(null),
-		}));
-	}
-
-	fetchAuthUserDataFromUsername(username: string): Result<UserAuthDataType, string> {
+	private _dbFetchAuthUserData(username: string): Result<UserAuthDataType, DatabaseError> {
 		return this.db.get(
 			`SELECT id, passwordHash, accountType FROM users WHERE username = ?`,
 			UserAuthData,
@@ -280,164 +329,135 @@ export class UserService {
 		);
 	}
 
-	async fetchUserAvatar(file: string): Promise<Result<string, string>> {
-		try {
-			// Sanitize filename to prevent path traversal attacks
-			// Only allow alphanumeric characters, underscores, hyphens, and dots
-			const sanitizedFile = path.basename(file);
-			if (!sanitizedFile || sanitizedFile !== file || /[^a-zA-Z0-9_\-.]/.test(sanitizedFile)) {
-				console.error('Invalid avatar filename attempted:', file);
-				return Result.Err('Invalid filename');
-			}
-			
-			// Ensure the resolved path is within the allowed directory
-			const resolvedPath = path.resolve(PFP_DIR, sanitizedFile);
-			if (!resolvedPath.startsWith(PFP_DIR + path.sep)) {
-				console.error('Path traversal attempt detected:', file);
-				return Result.Err('Invalid filename');
-			}
-			
-			const png = await fs.readFile(resolvedPath);
+	public fetchAuthUserDataFromUsername(username: string): Result<UserAuthDataType, DatabaseError> {
+		return this._dbFetchAuthUserData(username);
+	}
+
+	public async fetchUserAvatar(file: string): Promise<Result<string, string>> {
+		return await Result.safeTryAsync(async () => {
+			const filename = sanitizePfpFilename(file).unwrap();
+			const png = await fs.readFile(`${PFP_DIR}/${filename}`);
 			return Result.Ok(png.toString('base64'));
-		} catch (error) {
-			console.error('Failed to read avatar:', error);
-			return Result.Err('Avatar not found');
-		}
+		}, () => "Failed to fetch user avatar");
 	}
 
-	updateMutualUserConnection(userId1: number, userId2: number, status: UserFriendshipStatusEnum): Result<null, string> {
-		if (status == UserFriendshipStatusEnum.None) {
-			return this.db.run(
-				`DELETE FROM user_friendships WHERE (userId = ? AND friendId = ?)`,
-				[userId1, userId2]
-			).map(() => null);
-		} else {
-			return this.db.run(
-				`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
-				[userId1, userId2, status]
-			).map(() => null);
-		}
-	}
-
-	async updateUserData(userId: number, bio?: string, alias?: string, email?: string, pfp?: { filename: string; data: string; }): Promise<Result<FullUserType, string>> {
-		const updates = [];
-		const params = [];
-
-		if (bio !== undefined) {
-			updates.push('bio = ?');
-			params.push(bio);
-		}
-		if (alias !== undefined) {
-			updates.push('alias = ?');
-			params.push(alias);
-		}
-		if (email !== undefined) {
-			updates.push('email = ?');
-			params.push(email);
-		}
-		if (pfp !== undefined) {
-			const pngBuffer = Buffer.from(pfp.data, 'base64');
-			try {
-				await fs.mkdir(PFP_DIR, { recursive: true });
-				await fs.writeFile(`${PFP_DIR}/${getPfpFileName(pfp.filename, userId)}`, pngBuffer);
-				updates.push('avatarUrl = ?');
-				params.push(getPfpFileName(pfp.filename, userId));
-			} catch (error) {
-				console.error('Failed to store new profile picture:', error);
-				return Result.Err('Failed to store new profile picture');
-			}
-		}
-
-		if (updates.length === 0) {
-			return Result.Err('No data provided for update');
-		}
-
-		params.push(userId);
-		const updateQuery = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-
-		const updateResult = this.db.run(updateQuery, params);
-		if (updateResult.isErr()) {
-			console.error('Failed to update user data:', updateResult.unwrapErr());
-			return Result.Err('Failed to update user data');
-		}
-
-		return this.fetchUserById(userId);
-	}
-
-	async anonymizeUser(userId: number): Promise<Result<FullUserType, string>> {
-		const userRes = this.fetchUserById(userId);
-		if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
-		const user = userRes.unwrap();
-
-		// attempt to remove avatar file if present
-		if (user.avatarUrl) {
-			try {
-				await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
-			} catch (e) {
-				// ignore file removal errors
-			}
-		}
-
-		// create anonymized unique username and email
-		const anonUsername = `deleted_user_${userId}_${Date.now()}`;
-		const anonEmail = `deleted+${userId}_${Date.now()}@example.invalid`;
-
-		const updateResult = this.db.run(
-			`UPDATE users SET username = ?, alias = NULL, email = ?, bio = NULL, passwordHash = NULL, avatarUrl = NULL, accountType = ? WHERE id = ?`,
-			[anonUsername, anonEmail, UserAccountType.Guest.valueOf(), userId]
+	private _dbRemoveUserConnection(userId1: number, userId2: number): Result<RunResult, DatabaseError> {
+		return this.db.run(
+			`DELETE FROM user_friendships WHERE (userId = ? AND friendId = ?)`,
+			[userId1, userId2]
 		);
-
-		if (updateResult.isErr()) {
-			console.error('Failed to anonymize user:', updateResult.unwrapErr());
-			return Result.Err('Failed to anonymize user');
-		}
-
-		return this.fetchUserById(userId);
 	}
 
-	async deleteUser(userId: number): Promise<Result<null, string>> {
-		const userRes = this.fetchUserById(userId);
-		if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
-		const user = userRes.unwrap();
-
-		// remove avatar file if present
-		if (user.avatarUrl) {
-			try {
-				await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
-			} catch (e) {
-				// ignore file removal errors
-			}
-		}
-
-		const del = this.db.run(`DELETE FROM users WHERE id = ?`, [userId]);
-		if (del.isErr()) {
-			console.error('Failed to delete user:', del.unwrapErr());
-			return Result.Err('Failed to delete user');
-		}
-
-		return Result.Ok(null);
+	private _dbAddOrUpdateUserConnection(userId1: number, userId2: number, status: UserFriendshipStatusEnum): Result<RunResult, DatabaseError> {
+		return this.db.run(
+			`INSERT INTO user_friendships (userId, friendId, status) VALUES (?, ?, ?) ON CONFLICT(userId, friendId) DO UPDATE SET status = excluded.status`,
+			[userId1, userId2, status.valueOf()]
+		);
 	}
 
-	async storeGameResults(results: GameResultType[]): Promise<Result<null, string>> {
-		let baseStmt = `INSERT INTO player_game_results (gameId, userId, score, rank) VALUES `;
-		for (let i = 0; i < results.length; i++) {
-			baseStmt += `(?, ?, ?, ?)`;
-			if (i < results.length - 1) {
-				baseStmt += `, `;
-			}
+	updateMutualUserConnection(userId1: number, userId2: number, status: UserFriendshipStatusEnum): Result<null, DatabaseError> {
+		switch (status) {
+			case UserFriendshipStatusEnum.None:
+				return this._dbRemoveUserConnection(userId1, userId2).map(() => null);
+			default:
+				return this._dbAddOrUpdateUserConnection(userId1, userId2, status).map(() => null);
+		}
+	}
+
+	async updateUserData(userId: number, bio?: string, alias?: string, email?: string, pfp?: { filename: string; data: string; }): Promise<Result<FullUserType, DatabaseError>> {
+		let avatarUrl: string | undefined = undefined;
+
+		if (pfp !== undefined) {
+			avatarUrl = getPfpFileName(pfp.filename, userId);
+			const storageResult = await storePfp(avatarUrl, Buffer.from(pfp.data, 'base64'));
+			if (storageResult.isErr())
+				return Result.Err(DatabaseError.internal(storageResult.unwrapErr()));
 		}
 
-		const params: any[] = [];
-		for (const result of results) {
-			params.push(result.gameId, result.userId, result.score, result.rank);
-		}
+		return this._dbUpdateUserData(userId, { bio, alias, email, avatarUrl })
+			.flatMap(() => this.fetchUserById(userId));
+	}
 
-		const insertResult = this.db.run(baseStmt, params);
-		if (insertResult.isErr()) {
-			console.error('Failed to store game results:', insertResult.unwrapErr());
-			return Result.Err('Failed to store game results');
-		}
+	async anonymizeUser(userId: number): Promise<Result<FullUserType, DatabaseError>> {
+		userId = 0;
+		return Result.Err(DatabaseError.internal('Anonymize user is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
+		// const userRes = this.fetchUserById(userId);
+		// if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
+		// const user = userRes.unwrap();
 
-		return Result.Ok(null);
+		// // attempt to remove avatar file if present
+		// if (user.avatarUrl) {
+		// 	try {
+		// 		await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
+		// 	} catch (e) {
+		// 		// ignore file removal errors
+		// 	}
+		// }
+
+		// // create anonymized unique username and email
+		// const anonUsername = `deleted_user_${userId}_${Date.now()}`;
+		// const anonEmail = `deleted+${userId}_${Date.now()}@example.invalid`;
+
+		// const updateResult = this.db.run(
+		// 	`UPDATE users SET username = ?, alias = NULL, email = ?, bio = NULL, passwordHash = NULL, avatarUrl = NULL, accountType = ? WHERE id = ?`,
+		// 	[anonUsername, anonEmail, UserAccountType.Guest.valueOf(), userId]
+		// );
+
+		// if (updateResult.isErr()) {
+		// 	console.error('Failed to anonymize user:', updateResult.unwrapErr());
+		// 	return Result.Err('Failed to anonymize user');
+		// }
+
+		// return this.fetchUserById(userId);
+	}
+
+	async deleteUser(userId: number): Promise<Result<null, DatabaseError>> {
+		userId = 0;
+		return Result.Err(DatabaseError.internal('Delete user is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
+		// const userRes = this.fetchUserById(userId);
+		// if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
+		// const user = userRes.unwrap();
+
+		// // remove avatar file if present
+		// if (user.avatarUrl) {
+		// 	try {
+		// 		await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
+		// 	} catch (e) {
+		// 		// ignore file removal errors
+		// 	}
+		// }
+
+		// const del = this.db.run(`DELETE FROM users WHERE id = ?`, [userId]);
+		// if (del.isErr()) {
+		// 	console.error('Failed to delete user:', del.unwrapErr());
+		// 	return Result.Err('Failed to delete user');
+		// }
+
+		// return Result.Ok(null);
+	}
+
+	async storeGameResults(results: GameResultType[]): Promise<Result<null, DatabaseError>> {
+		return Result.Err(DatabaseError.internal('Store game results is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
+
+		// let baseStmt = `INSERT INTO player_game_results (gameId, userId, score, rank) VALUES `;
+		// for (let i = 0; i < results.length; i++) {
+		// 	baseStmt += `(?, ?, ?, ?)`;
+		// 	if (i < results.length - 1) {
+		// 		baseStmt += `, `;
+		// 	}
+		// }
+
+		// const params: any[] = [];
+		// for (const result of results) {
+		// 	params.push(result.gameId, result.userId, result.score, result.rank);
+		// }
+
+		// const insertResult = this.db.run(baseStmt, params);
+		// if (insertResult.isErr()) {
+		// 	console.error('Failed to store game results:', insertResult.unwrapErr());
+		// 	return Result.Err('Failed to store game results');
+		// }
+
+		// return Result.Ok(null);
 	}
 }

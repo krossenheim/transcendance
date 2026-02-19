@@ -22,10 +22,10 @@ export class TwoFactorService {
     this.db = db;
     this.totp = new TOTP();
     this.encryption = new TOTPSecretEncryption();
-    
+
     // Get master password from environment
     this.masterPassword = process.env.TOTP_MASTER_KEY || 'transcendence_2fa_master_key_change_in_production';
-    
+
     if (!process.env.TOTP_MASTER_KEY) {
       console.warn('WARNING: Using default TOTP_MASTER_KEY. Set TOTP_MASTER_KEY environment variable for production!');
     }
@@ -60,7 +60,7 @@ export class TwoFactorService {
     try {
       // Generate new secret
       const secret = this.totp.generateSecret(32);
-      
+
       // Encrypt it
       const encryptedSecret = this.encryption.encrypt(secret, this.masterPassword);
 
