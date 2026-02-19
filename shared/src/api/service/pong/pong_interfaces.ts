@@ -95,7 +95,7 @@ export const PlayerDeclaresReadyForGame = z
   .strict();
 
 // Lobby and Tournament schemas
-export const GameModeSchema = z.enum(["1v1", "multiplayer", "tournament"]);
+export const GameModeSchema = z.enum(["1v1", "multiplayer", "tournament", "lastOneStanding"]);
 
 export const CreateLobbySchema = z
   .object({

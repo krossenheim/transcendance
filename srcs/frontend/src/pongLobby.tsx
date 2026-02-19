@@ -55,6 +55,8 @@ export default function PongLobby({
         return 2
       case "tournament":
         return 4
+      case "lastOneStanding":
+        return 2
       default:
         return 2
     }
@@ -70,6 +72,8 @@ export default function PongLobby({
         return t('pong.multiplayer')
       case "tournament":
         return t('pong.tournament')
+      case "lastOneStanding":
+        return t('pong.lastOneStanding')
     }
   }
 

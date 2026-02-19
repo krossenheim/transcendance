@@ -6,7 +6,7 @@ import { useLanguage } from "./i18n/LanguageContext"
 import { useGlobalStore } from "./features/global/store/globalStore"
 import { usePongStore } from "./stores/pongStore"
 
-export type GameMode = "1v1" | "multiplayer" | "tournament"
+export type GameMode = "1v1" | "multiplayer" | "tournament" | "lastOneStanding"
 
 interface PongInviteModalProps {
   isOpen: boolean
@@ -122,6 +122,16 @@ export default function PongInviteModal({
       return
     }
 
+    if (gameMode === "lastOneStanding" && players.length < 2) {
+      alert(t('pong.alertLastOneStandingMin'))
+      return
+    }
+
+    if (gameMode === "lastOneStanding" && players.length > 8) {
+      alert(t('pong.alertLastOneStandingMax'))
+      return
+    }
+
     const settings: GameSettings = {
       ballCount,
       maxScore,
@@ -140,6 +150,8 @@ export default function PongInviteModal({
         return t('pong.descMultiplayer')
       case "tournament":
         return t('pong.descTournament')
+      case "lastOneStanding":
+        return t('pong.descLastOneStanding')
     }
   }
 
@@ -151,6 +163,8 @@ export default function PongInviteModal({
         return 2
       case "tournament":
         return 4
+      case "lastOneStanding":
+        return 2
     }
   }
 
@@ -177,7 +191,7 @@ export default function PongInviteModal({
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
               {t('pong.selectGameMode')}
             </h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button
                 onClick={() => setGameMode("1v1")}
                 className={`p-4 border-2 transition-all ${gameMode === "1v1"
@@ -199,6 +213,17 @@ export default function PongInviteModal({
                 <div className="text-3xl mb-2">👥</div>
                 <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.multiplayer')}</div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.freeForAll')}</div>
+              </button>
+              <button
+                onClick={() => setGameMode("lastOneStanding")}
+                className={`p-4 border-2 transition-all ${gameMode === "lastOneStanding"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
+                  }`}
+              >
+                <div className="text-3xl mb-2">👑</div>
+                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.lastOneStanding')}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.upTo8Players')}</div>
               </button>
               <button
                 onClick={() => setGameMode("tournament")}
