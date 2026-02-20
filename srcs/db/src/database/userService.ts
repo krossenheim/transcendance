@@ -219,6 +219,7 @@ export class UserService {
 				bio: user.bio,
 				accountType: user.accountType,
 				avatarUrl: user.avatarUrl,
+				has2FA: user.has2FA,
 				friends: this.fetchUserFriendlist(user.id).unwrap(),
 				gameResults: this._utilCreateGameResultWidgetForUser(user.id).unwrap(),
 			})

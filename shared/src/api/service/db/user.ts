@@ -30,7 +30,7 @@ export const BaseUser = z.object({
 	bio: z.string().nullable(),
 	accountType: z.enum(UserAccountType),
 	avatarUrl: z.string().nullable(),
-	has2FA: z.coerce.boolean().optional(),
+	has2FA: z.coerce.boolean(),
 }).strict();
 
 export const User = BaseUser.extend({

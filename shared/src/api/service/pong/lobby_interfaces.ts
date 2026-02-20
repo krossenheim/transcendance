@@ -22,6 +22,19 @@ export enum PlayerLobbyStatus {
 	Disconnected = 5,
 }
 
+export function StringToJSON<T extends z.ZodType<any>>(schema: T) {
+	return z.preprocess((val) => {
+		if (typeof val === "string") {
+			try {
+				return JSON.parse(val);
+			} catch (e) {
+				return val;
+			}
+		}
+		return val;
+	}, schema);
+}
+
 export const LobbySettingsSchema = z.object({
 	gameMode: z.enum(GameMode).optional(),
 }).strict();
@@ -29,10 +42,10 @@ export const LobbySettingsSchema = z.object({
 export const LobbyDataSchema = z.object({
 	lobbyId: z.number().int().min(1),
 	hostUserId: userIdValue,
-	lobbySettings: LobbySettingsSchema,
 	lobbyState: z.enum(LobbyStatus),
-	lobbyGameId: z.number().int().min(1).optional(),
-	players: z.array(z.tuple([userIdValue, z.string(), z.enum(PlayerLobbyStatus)])),
+	lobbyGameId: z.number().int().min(1).nullable(),
+	players: StringToJSON(z.array(z.tuple([userIdValue, z.string(), z.enum(PlayerLobbyStatus)]))),
+	settings: StringToJSON(LobbySettingsSchema),
 }).strict();
 
 export type LobbyDataType = z.infer<typeof LobbyDataSchema>;

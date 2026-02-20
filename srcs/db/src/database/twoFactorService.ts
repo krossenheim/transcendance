@@ -1,7 +1,8 @@
+import { Database, DatabaseError, DatabaseErrorType } from './database.js';
 import { TOTP, TOTPSecretEncryption } from '@app/shared/totp';
 import { Result } from '@app/shared/api/service/common/result';
-import { Database } from './database.js';
 import { z } from 'zod';
+import { RunResult } from 'better-sqlite3';
 
 // const TwoFactorSecret = z.object({
 //   userId: z.number(),
@@ -31,175 +32,130 @@ export class TwoFactorService {
     }
   }
 
-  /**
-   * Check if user has 2FA enabled
-   */
-  isEnabled(userId: number): Result<boolean, string> {
-    const result = this.db.get(
+  private _dbUserHas2FAEnabled(userId: number): Result<boolean, DatabaseError> {
+    return this.db.get(
       `SELECT isEnabled FROM user_2fa_secrets WHERE userId = ?`,
       z.object({ isEnabled: z.coerce.boolean() }),
       [userId]
-    );
-
-    if (result.isErr()) {
-      // No 2FA secret means 2FA is not enabled
-      return Result.Ok(false);
-    }
-
-    return Result.Ok(result.unwrap().isEnabled);
+    ).map((result) => result.isEnabled);
   }
 
+  private _dbDeleteUser2FAData(userId: number): Result<RunResult, DatabaseError> {
+    return this.db.run(
+      `DELETE FROM user_2fa_secrets WHERE userId = ?`,
+      [userId]
+    );
+  }
+
+  private _dbInsertOrUpdateUser2FAData(userId: number, encryptedSecret: string, isEnabled: boolean): Result<RunResult, DatabaseError> {
+    return this.db.run(
+      `INSERT INTO user_2fa_secrets (userId, encryptedSecret, isEnabled, createdAt) 
+       VALUES (?, ?, ?, strftime('%s', 'now')) 
+       ON CONFLICT(userId) DO UPDATE SET encryptedSecret = excluded.encryptedSecret, isEnabled = excluded.isEnabled, createdAt = excluded.createdAt`,
+      [userId, encryptedSecret, isEnabled ? 1 : 0]
+    );
+  }
+
+  private _dbUpdateUser2FAData(userId: number, options?: { encryptedSecret?: string; isEnabled?: boolean }): Result<RunResult, DatabaseError> {
+    return this.db.update(
+      'user_2fa_secrets',
+      {
+        encryptedSecret: options?.encryptedSecret,
+        isEnabled: options?.isEnabled !== undefined ? (options.isEnabled ? 1 : 0) : undefined,
+      },
+      'userId = ?',
+      [userId]
+    );
+  }
+
+  private _dbGetUserEncryptedSecret(userId: number): Result<string, DatabaseError> {
+    return this.db.get(
+      `SELECT encryptedSecret FROM user_2fa_secrets WHERE userId = ?`,
+      z.object({ encryptedSecret: z.string() }),
+      [userId]
+    ).map((result) => result.encryptedSecret);
+  }
+
+  private _dbGetUserSecretForVerification(userId: number): Result<string, DatabaseError> {
+    return this.db.get(
+      `SELECT encryptedSecret FROM user_2fa_secrets WHERE userId = ? AND isEnabled = 1`,
+      z.object({ encryptedSecret: z.string() }),
+      [userId]
+    ).map((result) => result.encryptedSecret);
+  }
+
+  /**
+   * Check if user has 2FA enabled
+   */
+  public isEnabled(userId: number): Result<boolean, DatabaseError> {
+    return this._dbUserHas2FAEnabled(userId).flatMapErr((error) => {
+      if (error.type === DatabaseErrorType.NOT_FOUND)
+        return Result.Ok(false); // No 2FA secret means 2FA is not enabled
+      return Result.Err(error);
+    });
+  }
+  
   /**
    * Generate a new 2FA secret for user (but don't enable it yet)
    * Returns the QR code data URL and the secret (for manual entry)
    */
-  async generateSecret(
+  public async generateSecret(
     userId: number,
     username: string
-  ): Promise<Result<{ qrCode: string; secret: string; uri: string }, string>> {
-    try {
-      // Generate new secret
+  ): Promise<Result<{ qrCode: string; secret: string; uri: string }, DatabaseError>> {
+    return await this.db.safeBlockAsync(async () => {
       const secret = this.totp.generateSecret(32);
-
-      // Encrypt it
       const encryptedSecret = this.encryption.encrypt(secret, this.masterPassword);
-
-      // Store in database (disabled by default)
-      const insertResult = this.db.run(
-        `INSERT INTO user_2fa_secrets (userId, encryptedSecret, isEnabled) 
-         VALUES (?, ?, 0) 
-         ON CONFLICT(userId) DO UPDATE SET encryptedSecret = excluded.encryptedSecret, isEnabled = 0`,
-        [userId, encryptedSecret]
-      );
-
-      if (insertResult.isErr()) {
-        return Result.Err('Failed to store 2FA secret');
-      }
-
-      // Generate TOTP URI
+      this._dbInsertOrUpdateUser2FAData(userId, encryptedSecret, false).unwrap();
       const uri = this.totp.generateTOTPUri(secret, username, 'Transcendence');
-
-      // Generate QR code
       const qrCode = await this.totp.generateQRCode(uri);
-
       return Result.Ok({ qrCode, secret, uri });
-    } catch (error) {
-      console.error('Error generating 2FA secret:', error);
-      return Result.Err('Failed to generate 2FA secret');
-    }
+    });
   }
 
   /**
    * Enable 2FA after user has scanned QR and verified first code
    */
-  enable(userId: number, verificationCode: string): Result<null, string> {
-    // Get the secret
-    const secretResult = this.db.get(
-      `SELECT encryptedSecret FROM user_2fa_secrets WHERE userId = ?`,
-      z.object({ encryptedSecret: z.string() }),
-      [userId]
-    );
-
-    if (secretResult.isErr()) {
-      return Result.Err('No 2FA secret found. Generate one first.');
-    }
-
-    try {
-      // Decrypt secret
-      const encryptedSecret = secretResult.unwrap().encryptedSecret;
-      const secret = this.encryption.decrypt(encryptedSecret, this.masterPassword);
-
-      // Verify the code
-      if (!this.totp.verify(secret, verificationCode)) {
-        return Result.Err('Invalid verification code');
-      }
-
-      // Enable 2FA
-      const updateResult = this.db.run(
-        `UPDATE user_2fa_secrets SET isEnabled = 1 WHERE userId = ?`,
-        [userId]
-      );
-
-      if (updateResult.isErr()) {
-        return Result.Err('Failed to enable 2FA');
-      }
-
-      return Result.Ok(null);
-    } catch (error) {
-      console.error('Error enabling 2FA:', error);
-      return Result.Err('Failed to enable 2FA');
-    }
+  public async enable(userId: number, verificationCode: string): Promise<Result<null, DatabaseError>> {
+    return await this.db.safeBlockAsync(async () => {
+      const encryptedSecretResult = this._dbGetUserEncryptedSecret(userId)
+        .expect('No 2FA secret found. Generate one first.');
+      const secret = this.encryption.decrypt(encryptedSecretResult, this.masterPassword);
+      if (!this.totp.verify(secret, verificationCode))
+        return Result.Err(DatabaseError.internal('Invalid verification code'));
+      return this._dbUpdateUser2FAData(userId, { isEnabled: true }).map(() => null);
+    });
   }
 
   /**
    * Disable 2FA (requires current password or admin action)
    */
-  disable(userId: number): Result<null, string> {
-    const updateResult = this.db.run(
-      `UPDATE user_2fa_secrets SET isEnabled = 0 WHERE userId = ?`,
-      [userId]
-    );
-
-    if (updateResult.isErr()) {
-      return Result.Err('Failed to disable 2FA');
-    }
-
-    return Result.Ok(null);
+  public disable2FA(userId: number): Result<null, DatabaseError> {
+    return this._dbUpdateUser2FAData(userId, { isEnabled: false }).map(() => null);
   }
 
   /**
    * Verify a TOTP code for a user
    */
-  verify(userId: number, code: string): Result<boolean, string> {
-    // Check if 2FA is enabled
-    const enabledResult = this.isEnabled(userId);
-    if (enabledResult.isErr()) {
-      return Result.Err(enabledResult.unwrapErr());
-    }
+  public verify(userId: number, code: string): Result<boolean, DatabaseError> {
+    if (this.isEnabled(userId).unwrapOr(false) === false )
+      return Result.Err(DatabaseError.internal('2FA is not enabled for this user'));
 
-    if (!enabledResult.unwrap()) {
-      return Result.Err('2FA is not enabled for this user');
-    }
-
-    // Get the secret
-    const secretResult = this.db.get(
-      `SELECT encryptedSecret FROM user_2fa_secrets WHERE userId = ? AND isEnabled = 1`,
-      z.object({ encryptedSecret: z.string() }),
-      [userId]
-    );
-
-    if (secretResult.isErr()) {
-      return Result.Err('2FA secret not found');
-    }
-
-    try {
-      // Decrypt secret
-      const encryptedSecret = secretResult.unwrap().encryptedSecret;
-      const secret = this.encryption.decrypt(encryptedSecret, this.masterPassword);
-
-      // Verify the code (with 1-step window tolerance)
-      const isValid = this.totp.verify(secret, code, 1);
-
-      return Result.Ok(isValid);
-    } catch (error) {
-      console.error('Error verifying 2FA code:', error);
-      return Result.Err('Failed to verify 2FA code');
-    }
+    return this._dbGetUserSecretForVerification(userId).flatMap((secret) => {
+      return Result.safeTry(() => {
+        const decryptedSecret = this.encryption.decrypt(secret, this.masterPassword);
+        return this.totp.verify(decryptedSecret, code, 1); // 1-step window tolerance
+      }, (e) => {
+        console.error('Error decrypting secret or verifying code:', e);
+        return DatabaseError.internal('Failed to verify 2FA code');
+      });
+    });
   }
 
   /**
    * Delete 2FA secret completely (for user deletion)
    */
-  deleteSecret(userId: number): Result<null, string> {
-    const deleteResult = this.db.run(
-      `DELETE FROM user_2fa_secrets WHERE userId = ?`,
-      [userId]
-    );
-
-    if (deleteResult.isErr()) {
-      return Result.Err('Failed to delete 2FA secret');
-    }
-
-    return Result.Ok(null);
+  public deleteSecret(userId: number): Result<null, DatabaseError> {
+    return this._dbDeleteUser2FAData(userId).map(() => null);
   }
 }

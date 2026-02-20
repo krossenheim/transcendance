@@ -79,7 +79,7 @@ export class Database {
 		this.db.pragma('journal_mode = WAL');
 	}
 
-	all<T extends z.ZodType<any>>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>[], DatabaseError> {
+	public all<T extends z.ZodType<any>>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>[], DatabaseError> {
 		try {
 			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			const rows = stmt.all(...params);
@@ -92,7 +92,7 @@ export class Database {
 		}
 	}
 
-	get<T extends z.ZodType<any>>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>, DatabaseError> {
+	public get<T extends z.ZodType<any>>(sql: string | Statement, target: T, params: any[] = []): Result<z.infer<T>, DatabaseError> {
 		try {
 			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			const row = stmt.get(...params);
@@ -106,7 +106,7 @@ export class Database {
 		}
 	}
 
-	run(sql: string | Statement, params: any[] = []): Result<RunResult, DatabaseError> {
+	public run(sql: string | Statement, params: any[] = []): Result<RunResult, DatabaseError> {
 		try {
 			const stmt = typeof sql === 'string' ? this.db.prepare(sql) : sql;
 			return Result.Ok(stmt.run(...params));
@@ -116,11 +116,19 @@ export class Database {
 		}
 	}
 
-	prepare(sql: string): Statement {
+	public update(tableName: string, data: Record<string, any>, whereClause: string, whereParams: any[] = []): Result<RunResult, DatabaseError> {
+		const filteredData = Object.fromEntries(Object.entries(data).filter(([_, value]) => value !== undefined));
+		const setClause = Object.keys(filteredData).map(key => `${key} = ?`).join(', ');
+		const params = [...Object.values(filteredData), ...whereParams];
+		const sql = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
+		return this.run(sql, params);
+	}
+
+	public prepare(sql: string): Statement {
 		return this.db.prepare(sql);
 	}
 
-	transaction<T>(fn: () => Result<T, DatabaseError>): Result<T, DatabaseError> {
+	public transaction<T>(fn: () => Result<T, DatabaseError>): Result<T, DatabaseError> {
 		const executeTransaction = this.db.transaction(() => {
 			return fn().unwrap();
 		});
@@ -135,21 +143,21 @@ export class Database {
 		}
 	}
 
-	safeBlock<T>(fn: () => Result<T, DatabaseError>): Result<T, DatabaseError> {
+	public safeBlock<T>(fn: () => Result<T, DatabaseError>): Result<T, DatabaseError> {
 		return Result.safeTry(fn, (e) => {
 			console.error(`Safe block failed: ${e}`);
 			return this.mapErrorToDatabaseError(e);
 		});
 	}
 
-	safeBlockAsync<T>(fn: () => Promise<Result<T, DatabaseError>>): Promise<Result<T, DatabaseError>> {
+	public safeBlockAsync<T>(fn: () => Promise<Result<T, DatabaseError>>): Promise<Result<T, DatabaseError>> {
 		return Result.safeTryAsync(fn, (e) => {
 			console.error(`Safe block async failed: ${e}`);
 			return this.mapErrorToDatabaseError(e);
 		});
 	}
 
-	close(): void {
+	public close(): void {
 		this.db.close();
 	}
 }

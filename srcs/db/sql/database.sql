@@ -111,7 +111,8 @@ CREATE TABLE IF NOT EXISTS lobby_players (
   lobbyId INTEGER NOT NULL,
   userId INTEGER NOT NULL,
   playerState INTEGER NOT NULL, -- 0: invited but not joined, 1: joined but not ready, 2: ready to play, 3: left, 4: declined, 5: disconnected
-  PRIMARY KEY (lobbyId, userId)
+  PRIMARY KEY (lobbyId, userId),
+  FOREIGN KEY(lobbyId) REFERENCES game_lobbies(lobbyId) ON UPDATE CASCADE ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_lobby_players_userId ON lobby_players(userId);
 CREATE INDEX IF NOT EXISTS idx_lobby_players_lobbyId ON lobby_players(lobbyId);
@@ -120,9 +121,17 @@ CREATE TABLE IF NOT EXISTS lobby_settings (
   lobbyId INTEGER,
   settingKey TEXT,
   settingValue TEXT,
-  PRIMARY KEY (lobbyId, settingKey)
+  PRIMARY KEY (lobbyId, settingKey),
+  FOREIGN KEY(lobbyId) REFERENCES game_lobbies(lobbyId) ON UPDATE CASCADE ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_lobby_settings_lobbyId ON lobby_settings(lobbyId);
+
+-- CREATE TABLE IF NOT EXISTS lobby_games (
+--   gameId INTEGER PRIMARY KEY AUTOINCREMENT,
+--   lobbyId INTEGER NOT NULL,
+--   gameState INTEGER NOT NULL, -- 0: waiting for players, 1: game starting, 2: game in progress, 3: game ended
+--   FOREIGN KEY(lobbyId) REFERENCES game_lobbies(lobbyId) ON UPDATE CASCADE ON DELETE CASCADE
+-- ) STRICT;
 
 INSERT INTO users (username, email, bio, accountType) VALUES ('System', 'system@localhost', 'I had a life once. Now I have a computer', 0) ON CONFLICT(username) DO NOTHING;
 

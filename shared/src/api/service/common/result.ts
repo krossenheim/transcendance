@@ -1,6 +1,6 @@
 export class UnwrapError<E> extends Error {
-  constructor(public readonly error: E) {
-    super(`Unwrapped the wrong variant of Result`);
+  constructor(public readonly error: E, message?: string) {
+    super(message || `Unwrapped the wrong variant of Result`);
     Object.setPrototypeOf(this, UnwrapError.prototype);
   }
 }
@@ -31,6 +31,11 @@ export class Result<T, E> {
     throw new UnwrapError<E>(this.inner.error);
   }
 
+  expect(message: string): T {
+    if (this.inner.ok) return this.inner.value;
+    throw new UnwrapError<E>(this.inner.error, message);
+  }
+
   unwrapErr(): E {
     if (!this.inner.ok) return this.inner.error;
     throw new UnwrapError<T>(this.inner.value);
@@ -55,9 +60,18 @@ export class Result<T, E> {
     return Result.Err(fn(this.inner.error));
   }
 
-  static safeTry<T, E>(fn: () => Result<T, E>, errorMapper: (e: unknown) => E): Result<T, E> {
+  flatMapErr<F>(fn: (error: E) => Result<T, F>): Result<T, F> {
+    if (this.inner.ok) return Result.Ok(this.inner.value);
+    return fn(this.inner.error);
+  }
+
+  static safeTry<T, E>(fn: () => Result<T, E> | T, errorMapper: (e: unknown) => E): Result<T, E> {
     try {
-      return fn();
+      const result = fn();
+      if (result instanceof Result) {
+        return result;
+      }
+      return Result.Ok(result);
     } catch (e) {
       if (e instanceof UnwrapError) {
         return Result.Err(e.error as E);
@@ -66,8 +80,13 @@ export class Result<T, E> {
     }
   }
 
-  static safeTryAsync<T, E>(fn: () => Promise<Result<T, E>>, errorMapper: (e: unknown) => E): Promise<Result<T, E>> {
-    return fn().catch(e => {
+  static safeTryAsync<T, E>(fn: () => Promise<Result<T, E> | T>, errorMapper: (e: unknown) => E): Promise<Result<T, E>> {
+    return fn().then(result => {
+      if (result instanceof Result) {
+        return result;
+      }
+      return Result.Ok(result);
+    }).catch(e => {
       if (e instanceof UnwrapError) {
         return Result.Err(e.error as E);
       }
