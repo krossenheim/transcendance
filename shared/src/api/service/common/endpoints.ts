@@ -44,6 +44,7 @@ import {
   TournamentMatchResultSchema,
   SetPlayerAliasSchema,
   JoinTournamentMatchSchema,
+  SpectateMatchSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
 import { GameResult } from "@app/shared/api/service/db/gameResult";
 import { UserNotifications } from "@app/shared/api/service/db/notification";
@@ -903,6 +904,31 @@ export const user_url = defineRoutes({
             WaitingForOpponent: {
               code: 3,
               payload: z.object({ message: z.string(), readyCount: z.number() }),
+            },
+          },
+        },
+      },
+
+      // Spectate an ongoing tournament match
+      spectateMatch: {
+        funcId: "spectate_tournament_match",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: SpectateMatchSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Spectating: {
+              code: 0,
+              payload: GameStateSchema,
+            },
+            MatchNotInProgress: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+            NotInTournament: {
+              code: 2,
+              payload: ErrorResponse,
             },
           },
         },

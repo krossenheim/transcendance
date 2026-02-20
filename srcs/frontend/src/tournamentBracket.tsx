@@ -10,6 +10,7 @@ export interface TournamentMatch {
   player2: { id: number; username: string; alias?: string } | null
   winner: number | null
   status: "pending" | "in_progress" | "completed"
+  readyPlayers?: number[] // Players who clicked "Join Match"
 }
 
 export interface TournamentData {
@@ -30,6 +31,7 @@ interface TournamentBracketProps {
   currentUserId: number
   onEnterAlias: (alias: string) => void
   onJoinMatch: (matchId: number) => void
+  onSpectate: (matchId: number) => void
 }
 
 export default function TournamentBracket({
@@ -37,6 +39,7 @@ export default function TournamentBracket({
   currentUserId,
   onEnterAlias,
   onJoinMatch,
+  onSpectate,
 }: TournamentBracketProps) {
   const currentPlayer = tournament.players.find((p) => p.id === currentUserId)
   const [aliasInput, setAliasInput] = React.useState("")
@@ -217,12 +220,17 @@ export default function TournamentBracket({
                             : "bg-white/50 dark:bg-gray-800/80"
                             }`}
                         >
-                          <div className="text-sm">
+                          <div className="text-sm flex items-center justify-between">
                             {match.player1 ? (
-                              <span style={{ color: getUserColorCSS(match.player1.id, true) }}>
-                                {match.player1.alias || match.player1.username}
-                                {match.winner === match.player1.id && " 👑"}
-                              </span>
+                              <>
+                                <span style={{ color: getUserColorCSS(match.player1.id, true) }}>
+                                  {match.player1.alias || match.player1.username}
+                                  {match.winner === match.player1.id && " 👑"}
+                                </span>
+                                {match.status === "pending" && match.readyPlayers?.includes(match.player1.id) && (
+                                  <span className="text-green-500 text-xs">✓ Ready</span>
+                                )}
+                              </>
                             ) : (
                               <span className="text-gray-400 italic">TBD</span>
                             )}
@@ -238,12 +246,17 @@ export default function TournamentBracket({
                             : "bg-white/50 dark:bg-gray-800/80"
                             }`}
                         >
-                          <div className="text-sm">
+                          <div className="text-sm flex items-center justify-between">
                             {match.player2 ? (
-                              <span style={{ color: getUserColorCSS(match.player2.id, true) }}>
-                                {match.player2.alias || match.player2.username}
-                                {match.winner === match.player2.id && " 👑"}
-                              </span>
+                              <>
+                                <span style={{ color: getUserColorCSS(match.player2.id, true) }}>
+                                  {match.player2.alias || match.player2.username}
+                                  {match.winner === match.player2.id && " 👑"}
+                                </span>
+                                {match.status === "pending" && match.readyPlayers?.includes(match.player2.id) && (
+                                  <span className="text-green-500 text-xs">✓ Ready</span>
+                                )}
+                              </>
                             ) : (
                               <span className="text-gray-400 italic">TBD</span>
                             )}
@@ -254,22 +267,39 @@ export default function TournamentBracket({
                         {match.status === "pending" &&
                           match.player1 &&
                           match.player2 &&
-                          (match.player1.id === currentUserId || match.player2.id === currentUserId) && (
-                            <button
-                              onClick={() => handleJoinMatch(match.matchId)}
-                              disabled={waitingForMatch === match.matchId}
-                              className={`mt-2 w-full py-1 text-xs rounded ${
-                                waitingForMatch === match.matchId
-                                  ? "bg-yellow-500 text-white cursor-wait"
-                                  : "bg-blue-500 text-white hover:bg-blue-600"
-                              }`}
-                            >
-                              {waitingForMatch === match.matchId ? "⏳ Waiting for opponent..." : "Join Match"}
-                            </button>
-                          )}
-                        {match.status === "in_progress" && (
-                          <div className="mt-2 text-xs text-center text-blue-500 font-semibold">🎮 In Progress...</div>
-                        )}
+                          (match.player1.id === currentUserId || match.player2.id === currentUserId) && (() => {
+                            const isCurrentUserReady = match.readyPlayers?.includes(currentUserId) ?? false;
+                            const isWaiting = isCurrentUserReady || waitingForMatch === match.matchId;
+                            return (
+                              <button
+                                onClick={() => handleJoinMatch(match.matchId)}
+                                disabled={isWaiting}
+                                className={`mt-2 w-full py-1 text-xs rounded ${
+                                  isWaiting
+                                    ? "bg-yellow-500 text-white cursor-wait"
+                                    : "bg-blue-500 text-white hover:bg-blue-600"
+                                }`}
+                              >
+                                {isWaiting ? "⏳ Waiting for opponent..." : "Join Match"}
+                              </button>
+                            );
+                          })()}
+                        {match.status === "in_progress" && (() => {
+                          const isInMatch = match.player1?.id === currentUserId || match.player2?.id === currentUserId;
+                          return (
+                            <div className="mt-2">
+                              <div className="text-xs text-center text-blue-500 font-semibold">🎮 In Progress...</div>
+                              {!isInMatch && (
+                                <button
+                                  onClick={() => onSpectate(match.matchId)}
+                                  className="mt-1 w-full py-1 text-xs rounded bg-purple-500 text-white hover:bg-purple-600"
+                                >
+                                  👁️ Spectate
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

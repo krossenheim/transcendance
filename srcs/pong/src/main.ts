@@ -414,9 +414,45 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
   const { bothReady } = readyResult.unwrap();
   const playerIds = [match.player1Id, match.player2Id];
 
-  // If not both ready, notify waiting
+  // If not both ready, notify waiting and broadcast updated ready status to all tournament players
   if (!bothReady) {
     console.log(`[Pong] Player ${user_id} ready for match ${matchId}, waiting for opponent`);
+    
+    // Broadcast tournament state update to all tournament players so they see the ready status in realtime
+    const allTournamentPlayerIds = tournament.players.map(p => p.userId);
+    const tournamentData = {
+      tournamentId: tournament.tournamentId,
+      name: tournament.name,
+      mode: tournament.mode,
+      players: tournament.players,
+      matches: tournament.matches,
+      currentRound: tournament.currentRound,
+      totalRounds: tournament.totalRounds,
+      status: tournament.status,
+      winnerId: tournament.winnerId,
+      ballCount: tournament.ballCount,
+      maxScore: tournament.maxScore,
+      onchainTxHashes: tournament.onchainTxHashes || [],
+    };
+
+    for (const playerId of allTournamentPlayerIds) {
+      const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
+      
+      socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
+        recipients: [playerId],
+        code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
+        payload: {
+          tournamentId,
+          matchId,
+          winnerId: null, // No winner - just a ready status update
+          loserId: null,
+          tournament: tournamentData,
+          nextMatch: nextMatch,
+          isTournamentComplete: false,
+        },
+      });
+    }
+
     return Result.Ok(response.select("WaitingForOpponent").reply({
       message: "Waiting for your opponent to be ready...",
       readyCount: match.readyPlayers.length,
@@ -465,6 +501,63 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
     code: user_url.ws.pong.joinTournamentMatch.schema.output.MatchStarted.code,
     payload: gameState.unwrap(),
   });
+});
+
+// Handler for spectating a tournament match
+socket.registerHandler(user_url.ws.pong.spectateMatch, async (body, response) => {
+  const user_id = body.userId;
+  const { tournamentId, matchId } = body.payload;
+  
+  console.log(`[Pong] Spectate request: user=${user_id}, tournament=${tournamentId}, match=${matchId}`);
+
+  const tournament = tournamentManager.getTournament(tournamentId);
+  if (!tournament) {
+    return Result.Ok(response.select("NotInTournament").reply({
+      message: "Tournament not found",
+    }));
+  }
+
+  // Verify user is in this tournament (only tournament participants can spectate)
+  const isParticipant = tournament.players.some(p => p.userId === user_id);
+  if (!isParticipant) {
+    return Result.Ok(response.select("NotInTournament").reply({
+      message: "You are not a participant in this tournament",
+    }));
+  }
+
+  const match = tournament.matches.find(m => m.matchId === matchId);
+  if (!match) {
+    return Result.Ok(response.select("MatchNotInProgress").reply({
+      message: "Match not found",
+    }));
+  }
+
+  // Only allow spectating matches that are in progress
+  if (match.status !== "in_progress") {
+    return Result.Ok(response.select("MatchNotInProgress").reply({
+      message: "Match is not currently in progress",
+    }));
+  }
+
+  // Find the game ID for this match
+  const gameId = singletonPong.getGameIdByTournamentMatch(tournamentId, matchId);
+  if (gameId === null) {
+    return Result.Ok(response.select("MatchNotInProgress").reply({
+      message: "Game not found for this match",
+    }));
+  }
+
+  // Add user as spectator
+  const spectateResult = singletonPong.addSpectator(user_id, gameId);
+  if (spectateResult.isErr()) {
+    return Result.Ok(response.select("MatchNotInProgress").reply({
+      message: spectateResult.unwrapErr(),
+    }));
+  }
+
+  console.log(`[Pong] User ${user_id} now spectating match ${matchId} (game ${gameId})`);
+
+  return Result.Ok(response.select("Spectating").reply(spectateResult.unwrap()));
 });
 
 socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) => {

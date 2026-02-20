@@ -745,12 +745,20 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
     }
 
-    // Update wall colors
+    // Update wall colors (preserve player colors for eliminated players' walls)
     edgesRef.current.forEach((wall) => {
       if (wall.material) {
         const wallMat = wall.material as StandardMaterial
-        wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
-        wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+        const wallPlayerId = (wall as any).metadata?.wallPlayerId
+        if (wallPlayerId != null && typeof wallPlayerId === 'number') {
+          // Use the player's color for eliminated player's goal wall
+          const playerColor = getUserColorBabylon(wallPlayerId)
+          wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
+          wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+        } else {
+          wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
+          wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+        }
       }
     })
 
@@ -862,12 +870,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           wall.position = center.add(outward.scale(wallThickness / 2))
           wall.position.y = wallHeight / 2 - 0.1 // Sunk slightly
 
-          const wallMat = new StandardMaterial("wallMat", scene)
-          // Dark mode: blue-purple, Light mode: light blue-gray
-          wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
-          wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+          const wallMat = new StandardMaterial(`wallMat_${i}`, scene)
+          // Check if this wall belongs to an eliminated player (has playerId)
+          const wallPlayerId = p1.playerId
+          if (wallPlayerId != null && typeof wallPlayerId === 'number') {
+            // Use the player's color for eliminated player's goal wall
+            const playerColor = getUserColorBabylon(wallPlayerId)
+            wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
+            wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+          } else {
+            // Default wall color: Dark mode: blue-purple, Light mode: light blue-gray
+            wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
+            wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+          }
           wallMat.alpha = 0.5 // Semi-transparent walls
           wall.material = wallMat
+          // Store playerId in metadata for dark mode updates
+          ;(wall as any).metadata = { ...(wall as any).metadata, wallPlayerId: wallPlayerId ?? null }
 
           edgesRef.current.push(wall)
         }

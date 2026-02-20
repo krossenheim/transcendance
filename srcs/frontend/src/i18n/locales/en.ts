@@ -255,7 +255,7 @@ export const en = {
     descTournament1v1: '1v1 Tournament - Players compete in bracket-style matches',
     descTournamentMulti: 'Multiplayer Tournament - Teams compete in bracket-style matches',
     descTournament: 'Tournament - 4 players compete in 1v1 bracket matches (semi-finals + final)',
-    descLastOneStanding: 'Last One Standing - 2-8 players battle in an arena that auto-scales to fit all players. Last one standing wins!',
+    descLastOneStanding: 'Last One Standing - 2-8 players battle. Last one standing wins!',
     // Validation alerts
     alert1v1Players: '1v1 mode requires exactly 2 players (including yourself)',
     alertTournament1v1Players: 'Tournament 1v1 requires at least 4 players',

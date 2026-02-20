@@ -5,7 +5,7 @@ export interface TypePlayerDeclaresReadyForGame { game_id: number }
 export interface TypePlayerReadyForGameSchema { user_id: number; game_id: number }
 export interface TypePaddleState { x: number; y: number; w: number; l: number; r: number; owner_id: number; paddle_id: number }
 export interface TypeBallState { id: number; x: number; y: number; dx: number; dy: number; radius?: number }
-export interface TypeEdgeState { x: number; y: number }
+export interface TypeEdgeState { x: number; y: number; playerId?: number | null }
 export interface TypePowerupState { x: number; y: number; type: number; spawnTime?: number }
 
 // Powerup types enum (mirrors backend)

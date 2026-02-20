@@ -106,9 +106,10 @@ export default function PongComponent({
     // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
     const edges = (raw.walls || []).filter((w: any) => w != null).map((w: any) => {
       if (Array.isArray(w)) {
-        return { x: Number(w[0]) || 0, y: Number(w[1]) || 0 }
+        // w[6] is playerId (null for regular walls, number for eliminated player's goal)
+        return { x: Number(w[0]) || 0, y: Number(w[1]) || 0, playerId: w[6] ?? null }
       }
-      return { x: w?.x ?? 0, y: w?.y ?? 0 }
+      return { x: w?.x ?? 0, y: w?.y ?? 0, playerId: w?.playerId ?? null }
     })
 
     return {
@@ -325,6 +326,7 @@ export default function PongComponent({
               player2: findPlayer(m.player2Id),
               winner: m.winnerId,
               status: m.status,
+              readyPlayers: m.readyPlayers || [],
             })) || [],
             currentRound: tournamentFromServer.currentRound || 1,
             totalRounds: tournamentFromServer.totalRounds || 2,
@@ -387,6 +389,49 @@ export default function PongComponent({
       }
       if (message.code === schema.output.NotYourMatch.code) {
         console.warn("[Pong-Stable] Not your match:", message.payload?.message);
+        return HandlerResult.Handled;
+      }
+      
+      return HandlerResult.NotHandled;
+    });
+    
+    return () => unsubscribe();
+  }, [subscribe, setPlayerIDsHelper, setGameState, setLobby, setCurrentView, setDebugPlayers]);
+
+  // STABLE subscription for spectateMatch
+  useEffect(() => {
+    if (!subscribe) return;
+    
+    const unsubscribe = subscribe(user_url.ws.pong.spectateMatch, (message, schema) => {
+      console.log("[Pong-Stable] Received spectateMatch response:", message.code);
+      
+      if (message.code === schema.output.Spectating.code) {
+        console.log("[Pong-Stable] Now spectating match!");
+        const gameStatePayload = message.payload;
+        
+        // Set players from tournament data for score display
+        const currentTournament = tournamentRef.current;
+        if (currentTournament?.players) {
+          setDebugPlayers(currentTournament.players.map(p => ({ id: p.id, username: p.alias || p.username })));
+        }
+        
+        const normalized = normalizeGameState(gameStatePayload);
+        if (normalized) {
+          setPlayerIDsHelper(normalized);
+          setGameState(normalized);
+        }
+        setLobby(null);
+        setCurrentView("game");
+        return HandlerResult.Handled;
+      }
+      
+      // Error cases - stay in tournament view
+      if (message.code === schema.output.MatchNotInProgress.code) {
+        console.warn("[Pong-Stable] Match not in progress:", message.payload?.message);
+        return HandlerResult.Handled;
+      }
+      if (message.code === schema.output.NotInTournament.code) {
+        console.warn("[Pong-Stable] Not in tournament:", message.payload?.message);
         return HandlerResult.Handled;
       }
       
@@ -524,6 +569,7 @@ export default function PongComponent({
                   { id: m.player2Id, username: serverTournament.players?.find((p: any) => (p.userId || p.id) === m.player2Id)?.username || `Player ${m.player2Id}` } : null,
                 winner: m.winnerId,
                 status: m.status,
+                readyPlayers: m.readyPlayers || [],
               })) || [],
               currentRound: serverTournament.currentRound || 1,
               totalRounds: serverTournament.totalRounds || 2,
@@ -652,6 +698,7 @@ export default function PongComponent({
           player2: mapResultPlayer(result.nextMatch.player2Id),
           winner: result.nextMatch.winnerId,
           status: result.nextMatch.status,
+          readyPlayers: result.nextMatch.readyPlayers || [],
         } : null;
         
         // If winnerId is 0, this is a "match started" notification for spectators
@@ -1013,6 +1060,21 @@ export default function PongComponent({
     [activeTournamentId, isConnected, sendMessage]
   )
 
+  const handleSpectate = useCallback(
+    (matchId: number) => {
+      if (!activeTournamentId || !isConnected) {
+        console.warn("[Pong] Cannot spectate - no active tournament or not connected");
+        return;
+      }
+      console.log("[Pong] Spectating tournament match:", matchId, "in tournament:", activeTournamentId);
+      sendMessage(user_url.ws.pong.spectateMatch, { 
+        tournamentId: activeTournamentId, 
+        matchId 
+      });
+    },
+    [activeTournamentId, isConnected, sendMessage]
+  )
+
   // RENDER LOGIC
   // Debug logging disabled for performance
   // console.log("[Pong] RENDER called, currentView =", currentView);
@@ -1149,6 +1211,7 @@ export default function PongComponent({
             currentUserId={authResponse.user.id}
             onEnterAlias={handleEnterAlias}
             onJoinMatch={handleJoinTournamentMatch}
+            onSpectate={handleSpectate}
           />
           <div className="mt-4 flex gap-2">
             <button

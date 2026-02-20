@@ -380,6 +380,9 @@ export class PongGame {
             leftOverTime -= timeStep;
         }
 
+        // BULLETPROOF: Reset any balls that have escaped the arena bounds
+        this.checkBallBounds();
+
         // Increment tick counter based on deltaTime (approximately)
         this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
 
@@ -400,6 +403,35 @@ export class PongGame {
         // if (this.timeAccumulator > TICK_DURATION * 10) {
         //     this.timeAccumulator = TICK_DURATION;
         // }
+    }
+
+    /**
+     * BULLETPROOF: Check if any balls have escaped the arena bounds and reset them.
+     * This prevents tunneling issues where balls pass through walls due to 
+     * high speed or edge cases in collision detection.
+     */
+    private checkBallBounds(): void {
+        const margin = 50; // Safe margin outside the arena
+        const minBound = -margin;
+        const maxBoundX = this.gameOptions.canvasWidth + margin;
+        const maxBoundY = this.gameOptions.canvasHeight + margin;
+        const centerX = this.gameOptions.canvasWidth / 2;
+        const centerY = this.gameOptions.canvasHeight / 2;
+
+        for (const ball of this.balls) {
+            const x = ball.center.x;
+            const y = ball.center.y;
+
+            // Check if ball is outside the arena bounds
+            if (x < minBound || x > maxBoundX || y < minBound || y > maxBoundY) {
+                console.warn(`[PongGame] BULLETPROOF: Ball escaped bounds at (${x.toFixed(1)}, ${y.toFixed(1)}) - resetting to center`);
+                
+                // Reset ball to center with random direction
+                ball.center.set(centerX, centerY);
+                const newDirection = new Vec2(0, -1).rotate(this.rng.nextAngle());
+                ball.velocity.copy(newDirection.mul(this.gameOptions.ballSpeed));
+            }
+        }
     }
 
     /**

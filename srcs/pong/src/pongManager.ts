@@ -24,6 +24,8 @@ type gameDataType = {
   // Tournament tracking (if this game is part of a tournament)
   tournamentId?: number;
   matchId?: number;
+  // Spectators watching this game
+  spectators: number[];
 };
 
 const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
@@ -87,7 +89,7 @@ export class PongManager {
           const finalGameState = gameData.game.fetchBoardJSON();
           finalGameState.serverTimestamp = now;
           this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-            recipients: Array.from(gameData.game.getUniquePlayerIds()),
+            recipients: [...Array.from(gameData.game.getUniquePlayerIds()), ...gameData.spectators],
             code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
             payload: finalGameState,
           });
@@ -106,7 +108,7 @@ export class PongManager {
       gameState.serverTimestamp = now;  // Add server timestamp
       
       this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-        recipients: Array.from(gameData.game.getUniquePlayerIds()),
+        recipients: [...Array.from(gameData.game.getUniquePlayerIds()), ...gameData.spectators],
         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
         payload: gameState,
       });
@@ -137,6 +139,7 @@ export class PongManager {
       didGameEnd: false,
       playerInputHistory,
       playerRTT,
+      spectators: [],
     };
     
     // Only set tournament info if provided
@@ -257,14 +260,84 @@ export class PongManager {
     lastDebugKeys.set(userId, currDebugKeys);
   }
 
+  /**
+   * Add a spectator to watch a game.
+   * Returns the current game state if successful.
+   */
+  public addSpectator(
+    userId: number,
+    gameId: number
+  ): Result<any, string> {
+    const gameData = this.games.get(gameId);
+    if (gameData === undefined) {
+      return Result.Err("Game not found");
+    }
+    
+    // Don't add if already a player
+    if (gameData.game.getPlayers().includes(userId)) {
+      return Result.Err("You are a player in this game");
+    }
+    
+    // Don't add if game is already over
+    if (gameData.didGameEnd) {
+      return Result.Err("Game has already ended");
+    }
+    
+    // Add to spectators if not already
+    if (!gameData.spectators.includes(userId)) {
+      gameData.spectators.push(userId);
+      console.log(`[PongManager] Added spectator ${userId} to game ${gameId}`);
+    }
+    
+    // Return current game state
+    const gameState = gameData.game.fetchBoardJSON();
+    gameState.serverTimestamp = Date.now();
+    gameState.isSpectator = true;
+    return Result.Ok(gameState);
+  }
+
+  /**
+   * Remove a spectator from a game.
+   */
+  public removeSpectator(userId: number, gameId: number): void {
+    const gameData = this.games.get(gameId);
+    if (gameData) {
+      gameData.spectators = gameData.spectators.filter(id => id !== userId);
+    }
+  }
+
+  /**
+   * Get game ID by tournament match ID for spectating.
+   */
+  public getGameIdByTournamentMatch(tournamentId: number, matchId: number): number | null {
+    for (const [gameId, gameData] of this.games.entries()) {
+      if (gameData.tournamentId === tournamentId && gameData.matchId === matchId && !gameData.didGameEnd) {
+        return gameId;
+      }
+    }
+    return null;
+  }
+
   public getGameState(
     userId: number,
     gameId: number
   ): Result<any, string> {
     const gameData = this.games.get(gameId);
-    if (gameData === undefined || !gameData.game.getPlayers().includes(userId))
-        return Result.Err("Game not found");
-    return Result.Ok(gameData.game.fetchBoardJSON());
+    if (gameData === undefined) {
+      return Result.Err("Game not found");
+    }
+    
+    // Allow both players and spectators
+    const isPlayer = gameData.game.getPlayers().includes(userId);
+    const isSpectator = gameData.spectators.includes(userId);
+    
+    if (!isPlayer && !isSpectator) {
+      return Result.Err("Game not found");
+    }
+    
+    const gameState = gameData.game.fetchBoardJSON();
+    gameState.isSpectator = isSpectator;
+    return Result.Ok(gameState);
   }
 
   public handleUserDisconnect(userId: number): void {

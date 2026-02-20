@@ -335,6 +335,9 @@ export class ClientPongSimulation {
             // Resolve collision
             this.resolveCollision(collision);
         }
+
+        // BULLETPROOF: Check for balls that escaped bounds and reset them
+        this.checkBallBounds();
     }
     
     /**
@@ -1000,5 +1003,35 @@ export class ClientPongSimulation {
      */
     public getElapsedTime(): number {
         return this.elapsedTime;
+    }
+
+    /**
+     * BULLETPROOF: Check if any balls have escaped bounds and reset them to center.
+     * This prevents visual glitches from balls tunneling through walls.
+     */
+    private checkBallBounds(): void {
+        const canvasSize = this.state.metadata?.gameOptions?.canvasWidth ?? 800;
+        const margin = 50;
+        const minBound = -margin;
+        const maxBound = canvasSize + margin;
+        const center = canvasSize / 2;
+
+        for (const ball of this.balls) {
+            if (ball.x < minBound || ball.x > maxBound || ball.y < minBound || ball.y > maxBound) {
+                console.warn(`[ClientSim] BULLETPROOF: Ball escaped bounds at (${ball.x.toFixed(1)}, ${ball.y.toFixed(1)}) - resetting`);
+                
+                // Reset to center with random-ish direction based on current velocity
+                ball.x = center;
+                ball.y = center;
+                
+                // Keep current speed but flip direction toward center
+                const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                if (speed > 0.01) {
+                    // Just reverse direction
+                    ball.dx = -ball.dx;
+                    ball.dy = -ball.dy;
+                }
+            }
+        }
     }
 }

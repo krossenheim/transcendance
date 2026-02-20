@@ -182,6 +182,13 @@ export const JoinTournamentMatchSchema = z
   })
   .strict();
 
+export const SpectateMatchSchema = z
+  .object({
+    tournamentId: gameIdValue,
+    matchId: gameIdValue,
+  })
+  .strict();
+
 export const AcceptPongInvitationSchema = z
   .object({
     lobbyId: gameIdValue,
@@ -235,5 +242,6 @@ export type TypeLobbyData = z.infer<typeof LobbyDataSchema>;
 export type TypeTournamentData = z.infer<typeof TournamentDataSchema>;
 export type TypeSetPlayerAlias = z.infer<typeof SetPlayerAliasSchema>;
 export type TypeJoinTournamentMatch = z.infer<typeof JoinTournamentMatchSchema>;
+export type TypeSpectateMatch = z.infer<typeof SpectateMatchSchema>;
 export type TypeAcceptPongInvitation = z.infer<typeof AcceptPongInvitationSchema>;
 export type TypePongInvitationNotification = z.infer<typeof PongInvitationNotificationSchema>;
