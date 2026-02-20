@@ -4,7 +4,7 @@ import { tokenService, userService } from '../main.js';
 import type { FastifyInstance } from 'fastify';
 
 import crypto from 'crypto';
-import {  int_url } from '@app/shared/api/service/common/endpoints';
+import { int_url } from '@app/shared/api/service/common/endpoints';
 
 const TokenSecretKey = process.env.TOKEN_ENCRYPTION_TOKEN!;
 
@@ -21,11 +21,11 @@ async function tokenRoutes(fastify: FastifyInstance) {
 		const tokenResult = tokenService.fetchUserIdFromToken(hashedToken);
 
 		if (tokenResult.isErr())
-			return reply.status(401).send({ message: tokenResult.unwrapErr() });
+			return reply.status(401).send({ message: tokenResult.unwrapErr().message });
 
 		const userResult = userService.fetchUserById(tokenResult.unwrap());
 		if (userResult.isErr())
-			return reply.status(500).send({ message: userResult.unwrapErr() });
+			return reply.status(500).send({ message: userResult.unwrapErr().message });
 
 		return reply.status(200).send(userResult.unwrap());
 	});
@@ -34,7 +34,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 		const { userId, token } = request.body;
 		const tokenHash = hashToken(token);
 
-		const success = tokenService.storeToken(userId, tokenHash);
+		const success = tokenService.storeOrReplaceToken(userId, tokenHash);
 		if (!success)
 			return reply.status(500).send({ message: 'Failed to store token' });
 
@@ -46,7 +46,7 @@ async function tokenRoutes(fastify: FastifyInstance) {
 
 		const result = tokenService.removeTokenByUserId(userId);
 		if (result.isErr()) {
-			return reply.status(500).send({ message: result.unwrapErr() });
+			return reply.status(500).send({ message: result.unwrapErr().message });
 		}
 
 		return reply.status(200).send(null);

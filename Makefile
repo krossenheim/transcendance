@@ -69,11 +69,11 @@ NC := \033[0m  # No Color (reset)
 
 debug:
 	@echo -e "=============================="
-# 	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
-# 	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
-# 	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
-# 	rm -rf $(VOLUMES_DIR)database/users.db
-# 	rm -rf $(VOLUMES_DIR)database/pfps
+	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
+	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
+	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
+	rm -rf $(VOLUMES_DIR)database/users.db
+	rm -rf $(VOLUMES_DIR)database/pfps
 
 # Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
 HARDHAT_IMAGE_TAG := hardhat:local
@@ -182,5 +182,9 @@ re-front:
 
 list:
 	docker ps -a
+
+fix_deps:
+	npm install -D syncpack
+	npx syncpack fix
 
 .PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps check-system-deps check-npm-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed

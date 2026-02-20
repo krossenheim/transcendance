@@ -1,7 +1,14 @@
+export class UnwrapError<E> extends Error {
+  constructor(public readonly error: E, message?: string) {
+    super(message || `Unwrapped the wrong variant of Result`);
+    Object.setPrototypeOf(this, UnwrapError.prototype);
+  }
+}
+
 export class Result<T, E> {
   private constructor(
     private readonly inner: { ok: true; value: T } | { ok: false; error: E }
-  ) {}
+  ) { }
 
   static Ok<T>(value: T): Result<T, never> {
     return new Result<T, never>({ ok: true, value });
@@ -21,12 +28,17 @@ export class Result<T, E> {
 
   unwrap(): T {
     if (this.inner.ok) return this.inner.value;
-    throw new Error(`Tried to unwrap Err with value ${this.inner.error}`);
+    throw new UnwrapError<E>(this.inner.error);
+  }
+
+  expect(message: string): T {
+    if (this.inner.ok) return this.inner.value;
+    throw new UnwrapError<E>(this.inner.error, message);
   }
 
   unwrapErr(): E {
     if (!this.inner.ok) return this.inner.error;
-    throw new Error(`Tried to unwrap Ok with value ${this.inner.value}`);
+    throw new UnwrapError<T>(this.inner.value);
   }
 
   unwrapOr<D>(defaultValue: D): T | D {
@@ -38,8 +50,47 @@ export class Result<T, E> {
     return Result.Err(this.inner.error);
   }
 
+  flatMap<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
+    if (this.inner.ok) return fn(this.inner.value);
+    return Result.Err(this.inner.error);
+  }
+
   mapErr<F>(fn: (error: E) => F): Result<T, F> {
     if (this.inner.ok) return Result.Ok(this.inner.value);
     return Result.Err(fn(this.inner.error));
+  }
+
+  flatMapErr<F>(fn: (error: E) => Result<T, F>): Result<T, F> {
+    if (this.inner.ok) return Result.Ok(this.inner.value);
+    return fn(this.inner.error);
+  }
+
+  static safeTry<T, E>(fn: () => Result<T, E> | T, errorMapper: (e: unknown) => E): Result<T, E> {
+    try {
+      const result = fn();
+      if (result instanceof Result) {
+        return result;
+      }
+      return Result.Ok(result);
+    } catch (e) {
+      if (e instanceof UnwrapError) {
+        return Result.Err(e.error as E);
+      }
+      return Result.Err(errorMapper(e));
+    }
+  }
+
+  static safeTryAsync<T, E>(fn: () => Promise<Result<T, E> | T>, errorMapper: (e: unknown) => E): Promise<Result<T, E>> {
+    return fn().then(result => {
+      if (result instanceof Result) {
+        return result;
+      }
+      return Result.Ok(result);
+    }).catch(e => {
+      if (e instanceof UnwrapError) {
+        return Result.Err(e.error as E);
+      }
+      return Result.Err(errorMapper(e));
+    });
   }
 }

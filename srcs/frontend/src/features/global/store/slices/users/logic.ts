@@ -1,3 +1,4 @@
+import type { UserNotificationsType } from "@app/shared/api/service/db/notification";
 import { UserFriendshipStatusEnum } from "@app/shared/api/service/db/friendship";
 import { FriendType } from "@app/shared/api/service/db/user";
 
@@ -35,10 +36,26 @@ function getBlockedListFromRelationships(relationships: FriendType[]): Set<numbe
     return blockedSet;
 }
 
+function removePendingFriendRequestFromUser(notifications: UserNotificationsType, userId: number): UserNotificationsType {
+    return {
+        ...notifications,
+        pendingFriendRequests: notifications.pendingFriendRequests.filter(fr => fr.id !== userId)
+    };
+}
+
+function removePendingRoomInviteFromUser(notifications: UserNotificationsType, roomId: number): UserNotificationsType {
+    return {
+        ...notifications,
+        pendingRoomInvites: notifications.pendingRoomInvites.filter(invite => invite.roomId !== roomId)
+    };
+}
+
 export {
     normalizeUserRelationships,
     addToSet,
     removeFromSet,
     getFriendListFromRelationships,
-    getBlockedListFromRelationships
+    getBlockedListFromRelationships,
+    removePendingFriendRequestFromUser,
+    removePendingRoomInviteFromUser,
 };

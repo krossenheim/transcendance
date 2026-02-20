@@ -104,6 +104,7 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 	}
 
 	const user: FullUserType = parse.data;
+	console.log('Login successful for user:', user.username, 'ID:', user.id, 'user data:', user);
 
 	// Check if user has 2FA enabled
 	if (user.has2FA) {

@@ -12,16 +12,16 @@ export enum UserAccountType {
 export const Friend = z.object({
 	id: userIdValue,
 	friendId: userIdValue,
+	createdAt: z.number(),
 	username: z.string(),
 	alias: z.string().nullable(),
 	bio: z.string().nullable(),
 	avatarUrl: z.string().nullable(),
 	status: UserFriendshipStatus,
-	createdAt: z.number(),
 	onlineStatus: z.number().optional()
 }).strict();
 
-export const User = z.object({
+export const BaseUser = z.object({
 	id: userIdValue,
 	createdAt: z.number(),
 	username: z.string(),
@@ -30,8 +30,11 @@ export const User = z.object({
 	bio: z.string().nullable(),
 	accountType: z.enum(UserAccountType),
 	avatarUrl: z.string().nullable(),
-	gameResults: GameResultsWidget.nullable(),
-	has2FA: z.coerce.boolean().optional(),
+	has2FA: z.coerce.boolean(),
+}).strict();
+
+export const User = BaseUser.extend({
+	gameResults: GameResultsWidget.nullable()
 }).strict();
 
 export const PublicUserData = User.omit({
@@ -68,6 +71,7 @@ export const UpdateUserData = z.object({
 
 export type FriendType = z.infer<typeof Friend>;
 export type UserType = z.infer<typeof User>;
+export type BaseUserType = z.infer<typeof BaseUser>;
 export type FullUserType = z.infer<typeof FullUser>;
 export type UserAuthDataType = z.infer<typeof UserAuthData>;
 export type GetUserType = z.infer<typeof GetUser>;

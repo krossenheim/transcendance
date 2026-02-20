@@ -39,7 +39,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const { username, password } = request.body;
 		const userResult = userService.fetchAuthUserDataFromUsername(username);
 		if (userResult.isErr())
-			return reply.status(401).send({ message: userResult.unwrapErr() });
+			return reply.status(401).send({ message: userResult.unwrapErr().message });
 
 		const user = userResult.unwrap();
 		if (!isUserAllowedToLogin(user))
@@ -53,7 +53,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		console.log('User data:', outUser);
 		if (outUser.isErr()) {
 			console.error('Error fetching user:', outUser.unwrapErr());
-			return reply.status(500).send({ message: outUser.unwrapErr() });
+			return reply.status(500).send({ message: outUser.unwrapErr().message });
 		}
 
 		return reply.status(200).send(outUser.unwrap());
@@ -64,17 +64,17 @@ async function userRoutes(fastify: FastifyInstance) {
 		const userResult = userService.fetchUserById(userId);
 
 		if (userResult.isErr())
-			return reply.status(404).send({ message: userResult.unwrapErr() });
+			return reply.status(404).send({ message: userResult.unwrapErr().message });
 		else
 			return reply.status(200).send(userResult.unwrap());
 	});
 
 	registerRoute(fastify, int_url.http.db.searchUserByUsername, async (request, reply) => {
 		const { username } = request.params;
-		const userResult = userService.fetchUserFromUsername(username);
+		const userResult = userService.fetchUserByUsername(username);
 
 		if (userResult.isErr())
-			return reply.status(404).send({ message: userResult.unwrapErr() });
+			return reply.status(404).send({ message: userResult.unwrapErr().message });
 		else
 			return reply.status(200).send(userResult.unwrap());
 	});
@@ -82,11 +82,11 @@ async function userRoutes(fastify: FastifyInstance) {
 	registerRoute(fastify, int_url.http.db.createNormalUser, async (request, reply) => {
 		const { username, email, password } = request.body;
 		console.log("Creating user:", username, email);
-		
+
 		const userResult = await userService.createNewUser(username, email, await hashPassword(password), UserAccountType.User);
 
 		if (userResult.isErr())
-			return reply.status(400).send({ message: userResult.unwrapErr() });
+			return reply.status(400).send({ message: userResult.unwrapErr().message });
 
 		return reply.status(201).send(userResult.unwrap());
 	});
@@ -95,7 +95,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const userResult = await userService.createNewGuestUser();
 
 		if (userResult.isErr())
-			return reply.status(500).send({ message: userResult.unwrapErr() });
+			return reply.status(500).send({ message: userResult.unwrapErr().message });
 		else
 			return reply.status(201).send(userResult.unwrap());
 	});
@@ -117,7 +117,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const connectionsResult = userService.fetchUserFriendlist(userId);
 
 		if (connectionsResult.isErr())
-			return reply.status(500).send({ message: connectionsResult.unwrapErr() });
+			return reply.status(500).send({ message: connectionsResult.unwrapErr().message });
 		else
 			return reply.status(200).send(connectionsResult.unwrap());
 	});
@@ -132,7 +132,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		}
 
 		if (results.some((result) => result.isErr()))
-			return reply.status(400).send({ message: results.find((result) => result.isErr())?.unwrapErr() || "Unknown Error" });
+			return reply.status(400).send({ message: results.find((result) => result.isErr())?.unwrapErr().message || "Unknown Error" });
 		else
 			return reply.status(200).send(null);
 	});
@@ -142,7 +142,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const updateResult = await userService.updateUserData(userId, bio, alias, email, pfp);
 
 		if (updateResult.isErr())
-			return reply.status(400).send({ message: updateResult.unwrapErr() });
+			return reply.status(400).send({ message: updateResult.unwrapErr().message });
 		else
 			return reply.status(200).send(updateResult.unwrap());
 	});
@@ -152,7 +152,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const notificationsResult = userService.fetchUserNotifications(userId);
 
 		if (notificationsResult.isErr())
-			return reply.status(500).send({ message: notificationsResult.unwrapErr() });
+			return reply.status(500).send({ message: notificationsResult.unwrapErr().message });
 		else
 			return reply.status(200).send(notificationsResult.unwrap());
 	});
@@ -163,7 +163,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const anonResult = await userService.anonymizeUser(userId);
 
 		if (anonResult.isErr())
-			return reply.status(400).send({ message: anonResult.unwrapErr() });
+			return reply.status(400).send({ message: anonResult.unwrapErr().message });
 		else
 			return reply.status(200).send(anonResult.unwrap());
 	});
@@ -174,7 +174,7 @@ async function userRoutes(fastify: FastifyInstance) {
 		const delResult = await userService.deleteUser(userId);
 
 		if (delResult.isErr())
-			return reply.status(400).send({ message: delResult.unwrapErr() });
+			return reply.status(400).send({ message: delResult.unwrapErr().message });
 		else
 			return reply.status(200).send(null);
 	});
@@ -183,17 +183,17 @@ async function userRoutes(fastify: FastifyInstance) {
 		const { userId } = request.params;
 		const userResult = userService.fetchUserById(userId);
 		if (userResult.isErr())
-			return reply.status(404).send({ message: userResult.unwrapErr() });
+			return reply.status(404).send({ message: userResult.unwrapErr().message });
 		const gameResults = userService.fetchUserGameResults(userId);
 		if (gameResults.isErr())
-			return reply.status(500).send({ message: gameResults.unwrapErr() });
+			return reply.status(500).send({ message: gameResults.unwrapErr().message });
 		return reply.status(200).send(gameResults.unwrap());
 	});
 
 	registerRoute(fastify, int_url.http.db.storePongGameResults, async (request, reply) => {
 		const StorageResult = await userService.storeGameResults(request.body);
 		if (StorageResult.isErr())
-			return reply.status(500).send({ message: StorageResult.unwrapErr() });
+			return reply.status(500).send({ message: StorageResult.unwrapErr().message });
 		return reply.status(200).send(null);
 	});
 }

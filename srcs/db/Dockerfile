@@ -56,7 +56,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/dist/srcs/${SERVICE_NAME}/src ./dist
 COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/entrypoint.sh ./entrypoint.sh
-COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/structure.sql ./structure.sql
+COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/sql/ ./sql/
 RUN chmod +x ./entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]

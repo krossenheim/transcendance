@@ -44,9 +44,7 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                 getSocketSenderRef()(user_url.ws.users.confirmFriendship, userId);
 
                 set((state) => {
-                    state.users.data.notifications.pendingFriendRequests = state.users.data.notifications.pendingFriendRequests.filter(
-                        (req: PendingFriendshipRequestType) => req.fromUserId !== userId
-                    );
+                    state.users.data.notifications = logic.removePendingFriendRequestFromUser(state.users.data.notifications, userId);
                 });
             },
 
@@ -54,9 +52,7 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                 getSocketSenderRef()(user_url.ws.users.denyFriendship, userId);
 
                 set((state) => {
-                    state.users.data.notifications.pendingFriendRequests = state.users.data.notifications.pendingFriendRequests.filter(
-                        (req: PendingFriendshipRequestType) => req.fromUserId !== userId
-                    );
+                    state.users.data.notifications = logic.removePendingFriendRequestFromUser(state.users.data.notifications, userId);
                 });
             },
 
@@ -64,9 +60,7 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                 getSocketSenderRef()(user_url.ws.chat.joinRoom, { roomId });
 
                 set((state) => {
-                    state.users.data.notifications.pendingRoomInvites = state.users.data.notifications.pendingRoomInvites.filter(
-                        (invite: TypeRoomSchema) => invite.roomId !== roomId
-                    );
+                    state.users.data.notifications = logic.removePendingRoomInviteFromUser(state.users.data.notifications, roomId);
                 })
             },
 
