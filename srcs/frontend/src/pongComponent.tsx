@@ -840,12 +840,33 @@ export default function PongComponent({
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
+    // Clear pressed keys when window loses focus (fixes stuck keys after alt-tab)
+    function handleFocusLost() {
+      if (keysPressed.size === 0) return
+      keysPressed.clear()
+      setPressedKeys([])
+      if (gameState?.board_id) {
+        handleUserInput(user_url.ws.pong.handleGameKeys, {
+          board_id: gameState.board_id,
+          pressed_keys: [],
+        })
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) handleFocusLost()
+    }
+
     window.addEventListener("keydown", handleKeyDown)
     window.addEventListener("keyup", handleKeyUp)
+    window.addEventListener("blur", handleFocusLost)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
+      window.removeEventListener("blur", handleFocusLost)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [gameState, handleUserInput, playerOnePaddleID])
 
@@ -886,12 +907,33 @@ export default function PongComponent({
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
+    // Clear pressed keys when window loses focus (fixes stuck keys after alt-tab)
+    function handleFocusLost() {
+      if (keysPressed.size === 0) return
+      keysPressed.clear()
+      setPressedKeys([])
+      if (gameState?.board_id) {
+        handleUserInput(user_url.ws.pong.handleGameKeys, {
+          board_id: gameState.board_id,
+          pressed_keys: [],
+        })
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) handleFocusLost()
+    }
+
     window.addEventListener("keydown", handleKeyDown)
     window.addEventListener("keyup", handleKeyUp)
+    window.addEventListener("blur", handleFocusLost)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
+      window.removeEventListener("blur", handleFocusLost)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [gameState, handleUserInput, playerTwoPaddleID])
 
