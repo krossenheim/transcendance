@@ -94,10 +94,11 @@ export function getPaddleColorCSS(paddleId: number, darkMode = true): string {
 interface BabylonPongRendererProps {
   gameState: TypeGameStateSchema | null
   darkMode?: boolean
+  gameMode?: string | null
 }
 
 const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
-  { gameState, darkMode = true, paddleRotationOffset = PADDLE_ROTATION_OFFSET }: BabylonPongRendererProps & { paddleRotationOffset?: number },
+  { gameState, darkMode = true, gameMode = null, paddleRotationOffset = PADDLE_ROTATION_OFFSET }: BabylonPongRendererProps & { paddleRotationOffset?: number },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -745,20 +746,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
     }
 
-    // Update wall colors (preserve player colors for eliminated players' walls)
+    // Update wall colors (preserve player colors for eliminated players' walls in lastOneStanding mode)
     edgesRef.current.forEach((wall) => {
       if (wall.material) {
         const wallMat = wall.material as StandardMaterial
-        const wallPlayerId = (wall as any).metadata?.wallPlayerId
-        if (wallPlayerId != null && typeof wallPlayerId === 'number') {
-          // Use the player's color for eliminated player's goal wall
-          const playerColor = getUserColorBabylon(wallPlayerId)
-          wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
-          wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
-        } else {
-          wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
-          wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
-        }
+        // Default wall color - don't color based on playerId unless in lastOneStanding mode
+        wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
+        wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
       }
     })
 
@@ -871,9 +865,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           wall.position.y = wallHeight / 2 - 0.1 // Sunk slightly
 
           const wallMat = new StandardMaterial(`wallMat_${i}`, scene)
-          // Check if this wall belongs to an eliminated player (has playerId)
+          // Only color walls with player colors in lastOneStanding mode for eliminated players
           const wallPlayerId = p1.playerId
-          if (wallPlayerId != null && typeof wallPlayerId === 'number') {
+          const activePaddleOwnerIds = new Set(gameState.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
+          const isEliminatedPlayerWall = wallPlayerId != null && typeof wallPlayerId === 'number' && !activePaddleOwnerIds.has(wallPlayerId)
+          if (gameMode === 'lastOneStanding' && isEliminatedPlayerWall) {
             // Use the player's color for eliminated player's goal wall
             const playerColor = getUserColorBabylon(wallPlayerId)
             wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)

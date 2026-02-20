@@ -283,6 +283,61 @@ export default function PongComponent({
     tournamentRef.current = tournament
   }, [tournament])
 
+  // Ref for authResponse to use in stable subscriptions
+  const authResponseRef = useRef(authResponse)
+  useEffect(() => {
+    authResponseRef.current = authResponse
+  }, [authResponse])
+
+  // Ref for currentView to use in stable subscriptions
+  const currentViewRef = useRef(currentView)
+  useEffect(() => {
+    currentViewRef.current = currentView
+  }, [currentView])
+
+  // STABLE subscription for togglePlayerReady (separate from main effect to avoid missing messages during resubscription)
+  useEffect(() => {
+    if (!subscribe) return;
+    
+    const unsubscribe = subscribe(user_url.ws.pong.togglePlayerReady, (message, schema) => {
+      console.log("[Pong-Stable] Received togglePlayerReady:", message.code);
+      
+      if (message.code === schema.output.LobbyUpdate.code) {
+        const lobbyData = message.payload;
+        const currentAuth = authResponseRef.current;
+        if (currentAuth && lobbyData.players.some((p: any) => 
+          p.userId === currentAuth.user.id || p.id === currentAuth.user.id
+        )) {
+          setLobby({
+            lobbyId: lobbyData.lobbyId,
+            gameMode: lobbyData.gameMode,
+            players: lobbyData.players.map((p: any) => ({
+              id: p.userId || p.id,
+              username: p.username,
+              isReady: p.isReady,
+              isHost: p.isHost,
+            })),
+            settings: {
+              ballCount: lobbyData.ballCount ?? 1,
+              maxScore: lobbyData.maxScore ?? 5,
+              allowPowerups: lobbyData.allowPowerups ?? false,
+            },
+            status: lobbyData.status,
+          });
+          
+          if (currentViewRef.current === "menu") {
+            setCurrentView("lobby");
+          }
+        }
+        return HandlerResult.Handled;
+      }
+      
+      return HandlerResult.NotHandled;
+    });
+    
+    return () => unsubscribe();
+  }, [subscribe, setLobby, setCurrentView]);
+
   // STABLE subscription for tournament state updates (separate from main effect to avoid resubscribing on view changes)
   useEffect(() => {
     if (!subscribe) return;
@@ -587,41 +642,8 @@ export default function PongComponent({
       return HandlerResult.NotHandled;
     }));
     
-    // Subscribe to togglePlayerReady
-    unsubscribers.push(subscribe(user_url.ws.pong.togglePlayerReady, (message, schema) => {
-      console.log("[Pong] Received togglePlayerReady:", message.code);
-      
-      if (message.code === schema.output.LobbyUpdate.code) {
-        const lobbyData = message.payload;
-        if (authResponse && lobbyData.players.some((p: any) => 
-          p.userId === authResponse.user.id || p.id === authResponse.user.id
-        )) {
-          setLobby({
-            lobbyId: lobbyData.lobbyId,
-            gameMode: lobbyData.gameMode,
-            players: lobbyData.players.map((p: any) => ({
-              id: p.userId || p.id,
-              username: p.username,
-              isReady: p.isReady,
-              isHost: p.isHost,
-            })),
-            settings: {
-              ballCount: lobbyData.ballCount ?? 1,
-              maxScore: lobbyData.maxScore ?? 5,
-              allowPowerups: lobbyData.allowPowerups ?? false,
-            },
-            status: lobbyData.status,
-          });
-          
-          if (currentView === "menu") {
-            setCurrentView("lobby");
-          }
-        }
-        return HandlerResult.Handled;
-      }
-      
-      return HandlerResult.NotHandled;
-    }));
+    // NOTE: togglePlayerReady subscription has been moved to a STABLE useEffect above
+    // to prevent missing messages during subscription churn
     
     // Subscribe to startFromLobby
     unsubscribers.push(subscribe(user_url.ws.pong.startFromLobby, (message, schema) => {
@@ -1269,6 +1291,7 @@ export default function PongComponent({
                 ref={rendererRef}
                 gameState={predictedGameState || gameState}
                 darkMode={darkMode}
+                gameMode={lobby?.gameMode ?? null}
                 paddleRotationOffset={paddleRotationOffset}
               />
             )}

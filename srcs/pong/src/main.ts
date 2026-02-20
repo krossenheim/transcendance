@@ -279,9 +279,9 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
   const toggleResult = lobbyManager.togglePlayerReady(lobbyId, user_id);
 
   if (toggleResult.isErr()) {
-    response.select("NotInLobby").reply({
+    return Result.Ok(response.select("NotInLobby").reply({
       message: toggleResult.unwrapErr().message,
-    });
+    }));
   }
 
   const lobby = toggleResult.unwrap();
@@ -494,6 +494,45 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
   }
 
   console.log(`[Pong] Tournament match ${matchId} started with game ${gameId}, players: ${playerIds.join(', ')}`);
+
+  // Broadcast tournament state update to all tournament players so they can spectate
+  const allTournamentPlayerIds = tournament.players.map(p => p.userId);
+  const spectatorIds = allTournamentPlayerIds.filter(id => !playerIds.includes(id));
+  
+  if (spectatorIds.length > 0) {
+    const tournamentData = {
+      tournamentId: tournament.tournamentId,
+      name: tournament.name,
+      mode: tournament.mode,
+      players: tournament.players,
+      matches: tournament.matches,
+      currentRound: tournament.currentRound,
+      totalRounds: tournament.totalRounds,
+      status: tournament.status,
+      winnerId: tournament.winnerId,
+      ballCount: tournament.ballCount,
+      maxScore: tournament.maxScore,
+      onchainTxHashes: tournament.onchainTxHashes || [],
+    };
+
+    for (const playerId of spectatorIds) {
+      const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
+      
+      socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
+        recipients: [playerId],
+        code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
+        payload: {
+          tournamentId,
+          matchId,
+          winnerId: null, // No winner yet - match just started
+          loserId: null,
+          tournament: tournamentData,
+          nextMatch: nextMatch,
+          isTournamentComplete: false,
+        },
+      });
+    }
+  }
 
   // Return game state to both players
   return Result.Ok({
