@@ -37,6 +37,7 @@ export class PongPaddle extends MultiObject {
 	private readonly basePaddleSpeed: number;
 	private boardPaddleSpeed: number;
 	private reverseControls: boolean = false;
+	private isTopHalf: boolean = false;
 
 	constructor(center: Vec2, width: number, height: number, paddleDirection: Vec2, protectedWallWidth: number, paddleSpeedFactor: number, walls: LineObject[] = [], playerId: number) {
 		const halfWidth = width / 2;
@@ -140,6 +141,7 @@ export class PongPaddle extends MultiObject {
 		if (ENABLE_PADDLE_LOGS) console.log("Paddle bounds:", this.bounds, this.getCenter());
 
 		const isTopHalf = (new Vec2(0, -1).dot(paddleDirection) > 0);
+		this.isTopHalf = isTopHalf;
 		this.keyData = [
 			{ key: "arrowleft", isPressed: false, isClockwise: !isTopHalf },
 			{ key: "arrowright", isPressed: false, isClockwise: isTopHalf },
@@ -241,10 +243,16 @@ export class PongPaddle extends MultiObject {
 	}
 
 	public addLeftKey(key: string): void {
-		this.keyData.push({ key: key, isPressed: false, isClockwise: true });
+		// "left" means counter-clockwise visually
+		// For top-half paddles: left = counter-clockwise = isClockwise: false
+		// For bottom-half paddles: left = counter-clockwise = isClockwise: true
+		this.keyData.push({ key: key, isPressed: false, isClockwise: !this.isTopHalf });
 	}
 
 	public addRightKey(key: string): void {
-		this.keyData.push({ key: key, isPressed: false, isClockwise: false });
+		// "right" means clockwise visually
+		// For top-half paddles: right = clockwise = isClockwise: true
+		// For bottom-half paddles: right = clockwise = isClockwise: false
+		this.keyData.push({ key: key, isPressed: false, isClockwise: this.isTopHalf });
 	}
 }

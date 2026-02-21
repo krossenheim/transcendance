@@ -229,6 +229,9 @@ export const es = {
     numberOfBalls: 'Número de bolas',
     maxScore: 'Puntuación máxima',
     enablePowerups: 'Activar potenciadores (experimental)',
+    aiPlayers: 'Jugadores IA',
+    aiDescription: 'Añadir oponentes IA que predicen el movimiento de la pelota y usan potenciadores',
+    ai: 'IA',
     createGame: 'Crear partida',
     // Pong Lobby
     gameLobby: 'Sala de juego',

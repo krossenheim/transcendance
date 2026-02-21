@@ -20,6 +20,7 @@ export interface GameSettings {
   ballCount: number
   maxScore: number
   allowPowerups: boolean
+  aiCount: number
 }
 
 export default function PongInviteModal({
@@ -35,6 +36,7 @@ export default function PongInviteModal({
   const [ballCount, setBallCount] = useState(1)
   const [maxScore, setMaxScore] = useState(5)
   const [allowPowerups, setAllowPowerups] = useState(true)
+  const [aiCount, setAiCount] = useState(0)
 
   // Get room users from pong store (set by ChatHeader)
   const storeInviteRoomUsers = usePongStore((state) => state.inviteRoomUsers)
@@ -108,26 +110,29 @@ export default function PongInviteModal({
   const handleCreateGame = () => {
     // Always include current user
     const players = [currentUserId, ...selectedPlayers]
+    
+    // Total player count includes human players + AI players
+    const totalPlayerCount = players.length + aiCount
 
     // Validate player count based on game mode
     // 1v1 allows just the host (second player is local guest on same keyboard)
 
-    if (gameMode === "tournament" && players.length < 4) {
+    if (gameMode === "tournament" && totalPlayerCount < 4) {
       alert(t('pong.alertTournamentPlayers'))
       return
     }
 
-    if (gameMode === "multiplayer" && players.length < 2) {
+    if (gameMode === "multiplayer" && totalPlayerCount < 2) {
       alert(t('pong.alertMultiplayerPlayers'))
       return
     }
 
-    if (gameMode === "lastOneStanding" && players.length < 2) {
+    if (gameMode === "lastOneStanding" && totalPlayerCount < 2) {
       alert(t('pong.alertLastOneStandingMin'))
       return
     }
 
-    if (gameMode === "lastOneStanding" && players.length > 8) {
+    if (gameMode === "lastOneStanding" && totalPlayerCount > 8) {
       alert(t('pong.alertLastOneStandingMax'))
       return
     }
@@ -136,6 +141,7 @@ export default function PongInviteModal({
       ballCount,
       maxScore,
       allowPowerups,
+      aiCount,
     }
 
     onCreateGame(gameMode, players, settings)
@@ -292,7 +298,8 @@ export default function PongInviteModal({
               )}
             </div>
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {t('pong.selectedPlayers')}: {selectedPlayers.length + 1} {t('pong.players')}
+              {t('pong.selectedPlayers')}: {selectedPlayers.length + 1 + aiCount} {t('pong.players')}
+              {aiCount > 0 && <span className="ml-1">({aiCount} 🤖)</span>}
             </div>
           </div>
 
@@ -339,6 +346,22 @@ export default function PongInviteModal({
                 <label htmlFor="powerups" className="text-sm text-gray-700 dark:text-gray-300">
                   {t('pong.enablePowerups')}
                 </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  🤖 {t('pong.aiPlayers')}: {aiCount}
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  value={aiCount}
+                  onChange={(e) => setAiCount(Number(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {t('pong.aiDescription')}
+                </p>
               </div>
             </div>
           </div>

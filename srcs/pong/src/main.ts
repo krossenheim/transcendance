@@ -205,10 +205,10 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => 
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   const user_id = body.userId;
-  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups } = body.payload;
+  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups, aiCount } = body.payload;
 
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
-  console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}`);
+  console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}, aiCount=${aiCount || 0}`);
 
   // Create the lobby
   const lobbyResult = lobbyManager.createLobby(
@@ -217,7 +217,8 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
     playerUsernames || {},
     ballCount,
     maxScore,
-    allowPowerups || false
+    allowPowerups || false,
+    aiCount || 0
   );
 
   if (lobbyResult.isErr()) {
@@ -265,6 +266,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
     ballCount: lobby.ballCount,
     maxScore: lobby.maxScore,
     allowPowerups: lobby.allowPowerups,
+    aiCount: lobby.aiCount,
     status: lobby.status,
   };
   if (tournamentPayload) responsePayload.tournament = tournamentPayload;
@@ -300,6 +302,7 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
       maxScore: lobby.maxScore,
       allowPowerups: lobby.allowPowerups,
       status: lobby.status,
+      aiCount: lobby.aiCount || 0,
     }
   ));
 });
@@ -670,11 +673,22 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     console.log(`[Pong] Added guest player for local 1v1 mode`);
   }
   
+  // Add AI players if requested
+  const AI_PLAYER_ID_BASE = -1001; // AI players use IDs -1001 to -1005
+  const aiPlayerIds: number[] = [];
+  for (let i = 0; i < (lobby.aiCount || 0); i++) {
+    const aiId = AI_PLAYER_ID_BASE - i;
+    playerIds.push(aiId);
+    aiPlayerIds.push(aiId);
+    console.log(`[Pong] Added AI player ${i + 1} with ID ${aiId}`);
+  }
+  
   const gameResult = singletonPong.startGame(
     playerIds, 
     createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups, lobby.maxScore),
     tournamentId,
-    matchId
+    matchId,
+    aiPlayerIds // Pass AI player IDs so pongManager can set up AI controllers
   );
 
   if (gameResult.isErr()) {

@@ -321,6 +321,7 @@ export default function PongComponent({
               ballCount: lobbyData.ballCount ?? 1,
               maxScore: lobbyData.maxScore ?? 5,
               allowPowerups: lobbyData.allowPowerups ?? false,
+              aiCount: lobbyData.aiCount ?? 0,
             },
             status: lobbyData.status,
           });
@@ -534,7 +535,15 @@ export default function PongComponent({
                 ]);
               }
             } else {
-              setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+              // Add human players
+              const allPlayers = lobby.players.map(p => ({ id: p.id, username: p.username }));
+              // Add AI players if present
+              const aiCount = lobby.aiCount || 0;
+              for (let i = 0; i < aiCount; i++) {
+                const aiId = -1001 - i; // AI IDs are -1001, -1002, etc.
+                allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
+              }
+              setDebugPlayers(allPlayers);
             }
           }
           setLobby(null);
@@ -596,6 +605,7 @@ export default function PongComponent({
               ballCount: message.payload.ballCount ?? 1,
               maxScore: message.payload.maxScore ?? 5,
               allowPowerups: message.payload.allowPowerups ?? false,
+              aiCount: message.payload.aiCount ?? 0,
             },
             status: message.payload.status,
           });
@@ -678,7 +688,15 @@ export default function PongComponent({
               ]);
             }
           } else {
-            setDebugPlayers(lobby.players.map(p => ({ id: p.id, username: p.username })));
+            // Add human players
+            const allPlayers = lobby.players.map(p => ({ id: p.id, username: p.username }));
+            // Add AI players if present
+            const aiCount = lobby.aiCount || 0;
+            for (let i = 0; i < aiCount; i++) {
+              const aiId = -1001 - i; // AI IDs are -1001, -1002, etc.
+              allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
+            }
+            setDebugPlayers(allPlayers);
           }
         }
         setLobby(null);
@@ -774,6 +792,7 @@ export default function PongComponent({
           ballCount: storedLobbyData.ballCount ?? 1,
           maxScore: storedLobbyData.maxScore ?? 5,
           allowPowerups: storedLobbyData.allowPowerups ?? false,
+          aiCount: storedLobbyData.aiCount ?? 0,
         },
         status: storedLobbyData.status,
       })
@@ -963,6 +982,7 @@ export default function PongComponent({
           ballCount: settings.ballCount,
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
+          aiCount: settings.aiCount,
         },
         status: "waiting",
       }
@@ -986,6 +1006,7 @@ export default function PongComponent({
           ballCount: settings.ballCount,
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
+          aiCount: settings.aiCount,
         },
         target_container: "pong",
       }

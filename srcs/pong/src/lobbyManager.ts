@@ -34,6 +34,7 @@ export interface Lobby {
   ballCount: number;
   maxScore: number;
   allowPowerups: boolean;
+  aiCount: number; // Number of AI players (0-5)
   status: "waiting" | "starting" | "in_progress";
   gameId?: number; // Set when game starts
   tournamentId?: number; // Set if this is a tournament
@@ -56,7 +57,8 @@ export class LobbyManager {
     playerUsernames: { [key: number]: string },
     ballCount: number,
     maxScore: number,
-    allowPowerups: boolean = false
+    allowPowerups: boolean = false,
+    aiCount: number = 0
   ): Result<Lobby, ErrorResponseType> {
     if (playerIds.length < 1) {
       return ResultClass.Err({ message: "Lobby requires at least 1 player" });
@@ -84,6 +86,7 @@ export class LobbyManager {
       ballCount,
       maxScore,
       allowPowerups,
+      aiCount: Math.min(5, Math.max(0, aiCount)), // Clamp between 0-5
       status: "waiting",
     };
 
@@ -123,8 +126,10 @@ export class LobbyManager {
     const allReady = lobby.players.every((p) => p.isReady);
     // 1v1 local mode allows just 1 player (second is local guest on same keyboard)
     const minPlayers = lobby.gameMode === "1v1" ? 1 : 2;
+    // Total players includes humans + AI
+    const totalPlayers = lobby.players.length + (lobby.aiCount || 0);
 
-    return ResultClass.Ok(allReady && lobby.players.length >= minPlayers);
+    return ResultClass.Ok(allReady && totalPlayers >= minPlayers);
   }
 
   startGame(

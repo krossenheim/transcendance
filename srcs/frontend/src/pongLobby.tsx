@@ -19,6 +19,7 @@ export interface PongLobbyData {
     ballCount: number
     maxScore: number
     allowPowerups: boolean
+    aiCount?: number
   }
   status: "waiting" | "starting" | "in_progress"
 }
@@ -46,6 +47,10 @@ export default function PongLobby({
   const isHost = currentPlayer?.isHost || false
   const allReady = lobby.players.every((p) => p.isReady)
   
+  // Total players includes humans + AI
+  const aiCount = lobby.settings.aiCount ?? 0
+  const totalPlayerCount = lobby.players.length + aiCount
+  
   // Minimum players based on game mode
   const getMinPlayers = () => {
     switch (lobby.gameMode) {
@@ -62,7 +67,7 @@ export default function PongLobby({
     }
   }
   const minPlayers = getMinPlayers()
-  const canStart = isHost && allReady && lobby.players.length >= minPlayers
+  const canStart = isHost && allReady && totalPlayerCount >= minPlayers
 
   const getGameModeLabel = () => {
     switch (lobby.gameMode) {
@@ -102,7 +107,7 @@ export default function PongLobby({
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
           {t('pong.gameSettings')}
         </h3>
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-4 gap-4 text-sm">
           <div>
             <span className="text-gray-600 dark:text-gray-400">{t('pong.balls')}:</span>{" "}
             <span className="font-semibold text-gray-800 dark:text-gray-200">
@@ -121,6 +126,14 @@ export default function PongLobby({
               {lobby.settings.allowPowerups ? t('common.yes') : t('common.no')}
             </span>
           </div>
+          {(lobby.settings.aiCount ?? 0) > 0 && (
+            <div>
+              <span className="text-gray-600 dark:text-gray-400">🤖 {t('pong.ai')}:</span>{" "}
+              <span className="font-semibold text-gray-800 dark:text-gray-200">
+                {lobby.settings.aiCount}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { Result } from "@app/shared/api/service/common/result";
 import { PongGame, PongGameOptions, PowerupType } from "./game/game";
 import { OurSocket } from "@app/shared/socket_to_hub";
 import containers from "@app/shared/internal_api";
+import { AIManager, AIDifficulty } from "./aiController.js";
 
 // Input with timestamp for lag compensation
 type TimestampedInput = {
@@ -26,6 +27,8 @@ type gameDataType = {
   matchId?: number;
   // Spectators watching this game
   spectators: number[];
+  // AI player management
+  aiManager: AIManager;
 };
 
 const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
@@ -99,6 +102,20 @@ export class PongManager {
         continue;
       }
 
+      // Process AI input before simulation
+      if (gameData.aiManager.count > 0) {
+        const gameState = gameData.game.fetchBoardJSON();
+        
+        // Refresh AI game state (only happens once per second per AI)
+        gameData.aiManager.refreshGameStates(gameState);
+        
+        // Apply AI inputs - ALWAYS call handlePressedKeysForPlayer to clear old keys
+        for (const [aiPlayerId, _controller] of gameData.aiManager.getControllers()) {
+          const aiKeys = gameData.aiManager.getAIKeys(aiPlayerId);
+          gameData.game.handlePressedKeysForPlayer(aiKeys, aiPlayerId);
+        }
+      }
+
       const deltaTime = (now - gameData.last_frame_time) / 1000.0;
       gameData.game.playSimulation(deltaTime);
       gameData.last_frame_time = now;
@@ -119,7 +136,8 @@ export class PongManager {
     players: number[],
     options: PongGameOptions,
     tournamentId?: number,
-    matchId?: number
+    matchId?: number,
+    aiPlayerIds: number[] = []
   ): Result<number, null> {
     let game = new PongGame(players, options);
     
@@ -131,6 +149,19 @@ export class PongManager {
       playerRTT.set(playerId, DEFAULT_RTT_MS);
     }
     
+    // Initialize AI manager
+    const aiManager = new AIManager();
+    for (const aiId of aiPlayerIds) {
+      // Vary difficulty slightly for each AI
+      const difficultyIndex = Math.abs(aiId) % 3;
+      const difficulty = [AIDifficulty.EASY, AIDifficulty.MEDIUM, AIDifficulty.HARD][difficultyIndex] || AIDifficulty.MEDIUM;
+      aiManager.addAI(aiId, difficulty);
+    }
+    
+    if (aiPlayerIds.length > 0) {
+      console.log(`[PongManager] Created game with ${aiPlayerIds.length} AI players: ${aiPlayerIds.join(', ')}`);
+    }
+    
     const gameData: gameDataType = {
       disconnected_players: [],
       ready_players: [],
@@ -140,6 +171,7 @@ export class PongManager {
       playerInputHistory,
       playerRTT,
       spectators: [],
+      aiManager,
     };
     
     // Only set tournament info if provided
@@ -155,12 +187,22 @@ export class PongManager {
     // Check if this is a local 1v1 mode (has guest player with ID -999)
     const GUEST_PLAYER_ID = -999;
     const isLocal1v1 = players.includes(GUEST_PLAYER_ID);
+    // Note: AI players use IDs -1001 and lower (defined in main.ts)
 
     // Register players for O(1) lookup
     for (const playerId of players) {
       this.playerToGame.set(playerId, game.id);
+      const isAI = aiManager.isAI(playerId);
+      
       for (const paddle of game.getPlayerPaddles(playerId)) {
-        if (isLocal1v1) {
+        if (isAI) {
+          // AI players: set up keys that the AI controller will use
+          paddle.clearKeys();
+          paddle.addLeftKey("a");
+          paddle.addLeftKey("arrowleft");
+          paddle.addRightKey("d");
+          paddle.addRightKey("arrowright");
+        } else if (isLocal1v1) {
           // Local 1v1: Clear default keys, Host uses WASD, Guest uses arrows
           paddle.clearKeys();
           if (playerId === GUEST_PLAYER_ID) {

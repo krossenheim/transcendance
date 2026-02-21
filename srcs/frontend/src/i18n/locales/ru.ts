@@ -231,6 +231,9 @@ export const ru: TranslationKeys = {
     numberOfBalls: 'Количество мячей',
     maxScore: 'Максимальный счёт',
     enablePowerups: 'Включить бонусы (экспериментально)',
+    aiPlayers: 'ИИ игроки',
+    aiDescription: 'Добавить ИИ противников, которые предсказывают движение мяча и используют бонусы',
+    ai: 'ИИ',
     createGame: 'Создать игру',
     // Pong Lobby
     gameLobby: 'Игровое лобби',

@@ -231,6 +231,9 @@ export const zh: TranslationKeys = {
     numberOfBalls: '球数量',
     maxScore: '最高分数',
     enablePowerups: '启用道具（实验性）',
+    aiPlayers: 'AI玩家',
+    aiDescription: '添加能预测球运动并使用道具的AI对手',
+    ai: 'AI',
     createGame: '创建游戏',
     // Pong Lobby
     gameLobby: '游戏大厅',

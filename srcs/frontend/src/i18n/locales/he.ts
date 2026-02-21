@@ -231,6 +231,9 @@ export const he: TranslationKeys = {
     numberOfBalls: 'מספר כדורים',
     maxScore: 'ניקוד מקסימלי',
     enablePowerups: 'הפעל כוחות (ניסיוני)',
+    aiPlayers: 'שחקני AI',
+    aiDescription: 'הוסף יריבי AI שמנבאים את תנועת הכדור ומשתמשים בכוחות מיוחדים',
+    ai: 'AI',
     createGame: 'צור משחק',
     // Pong Lobby
     gameLobby: 'לובי משחק',

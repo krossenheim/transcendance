@@ -232,6 +232,9 @@ export const en = {
     numberOfBalls: 'Number of Balls',
     maxScore: 'Max Score',
     enablePowerups: 'Enable Power-ups (experimental)',
+    aiPlayers: 'AI Players',
+    aiDescription: 'Add AI opponents that predict ball movement and use powerups',
+    ai: 'AI',
     createGame: 'Create Game',
     // Pong Lobby
     gameLobby: 'Game Lobby',
