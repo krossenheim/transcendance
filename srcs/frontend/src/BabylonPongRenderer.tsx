@@ -747,9 +747,23 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
 
     // Update wall colors (preserve player colors for eliminated players' walls in lastOneStanding mode)
+    const effectiveGameModeDark = gameMode ?? (gameStateRef.current?.metadata as any)?.gameOptions?.gameMode ?? null
     edgesRef.current.forEach((wall) => {
       if (wall.material) {
         const wallMat = wall.material as StandardMaterial
+        const wallPlayerId = (wall as any).metadata?.wallPlayerId
+        // Preserve eliminated player wall colors in lastOneStanding mode
+        if (effectiveGameModeDark === 'lastOneStanding' && wallPlayerId != null && typeof wallPlayerId === 'number') {
+          const currentActivePaddleOwnerIds = gameStateRef.current
+            ? new Set(gameStateRef.current.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
+            : new Set()
+          if (!currentActivePaddleOwnerIds.has(wallPlayerId)) {
+            const playerColor = getUserColorBabylon(wallPlayerId)
+            wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
+            wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+            return
+          }
+        }
         // Default wall color - don't color based on playerId unless in lastOneStanding mode
         wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
         wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
@@ -869,7 +883,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           const wallPlayerId = p1.playerId
           const activePaddleOwnerIds = new Set(gameState.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
           const isEliminatedPlayerWall = wallPlayerId != null && typeof wallPlayerId === 'number' && !activePaddleOwnerIds.has(wallPlayerId)
-          if (gameMode === 'lastOneStanding' && isEliminatedPlayerWall) {
+          const effectiveGameMode = gameMode ?? (gameState.metadata as any)?.gameOptions?.gameMode ?? null
+          if (effectiveGameMode === 'lastOneStanding' && isEliminatedPlayerWall) {
             // Use the player's color for eliminated player's goal wall
             const playerColor = getUserColorBabylon(wallPlayerId)
             wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
@@ -885,6 +900,25 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           ;(wall as any).metadata = { ...(wall as any).metadata, wallPlayerId: wallPlayerId ?? null }
 
           edgesRef.current.push(wall)
+        }
+      } else {
+        // Wall count unchanged - still update wall colors for lastOneStanding eliminations
+        // (a paddle may have been removed, meaning a wall should now show player color)
+        const effectiveGameMode = gameMode ?? (gameState.metadata as any)?.gameOptions?.gameMode ?? null
+        if (effectiveGameMode === 'lastOneStanding') {
+          const currentActivePaddleOwnerIds = new Set(gameState.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
+          edgesRef.current.forEach((wall) => {
+            const wallPlayerId = (wall as any).metadata?.wallPlayerId
+            if (wallPlayerId != null && typeof wallPlayerId === 'number' && !currentActivePaddleOwnerIds.has(wallPlayerId)) {
+              if (wall.material) {
+                const wallMat = wall.material as StandardMaterial
+                const playerColor = getUserColorBabylon(wallPlayerId)
+                wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
+                wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+                wallMat.alpha = 0.8 // Make eliminated walls more opaque/solid-looking
+              }
+            }
+          })
         }
       }
     }

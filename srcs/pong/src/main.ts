@@ -132,8 +132,8 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
   // This ensures both players are ready before starting
 });
 
-function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number): PongGameOptions {
-  console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}`);
+function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number, gameMode?: string): PongGameOptions {
+  console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}, gameMode=${gameMode}`);
   const options: PongGameOptions = {
     canvasWidth: 1000,
     canvasHeight: 1000,
@@ -146,11 +146,12 @@ function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, m
     // If powerups disabled, set frequency to very high number (effectively never spawns)
     powerupFrequency: allowPowerups ? 10 : 999999,
     gameDuration: 180,
+    ...(gameMode ? { gameMode } : {}),
   };
   if (maxScore !== undefined) {
     options.maxScore = maxScore;
   }
-  console.log(`[Pong] Game options: powerupFrequency=${options.powerupFrequency}, maxScore=${options.maxScore}`);
+  console.log(`[Pong] Game options: powerupFrequency=${options.powerupFrequency}, maxScore=${options.maxScore}, gameMode=${options.gameMode}`);
   return options;
 }
 
@@ -689,7 +690,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   
   const gameResult = singletonPong.startGame(
     playerIds, 
-    createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups, lobby.maxScore),
+    createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups, lobby.maxScore, lobby.gameMode),
     tournamentId,
     matchId,
     aiPlayerIds // Pass AI player IDs so pongManager can set up AI controllers

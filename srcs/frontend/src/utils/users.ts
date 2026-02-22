@@ -13,15 +13,26 @@ const USER_COLORS = [
 ]
 
 /**
+ * Map a user ID to a color index, offsetting negative IDs (AI/guest players)
+ * so they don't collide with positive (human) IDs.
+ */
+function userColorIndex(userId: number): number {
+    const len = USER_COLORS.length;
+    if (userId < 0) {
+        // First reduce to 0..(len-1), THEN shift by half so AI colours don't collide
+        return (Math.abs(userId) % len + Math.floor(len / 2)) % len;
+    }
+    return userId % len;
+}
+
+/**
  * Get a consistent CSS color for a user ID
  * @param userId - The user's ID
  * @param darkMode - Whether to use dark mode colors (brighter)
  * @returns CSS rgb string
  */
 export function getUserColorCSS(userId: number, darkMode = true): string {
-    // Handle negative IDs by using absolute value
-    const colorIndex = Math.abs(userId) % USER_COLORS.length;
-    const color = USER_COLORS[colorIndex]!;
+    const color = USER_COLORS[userColorIndex(userId)]!;
     const scale = darkMode ? 1 : 0.6;
     return `rgb(${Math.round(color.r * scale)}, ${Math.round(color.g * scale)}, ${Math.round(color.b * scale)})`;
 }
@@ -32,9 +43,7 @@ export function getUserColorCSS(userId: number, darkMode = true): string {
  * @returns Babylon.js Color3 object
  */
 export function getUserColorBabylon(userId: number): Color3 {
-    // Handle negative IDs by using absolute value
-    const colorIndex = Math.abs(userId) % USER_COLORS.length;
-    const color = USER_COLORS[colorIndex]!;
+    const color = USER_COLORS[userColorIndex(userId)]!;
     return new Color3(color.r / 255, color.g / 255, color.b / 255);
 }
 
@@ -45,9 +54,7 @@ export function getUserColorBabylon(userId: number): Color3 {
  * @returns Hex color string
  */
 export function getUserColorHex(userId: number, darkMode = true): string {
-    // Handle negative IDs by using absolute value
-    const colorIndex = Math.abs(userId) % USER_COLORS.length
-    const color = USER_COLORS[colorIndex]!
+    const color = USER_COLORS[userColorIndex(userId)]!
     const scale = darkMode ? 1 : 0.6
     const r = Math.round(color.r * scale).toString(16).padStart(2, '0')
     const g = Math.round(color.g * scale).toString(16).padStart(2, '0')

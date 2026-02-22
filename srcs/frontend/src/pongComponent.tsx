@@ -538,7 +538,7 @@ export default function PongComponent({
               // Add human players
               const allPlayers = lobby.players.map(p => ({ id: p.id, username: p.username }));
               // Add AI players if present
-              const aiCount = lobby.aiCount || 0;
+              const aiCount = lobby.settings?.aiCount || 0;
               for (let i = 0; i < aiCount; i++) {
                 const aiId = -1001 - i; // AI IDs are -1001, -1002, etc.
                 allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
@@ -691,7 +691,7 @@ export default function PongComponent({
             // Add human players
             const allPlayers = lobby.players.map(p => ({ id: p.id, username: p.username }));
             // Add AI players if present
-            const aiCount = lobby.aiCount || 0;
+            const aiCount = lobby.settings?.aiCount || 0;
             for (let i = 0; i < aiCount; i++) {
               const aiId = -1001 - i; // AI IDs are -1001, -1002, etc.
               allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
@@ -974,7 +974,8 @@ export default function PongComponent({
         gameMode: mode,
         players: selectedPlayers.map((id) => ({
           id,
-          username: inviteRoomUsers.find((u) => u.id === id)?.username || `User ${id}`,
+          username: inviteRoomUsers.find((u) => u.id === id)?.username
+            || (id === authResponse?.user?.id ? authResponse.user.username : `User ${id}`),
           isReady: false,
           isHost: id === authResponse?.user?.id,
         })),
@@ -994,7 +995,8 @@ export default function PongComponent({
       const playerUsernames: { [key: number]: string } = {}
       selectedPlayers.forEach(id => {
         const user = inviteRoomUsers.find((u) => u.id === id)
-        playerUsernames[id] = user?.username || `User ${id}`
+        playerUsernames[id] = user?.username
+          || (id === authResponse?.user?.id ? authResponse.user.username : `User ${id}`)
       })
 
       const payload = {
@@ -1024,7 +1026,8 @@ export default function PongComponent({
           mode: "tournament",
           players: selectedPlayers.map((id) => ({
             id,
-            username: inviteRoomUsers.find((u) => u.id === id)?.username || `User ${id}`,
+            username: inviteRoomUsers.find((u) => u.id === id)?.username
+              || (id === authResponse?.user?.id ? authResponse.user.username : `User ${id}`),
           })),
           matches: [], // Will be generated when all players enter aliases
           currentRound: 1,
@@ -1359,13 +1362,28 @@ export default function PongComponent({
               />
             )}
             {/* Leaderboard Overlay */}
-            {gameState && (lobby || debugPlayers) && (
+            {gameState && (lobby || debugPlayers || gameState.metadata) && (
               <PongLeaderboard
                 players={(() => {
-                  // Only show players who are actually playing in this game (have a paddle)
-                  const activePaddleOwnerIds = new Set(gameState.paddles.map(p => p.owner_id));
-                  const allPlayers = lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || []);
-                  return allPlayers.filter(p => activePaddleOwnerIds.has(p.id));
+                  // Build complete player list from all available sources
+                  // 1. Use playerUsernames from metadata (includes AI players)
+                  const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
+                  const allOriginalPlayerIds: number[] = (gameState.metadata as any)?.allPlayers ?? [];
+                  
+                  // Start with lobby players (human players with proper info)
+                  const lobbyPlayers = lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || []);
+                  const knownIds = new Set(lobbyPlayers.map(p => p.id));
+                  
+                  // Add any players from allPlayers that aren't in lobby (e.g. AI players)
+                  const additionalPlayers: { id: number; username: string }[] = [];
+                  for (const playerId of allOriginalPlayerIds) {
+                    if (!knownIds.has(playerId)) {
+                      const username = playerUsernames?.[String(playerId)] ?? `Player ${playerId}`;
+                      additionalPlayers.push({ id: playerId, username });
+                    }
+                  }
+                  
+                  return [...lobbyPlayers, ...additionalPlayers];
                 })()}
                 scores={gameState.score}
               />

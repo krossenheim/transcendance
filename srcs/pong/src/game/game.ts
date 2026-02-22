@@ -30,6 +30,7 @@ export type PongGameOptions = {
     gameDuration: number;
     maxScore?: number; // If set, game ends when any player reaches this score
     seed?: number; // Seed for deterministic RNG (if not provided, uses random seed)
+    gameMode?: string; // Game mode (e.g. "lastOneStanding")
 }
 
 export enum PowerupType {
@@ -187,6 +188,10 @@ export class PongGame {
     private currentTick: number = 0;
     private rng: SeededRandom;
     // private _timeAccumulator: number = 0; // Accumulates fractional time between ticks
+    private eliminatedPlayers: Set<number> = new Set(); // Players eliminated in lastOneStanding mode
+    private pendingEliminations: number[] = []; // Deferred eliminations to process after physics step
+    private allOriginalPlayers: number[] = []; // All players who started the game (including eliminated/disconnected)
+    private ballsPendingReset: Set<PongBall> = new Set(); // Balls that scored and need to be teleported to center after physics
 
     private fetchWallSegments(): number[] {
         if (this.players.length === 0)
@@ -209,11 +214,7 @@ export class PongGame {
         } else {
             const wall = new PlayerWall(pointA.clone(), pointB.clone(), playerId);
             wall.setCollisionHandler((other: BaseObject): CollisionResponse => {
-                if (ENABLE_GAME_LOGS) console.log(`Ball collided with player ${playerId}'s wall.`);
-                if (other instanceof PongBall) {
-                    this.score.set(playerId, (this.score.get(playerId) || 0) - 1);
-                    if (ENABLE_GAME_LOGS) console.log(`Player ${playerId} conceded a point! Current score: ${this.score.get(playerId)}.`);
-                }
+                // Scoring is handled by the ball's collision handler (it fires first)
                 return CollisionResponse.BOUNCE;
             });
             return wall;
@@ -280,11 +281,35 @@ export class PongGame {
     private spawnNewBall(position: Vec2, velocity: Vec2, radius: number, inverseMass: number, gameOptions: PongGameOptions): void {
         const ball = new PongBall(position, radius, velocity);
         ball.setCollisionHandler((other: BaseObject, elapsedTime: number): CollisionResponse => {
+            // Ball pending reset — ignore ALL collisions (ball is inert)
+            if (this.ballsPendingReset.has(ball)) {
+                return CollisionResponse.IGNORE;
+            }
             if (other instanceof PlayerWall) {
+                // Skip if player is already eliminated (wall acts as regular wall)
+                if (this.eliminatedPlayers.has(other.playerId)) {
+                    return CollisionResponse.BOUNCE;
+                }
                 const wall = this.walls.find(w => w === other);
                 if (wall) {
-                    ball.center.set(gameOptions.canvasWidth / 2, gameOptions.canvasHeight / 2);
-                    ball.velocity.set(0, -1).rotate(this.rng.nextAngle()).mul(gameOptions.ballSpeed);
+                    // Score the goal: player who owns the wall concedes a point
+                    const oldScore = this.score.get(other.playerId) || 0;
+                    this.score.set(other.playerId, oldScore - 1);
+                    if (ENABLE_GAME_LOGS) console.log(`[PongGame] Player ${other.playerId} conceded. Score ${oldScore} -> ${oldScore - 1}`);
+
+                    // In lastOneStanding mode: ball bounces normally, player gets eliminated
+                    if (gameOptions.gameMode === 'lastOneStanding') {
+                        if (!this.eliminatedPlayers.has(other.playerId) && !this.pendingEliminations.includes(other.playerId)) {
+                            if (ENABLE_GAME_LOGS) console.log(`[PongGame] Queuing elimination of player ${other.playerId}`);
+                            this.pendingEliminations.push(other.playerId);
+                        }
+                        return CollisionResponse.BOUNCE;
+                    }
+                    // Normal scoring mode: remove ball from scene, reset to center after physics
+                    this.scene.removeObject(ball);
+                    ball.center.set(-99999, -99999);
+                    ball.velocity.set(0, 0);
+                    this.ballsPendingReset.add(ball);
                     return CollisionResponse.IGNORE;
                 }
             }
@@ -318,6 +343,7 @@ export class PongGame {
         this.paddles = [];
         this.powerups = [];
         this.players = Array.from(players);
+        this.allOriginalPlayers = Array.from(players);
         this.gameOptions = gameOptions;
         
         // Initialize scene with ball speed for constant speed enforcement
@@ -380,8 +406,35 @@ export class PongGame {
             leftOverTime -= timeStep;
         }
 
+        // Reset balls that scored — teleport to center with random velocity.
+        // This is done AFTER physics so we never modify positions mid-simulation.
+        if (this.ballsPendingReset.size > 0) {
+            const centerX = this.gameOptions.canvasWidth / 2;
+            const centerY = this.gameOptions.canvasHeight / 2;
+            for (const ball of this.ballsPendingReset) {
+                ball.center.set(centerX, centerY);
+                ball.velocity.set(0, -1).rotate(this.rng.nextAngle()).mul(this.gameOptions.ballSpeed);
+                // Re-add ball to the scene (it was removed during scoring)
+                this.scene.addObject(ball);
+                if (ENABLE_GAME_LOGS) console.log(`[PongGame] Reset ball to center (${centerX},${centerY}) with new velocity (${ball.velocity.x.toFixed(1)},${ball.velocity.y.toFixed(1)})`);
+            }
+            this.ballsPendingReset.clear();
+        }
+
+        // Process deferred eliminations AFTER physics simulation completes
+        // (modifying the scene during collision handlers causes the ball to get stuck)
+        while (this.pendingEliminations.length > 0) {
+            const playerId = this.pendingEliminations.shift()!;
+            if (ENABLE_GAME_LOGS) console.log(`[PongGame] Processing deferred elimination of player ${playerId}. Active: [${this.players.join(',')}], Eliminated: [${Array.from(this.eliminatedPlayers).join(',')}]`);
+            this.eliminatePlayer(playerId);
+            if (ENABLE_GAME_LOGS) console.log(`[PongGame] After elimination. Active: [${this.players.join(',')}], Eliminated: [${Array.from(this.eliminatedPlayers).join(',')}], isGameOver: ${this.isGameOver()}`);
+        }
+
         // BULLETPROOF: Reset any balls that have escaped the arena bounds
         this.checkBallBounds();
+
+        // BULLETPROOF: Fix any balls with zero/NaN velocity (stuck balls)
+        this.fixStuckBalls();
 
         // Increment tick counter based on deltaTime (approximately)
         this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
@@ -424,9 +477,40 @@ export class PongGame {
 
             // Check if ball is outside the arena bounds
             if (x < minBound || x > maxBoundX || y < minBound || y > maxBoundY) {
-                console.warn(`[PongGame] BULLETPROOF: Ball escaped bounds at (${x.toFixed(1)}, ${y.toFixed(1)}) - resetting to center`);
+                if (ENABLE_GAME_LOGS) console.warn(`[PongGame] BULLETPROOF: Ball escaped bounds at (${x.toFixed(1)}, ${y.toFixed(1)}) - resetting to center`);
                 
                 // Reset ball to center with random direction
+                ball.center.set(centerX, centerY);
+                const newDirection = new Vec2(0, -1).rotate(this.rng.nextAngle());
+                ball.velocity.copy(newDirection.mul(this.gameOptions.ballSpeed));
+            }
+        }
+    }
+
+    /**
+     * BULLETPROOF: Detect and fix balls that are stuck (zero/NaN velocity,
+     * or trapped inside a wall with no way out). Resets them to center.
+     */
+    private fixStuckBalls(): void {
+        const centerX = this.gameOptions.canvasWidth / 2;
+        const centerY = this.gameOptions.canvasHeight / 2;
+
+        for (const ball of this.balls) {
+            const vx = ball.velocity.x;
+            const vy = ball.velocity.y;
+            const px = ball.center.x;
+            const py = ball.center.y;
+
+            // Check for NaN or Infinity in position or velocity
+            const hasNaN = !Number.isFinite(vx) || !Number.isFinite(vy) ||
+                           !Number.isFinite(px) || !Number.isFinite(py);
+
+            // Check for zero velocity (ball completely stopped)
+            const speed = Math.sqrt(vx * vx + vy * vy);
+            const hasZeroVelocity = speed < EPS;
+
+            if (hasNaN || hasZeroVelocity) {
+                if (ENABLE_GAME_LOGS) console.warn(`[PongGame] BULLETPROOF: Stuck ball detected! NaN=${hasNaN} zeroVel=${hasZeroVelocity} pos=(${px},${py}) vel=(${vx},${vy}) - resetting to center`);
                 ball.center.set(centerX, centerY);
                 const newDirection = new Vec2(0, -1).rotate(this.rng.nextAngle());
                 ball.velocity.copy(newDirection.mul(this.gameOptions.ballSpeed));
@@ -607,7 +691,8 @@ export class PongGame {
         }
 
         for (const playerId of scoreMap.keys()) {
-            if (!this.players.includes(playerId)) {
+            // Only mark disconnected players with -1, not eliminated players
+            if (!this.players.includes(playerId) && !this.eliminatedPlayers.has(playerId)) {
                 scoreMap.set(playerId, -1);
             }
         }
@@ -615,6 +700,38 @@ export class PongGame {
         return scoreMap;
     }
 
+    /**
+     * Eliminate a player in lastOneStanding mode.
+     * Keeps the PlayerWall (with playerId for frontend coloring) but makes it act as a solid wall.
+     * Removes the player's paddle.
+     */
+    public eliminatePlayer(playerId: number): void {
+        if (this.eliminatedPlayers.has(playerId)) return; // Already eliminated
+        this.eliminatedPlayers.add(playerId);
+        if (ENABLE_GAME_LOGS) console.log(`[PongGame] Player ${playerId} eliminated in lastOneStanding mode.`);
+
+        // Remove paddles for this player
+        for (const paddle of this.paddles.filter(paddle => paddle.playerId === playerId))
+            this.scene.removeObject(paddle);
+        this.paddles = this.paddles.filter(paddle => paddle.playerId !== playerId);
+
+        // Change the PlayerWall's collision handler to just bounce (no scoring)
+        const playerWalls = this.walls.filter(wall => wall instanceof PlayerWall && wall.playerId === playerId);
+        for (const wall of playerWalls) {
+            wall.setCollisionHandler((other: BaseObject): CollisionResponse => {
+                if (ENABLE_GAME_LOGS) console.log(`Ball collided with eliminated player ${playerId}'s wall (now solid).`);
+                return CollisionResponse.BOUNCE;
+            });
+        }
+
+        // Remove player from active players list
+        this.players = this.players.filter(id => id !== playerId);
+    }
+
+    /**
+     * Remove a player completely (e.g. on disconnect).
+     * Replaces PlayerWall with a regular Wall (loses player color info).
+     */
     public removePlayer(playerId: number): void {
         for (const paddle of this.paddles.filter(paddle => paddle.playerId === playerId))
             this.scene.removeObject(paddle);
@@ -670,6 +787,8 @@ export class PongGame {
                 currentTick: this.currentTick,
                 seed: this.rng.getSeed(),
                 players: this.players,
+                allPlayers: this.allOriginalPlayers, // All original players (including eliminated)
+                eliminatedPlayers: Array.from(this.eliminatedPlayers), // Players eliminated in lastOneStanding
                 id: this.id,
                 timeScale: this.scene.getTimeScale(), // For SUPER_SPEED powerup sync
             },
@@ -697,6 +816,14 @@ export class PongGame {
         return new Set(this.players);
     }
 
+    /**
+     * Return ALL player IDs who started the game, including eliminated ones.
+     * Used for broadcasting game state so eliminated players can spectate.
+     */
+    public getAllPlayerIds(): Set<number> {
+        return new Set(this.allOriginalPlayers);
+    }
+
     public getPlayerPaddles(playerId: number): PongPaddle[] {
         return Array.from(this.paddles.filter(paddle => paddle.playerId === playerId));
     }
@@ -714,6 +841,10 @@ export class PongGame {
     }
 
     public isGameOver(): boolean {
+        // In lastOneStanding mode, game ends when only 1 (or 0) active players remain
+        if (this.gameOptions.gameMode === 'lastOneStanding') {
+            return this.players.length <= 1;
+        }
         // Check time-based end (tick-based for determinism)
         const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);
         if (this.currentTick >= gameDurationTicks) {
@@ -732,6 +863,10 @@ export class PongGame {
     }
 
     public getWinner(): number | null {
+        // In lastOneStanding mode, the winner is the last remaining player
+        if (this.gameOptions.gameMode === 'lastOneStanding') {
+            return this.players.length === 1 ? this.players[0]! : null;
+        }
         const scoreMap = this.fetchPlayerScoreMap();
         let maxScore = -Infinity;
         let winnerId: number | null = null;
