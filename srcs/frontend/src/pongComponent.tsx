@@ -157,6 +157,8 @@ export default function PongComponent({
   const setDebugPlayers = usePongStore((state) => state.setDebugPlayers)
   const resetGameState = usePongStore((state) => state.resetGameState)
   
+  const gameStateRef = useRef(gameState)
+  gameStateRef.current = gameState
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
   // Renderer controls for tuning paddle rotation and screenshots
@@ -827,16 +829,17 @@ export default function PongComponent({
   useEffect(() => {
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
-      if (gameState === null || playerOnePaddleID === -1) return
+      const gs = gameStateRef.current
+      if (gs === null || playerOnePaddleID === -1) return
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
       // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
 
-      if (gameState.board_id === null) return
+      if (gs.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
-        board_id: gameState.board_id,
+        board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
       // console.debug for debugging stuck keys
@@ -845,14 +848,15 @@ export default function PongComponent({
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null || playerOnePaddleID === -1) return
+      const gs = gameStateRef.current
+      if (gs === null || playerOnePaddleID === -1) return
       keysPressed.delete(e.key)
 
       // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
 
       const payload = {
-        board_id: gameState.board_id,
+        board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
       // console.debug('[Pong] KeyUp', e.key, payload.pressed_keys)
@@ -864,9 +868,10 @@ export default function PongComponent({
       if (keysPressed.size === 0) return
       keysPressed.clear()
       setPressedKeys([])
-      if (gameState?.board_id) {
+      const gs = gameStateRef.current
+      if (gs?.board_id) {
         handleUserInput(user_url.ws.pong.handleGameKeys, {
-          board_id: gameState.board_id,
+          board_id: gs.board_id,
           pressed_keys: [],
         })
       }
@@ -887,7 +892,7 @@ export default function PongComponent({
       window.removeEventListener("blur", handleFocusLost)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [gameState, handleUserInput, playerOnePaddleID])
+  }, [handleUserInput, playerOnePaddleID])
 
   // =========================
   // Keyboard input (O / L)
@@ -895,16 +900,17 @@ export default function PongComponent({
   useEffect(() => {
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
-      if (gameState === null || playerTwoPaddleID === -1) return
+      const gs = gameStateRef.current
+      if (gs === null || playerTwoPaddleID === -1) return
       if (keysPressed.has(e.key)) return
       keysPressed.add(e.key)
 
       // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
 
-      if (gameState.board_id === null) return
+      if (gs.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
-        board_id: gameState.board_id,
+        board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
       // console.debug('[Pong] KeyDown (player2)', e.key, payload.pressed_keys)
@@ -912,14 +918,15 @@ export default function PongComponent({
     }
 
     function handleKeyUp(e: KeyboardEvent) {
-      if (gameState === null || playerTwoPaddleID === -1) return
+      const gs = gameStateRef.current
+      if (gs === null || playerTwoPaddleID === -1) return
       keysPressed.delete(e.key)
 
       // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
 
       const payload = {
-        board_id: gameState.board_id,
+        board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
       // console.debug('[Pong] KeyUp (player2)', e.key, payload.pressed_keys)
@@ -931,9 +938,10 @@ export default function PongComponent({
       if (keysPressed.size === 0) return
       keysPressed.clear()
       setPressedKeys([])
-      if (gameState?.board_id) {
+      const gs = gameStateRef.current
+      if (gs?.board_id) {
         handleUserInput(user_url.ws.pong.handleGameKeys, {
-          board_id: gameState.board_id,
+          board_id: gs.board_id,
           pressed_keys: [],
         })
       }
@@ -954,7 +962,7 @@ export default function PongComponent({
       window.removeEventListener("blur", handleFocusLost)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [gameState, handleUserInput, playerTwoPaddleID])
+  }, [handleUserInput, playerTwoPaddleID])
 
   // =========================
   // 3D Rendering is handled by BabylonPongRenderer component
@@ -1357,7 +1365,7 @@ export default function PongComponent({
                 ref={rendererRef}
                 gameState={predictedGameState || gameState}
                 darkMode={darkMode}
-                gameMode={lobby?.gameMode ?? null}
+                gameMode={lobby?.gameMode ?? (gameState.metadata as any)?.gameOptions?.gameMode ?? null}
                 paddleRotationOffset={paddleRotationOffset}
               />
             )}
@@ -1366,11 +1374,28 @@ export default function PongComponent({
               <PongLeaderboard
                 players={(() => {
                   // Build complete player list from all available sources
-                  // 1. Use playerUsernames from metadata (includes AI players)
+                  // 1. Use playerUsernames from metadata (server-authoritative, includes AI players)
                   const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
                   const allOriginalPlayerIds: number[] = (gameState.metadata as any)?.allPlayers ?? [];
                   
-                  // Start with lobby players (human players with proper info)
+                  // Check if this is a local 1v1 game (debugPlayers has the -999 Arrow entry)
+                  const isLocal1v1 = debugPlayers?.some(p => p.id === -999);
+
+                  // If metadata has playerUsernames, use it as the primary source (most reliable)
+                  // But for local 1v1, prefer debugPlayers names (WASD / Arrow)
+                  if (playerUsernames && allOriginalPlayerIds.length > 0) {
+                    return allOriginalPlayerIds.map(playerId => ({
+                      id: playerId,
+                      username: (isLocal1v1 ? debugPlayers?.find(p => p.id === playerId)?.username : undefined)
+                        ?? (isLocal1v1 ? undefined : playerUsernames[String(playerId)])
+                        ?? debugPlayers?.find(p => p.id === playerId)?.username
+                        ?? playerUsernames[String(playerId)]
+                        ?? lobby?.players?.find(p => p.id === playerId)?.username
+                        ?? `Player ${playerId}`,
+                    }));
+                  }
+                  
+                  // Fallback: Start with lobby players or debugPlayers
                   const lobbyPlayers = lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || []);
                   const knownIds = new Set(lobbyPlayers.map(p => p.id));
                   
@@ -1435,9 +1460,10 @@ export default function PongComponent({
                     <p className="text-white text-3xl mb-8">{t('pong.winner')}: <span className="text-green-500 font-bold">{
                       (() => {
                         const winnerId = gameState.winner;
+                        const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
                         const players = debugPlayers || tournament?.players?.map(p => ({ id: p.id, username: p.alias || p.username })) || lobby?.players?.map(p => ({ id: p.id, username: p.username })) || [];
                         const winner = players.find(p => p.id === winnerId);
-                        return winner?.username || `${t('pong.player')} ${winnerId}`;
+                        return winner?.username || (winnerId != null ? playerUsernames?.[String(winnerId)] : undefined) || `${t('pong.player')} ${winnerId}`;
                       })()
                     }</span></p>
                   </>
@@ -1448,9 +1474,10 @@ export default function PongComponent({
                   {gameState.score
                     ? Object.entries(gameState.score).map(([p, s]: [string, any]) => {
                         const playerId = parseInt(p);
+                        const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
                         const players = debugPlayers || tournament?.players?.map(pl => ({ id: pl.id, username: pl.alias || pl.username })) || lobby?.players?.map(pl => ({ id: pl.id, username: pl.username })) || [];
                         const player = players.find(pl => pl.id === playerId);
-                        const name = player?.username || `${t('pong.player')} ${p}`;
+                        const name = player?.username || playerUsernames?.[String(playerId)] || `${t('pong.player')} ${p}`;
                         return `${name}: ${s}`;
                       }).join(' | ')
                     : ''}

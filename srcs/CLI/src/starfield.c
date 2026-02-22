@@ -71,7 +71,9 @@ static float randf(void)
 static void reset_star(star_t *s, int w, int h)
 {
     s->x = (randf() - 0.5f) * (float)w * 2.0f;
-    s->y = (randf() - 0.5f) * (float)h * 2.0f;
+    /* Y projection is halved (× 0.5) to compensate for tall terminal
+     * cells, so double the spawn range to keep vertical spread even. */
+    s->y = (randf() - 0.5f) * (float)h * 4.0f;
 }
 
 void starfield_init(starfield_t *sf, int count, float speed)
@@ -121,12 +123,15 @@ static void put_wch(WINDOW *win, int y, int x, wchar_t ch, int color_pair, int a
     mvwadd_wch(win, y, x, &cc);
 }
 
-/* Draw a filled rectangle of full-block characters */
+/* Draw a filled rectangle of full-block characters.
+ * Terminal chars are ~2x taller than wide, so we double the
+ * horizontal extent to make the block appear square.          */
 static void draw_block(WINDOW *win, int sy, int sx, int size, int w, int h,
                        int color_pair, int attr)
 {
+    int cols = size * 2;  /* widen to compensate for tall cells */
     for (int dy = 0; dy < size; dy++) {
-        for (int dx = 0; dx < size; dx++) {
+        for (int dx = 0; dx < cols; dx++) {
             int py = sy + dy;
             int px = sx + dx;
             if (px >= 0 && px < w && py >= 0 && py < h) {

@@ -298,9 +298,9 @@ export class PongGame {
                     if (ENABLE_GAME_LOGS) console.log(`[PongGame] Player ${other.playerId} conceded. Score ${oldScore} -> ${oldScore - 1}`);
 
                     // In lastOneStanding mode: ball bounces normally, player gets eliminated
-                    if (gameOptions.gameMode === 'lastOneStanding') {
+                    if (this.gameOptions.gameMode === 'lastOneStanding') {
                         if (!this.eliminatedPlayers.has(other.playerId) && !this.pendingEliminations.includes(other.playerId)) {
-                            if (ENABLE_GAME_LOGS) console.log(`[PongGame] Queuing elimination of player ${other.playerId}`);
+                            console.log(`[PongGame] lastOneStanding: Queuing elimination of player ${other.playerId}. Active: [${this.players.join(',')}]`);
                             this.pendingEliminations.push(other.playerId);
                         }
                         return CollisionResponse.BOUNCE;
@@ -345,6 +345,8 @@ export class PongGame {
         this.players = Array.from(players);
         this.allOriginalPlayers = Array.from(players);
         this.gameOptions = gameOptions;
+        
+        console.log(`[PongGame] Created game with ${players.length} players, gameMode=${gameOptions.gameMode ?? 'default'}, gameDuration=${gameOptions.gameDuration}`);
         
         // Initialize scene with ball speed for constant speed enforcement
         this.scene = new Scene(gameOptions.ballSpeed);
@@ -708,7 +710,7 @@ export class PongGame {
     public eliminatePlayer(playerId: number): void {
         if (this.eliminatedPlayers.has(playerId)) return; // Already eliminated
         this.eliminatedPlayers.add(playerId);
-        if (ENABLE_GAME_LOGS) console.log(`[PongGame] Player ${playerId} eliminated in lastOneStanding mode.`);
+        console.log(`[PongGame] Player ${playerId} eliminated in lastOneStanding mode. Remaining: [${this.players.filter(id => id !== playerId).join(',')}]`);
 
         // Remove paddles for this player
         for (const paddle of this.paddles.filter(paddle => paddle.playerId === playerId))

@@ -29,6 +29,8 @@ type gameDataType = {
   spectators: number[];
   // AI player management
   aiManager: AIManager;
+  // Player usernames for leaderboard display
+  playerUsernames: { [key: number]: string };
 };
 
 const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
@@ -91,8 +93,20 @@ export class PongManager {
           // Send one final game state with gameOver: true to clients
           const finalGameState = gameData.game.fetchBoardJSON();
           finalGameState.serverTimestamp = now;
+          // Include player usernames for leaderboard
+          if (finalGameState.metadata) {
+            finalGameState.metadata.playerUsernames = gameData.playerUsernames;
+          } else {
+            finalGameState.metadata = { playerUsernames: gameData.playerUsernames };
+          }
+          // Include player usernames for leaderboard
+          if (finalGameState.metadata) {
+            finalGameState.metadata.playerUsernames = gameData.playerUsernames;
+          } else {
+            finalGameState.metadata = { playerUsernames: gameData.playerUsernames };
+          }
           this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-            recipients: [...Array.from(gameData.game.getUniquePlayerIds()), ...gameData.spectators],
+            recipients: [...Array.from(gameData.game.getAllPlayerIds()), ...gameData.spectators],
             code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
             payload: finalGameState,
           });
@@ -123,9 +137,21 @@ export class PongManager {
       // Fetch game state and add server timestamp for client-side lag compensation
       const gameState = gameData.game.fetchBoardJSON();
       gameState.serverTimestamp = now;  // Add server timestamp
+      // Include player usernames for leaderboard
+      if (gameState.metadata) {
+        gameState.metadata.playerUsernames = gameData.playerUsernames;
+      } else {
+        gameState.metadata = { playerUsernames: gameData.playerUsernames };
+      }
+      // Include player usernames for leaderboard
+      if (gameState.metadata) {
+        gameState.metadata.playerUsernames = gameData.playerUsernames;
+      } else {
+        gameState.metadata = { playerUsernames: gameData.playerUsernames };
+      }
       
       this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-        recipients: [...Array.from(gameData.game.getUniquePlayerIds()), ...gameData.spectators],
+        recipients: [...Array.from(gameData.game.getAllPlayerIds()), ...gameData.spectators],
         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
         payload: gameState,
       });
@@ -137,7 +163,8 @@ export class PongManager {
     options: PongGameOptions,
     tournamentId?: number,
     matchId?: number,
-    aiPlayerIds: number[] = []
+    aiPlayerIds: number[] = [],
+    playerUsernames: { [key: number]: string } = {}
   ): Result<number, null> {
     let game = new PongGame(players, options);
     
@@ -162,6 +189,14 @@ export class PongManager {
       console.log(`[PongManager] Created game with ${aiPlayerIds.length} AI players: ${aiPlayerIds.join(', ')}`);
     }
     
+    const completeUsernames: { [key: number]: string } = { ...playerUsernames };
+    for (const aiId of aiPlayerIds) {
+      const aiIndex = Math.abs(aiId) - 1000;
+      if (!completeUsernames[aiId]) {
+        completeUsernames[aiId] = `AI ${aiIndex}`;
+      }
+    }
+
     const gameData: gameDataType = {
       disconnected_players: [],
       ready_players: [],
@@ -172,6 +207,7 @@ export class PongManager {
       playerRTT,
       spectators: [],
       aiManager,
+      playerUsernames: completeUsernames,
     };
     
     // Only set tournament info if provided
@@ -370,7 +406,7 @@ export class PongManager {
     }
     
     // Allow both players and spectators
-    const isPlayer = gameData.game.getPlayers().includes(userId);
+    const isPlayer = gameData.game.getAllPlayerIds().has(userId);
     const isSpectator = gameData.spectators.includes(userId);
     
     if (!isPlayer && !isSpectator) {
@@ -379,6 +415,12 @@ export class PongManager {
     
     const gameState = gameData.game.fetchBoardJSON();
     gameState.isSpectator = isSpectator;
+    // Include player usernames for leaderboard display
+    if (gameState.metadata) {
+      gameState.metadata.playerUsernames = gameData.playerUsernames;
+    } else {
+      gameState.metadata = { playerUsernames: gameData.playerUsernames };
+    }
     return Result.Ok(gameState);
   }
 
@@ -442,7 +484,7 @@ export class PongManager {
     if (gameData) {
       console.log(`[PongManager] Cleaning up game ${gameId}`);
       // Remove player-to-game mappings
-      for (const playerId of gameData.game.getPlayers()) {
+      for (const playerId of gameData.game.getAllPlayerIds()) {
         this.playerToGame.delete(playerId);
       }
       this.games.delete(gameId);
