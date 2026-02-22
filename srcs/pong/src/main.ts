@@ -622,9 +622,10 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   }
 
   // Check if all players are ready
-  if (!lobbyManager.canStartGame(lobbyId)) {
+  const canStartResult = lobbyManager.canStartGame(lobbyId);
+  if (canStartResult.isErr() || !canStartResult.unwrap()) {
     return Result.Ok(response.select("NotAllReady").reply({
-      message: "Not all players are ready",
+      message: canStartResult.isErr() ? canStartResult.unwrapErr().message : "Not all players are ready",
     }));
   }
 
@@ -665,10 +666,13 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     playerIds = lobby.players.map((p) => p.userId);
   }
   
-  // For 1v1 local mode with only 1 player, add a virtual guest player
-  // Use -999 to avoid conflict with -1 which means "no player" in wall segments
+  // For 1v1 local mode with only 1 player and NO AI, add a virtual guest player.
+  // Use -999 to avoid conflict with -1 which means "no player" in wall segments.
+  // When AI players are present they fill the opponent slot, so adding a guest
+  // would create an extra player and produce a triangular arena instead of a
+  // square one.
   const GUEST_PLAYER_ID = -999;
-  if (lobby.gameMode === "1v1" && playerIds.length === 1) {
+  if (lobby.gameMode === "1v1" && playerIds.length === 1 && (!lobby.aiCount || lobby.aiCount === 0)) {
     playerIds.push(GUEST_PLAYER_ID);
     console.log(`[Pong] Added guest player for local 1v1 mode`);
   }
