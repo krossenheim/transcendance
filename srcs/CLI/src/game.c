@@ -558,12 +558,26 @@ void game_update_state(game_state_t *game, const char *json_payload)
 
     /* ---- Sound event detection ---------------------------------------- */
 
-    /* Bounce detection: check if any ball's velocity direction reversed */
-    for (int i = 0; i < game->ball_count && i < game->prev_ball_count; i++) {
-        float pvx = game->prev_vx[i];
-        float pvy = game->prev_vy[i];
+    /* Bounce detection: check if any ball's velocity direction reversed.
+     * Match balls by ID (not array index) to handle reordering/multi-ball. */
+    for (int i = 0; i < game->ball_count; i++) {
+        int ball_id = game->balls[i].id;
         float cvx = game->balls[i].vx;
         float cvy = game->balls[i].vy;
+
+        /* Find this ball in previous frame by ID */
+        float pvx = 0.0f, pvy = 0.0f;
+        bool found_prev = false;
+        for (int j = 0; j < game->prev_ball_count; j++) {
+            if (game->prev_ball_ids[j] == ball_id) {
+                pvx = game->prev_vx[j];
+                pvy = game->prev_vy[j];
+                found_prev = true;
+                break;
+            }
+        }
+
+        if (!found_prev) continue;  /* New ball, skip */
 
         /* A sign flip in either axis means a bounce occurred */
         bool flipped_x = (pvx != 0.0f && cvx != 0.0f && ((pvx > 0) != (cvx > 0)));
@@ -598,6 +612,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
     /* Save current state for next-frame comparison */
     game->prev_ball_count = game->ball_count;
     for (int i = 0; i < game->ball_count && i < MAX_BALLS; i++) {
+        game->prev_ball_ids[i] = game->balls[i].id;
         game->prev_vx[i] = game->balls[i].vx;
         game->prev_vy[i] = game->balls[i].vy;
     }

@@ -160,6 +160,7 @@ typedef struct game_state {
     int             powerup_pickup_type;  /* Type of collected powerup        */
 
     /* Previous-frame state for bounce / pickup detection */
+    int             prev_ball_ids[MAX_BALLS];  /* previous ball ids              */
     float           prev_vx[MAX_BALLS];   /* previous ball vx values          */
     float           prev_vy[MAX_BALLS];   /* previous ball vy values          */
     int             prev_ball_count;      /* previous ball count              */
