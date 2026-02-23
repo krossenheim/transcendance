@@ -17,7 +17,6 @@
 #include "websocket.h"
 #include "game.h"
 #include "renderer.h"
-#include "sound.h"
 #include "utils.h"
 #include "cJSON.h"
 #include <libwebsockets.h>
@@ -60,11 +59,6 @@ static void crash_handler(int sig)
 /* Default server configuration */
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 443
-
-/* Sound asset directory (relative to the binary / cwd) */
-#ifndef SOUND_ASSET_DIR
-#define SOUND_ASSET_DIR "sounds"
-#endif
 
 /* Input field limits */
 #define MAX_INPUT_LEN 128
@@ -172,14 +166,11 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
     /* Suppress libwebsockets debug logging before ncurses init */
     lws_set_log_level(0, NULL);
     
-    /* Initialize renderer */
+    /* Initialize renderer FIRST */
     if (renderer_init() != 0) {
         fprintf(stderr, "Failed to initialize terminal renderer\n");
         return -1;
     }
-    
-    /* Initialize sound (non-fatal if it fails) */
-    sound_init(SOUND_ASSET_DIR);
 
     /* Try to load saved session */
     ctx->session = auth_load_session();
@@ -217,7 +208,6 @@ static void app_cleanup(app_context_t *ctx)
         ctx->session = NULL;
     }
 
-    sound_cleanup();
     renderer_cleanup();
 }
 
@@ -1035,17 +1025,8 @@ static void handle_in_game(app_context_t *ctx)
     /* Send input to server every frame */
     game_send_input(ctx->game);
 
-    /* Play pending sound events */
+    /* Check game over */
     pthread_mutex_lock(&ctx->game->mutex);
-    if (ctx->game->bounce_pending) {
-        sound_play_bounce(ctx->game->bounce_x, ctx->game->bounce_radius);
-        ctx->game->bounce_pending = false;
-    }
-    if (ctx->game->powerup_pickup_pending) {
-        sound_play_powerup(ctx->game->powerup_pickup_x,
-                           ctx->game->powerup_pickup_type);
-        ctx->game->powerup_pickup_pending = false;
-    }
     bool game_over = ctx->game->game_over;
     pthread_mutex_unlock(&ctx->game->mutex);
 

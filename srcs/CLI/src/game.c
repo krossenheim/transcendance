@@ -556,58 +556,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
     /* Mark game as active */
     game->game_active = !game->game_over;
 
-    /* ---- Sound event detection ---------------------------------------- */
-
-    /* Bounce detection: check if any ball's velocity direction reversed */
-    for (int i = 0; i < game->ball_count && i < game->prev_ball_count; i++) {
-        float pvx = game->prev_vx[i];
-        float pvy = game->prev_vy[i];
-        float cvx = game->balls[i].vx;
-        float cvy = game->balls[i].vy;
-
-        /* A sign flip in either axis means a bounce occurred */
-        bool flipped_x = (pvx != 0.0f && cvx != 0.0f && ((pvx > 0) != (cvx > 0)));
-        bool flipped_y = (pvy != 0.0f && cvy != 0.0f && ((pvy > 0) != (cvy > 0)));
-
-        if (flipped_x || flipped_y) {
-            game->bounce_pending  = true;
-            game->bounce_x        = game->balls[i].x;
-            game->bounce_radius   = game->balls[i].radius;
-            break;  /* one bounce sound per update is enough */
-        }
-    }
-
-    /* Powerup pickup detection: any prev powerup id that is no longer present */
-    for (int i = 0; i < game->prev_powerup_count; i++) {
-        int prev_id = game->prev_powerup_ids[i];
-        bool still_exists = false;
-        for (int j = 0; j < game->powerup_count; j++) {
-            if (game->powerups[j].id == prev_id) {
-                still_exists = true;
-                break;
-            }
-        }
-        if (!still_exists) {
-            game->powerup_pickup_pending = true;
-            game->powerup_pickup_x       = game->prev_powerup_x[i];
-            game->powerup_pickup_type    = game->prev_powerup_types[i];
-            break;  /* one pickup sound per update */
-        }
-    }
-
-    /* Save current state for next-frame comparison */
-    game->prev_ball_count = game->ball_count;
-    for (int i = 0; i < game->ball_count && i < MAX_BALLS; i++) {
-        game->prev_vx[i] = game->balls[i].vx;
-        game->prev_vy[i] = game->balls[i].vy;
-    }
-    game->prev_powerup_count = game->powerup_count;
-    for (int i = 0; i < game->powerup_count && i < MAX_POWERUPS; i++) {
-        game->prev_powerup_ids[i]   = game->powerups[i].id;
-        game->prev_powerup_x[i]     = game->powerups[i].x;
-        game->prev_powerup_types[i] = game->powerups[i].type;
-    }
-
     cJSON_Delete(root);
 }
 
