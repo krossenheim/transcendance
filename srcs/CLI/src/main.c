@@ -177,14 +177,6 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
         fprintf(stderr, "Failed to initialize terminal renderer\n");
         return -1;
     }
-<<<<<<< HEAD
-=======
-    
-    /* Initialize sound AFTER ncurses (non-fatal if it fails) */
-    if (ctx->enable_sound) {
-        sound_init(SOUND_ASSET_DIR);
-    }
->>>>>>> 5ebdb55166f8fdac49e9cb95b771305d7e2cee44
 
     /* Try to load saved session */
     ctx->session = auth_load_session();
