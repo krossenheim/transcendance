@@ -184,6 +184,9 @@ export const usePongStore = create<PongState>((set, get) => ({
         debugPlayers: null,
         playerOnePaddleID: -1,
         playerTwoPaddleID: -2,
+        lastCreatedBoardId: null,
+        pressedKeys: [],
+        activeTournamentId: null,
         currentView: "menu",
     }),
 

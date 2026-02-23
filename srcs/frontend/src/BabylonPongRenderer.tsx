@@ -22,6 +22,8 @@ import {
 import earcut from "earcut"
 import type { TypeGameStateSchema } from "./types/pong-interfaces"
 import { getUserColorBabylon, getUserColorCSS } from "@utils/users"
+import { SpatialBounceSound } from "@utils/SpatialBounceSound"
+import { SpatialPowerupSound } from "@utils/SpatialPowerupSound"
 
 const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
@@ -136,6 +138,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
   // Powerups: stable meshes keyed by spawnTime (string) + index fallback
   const powerupsRef = useRef<Map<string, Mesh>>(new Map())
+  // Track last known position & type per powerup key for pickup sound
+  const powerupMetaRef = useRef<Map<string, { x: number; y: number; type: number }>>(new Map())
 
   // Store beach ball texture reference
   const beachBallTextureRef = useRef<DynamicTexture | null>(null)
@@ -163,6 +167,24 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
   
   // Track collected powerup keys to ensure they stay hidden
   const collectedPowerupsRef = useRef<Set<string>>(new Set())
+
+  // Spatial bounce sound
+  const bounceSoundRef = useRef<SpatialBounceSound | null>(null)
+  useEffect(() => {
+    const snd = new SpatialBounceSound()
+    snd.load()
+    bounceSoundRef.current = snd
+    return () => { snd.dispose() }
+  }, [])
+
+  // Spatial powerup pickup sound
+  const powerupSoundRef = useRef<SpatialPowerupSound | null>(null)
+  useEffect(() => {
+    const snd = new SpatialPowerupSound()
+    snd.load()
+    powerupSoundRef.current = snd
+    return () => { snd.dispose() }
+  }, [])
 
   // Compute a key that only changes when entity counts change (for slow path useEffect)
   // NOTE: Powerups are now fully handled in render loop, no React dependency needed
@@ -494,6 +516,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const bounceZ = serverPosChanged && target.velocityZ !== 0 && serverVelZ !== 0 && 
                         Math.sign(target.velocityZ) !== Math.sign(serverVelZ)
         const bounced = bounceX || bounceZ
+
+        // Play spatial bounce sound
+        if (bounced && bounceSoundRef.current) {
+          bounceSoundRef.current.play(b.x, b.y, b.radius ?? 10)
+        }
         
         // Check for large teleport (respawn)
         const dist = Math.sqrt((serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2)
@@ -594,6 +621,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           
           activePowerupKeys.add(key)
           
+          // Track position & type for pickup sound when it disappears
+          powerupMetaRef.current.set(key, { x, y, type: typeIndex })
+          
           let mesh = powerupsRef.current.get(key)
           const targetX = (x - 500) * 0.02
           const targetZ = (y - 500) * 0.02
@@ -637,9 +667,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           }
         }
         
-        // Remove stale powerups
+        // Remove stale powerups (collected by a ball)
         for (const [k, m] of powerupsRef.current) {
           if (!activePowerupKeys.has(k)) {
+            // Play pickup sound at the powerup's last known position
+            const meta = powerupMetaRef.current.get(k)
+            if (meta && powerupSoundRef.current) {
+              powerupSoundRef.current.play(meta.x, meta.y, meta.type)
+            }
+            powerupMetaRef.current.delete(k)
             m.dispose()
             powerupsRef.current.delete(k)
           }
@@ -770,12 +806,15 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
     })
 
-    // Update paddle colors
-    paddlesRef.current.forEach((paddle) => {
+    // Update paddle colors - preserve owner-based colors, just adjust for dark/light mode
+    paddlesRef.current.forEach((paddle, paddleId) => {
       if (paddle.material) {
         const mat = paddle.material as StandardMaterial
-        mat.diffuseColor = darkMode ? new Color3(0, 1, 0) : new Color3(0, 0.6, 0)
-        mat.emissiveColor = darkMode ? new Color3(0, 0.4, 0) : new Color3(0, 0.2, 0)
+        // Get owner_id from paddle metadata (stored when paddle was created)
+        const ownerId = (paddle as any).metadata?.ownerId ?? paddleId
+        const baseColor = getUserColorBabylon(ownerId)
+        mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
+        mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
       }
     })
 
@@ -902,24 +941,39 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           edgesRef.current.push(wall)
         }
       } else {
-        // Wall count unchanged - still update wall colors for lastOneStanding eliminations
-        // (a paddle may have been removed, meaning a wall should now show player color)
+        // Wall count unchanged - update wall metadata and colors for all walls
+        // This handles: game state changes, new games with same player count, elimination updates
         const effectiveGameMode = gameMode ?? (gameState.metadata as any)?.gameOptions?.gameMode ?? null
-        if (effectiveGameMode === 'lastOneStanding') {
-          const currentActivePaddleOwnerIds = new Set(gameState.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
-          edgesRef.current.forEach((wall) => {
-            const wallPlayerId = (wall as any).metadata?.wallPlayerId
-            if (wallPlayerId != null && typeof wallPlayerId === 'number' && !currentActivePaddleOwnerIds.has(wallPlayerId)) {
-              if (wall.material) {
-                const wallMat = wall.material as StandardMaterial
-                const playerColor = getUserColorBabylon(wallPlayerId)
-                wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
-                wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
-                wallMat.alpha = 0.8 // Make eliminated walls more opaque/solid-looking
-              }
+        const currentActivePaddleOwnerIds = new Set(gameState.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
+        
+        edgesRef.current.forEach((wall, i) => {
+          // Update wall metadata from current game state (critical for new games)
+          const currentEdge = gameState.edges[i]
+          const newWallPlayerId = currentEdge?.playerId ?? null
+          ;(wall as any).metadata = { ...(wall as any).metadata, wallPlayerId: newWallPlayerId }
+          
+          if (wall.material) {
+            const wallMat = wall.material as StandardMaterial
+            const wallPlayerId = newWallPlayerId
+            
+            // In lastOneStanding mode, color eliminated player walls with their player color
+            const isEliminatedPlayerWall = effectiveGameMode === 'lastOneStanding' && 
+              wallPlayerId != null && typeof wallPlayerId === 'number' && 
+              !currentActivePaddleOwnerIds.has(wallPlayerId)
+            
+            if (isEliminatedPlayerWall) {
+              const playerColor = getUserColorBabylon(wallPlayerId)
+              wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
+              wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+              wallMat.alpha = 0.8 // Make eliminated walls more opaque/solid-looking
+            } else {
+              // Reset to default wall color (handles: active walls, non-lastOneStanding modes, new games)
+              wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
+              wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+              wallMat.alpha = 0.5 // Default wall transparency
             }
-          })
-        }
+          }
+        })
       }
     }
 
@@ -965,6 +1019,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
         mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
         mesh.material = mat
+        
+        // Store ownerId in metadata for dark mode updates
+        ;(mesh as any).metadata = { ...(mesh as any).metadata, ownerId }
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
         paddlesRef.current.set(paddleId, mesh)
@@ -1126,7 +1183,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           
           // Skip rendering collected powerups - they've already been picked up
           if (isCollected) {
-            // Add to collected set so we never show it again
             collectedPowerupsRef.current.add(key)
           }
           
@@ -1150,6 +1206,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           }
           
           activePowerupKeys.add(key)
+
+          // Track metadata for pickup sound when it disappears
+          powerupMetaRef.current.set(key, { x, y, type: typeIndex })
 
           let mesh = powerupsRef.current.get(key)
           const size = Math.max(0.1, radius * SCALE_FACTOR)
@@ -1208,6 +1267,12 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       // Remove powerups that no longer exist in game state (or are collected)
       for (const [k, m] of powerupsRef.current) {
         if (!activePowerupKeys.has(k)) {
+          // Powerup just disappeared → collected! Play pickup sound.
+          const meta = powerupMetaRef.current.get(k)
+          if (meta && powerupSoundRef.current) {
+            powerupSoundRef.current.play(meta.x, meta.y, meta.type)
+          }
+          powerupMetaRef.current.delete(k)
           try { 
             m.position.set(0, -9999, 0)
             m.scaling.set(0.001, 0.001, 0.001)

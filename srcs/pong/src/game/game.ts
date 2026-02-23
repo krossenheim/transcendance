@@ -89,7 +89,8 @@ export class Powerup extends CircleObject {
                 return CollisionResponse.IGNORE;
             }
 
-            return CollisionResponse.RESET;
+            // Non-ball collision (paddle, wall): just ignore so the powerup stays collectible
+            return CollisionResponse.IGNORE;
         });
     }
 
@@ -575,7 +576,7 @@ export class PongGame {
                 break;
 
             case PowerupType.SUPER_SPEED:
-                this.scene.setTimeScale(1.5);
+                this.scene.setTimeScale(this.scene.getTimeScale() * 1.5);
                 break;
 
             case PowerupType.INCREASE_BALL_SIZE:
@@ -628,7 +629,7 @@ export class PongGame {
                 break;
 
             case PowerupType.SUPER_SPEED:
-                this.scene.setTimeScale(1.0);
+                this.scene.setTimeScale(this.scene.getTimeScale() / 1.5);
                 break;
 
             case PowerupType.REVERSE_CONTROLS:

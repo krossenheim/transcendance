@@ -99,12 +99,6 @@ export class PongManager {
           } else {
             finalGameState.metadata = { playerUsernames: gameData.playerUsernames };
           }
-          // Include player usernames for leaderboard
-          if (finalGameState.metadata) {
-            finalGameState.metadata.playerUsernames = gameData.playerUsernames;
-          } else {
-            finalGameState.metadata = { playerUsernames: gameData.playerUsernames };
-          }
           this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
             recipients: [...Array.from(gameData.game.getAllPlayerIds()), ...gameData.spectators],
             code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
@@ -119,12 +113,14 @@ export class PongManager {
       // Process AI input before simulation
       if (gameData.aiManager.count > 0) {
         const gameState = gameData.game.fetchBoardJSON();
+        const eliminatedPlayers = new Set(gameState.metadata?.eliminatedPlayers || []);
         
         // Refresh AI game state (only happens once per second per AI)
         gameData.aiManager.refreshGameStates(gameState);
         
-        // Apply AI inputs - ALWAYS call handlePressedKeysForPlayer to clear old keys
+        // Apply AI inputs - skip eliminated AI players (they have no paddles to control)
         for (const [aiPlayerId, _controller] of gameData.aiManager.getControllers()) {
+          if (eliminatedPlayers.has(aiPlayerId)) continue; // Skip eliminated AI
           const aiKeys = gameData.aiManager.getAIKeys(aiPlayerId);
           gameData.game.handlePressedKeysForPlayer(aiKeys, aiPlayerId);
         }
@@ -137,12 +133,6 @@ export class PongManager {
       // Fetch game state and add server timestamp for client-side lag compensation
       const gameState = gameData.game.fetchBoardJSON();
       gameState.serverTimestamp = now;  // Add server timestamp
-      // Include player usernames for leaderboard
-      if (gameState.metadata) {
-        gameState.metadata.playerUsernames = gameData.playerUsernames;
-      } else {
-        gameState.metadata = { playerUsernames: gameData.playerUsernames };
-      }
       // Include player usernames for leaderboard
       if (gameState.metadata) {
         gameState.metadata.playerUsernames = gameData.playerUsernames;

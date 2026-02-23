@@ -517,10 +517,21 @@ export default function PongComponent({
             score: message.payload.score 
           });
         }
+        // Ignore stale GameUpdates from old games: if we have a current game,
+        // only accept updates for that same board_id.
+        const currentBoardId = gameStateRef.current?.board_id;
+        const incomingBoardId = normalized?.board_id ?? message.payload?.board_id ?? message.payload?.boardId;
+        if (currentBoardId != null && incomingBoardId != null && currentBoardId !== incomingBoardId) {
+          console.log("[Pong] Ignoring stale GameUpdate for board", incomingBoardId, "(current:", currentBoardId, ")");
+          return HandlerResult.Handled;
+        }
         setGameState(normalized);
         gameStateReceivedRef.current = true;
-        if (normalized) {
-          setPlayerIDsHelper(normalized);
+        // Only set paddle IDs once when first receiving game state (not on every frame)
+        if (!gameStateRef.current || gameStateRef.current.board_id !== normalized?.board_id) {
+          if (normalized) {
+            setPlayerIDsHelper(normalized);
+          }
         }
         // If we received valid game state and we're not in game view, switch to it
         if (currentView !== 'game' && message.payload?.board_id && normalized && !normalized.gameOver) {
@@ -1344,10 +1355,7 @@ export default function PongComponent({
                 if (lobbyRef.current && isConnected) {
                   sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobbyRef.current.lobbyId })
                 }
-                setLobby(null);
-                setTournament(null);
-                setGameState(null);
-                setCurrentView("menu");
+                resetGameState();
                 if (onNavigateToChatRef.current) {
                   onNavigateToChatRef.current();
                 }
@@ -1582,15 +1590,9 @@ export default function PongComponent({
                       if (lobbyRef.current && isConnected) {
                         sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobbyRef.current.lobbyId })
                       }
-                      setLobby(null);
-                      setTournament(null);
-                      setTournamentMatchResult(null);
-                      setGameState(null);
-                      setActiveTournamentId(null);
+                      resetGameState();
                       if (onNavigateToChatRef.current) {
                         onNavigateToChatRef.current();
-                      } else {
-                        setCurrentView("menu");
                       }
                     }}
                     className={`px-12 py-4 text-xl ${activeTournamentId ? 'bg-gray-600 hover:bg-gray-700' : 'bg-green-500 hover:bg-green-600'} text-white rounded-xl font-bold transition-all`}

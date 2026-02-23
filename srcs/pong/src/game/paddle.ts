@@ -36,7 +36,7 @@ export class PongPaddle extends MultiObject {
 
 	private readonly basePaddleSpeed: number;
 	private boardPaddleSpeed: number;
-	private reverseControls: boolean = false;
+	private reverseControlsCount: number = 0;
 	private isTopHalf: boolean = false;
 
 	constructor(center: Vec2, width: number, height: number, paddleDirection: Vec2, protectedWallWidth: number, paddleSpeedFactor: number, walls: LineObject[] = [], playerId: number) {
@@ -170,7 +170,11 @@ export class PongPaddle extends MultiObject {
 	}
 
 	public setReverseControls(reverse: boolean): void {
-		this.reverseControls = reverse;
+		if (reverse) {
+			this.reverseControlsCount++;
+		} else {
+			this.reverseControlsCount = Math.max(0, this.reverseControlsCount - 1);
+		}
 	}
 
 	/// Update the paddle velocity based on the current key states and the given paddle speed. Return the amount of time this move will maximally take before hitting the bounds.
@@ -178,7 +182,8 @@ export class PongPaddle extends MultiObject {
 		let moveDirection = 0;
 		for (const keyData of this.keyData) {
 			if (keyData.isPressed) {
-				moveDirection += (keyData.isClockwise !== this.reverseControls) ? 1 : -1;
+				const reversed = this.reverseControlsCount > 0;
+				moveDirection += (keyData.isClockwise !== reversed) ? 1 : -1;
 			}
 		}
 
@@ -219,7 +224,8 @@ export class PongPaddle extends MultiObject {
 	}
 
 	public setSpeed(newSpeed: number): void {
-		this.boardPaddleSpeed = newSpeed;
+		// Enforce minimum speed: never drop below 10% of base speed
+		this.boardPaddleSpeed = Math.max(this.basePaddleSpeed * 0.1, newSpeed);
 	}
 
 	public toJSON(): PongPaddleJSON {
