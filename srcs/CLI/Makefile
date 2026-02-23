@@ -3,8 +3,8 @@
 
 NAME		= pong-cli
 CC			= cc
-CFLAGS		= -Wall -Wextra -Werror -g -O2
-LDFLAGS		= -lcurl -lwebsockets -lncursesw -lpthread -lssl -lcrypto -lm
+CFLAGS		= -Wall -Wextra -Werror -g -O2 $(shell sdl2-config --cflags 2>/dev/null)
+LDFLAGS		= -lcurl -lwebsockets -lncursesw -lpthread -lssl -lcrypto -lm $(shell sdl2-config --libs 2>/dev/null) -lSDL2_mixer
 
 # Directories
 SRC_DIR		= src
@@ -20,7 +20,8 @@ SRCS		= $(SRC_DIR)/main.c \
 			  $(SRC_DIR)/renderer.c \
 			  $(SRC_DIR)/starfield.c \
 			  $(SRC_DIR)/utils.c \
-			  $(SRC_DIR)/cJSON.c
+			  $(SRC_DIR)/cJSON.c \
+			  $(SRC_DIR)/sound.c
 
 # Object files
 OBJS		= $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
@@ -33,7 +34,8 @@ HEADERS		= $(INC_DIR)/pong_cli.h \
 			  $(INC_DIR)/renderer.h \
 			  $(INC_DIR)/starfield.h \
 			  $(INC_DIR)/utils.h \
-			  $(INC_DIR)/cJSON.h
+			  $(INC_DIR)/cJSON.h \
+			  $(INC_DIR)/sound.h
 
 # Colors for output
 GREEN		= \033[0;32m
@@ -48,6 +50,9 @@ all: $(NAME)
 $(NAME): $(OBJ_DIR) $(OBJS)
 	@echo "$(GREEN)Linking $(NAME)...$(NC)"
 	$(CC) $(OBJS) -o $(NAME) $(LDFLAGS)
+	@mkdir -p sounds
+	@cp -u ../sound/Bounce1.wav sounds/ 2>/dev/null || true
+	@cp -u ../sound/Pickup3.wav sounds/ 2>/dev/null || true
 	@echo "$(GREEN)Build complete: $(NAME)$(NC)"
 
 $(OBJ_DIR):
@@ -71,7 +76,7 @@ re: fclean all
 deps:
 	@echo "$(YELLOW)Installing dependencies...$(NC)"
 	sudo apt-get update
-	sudo apt-get install -y libcurl4-openssl-dev libwebsockets-dev libncurses5-dev libssl-dev
+	sudo apt-get install -y libcurl4-openssl-dev libwebsockets-dev libncurses5-dev libssl-dev libsdl2-dev libsdl2-mixer-dev
 
 # Install the binary
 install: $(NAME)
