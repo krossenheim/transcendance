@@ -150,6 +150,27 @@ typedef struct game_state {
     bool            invitation_pending;  /* True when invited by another player */
     bool            is_host;             /* True if we created the lobby */
     bool            auto_start_sent;     /* True after auto-start_from_lobby sent */
+<<<<<<< HEAD
+=======
+    
+    /* Sound event tracking (set by game_update_state, consumed by game loop) */
+    bool            bounce_pending;       /* A ball bounced since last frame  */
+    float           bounce_x;             /* X position of the bounced ball   */
+    float           bounce_radius;        /* Radius of the bounced ball       */
+    bool            powerup_pickup_pending; /* A powerup was collected        */
+    float           powerup_pickup_x;     /* X position of collected powerup  */
+    int             powerup_pickup_type;  /* Type of collected powerup        */
+
+    /* Previous-frame state for bounce / pickup detection */
+    int             prev_ball_ids[MAX_BALLS];  /* previous ball ids              */
+    float           prev_vx[MAX_BALLS];   /* previous ball vx values          */
+    float           prev_vy[MAX_BALLS];   /* previous ball vy values          */
+    int             prev_ball_count;      /* previous ball count              */
+    int             prev_powerup_ids[MAX_POWERUPS]; /* prev powerup ids       */
+    float           prev_powerup_x[MAX_POWERUPS];   /* prev powerup x pos     */
+    int             prev_powerup_types[MAX_POWERUPS];/* prev powerup types     */
+    int             prev_powerup_count;   /* previous powerup count           */
+>>>>>>> 5ebdb55166f8fdac49e9cb95b771305d7e2cee44
 
     /* Threading */
     pthread_mutex_t mutex;

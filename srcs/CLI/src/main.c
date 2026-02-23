@@ -105,6 +105,9 @@ typedef struct {
     
     /* Running flag */
     volatile bool running;
+    
+    /* Sound enabled flag (disabled by default due to SDL/terminal issues) */
+    bool enable_sound;
 } app_context_t;
 
 /* Global context for signal handler */
@@ -151,6 +154,8 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
             }
         } else if (strcmp(argv[i], "--no-ssl") == 0) {
             ctx->use_ssl = false;
+        } else if (strcmp(argv[i], "--sound") == 0) {
+            ctx->enable_sound = true;
         } else if (strcmp(argv[i], "--help") == 0) {
             printf("Pong CLI - Play Pong from the terminal\n\n");
             printf("Usage: %s [options]\n\n", argv[0]);
@@ -158,6 +163,7 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
             printf("  -h, --host HOST    Server hostname (default: %s)\n", DEFAULT_HOST);
             printf("  -p, --port PORT    Server port (default: %d)\n", DEFAULT_PORT);
             printf("  --no-ssl           Disable SSL/TLS\n");
+            printf("  --sound            Enable sound effects (experimental)\n");
             printf("  --help             Show this help message\n");
             return -1;
         }
@@ -171,6 +177,14 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
         fprintf(stderr, "Failed to initialize terminal renderer\n");
         return -1;
     }
+<<<<<<< HEAD
+=======
+    
+    /* Initialize sound AFTER ncurses (non-fatal if it fails) */
+    if (ctx->enable_sound) {
+        sound_init(SOUND_ASSET_DIR);
+    }
+>>>>>>> 5ebdb55166f8fdac49e9cb95b771305d7e2cee44
 
     /* Try to load saved session */
     ctx->session = auth_load_session();
