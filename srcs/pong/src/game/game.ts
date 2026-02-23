@@ -400,8 +400,12 @@ export class PongGame {
         let leftOverTime = deltaTime;
         while (leftOverTime > EPS) {
             let timeStep = leftOverTime;
+            const timeScale = this.scene.getTimeScale();
             for (const paddle of this.paddles) {
-                timeStep = Math.min(paddle.updatePaddleVelocity(), timeStep);
+                // Divide by timeScale because scene.playSimulation multiplies deltaTime by timeScale.
+                // This ensures paddles stop exactly at their bounds and don't overshoot.
+                const paddleMaxTime = paddle.updatePaddleVelocity() / timeScale;
+                timeStep = Math.min(paddleMaxTime, timeStep);
             }
 
             this.scene.playSimulation(timeStep, this.balls);
