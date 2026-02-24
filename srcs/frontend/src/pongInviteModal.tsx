@@ -13,7 +13,7 @@ interface PongInviteModalProps {
   onClose: () => void
   roomUsers: Array<{ id: number; username: string; onlineStatus?: number }>
   currentUserId: number
-  onCreateGame: (mode: GameMode, selectedPlayers: number[], settings: GameSettings) => void
+  onCreateGame: (mode: GameMode, selectedPlayers: number[], settings: GameSettings, playerUsernames: { [key: number]: string }) => void
 }
 
 export interface GameSettings {
@@ -144,7 +144,14 @@ export default function PongInviteModal({
       aiCount,
     }
 
-    onCreateGame(gameMode, players, settings)
+    // Build username map from available players so the callback has correct names
+    const playerUsernameMap: { [key: number]: string } = {}
+    for (const p of players) {
+      const found = availablePlayers.find((u) => u.id === p)
+      if (found) playerUsernameMap[p] = found.username
+    }
+
+    onCreateGame(gameMode, players, settings, playerUsernameMap)
     handleClose()
   }
 

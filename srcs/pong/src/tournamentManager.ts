@@ -49,7 +49,8 @@ export class TournamentManager {
     name: string,
     playerIds: number[],
     ballCount: number,
-    maxScore: number
+    maxScore: number,
+    playerUsernames: { [key: number]: string } = {}
   ): Result<Tournament, ErrorResponseType> {
     if (playerIds.length < 2) {
       return ResultClass.Err({
@@ -67,17 +68,21 @@ export class TournamentManager {
       mode: "tournament",
       players: playerIds.map((userId) => ({
         userId,
-        username: `Player ${userId}`,
+        username: playerUsernames[userId] || `Player ${userId}`,
+        alias: playerUsernames[userId] || `Player ${userId}`,
       })),
       matches: [],
       currentRound: 1,
       totalRounds,
-      status: "registration",
+      status: "in_progress",
       winnerId: null,
       ballCount,
       maxScore,
       onchainTxHashes: [],
     };
+
+    // Generate bracket immediately — no registration phase
+    this.generateBracket(tournament);
 
     this.tournaments.set(tournament.tournamentId, tournament);
     return ResultClass.Ok(tournament);

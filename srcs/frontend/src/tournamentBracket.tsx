@@ -2,6 +2,8 @@
 
 import React from "react"
 import { getUserColorCSS } from "@utils/users"
+import MiniPongCanvas from "./MiniPongCanvas"
+import type { TypeGameStateSchema } from "./types/pong-interfaces"
 
 export interface TournamentMatch {
   matchId: number
@@ -11,6 +13,7 @@ export interface TournamentMatch {
   winner: number | null
   status: "pending" | "in_progress" | "completed"
   readyPlayers?: number[] // Players who clicked "Join Match"
+  gameId?: number // Associated pong game ID when match is in progress
 }
 
 export interface TournamentData {
@@ -21,7 +24,7 @@ export interface TournamentData {
   matches: TournamentMatch[]
   currentRound: number
   totalRounds: number
-  status: "registration" | "in_progress" | "completed"
+  status: "in_progress" | "completed"
   winner: { id: number; username: string; alias?: string } | null
   onchainTxHashes?: string[]
 }
@@ -29,20 +32,22 @@ export interface TournamentData {
 interface TournamentBracketProps {
   tournament: TournamentData
   currentUserId: number
-  onEnterAlias: (alias: string) => void
   onJoinMatch: (matchId: number) => void
   onSpectate: (matchId: number) => void
+  /** Stable callback to get the latest game state for a watched game */
+  getWatchedGameState?: (gameId: number) => TypeGameStateSchema | null
+  /** Version counter that triggers re-render when watched states update */
+  watchedStatesVersion?: number
 }
 
 export default function TournamentBracket({
   tournament,
   currentUserId,
-  onEnterAlias,
   onJoinMatch,
   onSpectate,
+  getWatchedGameState,
+  watchedStatesVersion: _watchedStatesVersion,
 }: TournamentBracketProps) {
-  const currentPlayer = tournament.players.find((p) => p.id === currentUserId)
-  const [aliasInput, setAliasInput] = React.useState("")
   const [waitingForMatch, setWaitingForMatch] = React.useState<number | null>(null)
 
   // Reset waiting state when match status changes
@@ -72,14 +77,6 @@ export default function TournamentBracket({
     if (round === tournament.totalRounds - 1) return "Semi-Finals"
     if (round === tournament.totalRounds - 2) return "Quarter-Finals"
     return `Round ${round}`
-  }
-
-  const handleAliasSubmit = () => {
-    const alias = aliasInput.trim()
-    if (alias) {
-      onEnterAlias(alias)
-      setAliasInput("")
-    }
   }
 
   return (
@@ -136,32 +133,7 @@ export default function TournamentBracket({
         </div>
       )}
 
-      {/* Registration Phase - Alias Entry */}
-      {tournament.status === "registration" && !currentPlayer?.alias && (
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-500 rounded-lg">
-          <h3 className="font-semibold text-blue-700 dark:text-blue-300 mb-3">📝 Enter Your Tournament Alias</h3>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={aliasInput}
-              onChange={(e) => setAliasInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAliasSubmit()}
-              placeholder="Enter your alias..."
-              maxLength={20}
-              className="flex-1 border border-blue-300 dark:border-blue-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-900/70 dark:text-gray-100"
-            />
-            <button
-              onClick={handleAliasSubmit}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Submit
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-            Choose a unique alias for this tournament (max 20 characters)
-          </p>
-        </div>
-      )}
+
 
       {/* Players List */}
       <div className="mb-6">
@@ -187,7 +159,7 @@ export default function TournamentBracket({
       </div>
 
       {/* Tournament Bracket */}
-      {tournament.status !== "registration" && (
+      {tournament.matches.length > 0 && (
         <div className="overflow-x-auto">
           <div className="flex gap-8 min-w-max pb-4">
             {Array.from({ length: tournament.totalRounds }, (_, roundIndex) => {
@@ -286,10 +258,25 @@ export default function TournamentBracket({
                           })()}
                         {match.status === "in_progress" && (() => {
                           const isInMatch = match.player1?.id === currentUserId || match.player2?.id === currentUserId;
+                          const hasLivePreview = !isInMatch && match.gameId != null && getWatchedGameState;
                           return (
                             <div className="mt-2">
-                              <div className="text-xs text-center text-blue-500 font-semibold">🎮 In Progress...</div>
-                              {!isInMatch && (
+                              {/* Live mini-preview of the ongoing game */}
+                              {hasLivePreview && (
+                                <div className="mb-2">
+                                  <MiniPongCanvas
+                                    getGameState={getWatchedGameState}
+                                    gameId={match.gameId!}
+                                    width={230}
+                                    height={180}
+                                    onClick={() => onSpectate(match.matchId)}
+                                  />
+                                </div>
+                              )}
+                              {!hasLivePreview && (
+                                <div className="text-xs text-center text-blue-500 font-semibold">🎮 In Progress...</div>
+                              )}
+                              {!isInMatch && !hasLivePreview && (
                                 <button
                                   onClick={() => onSpectate(match.matchId)}
                                   className="mt-1 w-full py-1 text-xs rounded bg-purple-500 text-white hover:bg-purple-600"
@@ -310,14 +297,7 @@ export default function TournamentBracket({
         </div>
       )}
 
-      {/* Tournament Status */}
-      {tournament.status === "registration" && (
-        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-500 rounded-lg text-center">
-          <p className="text-yellow-700 dark:text-yellow-300">
-            ⏳ Tournament will begin once all players have entered their aliases
-          </p>
-        </div>
-      )}
+
     </div>
   )
 }

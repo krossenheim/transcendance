@@ -45,11 +45,22 @@ export default function PongLobby({
 
   const currentPlayer = lobby.players.find((p) => p.id === currentUserId)
   const isHost = currentPlayer?.isHost || false
-  const allReady = lobby.players.every((p) => p.isReady)
+  
+  // Build AI player entries for display
+  const AI_PLAYER_ID_BASE = -1001
+  const aiCount = lobby.settings.aiCount ?? 0
+  const aiPlayers: LobbyPlayer[] = Array.from({ length: aiCount }, (_, i) => ({
+    id: AI_PLAYER_ID_BASE - i,
+    username: `AI ${i + 1}`,
+    isReady: true, // AI is always ready
+    isHost: false,
+  }))
+  const allDisplayPlayers = [...lobby.players, ...aiPlayers]
+  
+  const allReady = allDisplayPlayers.every((p) => p.isReady)
   
   // Total players includes humans + AI
-  const aiCount = lobby.settings.aiCount ?? 0
-  const totalPlayerCount = lobby.players.length + aiCount
+  const totalPlayerCount = allDisplayPlayers.length
   
   // Minimum players based on game mode
   const getMinPlayers = () => {
@@ -140,10 +151,10 @@ export default function PongLobby({
       {/* Players List */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-          {t('pong.players')} ({lobby.players.length})
+          {t('pong.players')} ({allDisplayPlayers.length})
         </h3>
         <div className="space-y-2">
-          {lobby.players.map((player) => {
+          {allDisplayPlayers.map((player) => {
             // Color by user id so it matches paddle owner mapping
             const playerColor = getUserColorCSS(player.id, true)
 
@@ -165,6 +176,11 @@ export default function PongLobby({
                     {player.isHost && (
                       <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5">
                         {t('pong.host')}
+                      </span>
+                    )}
+                    {player.id <= -1001 && (
+                      <span className="ml-2 text-xs bg-purple-500 text-white px-2 py-0.5">
+                        🤖 AI
                       </span>
                     )}
                     {player.id === currentUserId && (

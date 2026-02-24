@@ -45,6 +45,7 @@ import {
   SetPlayerAliasSchema,
   JoinTournamentMatchSchema,
   SpectateMatchSchema,
+  WatchTournamentMatchesSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
 import { GameResult } from "@app/shared/api/service/db/gameResult";
 import { UserNotifications } from "@app/shared/api/service/db/notification";
@@ -947,6 +948,32 @@ export const user_url = defineRoutes({
             MatchResult: {
               code: 0,
               payload: TournamentMatchResultSchema,
+            },
+          },
+        },
+      },
+
+      // Passively watch all in-progress tournament matches (adds user as spectator to all)
+      watchTournamentMatches: {
+        funcId: "watch_tournament_matches",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: WatchTournamentMatchesSchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Watching: {
+              code: 0,
+              payload: z.object({
+                watching: z.array(z.object({
+                  matchId: gameIdValue,
+                  gameId: gameIdValue,
+                })),
+              }),
+            },
+            NotInTournament: {
+              code: 1,
+              payload: ErrorResponse,
             },
           },
         },
