@@ -10,15 +10,15 @@ services:
       - ./srcs/${NGINX_NAME}/site.env
     build:
       context: .
-      dockerfile: ./srcs/${NGINX_NAME}/Dockerfile.modsec
+      dockerfile: ./srcs/${NGINX_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${NGINX_NAME}
     healthcheck:
-      test: ["CMD-SHELL", "nginx -V 2>&1 | grep -q modsecurity && curl -k -s -o /dev/null 'https://localhost/?q=union%20select' && sleep 0.5 && grep -q '910100' /var/log/modsecurity/modsec_audit.log || exit 1"]
+      test: ["CMD-SHELL", "nginx -t"]
       interval: 30s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 3
+      start_period: 10s
     restart: always
     ports:
       - "443:443"

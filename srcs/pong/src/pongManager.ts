@@ -27,13 +27,22 @@ type gameDataType = {
   matchId?: number;
   // Spectators watching this game
   spectators: number[];
+  // Delta compression: track if initial full state has been sent
+  sentInitialState: boolean;
+  // Cache walls/metadata for delta compression (static data)
+  cachedStaticState: {
+    walls: any[];
+    gameOptions: any;
+    seed: number;
+    allPlayers: number[];
+  } | null;
   // AI player management
   aiManager: AIManager;
   // Player usernames for leaderboard display
   playerUsernames: { [key: number]: string };
 };
 
-const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
+const PONG_FRAME_INTERVAL_MS = 33; // ~30 FPS with client-side lerp interpolation for smooth rendering
 const GAME_CLEANUP_DELAY_MS = 30000; // Clean up game 30 seconds after it ends
 const INPUT_HISTORY_MAX_AGE_MS = 500; // Keep inputs for 500ms for lag compensation
 const DEFAULT_RTT_MS = 50; // Default assumed RTT
@@ -93,6 +102,7 @@ export class PongManager {
           // Send one final game state with gameOver: true to clients
           const finalGameState = gameData.game.fetchBoardJSON();
           finalGameState.serverTimestamp = now;
+          finalGameState.isDelta = false; // Full state for game over
           // Include player usernames for leaderboard
           if (finalGameState.metadata) {
             finalGameState.metadata.playerUsernames = gameData.playerUsernames;
@@ -131,19 +141,58 @@ export class PongManager {
       gameData.last_frame_time = now;
       
       // Fetch game state and add server timestamp for client-side lag compensation
-      const gameState = gameData.game.fetchBoardJSON();
-      gameState.serverTimestamp = now;  // Add server timestamp
+      const fullGameState = gameData.game.fetchBoardJSON();
+      fullGameState.serverTimestamp = now;  // Add server timestamp
       // Include player usernames for leaderboard
-      if (gameState.metadata) {
-        gameState.metadata.playerUsernames = gameData.playerUsernames;
+      if (fullGameState.metadata) {
+        fullGameState.metadata.playerUsernames = gameData.playerUsernames;
       } else {
-        gameState.metadata = { playerUsernames: gameData.playerUsernames };
+        fullGameState.metadata = { playerUsernames: gameData.playerUsernames };
+      }
+      
+      // Delta compression: send full state first time, then only dynamic data
+      let payload: any;
+      if (!gameData.sentInitialState) {
+        // First frame: send full state and cache static data
+        payload = { ...fullGameState, isDelta: false };
+        gameData.sentInitialState = true;
+        gameData.cachedStaticState = {
+          walls: fullGameState.walls,
+          gameOptions: fullGameState.metadata?.gameOptions,
+          seed: fullGameState.metadata?.seed,
+          allPlayers: fullGameState.metadata?.allPlayers,
+        };
+      } else {
+        // Subsequent frames: send only dynamic data (balls, paddles, tick, score, powerups, effects)
+        payload = {
+          isDelta: true,
+          board_id: fullGameState.board_id,
+          boardId: fullGameState.boardId,
+          balls: fullGameState.balls,
+          paddles: fullGameState.paddles,
+          powerups: fullGameState.powerups,
+          activeEffects: fullGameState.activeEffects,
+          recentEvents: fullGameState.recentEvents,
+          score: fullGameState.score,
+          serverTimestamp: now,
+          gameOver: fullGameState.gameOver,
+          winner: fullGameState.winner,
+          // Include only dynamic metadata fields
+          metadata: {
+            currentTick: fullGameState.metadata?.currentTick,
+            elapsedTime: fullGameState.metadata?.elapsedTime,
+            players: fullGameState.metadata?.players,
+            eliminatedPlayers: fullGameState.metadata?.eliminatedPlayers,
+            timeScale: fullGameState.metadata?.timeScale,
+            playerUsernames: gameData.playerUsernames,
+          },
+        };
       }
       
       this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
         recipients: [...Array.from(gameData.game.getAllPlayerIds()), ...gameData.spectators],
         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-        payload: gameState,
+        payload,
       });
     }
   }
@@ -198,6 +247,9 @@ export class PongManager {
       spectators: [],
       aiManager,
       playerUsernames: completeUsernames,
+      // Delta compression initialization
+      sentInitialState: false,
+      cachedStaticState: null,
     };
     
     // Only set tournament info if provided
@@ -357,10 +409,11 @@ export class PongManager {
       console.log(`[PongManager] Added spectator ${userId} to game ${gameId}`);
     }
     
-    // Return current game state
+    // Return current game state (full state for new spectators)
     const gameState = gameData.game.fetchBoardJSON();
     gameState.serverTimestamp = Date.now();
     gameState.isSpectator = true;
+    gameState.isDelta = false; // Full state for new spectators
     return Result.Ok(gameState);
   }
 
@@ -405,6 +458,7 @@ export class PongManager {
     
     const gameState = gameData.game.fetchBoardJSON();
     gameState.isSpectator = isSpectator;
+    gameState.isDelta = false; // Full state for explicit requests
     // Include player usernames for leaderboard display
     if (gameState.metadata) {
       gameState.metadata.playerUsernames = gameData.playerUsernames;

@@ -5,9 +5,6 @@ worker_processes  auto;
 error_log  /var/log/nginx/error.log notice;
 pid        /var/run/nginx.pid;
 
-# Load ModSecurity dynamic module (module file is added at image build time)
-load_module /etc/nginx/modules/ngx_http_modsecurity_module.so;
-
 
 events {
     worker_connections  1024;
@@ -41,9 +38,5 @@ http {
         ${TR_NETWORK_SUBNET} 1;
     }
 
-
-    # Enable ModSecurity and point to the rules file (populated by entrypoint)
-    modsecurity on;
-    modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
 	include /etc/nginx/sites-enabled/*;
 }

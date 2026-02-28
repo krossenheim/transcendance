@@ -49,9 +49,59 @@ export default function PongComponent({
   onLobbyJoined?: () => void
   onNavigateToChat?: () => void
 }) {
+  // Cache for delta compression: stores static state (walls, gameOptions) per game
+  // Keyed by board_id to support multiple simultaneous games (e.g., tournament mini-previews)
+  const cachedStaticStatesRef = useRef<Map<number, {
+    walls: any[];
+    gameOptions: any;
+    seed: number;
+    allPlayers: number[];
+  }>>(new Map());
+
   // Helper: normalize server GameState (tuples) to frontend-friendly objects
+  // Supports delta compression: merges delta updates with cached static state
   const normalizeGameState = (raw: any) => {
     if (!raw) return null
+
+    // Check if this is a delta update (missing walls = delta)
+    const isDelta = raw.isDelta === true;
+    const incomingBoardId = raw.board_id ?? raw.boardId;
+    
+    // Get cached static state for this specific game
+    const cachedStatic = incomingBoardId != null ? cachedStaticStatesRef.current.get(incomingBoardId) : undefined;
+    
+    // If delta update, merge with cached static state
+    let wallsSource = raw.walls;
+    let metadataSource = raw.metadata;
+    
+    if (isDelta && cachedStatic) {
+      // Use cached walls for delta updates
+      wallsSource = cachedStatic.walls;
+      // Merge metadata: delta metadata + cached static fields
+      metadataSource = {
+        ...raw.metadata,
+        gameOptions: cachedStatic.gameOptions,
+        seed: cachedStatic.seed,
+        allPlayers: raw.metadata?.allPlayers ?? cachedStatic.allPlayers,
+        id: incomingBoardId,
+      };
+    } else if (!isDelta && raw.walls && incomingBoardId != null) {
+      // Full update: cache static state for this game
+      cachedStaticStatesRef.current.set(incomingBoardId, {
+        walls: raw.walls,
+        gameOptions: raw.metadata?.gameOptions,
+        seed: raw.metadata?.seed,
+        allPlayers: raw.metadata?.allPlayers,
+      });
+      
+      // Cleanup: limit cache size to prevent memory leaks (keep last 10 games)
+      if (cachedStaticStatesRef.current.size > 10) {
+        const firstKey = cachedStaticStatesRef.current.keys().next().value;
+        if (firstKey !== undefined) {
+          cachedStaticStatesRef.current.delete(firstKey);
+        }
+      }
+    }
 
     // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
     const balls = (raw.balls || []).filter((b: any) => b != null).map((b: any, idx: number) => {
@@ -104,7 +154,7 @@ export default function PongComponent({
     })
 
     // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
-    const edges = (raw.walls || []).filter((w: any) => w != null).map((w: any) => {
+    const edges = (wallsSource || []).filter((w: any) => w != null).map((w: any) => {
       if (Array.isArray(w)) {
         // w[6] is playerId (null for regular walls, number for eliminated player's goal)
         return { x: Number(w[0]) || 0, y: Number(w[1]) || 0, playerId: w[6] ?? null }
@@ -117,7 +167,7 @@ export default function PongComponent({
       edges,
       paddles,
       balls,
-      metadata: raw.metadata ?? null,
+      metadata: metadataSource ?? null,
       powerups: raw.powerups ?? raw.power_up ?? [],
       activeEffects: raw.activeEffects ?? [],
       recentEvents: raw.recentEvents ?? [],
