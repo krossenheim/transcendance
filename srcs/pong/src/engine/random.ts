@@ -24,13 +24,6 @@ export class SeededRandom {
     }
 
     /**
-     * Get a random integer in [min, max] (inclusive)
-     */
-    public nextInt(min: number, max: number): number {
-        return Math.floor(this.next() * (max - min + 1)) + min;
-    }
-
-    /**
      * Get a random float in [min, max)
      */
     public nextFloat(min: number, max: number): number {
@@ -42,27 +35,6 @@ export class SeededRandom {
      */
     public nextAngle(): number {
         return this.next() * 2 * Math.PI;
-    }
-
-    /**
-     * Reset the RNG to initial state (for game replay/rollback)
-     */
-    public reset(): void {
-        this.state = this.initialSeed;
-    }
-
-    /**
-     * Get current internal state (for serialization)
-     */
-    public getState(): number {
-        return this.state;
-    }
-
-    /**
-     * Set internal state (for deserialization/rollback)
-     */
-    public setState(state: number): void {
-        this.state = state >>> 0;
     }
 
     /**
@@ -79,10 +51,4 @@ export class SeededRandom {
         return new SeededRandom((Math.random() * 0xffffffff) >>> 0);
     }
 
-    /**
-     * Create a new SeededRandom from timestamp (reproducible if you know the time)
-     */
-    public static fromTimestamp(): SeededRandom {
-        return new SeededRandom(Date.now() >>> 0);
-    }
 }

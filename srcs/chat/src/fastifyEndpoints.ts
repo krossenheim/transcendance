@@ -10,10 +10,7 @@ export async function chatEndpoints(fastify: any, singletonChatRooms: ChatRooms,
         const userId = Number(request.params.userId);
         const result: Set<number> = new Set();
 
-        console.log("Chatrooms available:", singletonChatRooms.rooms);
         for (const room of singletonChatRooms.rooms.values()) {
-            console.log("Checking room", room.getId(), "for user", userId);
-            console.log("Room users:", room.users);
             if (room.users.find((id) => id === userId)) {
                 for (const uid of room.users) {
                     result.add(uid);
@@ -29,7 +26,7 @@ export async function chatEndpoints(fastify: any, singletonChatRooms: ChatRooms,
         if (!room)
             return reply.status(404).send({ message: 'Room not found' });
 
-        socket.invokeHandler(
+        await socket.invokeHandler(
             user_url.ws.chat.sendMessage,
             1,
             { roomId: request.body.roomId, messageString: request.body.messageString }

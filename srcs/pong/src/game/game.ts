@@ -378,10 +378,6 @@ export class PongGame {
         }
     }
 
-    public getScene(): Scene {
-        return this.scene;
-    }
-
     /**
      * Run simulation for the given deltaTime using fixed tick-based updates.
      * This ensures deterministic behavior regardless of frame rate.
@@ -668,25 +664,6 @@ export class PongGame {
         }
     }
 
-    public handleKeyPress(key: string, isPressed: boolean): void {
-        const lowerKey = key.toLowerCase();
-
-        for (const paddle of this.paddles) {
-            for (const keyData of paddle.keyData) {
-                if (keyData.key.toLowerCase() !== lowerKey) continue;
-                keyData.isPressed = isPressed;
-            }
-        }
-    }
-
-    public handlePressedKeys(keys: string[]): void {
-        for (const paddle of this.paddles) {
-            for (const keyData of paddle.keyData) {
-                keyData.isPressed = keys.includes(keyData.key.toLowerCase());
-            }
-        }
-    }
-
     public fetchPlayerScoreMap(): Map<number, number> {
         const scoreMap: Map<number, number> = new Map();
 
@@ -819,10 +796,6 @@ export class PongGame {
         return Array.from(this.players);
     }
 
-    public getUniquePlayerIds(): Set<number> {
-        return new Set(this.players);
-    }
-
     /**
      * Return ALL player IDs who started the game, including eliminated ones.
      * Used for broadcasting game state so eliminated players can spectate.
@@ -911,57 +884,4 @@ export class PongGame {
         return this.currentTick * TICK_DURATION;
     }
 
-    /**
-     * Get the seed used for this game's RNG.
-     * Share this with clients for deterministic replay.
-     */
-    public getSeed(): number {
-        return this.rng.getSeed();
-    }
-
-
-    // ============================================
-    // DEBUG POWERUP METHODS (for manual triggering)
-    // ============================================
-
-    /**
-     * Spawn a specific powerup type at a random location (for debug testing).
-     */
-    public debugSpawnPowerup(type: PowerupType): void {
-        const powerupDataItem = powerupData.find(p => p.type === type) || powerupData[0]!;
-        const angle = this.rng.nextAngle();
-        const distance = Math.sqrt(this.rng.next()) * this.powerupSpawnRadius;
-        scratchSpawnDir.set(1, 0).rotate(angle).mul(distance);
-        scratchSpawnPos.set(this.gameOptions.canvasWidth / 2, this.gameOptions.canvasHeight / 2).add(scratchSpawnDir);
-        const powerup = new Powerup(scratchSpawnPos.clone(), 20, new Vec2(0, 0), powerupDataItem, this);
-        this.powerups.push(powerup);
-        this.scene.addObject(powerup);
-        console.log(`[DEBUG] Spawned powerup of type ${PowerupType[type]} at position (${scratchSpawnPos.x.toFixed(2)}, ${scratchSpawnPos.y.toFixed(2)}).`);
-    }
-
-    /**
-     * Instantly apply a powerup effect (for debug testing).
-     */
-    public debugApplyPowerupEffect(type: PowerupType): void {
-        console.log(`[DEBUG] Applying instant powerup effect: ${PowerupType[type]}`);
-        
-        switch (type) {
-            case PowerupType.INCREASE_PADDLE_SPEED:
-                this.paddles.forEach(paddle => paddle.setSpeed(paddle.getSpeed() * 2));
-                this.recentPowerupEvents.push({ type, typeName: PowerupType[type], tick: this.currentTick });
-                break;
-            case PowerupType.DECREASE_PADDLE_SPEED:
-                this.paddles.forEach(paddle => paddle.setSpeed(paddle.getSpeed() * 0.5));
-                this.recentPowerupEvents.push({ type, typeName: PowerupType[type], tick: this.currentTick });
-                break;
-            case PowerupType.SUPER_SPEED:
-                this.scene.setTimeScale(this.scene.getTimeScale() * 1.5);
-                this.recentPowerupEvents.push({ type, typeName: PowerupType[type], tick: this.currentTick });
-                break;
-            case PowerupType.REVERSE_CONTROLS:
-                this.paddles.forEach(paddle => paddle.setReverseControls(true));
-                this.recentPowerupEvents.push({ type, typeName: PowerupType[type], tick: this.currentTick });
-                break;
-        }
-    }
 }

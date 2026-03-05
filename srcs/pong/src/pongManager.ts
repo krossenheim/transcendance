@@ -1,6 +1,6 @@
 import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
-import { PongGame, PongGameOptions, PowerupType } from "./game/game";
+import { PongGame, PongGameOptions } from "./game/game";
 import { OurSocket } from "@app/shared/socket_to_hub";
 import containers from "@app/shared/internal_api";
 import { AIManager, AIDifficulty } from "./aiController";
@@ -38,20 +38,7 @@ const GAME_CLEANUP_DELAY_MS = 30000; // Clean up game 30 seconds after it ends
 const INPUT_HISTORY_MAX_AGE_MS = 500; // Keep inputs for 500ms for lag compensation
 const DEFAULT_RTT_MS = 50; // Default assumed RTT
 
-// DEBUG: Key mappings for manual powerup triggering (for testing)
-const DEBUG_SPAWN_KEYS: Record<string, PowerupType> = {
-  '1': PowerupType.ADD_BALL,
-  '2': PowerupType.INCREASE_BALL_SIZE,
-  '3': PowerupType.DECREASE_BALL_SIZE,
-};
-const DEBUG_INSTANT_KEYS: Record<string, PowerupType> = {
-  '4': PowerupType.INCREASE_PADDLE_SPEED,
-  '5': PowerupType.DECREASE_PADDLE_SPEED,
-  '6': PowerupType.SUPER_SPEED,
-  '7': PowerupType.REVERSE_CONTROLS,
-};
-// Track previous debug key state per user (for edge detection)
-const lastDebugKeys = new Map<number, Set<string>>();
+
 
 // Callback type for tournament match completion
 type TournamentMatchEndCallback = (tournamentId: number, matchId: number, winnerId: number) => Promise<void>;
@@ -117,6 +104,19 @@ export class PongManager {
       }
 
       const deltaTime = (now - gameData.last_frame_time) / 1000.0;
+      
+      // Process AI inputs before simulation
+      if (gameData.aiManager.count > 0) {
+        const currentGameState = gameData.game.fetchBoardJSON();
+        gameData.aiManager.refreshGameStates(currentGameState);
+        for (const [aiPlayerId] of gameData.aiManager.getControllers()) {
+          const aiKeys = gameData.aiManager.getAIKeys(aiPlayerId);
+          if (aiKeys.length > 0) {
+            gameData.game.handlePressedKeysForPlayer(aiKeys, aiPlayerId);
+          }
+        }
+      }
+      
       gameData.game.playSimulation(deltaTime);
       gameData.last_frame_time = now;
       
@@ -298,22 +298,6 @@ export class PongManager {
       const arrowKeys = parsedKeys.filter(k => k === "arrowleft" || k === "arrowright");
       game.handlePressedKeysForPlayer(arrowKeys, GUEST_PLAYER_ID);
     }
-
-    // DEBUG: Handle manual powerup trigger keys
-    const prevDebugKeys = lastDebugKeys.get(userId) || new Set<string>();
-    const currDebugKeys = new Set(parsedKeys.filter(k => k in DEBUG_SPAWN_KEYS || k in DEBUG_INSTANT_KEYS));
-    
-    // Only trigger effects for NEWLY pressed debug keys
-    for (const key of currDebugKeys) {
-      if (!prevDebugKeys.has(key)) {
-        if (key in DEBUG_SPAWN_KEYS) {
-          game.debugSpawnPowerup(DEBUG_SPAWN_KEYS[key]!);
-        } else if (key in DEBUG_INSTANT_KEYS) {
-          game.debugApplyPowerupEffect(DEBUG_INSTANT_KEYS[key]!);
-        }
-      }
-    }
-    lastDebugKeys.set(userId, currDebugKeys);
   }
 
   /**

@@ -84,14 +84,6 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
           return Result.Ok(response.select("FailedToUpdate").reply({
             message: "Failed to update friendship status",
           }));
-        case RemoveFriendshipResult.SameUser:
-          return Result.Ok(response.select("UserDoesNotExist").reply({
-            message: "Cannot remove yourself",
-          }));
-        case RemoveFriendshipResult.FailedToUpdate:
-          return Result.Ok(response.select("FailedToUpdate").reply({
-            message: "Failed to update friendship status",
-          }));
         case RemoveFriendshipResult.Success:
           socket.invokeHandler(
             user_url.ws.users.fetchUserConnections,

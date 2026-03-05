@@ -456,39 +456,29 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
     }));
   }
 
-  // Notify leaving player they left
-  // const leftResponse = Result.Ok({
-  //   recipients: [user_id],
-  //   code: user_url.ws.pong.leaveLobby.schema.output.LeftLobby.code,
-  //   payload: { message: "Left lobby" },
-  // });
+  // Notify remaining players of updated lobby state
+  const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
+  if (remainingPlayerIds.length > 0) {
+    socket.sendMessage(user_url.ws.pong.leaveLobby, {
+      recipients: remainingPlayerIds,
+      code: user_url.ws.pong.leaveLobby.schema.output.LobbyUpdate.code,
+      payload: {
+        lobbyId: updatedLobby.lobbyId,
+        gameMode: updatedLobby.gameMode,
+        players: updatedLobby.players,
+        ballCount: updatedLobby.ballCount,
+        maxScore: updatedLobby.maxScore,
+        allowPowerups: updatedLobby.allowPowerups,
+        aiCount: updatedLobby.aiCount || 0,
+        status: updatedLobby.status,
+      },
+    });
+  }
 
+  // Notify leaving player they left
   return Result.Ok(response.select("LeftLobby").reply({
     message: "Left lobby",
   }));
-
-  // Notify remaining players of updated lobby state
-  // const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
-  // console.log(`[Pong] Player ${user_id} left lobby ${lobbyId}, notifying remaining players: ${JSON.stringify(remainingPlayerIds)}`);
-
-  // Send update to remaining players
-  // const updateResponse = Result.Ok({
-  //   recipients: remainingPlayerIds,
-  //   code: user_url.ws.pong.leaveLobby.schema.output.LobbyUpdate.code,
-  //   payload: {
-  //     lobbyId: updatedLobby.lobbyId,
-  //     gameMode: updatedLobby.gameMode,
-  //     players: updatedLobby.players,
-  //     ballCount: updatedLobby.ballCount,
-  //     maxScore: updatedLobby.maxScore,
-  //     allowPowerups: updatedLobby.allowPowerups,
-  //     status: updatedLobby.status,
-  //   },
-  // });
-
-  // TODO: Send both responses - for now, just return the left response
-  // The hub needs to support multiple responses or we need to call send manually
-  // return leftResponse;
 });
 
 // Handler for joining a specific tournament match

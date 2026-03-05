@@ -18,7 +18,6 @@ export default class BlockchainService {
     // minimal ABI for interactions we need
     const abi = [
       "function recordScore(uint256 tournamentId, address player, uint256 score) external",
-      "function getScoreCount(uint256 tournamentId) view returns (uint256)",
       "event ScoreRecorded(uint256 indexed tournamentId, address indexed player, uint256 score, uint256 timestamp)"
     ];
 
@@ -37,11 +36,6 @@ export default class BlockchainService {
     return receipt.hash;
   }
 
-  async getScoreCount(tournamentId: number): Promise<number> {
-    if (!this.contract) throw new Error("Blockchain contract not configured.");
-    const c = await this.contract.getScoreCount(tournamentId);
-    return Number(c.toString());
-  }
 }
 
 // singleton instance (convenience for services that want a shared client)

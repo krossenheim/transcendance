@@ -37,14 +37,4 @@ export class PongBall extends CircleObject {
         ]
     }
 
-    public updateFromJSON(data: PongBallJSON): this {
-        this.center.x = data[0];
-        this.center.y = data[1];
-        this.velocity.x = data[2];
-        this.velocity.y = data[3];
-        this.radius = data[4];
-        this.inverseMass = data[5];
-        // Note: id is read-only, set at construction
-        return this;
-    }
 }

@@ -36,31 +36,3 @@ export function verifyJWT(token: string): Result<JWTData, string> {
 		return Result.Err('Invalid token');
 	}
 }
-
-export function fetchJWTData(token: string): Result<JWTData, string> {
-	const decoded = jwt.decode(token);
-	if (!decoded || typeof decoded === 'string') {
-		return Result.Err('Invalid token format');
-	}
-
-	const parseResult = zodParse(JWTPayloadSchema, decoded);
-	if (parseResult.isErr()) {
-		return Result.Err('Invalid token payload');
-	}
-
-	const payload = parseResult.unwrap();
-	const now = Math.floor(Date.now() / 1000);
-	if (payload.exp < now) {
-		return Result.Err('Token has expired');
-	}
-
-	return Result.Ok(payload);
-}
-
-export function getCurrentUserIdFromJWT(token: string): Result<number, string> {
-	return fetchJWTData(token).map((payload) => payload.uid);
-}
-
-export function isJWTExpired(token: string): boolean {
-	return fetchJWTData(token).map((data) => data.exp < Math.floor(Date.now() / 1000)).unwrapOr(true);
-}

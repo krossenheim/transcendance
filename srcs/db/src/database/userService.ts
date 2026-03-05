@@ -72,27 +72,6 @@ export class UserService {
 		this.chatService = chatService;
 	}
 
-	// private _dbFetchAllUserBaseInfo(): Result<BaseUserType[], DatabaseError> {
-	// 	return this.db.all(
-	// 		`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
-	// 		       COALESCE(tfa.isEnabled, 0) as has2FA
-	// 		 FROM users u
-	// 		 LEFT JOIN user_2fa_secrets tfa ON u.id = tfa.userId`,
-	// 		BaseUser
-	// 	);
-	// }
-
-	// private _dbFetchUserFriendData(userId: number, friendshipStatus: UserFriendshipStatusEnum): Result<FriendType, DatabaseError> {
-	// 	return this.db.get(
-	// 		`SELECT u.id as friendId, u.username, u.alias, u.avatarUrl, u.bio, uf.userId as id, uf.status, uf.createdAt
-	// 		FROM user_friendships uf
-	// 		JOIN users u ON u.id = uf.friendId
-	// 		WHERE uf.userId = ? AND uf.status = ?`,
-	// 		Friend.omit({ onlineStatus: true }),
-	// 		[userId, friendshipStatus.valueOf()]
-	// 	);
-	// }
-
 	private _fetchUserBaseInfoById(id: number): Result<BaseUserType, DatabaseError> {
 		return this.db.get(
 			`SELECT u.id, u.createdAt, u.username, u.alias, u.email, u.bio, u.accountType, u.avatarUrl,
@@ -380,85 +359,14 @@ export class UserService {
 	}
 
 	async anonymizeUser(userId: number): Promise<Result<FullUserType, DatabaseError>> {
-		userId = 0;
 		return Result.Err(DatabaseError.internal('Anonymize user is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
-		// const userRes = this.fetchUserById(userId);
-		// if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
-		// const user = userRes.unwrap();
-
-		// // attempt to remove avatar file if present
-		// if (user.avatarUrl) {
-		// 	try {
-		// 		await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
-		// 	} catch (e) {
-		// 		// ignore file removal errors
-		// 	}
-		// }
-
-		// // create anonymized unique username and email
-		// const anonUsername = `deleted_user_${userId}_${Date.now()}`;
-		// const anonEmail = `deleted+${userId}_${Date.now()}@example.invalid`;
-
-		// const updateResult = this.db.run(
-		// 	`UPDATE users SET username = ?, alias = NULL, email = ?, bio = NULL, passwordHash = NULL, avatarUrl = NULL, accountType = ? WHERE id = ?`,
-		// 	[anonUsername, anonEmail, UserAccountType.Guest.valueOf(), userId]
-		// );
-
-		// if (updateResult.isErr()) {
-		// 	console.error('Failed to anonymize user:', updateResult.unwrapErr());
-		// 	return Result.Err('Failed to anonymize user');
-		// }
-
-		// return this.fetchUserById(userId);
 	}
 
 	async deleteUser(userId: number): Promise<Result<null, DatabaseError>> {
-		userId = 0;
 		return Result.Err(DatabaseError.internal('Delete user is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
-		// const userRes = this.fetchUserById(userId);
-		// if (userRes.isErr()) return Result.Err(userRes.unwrapErr());
-		// const user = userRes.unwrap();
-
-		// // remove avatar file if present
-		// if (user.avatarUrl) {
-		// 	try {
-		// 		await fs.unlink(`${PFP_DIR}/${user.avatarUrl}`);
-		// 	} catch (e) {
-		// 		// ignore file removal errors
-		// 	}
-		// }
-
-		// const del = this.db.run(`DELETE FROM users WHERE id = ?`, [userId]);
-		// if (del.isErr()) {
-		// 	console.error('Failed to delete user:', del.unwrapErr());
-		// 	return Result.Err('Failed to delete user');
-		// }
-
-		// return Result.Ok(null);
 	}
 
 	async storeGameResults(results: GameResultType[]): Promise<Result<null, DatabaseError>> {
 		return Result.Err(DatabaseError.internal('Store game results is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
-
-		// let baseStmt = `INSERT INTO player_game_results (gameId, userId, score, rank) VALUES `;
-		// for (let i = 0; i < results.length; i++) {
-		// 	baseStmt += `(?, ?, ?, ?)`;
-		// 	if (i < results.length - 1) {
-		// 		baseStmt += `, `;
-		// 	}
-		// }
-
-		// const params: any[] = [];
-		// for (const result of results) {
-		// 	params.push(result.gameId, result.userId, result.score, result.rank);
-		// }
-
-		// const insertResult = this.db.run(baseStmt, params);
-		// if (insertResult.isErr()) {
-		// 	console.error('Failed to store game results:', insertResult.unwrapErr());
-		// 	return Result.Err('Failed to store game results');
-		// }
-
-		// return Result.Ok(null);
 	}
 }

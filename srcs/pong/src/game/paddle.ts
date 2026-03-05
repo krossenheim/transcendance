@@ -219,10 +219,6 @@ export class PongPaddle extends MultiObject {
 		return this.boardPaddleSpeed;
 	}
 
-	public getBaseSpeed(): number {
-		return this.basePaddleSpeed;
-	}
-
 	public setSpeed(newSpeed: number): void {
 		// Enforce minimum speed: never drop below 10% of base speed
 		this.boardPaddleSpeed = Math.max(this.basePaddleSpeed * 0.1, newSpeed);

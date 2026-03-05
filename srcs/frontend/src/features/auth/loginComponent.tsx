@@ -69,7 +69,6 @@ export default function LoginComponent({
       }
 
       localStorage.setItem("jwt", data.tokens.jwt);
-      console.log("[v0] Stored JWT token:", data.tokens.jwt);
       
       if (data.tokens.refresh !== undefined) {
         localStorage.setItem("refreshToken", data.tokens.refresh);

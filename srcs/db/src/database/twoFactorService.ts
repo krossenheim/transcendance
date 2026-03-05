@@ -25,11 +25,10 @@ export class TwoFactorService {
     this.encryption = new TOTPSecretEncryption();
 
     // Get master password from environment
-    this.masterPassword = process.env.TOTP_MASTER_KEY || 'transcendence_2fa_master_key_change_in_production';
-
     if (!process.env.TOTP_MASTER_KEY) {
-      console.warn('WARNING: Using default TOTP_MASTER_KEY. Set TOTP_MASTER_KEY environment variable for production!');
+      throw new Error('TOTP_MASTER_KEY environment variable is required');
     }
+    this.masterPassword = process.env.TOTP_MASTER_KEY;
   }
 
   private _dbUserHas2FAEnabled(userId: number): Result<boolean, DatabaseError> {

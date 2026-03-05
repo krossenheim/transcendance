@@ -53,7 +53,6 @@ export async function isRequestAuthenticated(
 }
 
 export async function isWSAuthenticated(parsed: any): Promise<Result<number, string>> {
-  console.log("Authenticating WS request:", parsed);
   const userAuthAttempt = JSONtoZod(parsed, UserAuthenticationRequestSchema);
   if (userAuthAttempt.isErr()) {
     console.error("Invalid authentication request format:", userAuthAttempt.unwrapErr());
@@ -63,8 +62,3 @@ export async function isWSAuthenticated(parsed: any): Promise<Result<number, str
   const token = userAuthAttempt.unwrap().authorization;
   return await validateJWTToken(token);
 }
-
-export default {
-    isRequestAuthenticated,
-    isWSAuthenticated,
-};

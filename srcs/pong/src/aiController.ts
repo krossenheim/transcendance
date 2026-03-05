@@ -276,14 +276,6 @@ export class AIManager {
     console.log(`[AIManager] Added AI for player ${playerId}`);
   }
   
-  public removeAI(playerId: number): void {
-    this.controllers.delete(playerId);
-  }
-  
-  public clear(): void {
-    this.controllers.clear();
-  }
-  
   public refreshGameStates(gameState: any): void {
     const now = Date.now();
     for (const controller of this.controllers.values()) {
@@ -297,10 +289,6 @@ export class AIManager {
     return this.controllers;
   }
   
-  public isAI(playerId: number): boolean {
-    return this.controllers.has(playerId);
-  }
-
   public getAIKeys(playerId: number): string[] {
     const controller = this.controllers.get(playerId);
     if (!controller) return [];

@@ -52,10 +52,6 @@ class Room {
     this.allowedUsers = user_connections ? user_connections.map(uc => uc[0]) : new Array();
   }
 
-  removeUser(user: any) {
-    this.users = this.users.filter((u) => u !== user);
-  }
-
   getId(): number {
     return this.roomId;
   }
@@ -192,7 +188,7 @@ class Room {
     });
   }
 
-  equals(otherRoom: Room) {
+  equals(otherRoom: Room): boolean {
     return otherRoom && this.roomId == otherRoom.roomId;
   }
 
@@ -238,16 +234,6 @@ class ChatRooms {
 
   getRoom(roomId: number): Room | null {
     return this.rooms.get(roomId) || null;
-  }
-
-  getAllUsers(): Set<number> {
-    const allUsers = new Set<number>();
-    for (const room of this.rooms.values()) {
-      for (const userId of room.users) {
-        allUsers.add(userId);
-      }
-    }
-    return allUsers;
   }
 
   async fetchRoom(roomId: number): Promise<Result<Room, string>> {

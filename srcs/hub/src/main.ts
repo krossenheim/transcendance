@@ -64,7 +64,6 @@ async function main() {
       });
 
       socket.on("message", async (message: WebSocket.RawData) => {
-        console.log("Received message from internal container:", message);
         const decodedMessage = rawDataToString(message);
         if (!decodedMessage) {
           console.error("Failed to decode message from internal container: " + message);
@@ -111,7 +110,6 @@ async function main() {
     const authResult = await isRequestAuthenticated(req);
     if (authResult.isErr()) return reply.status(401).send(authResult.unwrapErr());
     const userId = authResult.unwrap();
-    console.log("Authenticated user ID:", userId);
     const { container } = req.params as { container: string };
     
     // Validate container name to prevent SSRF attacks

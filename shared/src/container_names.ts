@@ -41,7 +41,6 @@ if (!process.env.USERS_IPV4_ADDRESS)
 }
 
 export const containersIpToName = new Map<string | undefined, string | undefined>();
-export const containersNameToIp = new Map<string | undefined, string | undefined>();
 
 // hardcoded names here
 
@@ -73,6 +72,5 @@ if (!g_myContainerName) {
 
 export default {
   g_myContainerName,
-  containersNameToIp,
   containersIpToName,
 };

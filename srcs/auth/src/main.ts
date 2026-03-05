@@ -37,15 +37,7 @@ fastify.addHook('preHandler', async (request, reply) => {
 	const headerConsent = (request.headers['x-cookie-consent'] as string | undefined) || null;
 	(request as any).cookieConsent = (consentCookie === 'accepted') || (headerConsent === 'accepted');
 
-	// Temporary debug logging: print Authorization and headers for GDPR and avatar requests
-	try {
-		const url = (request as any).url || request.url || '';
-		if (typeof url === 'string' && (url.startsWith('/api/auth/gdpr') || url.startsWith('/api/users/pfp'))) {
-			console.log('[auth][incoming request]', { url, method: request.method, authorization: request.headers['authorization'], headers: request.headers });
-		}
-	} catch (e) {
-		// ignore logging failures
-	}
+
 });
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://localhost';
@@ -90,21 +82,17 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 	}
 
 	const response = responseResult.unwrap();
-	console.log("Response from user service:", response.status, response.data);
 	if (response.status === 401) {
 		return reply.status(401).send({ message: 'Invalid credentials' });
 	}
 
 	const parse = FullUser.safeParse(response.data);
 	if (response.status !== 200 || !parse.success) {
-		console.error('Unexpected response from user service:', response.status, response.data);
-		console.error('Parsing error:', parse.error);
-		console.log('Response data: ', response.data);
+		console.error('Unexpected response from user service:', response.status);
 		return reply.status(500).send({ message: 'User service dropping agreement' });
 	}
 
 	const user: FullUserType = parse.data;
-	console.log('Login successful for user:', user.username, 'ID:', user.id, 'user data:', user);
 
 	// Check if user has 2FA enabled
 	if (user.has2FA) {
@@ -158,11 +146,8 @@ fastify.get('/public_api/auth/oauth/github/login', async (request, reply) => {
 fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => {
 	try {
 		const query = request.query as Record<string, string | string[]>;
-		console.log('OAuth callback query:', JSON.stringify(query));
 		const code = Array.isArray(query.code) ? query.code[0] : query.code;
 		const state = Array.isArray(query.state) ? query.state[0] : query.state;
-		console.log('Parsed code:', code, 'state:', state);
-		console.log('Pending states:', Array.from(pendingOAuthStates.keys()));
 
 		if (!code || !state) {
 			return reply.status(400).send({ message: 'Missing OAuth code or state' });
@@ -183,7 +168,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		}
 
 		// Exchange code for access token
-		console.log('Exchanging code for token with:', { clientId: clientId.substring(0, 8) + '...', redirectUri, code: code.substring(0, 8) + '...' });
 		const tokenResp = await axios.post(
 			'https://github.com/login/oauth/access_token',
 			{
@@ -196,7 +180,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			{ headers: { Accept: 'application/json' }, validateStatus: () => true }
 		);
 
-		console.log('GitHub token response:', tokenResp.status, JSON.stringify(tokenResp.data));
 		if (tokenResp.status !== 200 || !tokenResp.data?.access_token) {
 			return reply.status(401).send({ message: 'Failed to obtain GitHub token' });
 		}

@@ -4,8 +4,6 @@ import { Result } from "@app/shared/api/service/common/result";
 import { isWSAuthenticated } from "./auth.js";
 import WebSocket from "ws";
 
-import type { TypePayloadHubToUsersSchema } from "@app/shared/api/service/hub/hub_interfaces";
-
 export class HubCTX {
   private userSockets: Map<number, UserSocket>;
   private socketUsers: Map<WebSocket, UserSocket>;
@@ -259,7 +257,7 @@ export class UserSocket {
     return this.ws;
   }
 
-  public sendMessage<T extends TypePayloadHubToUsersSchema>(message: HubToClientMessage): void {
+  public sendMessage(message: HubToClientMessage): void {
     this.ws.send(message.toString());
   }
 

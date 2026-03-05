@@ -8,9 +8,6 @@ export async function proxyRequest(
   url: string,
   body: unknown
 ): Promise<void> {
-  console.log(`Proxying ${method} request to: ${url}`);
-  console.log(`Query params:`, req.query);
-  console.log(`Full req.url:`, req.url);
   try {
     const response = await axios({
       method,
@@ -26,7 +23,6 @@ export async function proxyRequest(
       maxRedirects: 0,
       validateStatus: () => true,
     });
-    console.log("Response from proxied request:", response.status);
     const headersToForward: Record<string, string> = {};
     const status = response.status;
     const respHeaders = response.headers || {};

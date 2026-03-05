@@ -88,39 +88,6 @@ export class TournamentManager {
     return ResultClass.Ok(tournament);
   }
 
-  setPlayerAlias(
-    tournamentId: number,
-    userId: number,
-    alias: string
-  ): Result<Tournament, ErrorResponseType> {
-    const tournament = this.tournaments.get(tournamentId);
-    if (!tournament) {
-      return ResultClass.Err({ message: "Tournament not found" });
-    }
-
-    const player = tournament.players.find((p) => p.userId === userId);
-    if (!player) {
-      return ResultClass.Err({ message: "Player not in tournament" });
-    }
-
-    if (tournament.status !== "registration") {
-      return ResultClass.Err({
-        message: "Tournament has already started",
-      });
-    }
-
-    player.alias = alias;
-
-    // Check if all players have aliases - if so, generate bracket and start
-    const allHaveAliases = tournament.players.every((p) => p.alias);
-    if (allHaveAliases) {
-      this.generateBracket(tournament);
-      tournament.status = "in_progress";
-    }
-
-    return ResultClass.Ok(tournament);
-  }
-
   /**
    * Ensure tournament bracket is generated and status is in_progress.
    * Called when first match is about to start.
@@ -434,30 +401,6 @@ export class TournamentManager {
     return this.tournaments.get(tournamentId);
   }
 
-  getTournamentForPlayer(userId: number): Tournament | undefined {
-    for (const tournament of this.tournaments.values()) {
-      if (tournament.players.some((p) => p.userId === userId)) {
-        return tournament;
-      }
-    }
-    return undefined;
-  }
-
-  getPlayerMatches(
-    tournamentId: number,
-    userId: number
-  ): Result<TournamentMatch[], ErrorResponseType> {
-    const tournament = this.tournaments.get(tournamentId);
-    if (!tournament) {
-      return ResultClass.Err({ message: "Tournament not found" });
-    }
-
-    const matches = tournament.matches.filter(
-      (m) => m.player1Id === userId || m.player2Id === userId
-    );
-
-    return ResultClass.Ok(matches);
-  }
 }
 
 export default TournamentManager;

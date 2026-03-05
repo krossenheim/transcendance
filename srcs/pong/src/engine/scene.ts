@@ -44,20 +44,6 @@ export class Scene {
         this.objects = this.objects.filter(o => o !== obj);
     }
 
-    public getObjects(): BaseObject[] {
-        return this.objects;
-    }
-
-    public getRawObjects(): BaseObject[] {
-        let output = [];
-        for (const obj of this.objects) {
-            for (const subObj of obj.iter()) {
-                output.push(subObj);
-            }
-        }
-        return output;
-    }
-
     private moveSceneObjects(deltaTime: number): void {
         for (const obj of this.objects) {
             obj.moveByDelta(deltaTime);
@@ -221,7 +207,4 @@ export class Scene {
         }
     }
 
-    public getElapsedTime(): number {
-        return this.elapsedTime;
-    }
 }
