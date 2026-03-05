@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState, useRef } from "react"
 
 import type {
   TypeHandleGameKeysSchema,
-  TypeStartNewPongGame,
   TypeGameStateSchema,
 } from "./types/pong-interfaces"
 import { useWebSocket, HandlerResult } from "./socketComponent"
@@ -236,13 +235,21 @@ export default function PongComponent({
   
   // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
-  // Reset view to menu when in stale game view (no game state) - runs on every render cycle
+  // Reset view when in stale game view (no game state) - navigate back to chat
   useEffect(() => {
     if (currentView === "game" && !gameState) {
-      console.log("[Pong] Resetting stale game view to menu (no gameState)")
+      console.log("[Pong] Resetting stale game view (no gameState), navigating to chat")
       setCurrentView("menu")
+      if (onNavigateToChat) onNavigateToChat()
     }
-  }, [currentView, gameState, setCurrentView])
+  }, [currentView, gameState, setCurrentView, onNavigateToChat])
+
+  // If we land on the menu view with nothing pending, redirect to chat
+  useEffect(() => {
+    if (currentView === "menu" && !showInviteModal && !showInviteModalLocal && !acceptedLobbyId) {
+      if (onNavigateToChat) onNavigateToChat()
+    }
+  }, [currentView, onNavigateToChat, showInviteModal, showInviteModalLocal, acceptedLobbyId])
 
   // Cleanup polling on unmount (in case any leftover intervals exist)
   useEffect(() => {
@@ -1375,86 +1382,7 @@ export default function PongComponent({
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
-      {/* Main Menu */}
-      {currentView === "menu" && (
-        <div className="w-full max-w-2xl space-y-4">
-          <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">🏓 {t('pong.title')}</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-8">
-              {t('pong.subtitle')}
-            </p>
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  resetGameState(); // Clear any stale game state
-                  tournamentGameRef.current = null;
-                  (window as any).__pongTournamentId = undefined;
-                  (window as any).__pongGameMode = undefined;
-                  (window as any).__pongTournamentPending = undefined;
-                  setShowInviteModalLocal(true);
-                }}
-                className="w-full py-3 bg-blue-500 text-white hover:bg-blue-600 transition-colors font-semibold"
-              >
-                {t('pong.createGameButton')}
-              </button>
-              <button
-                onClick={() => {
-                  // Quick solo play for testing
-                  if (authResponse) {
-                    alert("About to set view to GAME");
-                    const payload: TypeStartNewPongGame = {
-                      player_list: [authResponse.user.id],
-                      balls: 1,
-                      allowPowerups: true,
-                    }
-                    handleUserInput(user_url.ws.pong.startGame, payload)
-                    setCurrentView("game")
-                    alert("View set to GAME - click OK");
-                  }
-                }}
-                className="w-full py-3 bg-green-500 text-white hover:bg-green-600 transition-colors font-semibold"
-              >
-                {t('pong.quickPlay')}
-              </button>
-              <button
-                onClick={() => {
-                  // Debug: 8-player game with multiple balls
-                  if (authResponse) {
-                    // Use offsets that give different colors (modulo 8)
-                    const baseId = authResponse.user.id
-                    const playerIds = [
-                      baseId,
-                      baseId + 1,
-                      baseId + 2,
-                      baseId + 3,
-                      baseId + 4,
-                      baseId + 5,
-                      baseId + 6,
-                      baseId + 7,
-                    ]
-                    const debugPlayerNames = [
-                      'Player 1', 'Player 2', 'Player 3', 'Player 4',
-                      'Player 5', 'Player 6', 'Player 7', 'Player 8'
-                    ]
-                    // Set debug players for leaderboard
-                    setDebugPlayers(playerIds.map((id, i) => ({ id, username: debugPlayerNames[i] || `Player ${i + 1}` })))
-                    const payload: TypeStartNewPongGame = {
-                      player_list: playerIds,
-                      balls: 3,
-                      allowPowerups: true,
-                    }
-                    handleUserInput(user_url.ws.pong.startGame, payload)
-                    setCurrentView("game")
-                  }
-                }}
-                className="w-full py-3 bg-purple-500 text-white hover:bg-purple-600 transition-colors font-semibold"
-              >
-                {t('pong.debugMode')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Menu view removed — users start games from chat invitations */}
 
       {/* Lobby View */}
       {currentView === "lobby" && lobby && authResponse && (
