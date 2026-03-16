@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gameIdValue, userIdValue } from "@app/shared/api/service/common/zodRules";
+import { gameIdValue, userIdValue, anyPlayerIdValue } from "@app/shared/api/service/common/zodRules";
 
 const player_list_rule = z.array(z.coerce.number()).refine(
   (arr) => {
@@ -72,7 +72,7 @@ export const GameStateSchema = z
     paddles: z.array(PongPaddleSchema),
     walls: z.array(PongWallSchema),
   })
-  .strict();
+  .passthrough();
 
 export const GetGameInfoSchema = z
   .object({
@@ -106,12 +106,13 @@ export const CreateLobbySchema = z
     maxScore: z.coerce.number().int().min(3).max(21),
     allowPowerups: z.boolean().optional().default(false),
     aiCount: z.coerce.number().int().min(0).max(5).optional().default(0),
+    localPlayerNames: z.array(z.string().min(1).max(20)).optional(),
   })
   .strict();
 
 export const LobbyPlayerSchema = z
   .object({
-    userId: userIdValue,
+    userId: anyPlayerIdValue,
     username: z.string(),
     isReady: z.boolean(),
     isHost: z.boolean(),
@@ -120,7 +121,7 @@ export const LobbyPlayerSchema = z
 
 export const TournamentPlayerSchema = z
   .object({
-    userId: userIdValue,
+    userId: anyPlayerIdValue,
     username: z.string(),
     alias: z.string().optional(),
   })
@@ -130,12 +131,12 @@ export const TournamentMatchSchema = z
   .object({
     matchId: gameIdValue,
     round: z.coerce.number().int().min(1),
-    player1Id: userIdValue.nullable(),
-    player2Id: userIdValue.nullable(),
-    winnerId: userIdValue.nullable(),
+    player1Id: anyPlayerIdValue.nullable(),
+    player2Id: anyPlayerIdValue.nullable(),
+    winnerId: anyPlayerIdValue.nullable(),
     status: z.enum(["pending", "in_progress", "completed"]),
     gameId: gameIdValue.optional(), // Associated pong game ID when match is in progress
-    readyPlayers: z.array(userIdValue).optional(), // Players who clicked "Join Match"
+    readyPlayers: z.array(anyPlayerIdValue).optional(), // Players who clicked "Join Match"
   })
   .strict();
 
@@ -149,10 +150,12 @@ export const TournamentDataSchema = z
     currentRound: z.coerce.number().int().min(1),
     totalRounds: z.coerce.number().int().min(1),
     status: z.enum(["registration", "in_progress", "completed"]),
-    winnerId: userIdValue.nullable(),
+    winnerId: anyPlayerIdValue.nullable(),
     ballCount: z.coerce.number(),
     maxScore: z.coerce.number(),
     onchainTxHashes: z.array(z.string()).optional(),
+    isLocal: z.boolean().optional(),
+    hostUserId: anyPlayerIdValue.optional(),
   })
   .strict();
 
@@ -181,6 +184,7 @@ export const JoinTournamentMatchSchema = z
   .object({
     tournamentId: gameIdValue,
     matchId: gameIdValue,
+    asLocalHost: z.boolean().optional(),
   })
   .strict();
 
@@ -218,8 +222,8 @@ export const TournamentMatchResultSchema = z
   .object({
     tournamentId: gameIdValue,
     matchId: gameIdValue,
-    winnerId: userIdValue.nullable(), // null for non-participants
-    loserId: userIdValue.nullable(),  // null for non-participants
+    winnerId: anyPlayerIdValue.nullable(), // null for non-participants
+    loserId: anyPlayerIdValue.nullable(),  // null for non-participants
     tournament: TournamentDataSchema,
     // Next match info for the requesting user (null if eliminated or tournament complete)
     nextMatch: TournamentMatchSchema.nullable(),

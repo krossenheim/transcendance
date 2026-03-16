@@ -34,9 +34,15 @@ function isAiPlayer(userId: number): boolean {
   return userId <= AI_PLAYER_ID_BASE;
 }
 
+// Local tournament player constants
+const LOCAL_PLAYER_ID_BASE = -500; // Local players use IDs -500, -501, ...
+function isLocalPlayer(userId: number): boolean {
+  return userId <= LOCAL_PLAYER_ID_BASE && userId > -999;
+}
+
 /** Filter out AI player IDs from an array (AI can't receive WebSocket messages) */
 function filterHumanIds(ids: number[]): number[] {
-  return ids.filter(id => !isAiPlayer(id));
+  return ids.filter(id => !isAiPlayer(id) && !isLocalPlayer(id));
 }
 
 // Connect tournament manager to pong manager for match completion
@@ -81,9 +87,41 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
     ballCount: tournament.ballCount,
     maxScore: tournament.maxScore,
     onchainTxHashes: tournament.onchainTxHashes || [],
+    isLocal: tournament.isLocal,
+    hostUserId: tournament.hostUserId,
   };
 
   const isTournamentComplete = tournament.status === "completed";
+
+  // For local tournaments, send all updates to the host
+  if (tournament.isLocal && tournament.hostUserId) {
+    const hostId = tournament.hostUserId;
+    const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, hostId);
+    // Also find next ready match for the bracket
+    const readyMatches = tournamentManager.getAllReadyMatches(tournamentId);
+    const nextReadyMatch = readyMatches.length > 0 ? readyMatches[0] : null;
+
+    const payload = {
+      tournamentId,
+      matchId,
+      winnerId,
+      loserId,
+      tournament: tournamentData,
+      nextMatch: nextReadyMatch || nextMatch,
+      isTournamentComplete,
+    };
+
+    console.log(`[Pong] Sending local tournament match result to host ${hostId}`);
+    socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
+      recipients: [hostId],
+      code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
+      payload,
+    });
+
+    // Auto-start AI vs AI matches
+    await autoStartAiVsAiMatches(tournamentId);
+    return;
+  }
 
   // Players in this match (will get full match result) — only humans
   const matchPlayerIds = filterHumanIds(
@@ -300,16 +338,31 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => 
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   const user_id = body.userId;
-  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups, aiCount } = body.payload;
+  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups, aiCount, localPlayerNames } = body.payload;
 
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
-  console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}, aiCount=${aiCount || 0}`);
+  console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}, aiCount=${aiCount || 0}, localPlayerNames=${JSON.stringify(localPlayerNames)}`);
+
+  // For local tournaments: generate virtual player IDs for local players
+  const isLocalTournament = gameMode === "tournament" && localPlayerNames && localPlayerNames.length > 0;
+  let effectivePlayerIds = [...playerIds];
+  let effectivePlayerUsernames = { ...(playerUsernames || {}) };
+
+  if (isLocalTournament) {
+    // Host is already in playerIds. Add local players with virtual IDs.
+    for (let i = 0; i < localPlayerNames.length; i++) {
+      const localId = LOCAL_PLAYER_ID_BASE - i;
+      effectivePlayerIds.push(localId);
+      effectivePlayerUsernames[String(localId)] = localPlayerNames[i]!;
+    }
+    console.log(`[Pong] Local tournament: generated ${localPlayerNames.length} local player IDs`);
+  }
 
   // Create the lobby
   const lobbyResult = lobbyManager.createLobby(
     gameMode,
-    playerIds,
-    playerUsernames || {},
+    effectivePlayerIds,
+    effectivePlayerUsernames,
     ballCount,
     maxScore,
     allowPowerups || false,
@@ -324,17 +377,26 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
 
   const lobby = lobbyResult.unwrap();
 
-  console.log(`[Pong] Created lobby, returning to ALL players including invitees: ${JSON.stringify(playerIds)}`);
+  // For local tournaments, auto-ready all virtual local players (they can't toggle ready themselves)
+  if (isLocalTournament) {
+    for (const player of lobby.players) {
+      if (isLocalPlayer(player.userId)) {
+        player.isReady = true;
+      }
+    }
+  }
+
+  console.log(`[Pong] Created lobby, returning to ALL players including invitees: ${JSON.stringify(effectivePlayerIds)}`);
   // If this lobby is a tournament, create a Tournament on the server-side
   // and attach it to the lobby so invitees receive tournament context.
   let tournamentPayload = undefined;
   if (gameMode === "tournament") {
     try {
-      const tournamentName = "Tournament";
+      const tournamentName = isLocalTournament ? "Local Tournament" : "Tournament";
 
       // Add AI players as full tournament participants
-      const tournamentPlayerIds = [...playerIds];
-      const tournamentUsernames: { [key: number]: string } = { ...(playerUsernames || {}) };
+      const tournamentPlayerIds = [...effectivePlayerIds];
+      const tournamentUsernames: { [key: number]: string } = { ...effectivePlayerUsernames };
       for (let i = 0; i < (aiCount || 0); i++) {
         const aiId = AI_PLAYER_ID_BASE - i;
         tournamentPlayerIds.push(aiId);
@@ -346,14 +408,16 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
         tournamentPlayerIds,
         ballCount,
         maxScore,
-        tournamentUsernames
+        tournamentUsernames,
+        isLocalTournament || false,
+        isLocalTournament ? user_id : undefined
       );
       if (!tResult.isErr()) {
         const tournament = tResult.unwrap();
         // Record the tournamentId on the lobby so it can be looked up later
         lobbyManager.setTournamentId(lobby.lobbyId, tournament.tournamentId);
         tournamentPayload = tournament;
-        console.log(`[Pong] Created tournament ${tournament.tournamentId} for lobby ${lobby.lobbyId}`);
+        console.log(`[Pong] Created ${isLocalTournament ? 'local ' : ''}tournament ${tournament.tournamentId} for lobby ${lobby.lobbyId}`);
       } else {
         console.error("Failed to create tournament for lobby:", tResult.unwrapErr());
       }
@@ -484,9 +548,9 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
 // Handler for joining a specific tournament match
 socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, response) => {
   const user_id = body.userId;
-  const { tournamentId, matchId } = body.payload;
+  const { tournamentId, matchId, asLocalHost } = body.payload;
   
-  console.log(`[Pong] Join tournament match request: user=${user_id}, tournament=${tournamentId}, match=${matchId}`);
+  console.log(`[Pong] Join tournament match request: user=${user_id}, tournament=${tournamentId}, match=${matchId}, asLocalHost=${asLocalHost}`);
 
   const tournament = tournamentManager.getTournament(tournamentId);
   if (!tournament) {
@@ -502,8 +566,9 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
     }));
   }
 
-  // Verify user is a participant in this match
-  if (match.player1Id !== user_id && match.player2Id !== user_id) {
+  // Verify user is a participant in this match (or local tournament host)
+  const isLocalTournament = tournament.isLocal && tournament.hostUserId === user_id;
+  if (!isLocalTournament && match.player1Id !== user_id && match.player2Id !== user_id) {
     return Result.Ok(response.select("NotYourMatch").reply({
       message: "You are not a participant in this match",
     }));
@@ -515,6 +580,57 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
       message: "Match is not ready to start",
     }));
   }
+
+  // For local tournaments: auto-ready both players and start immediately
+  if (isLocalTournament) {
+    console.log(`[Pong] Local tournament: host ${user_id} starting match ${matchId} (${match.player1Id} vs ${match.player2Id})`);
+    
+    // Build playerUsernames from tournament player data
+    const tournamentPlayerUsernames: { [key: number]: string } = {};
+    for (const p of tournament.players) {
+      tournamentPlayerUsernames[p.userId] = p.alias || p.username;
+    }
+
+    const playerIds = [match.player1Id, match.player2Id];
+    const matchAiPlayerIds = playerIds.filter(id => isAiPlayer(id));
+
+    // Start game as a local match with the host controlling both paddles
+    const gameResult = singletonPong.startGame(
+      playerIds,
+      createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+      tournamentId,
+      matchId,
+      matchAiPlayerIds,
+      tournamentPlayerUsernames,
+      user_id // localHostUserId - the host controls both paddles
+    );
+
+    if (gameResult.isErr()) {
+      return Result.Ok(response.select("MatchNotReady").reply({
+        message: "Failed to start game",
+      }));
+    }
+
+    const gameId = gameResult.unwrap();
+    const startResult = tournamentManager.startTournamentMatch(tournamentId, matchId, user_id, gameId);
+    if (startResult.isErr()) {
+      console.warn(`[Pong] Failed to start local tournament match: ${startResult.unwrapErr().message}`);
+    }
+
+    const gameState = singletonPong.getGameState(user_id, gameId);
+    if (gameState.isErr()) {
+      return Result.Ok(response.select("MatchNotReady").reply({
+        message: "Failed to retrieve game state",
+      }));
+    }
+
+    console.log(`[Pong] Local tournament match ${matchId} started with game ${gameId}`);
+
+    // Return game state to the host (who controls both paddles)
+    return Result.Ok(response.select("MatchStarted").reply(gameState.unwrap()));
+  }
+
+  // Normal (remote) tournament match flow below
 
   // Mark this player as ready
   const readyResult = tournamentManager.markPlayerReady(tournamentId, matchId, user_id);

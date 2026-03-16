@@ -32,6 +32,8 @@ export interface Tournament {
   ballCount: number;
   maxScore: number;
   onchainTxHashes?: string[];
+  isLocal?: boolean;
+  hostUserId?: number;
 }
 
 export class TournamentManager {
@@ -50,7 +52,9 @@ export class TournamentManager {
     playerIds: number[],
     ballCount: number,
     maxScore: number,
-    playerUsernames: { [key: number]: string } = {}
+    playerUsernames: { [key: number]: string } = {},
+    isLocal: boolean = false,
+    hostUserId?: number
   ): Result<Tournament, ErrorResponseType> {
     if (playerIds.length < 2) {
       return ResultClass.Err({
@@ -79,6 +83,8 @@ export class TournamentManager {
       ballCount,
       maxScore,
       onchainTxHashes: [],
+      isLocal,
+      ...(hostUserId !== undefined ? { hostUserId } : {}),
     };
 
     // Generate bracket immediately — no registration phase
@@ -204,27 +210,48 @@ export class TournamentManager {
       }
     }
 
-    // Round 1: Pair up all players
+    // Pad to next power of 2 for a balanced bracket
+    const bracketSize = Math.pow(2, tournament.totalRounds);
+    const numByes = bracketSize - players.length;
+
+    // Create slot array, placing byes at every other position from the end
+    // so each bye pairs with a real player (never two byes in the same match)
+    const slots: (TournamentPlayer | null)[] = new Array(bracketSize).fill(null);
+    const byePositions = new Set<number>();
+    for (let b = 0; b < numByes; b++) {
+      byePositions.add(bracketSize - 1 - b * 2);
+    }
+
+    let pi = 0;
+    for (let i = 0; i < bracketSize; i++) {
+      if (!byePositions.has(i) && pi < players.length) {
+        slots[i] = players[pi] ?? null;
+        pi++;
+      }
+    }
+
+    // Round 1: pair adjacent slots
     const round1Matches: TournamentMatch[] = [];
-    for (let i = 0; i < players.length; i += 2) {
-      const player1 = players[i];
-      const player2 = i + 1 < players.length ? players[i + 1] : null;
-      
-      if (!player1) continue; // Safety check
-      
+    for (let i = 0; i < bracketSize; i += 2) {
+      const p1 = slots[i];
+      const p2 = slots[i + 1] ?? null;
+
       const match: TournamentMatch = {
         matchId: this.nextMatchId++,
         round: 1,
-        player1Id: player1.userId,
-        player2Id: player2 ? player2.userId : null,
+        player1Id: p1 ? p1.userId : null,
+        player2Id: p2 ? p2.userId : null,
         winnerId: null,
         status: "pending",
         readyPlayers: [],
       };
 
-      // If player2 is null (odd number), player1 gets a bye
-      if (match.player2Id === null) {
-        match.winnerId = match.player1Id;
+      // Handle byes: one player present, other null
+      if (p1 && !p2) {
+        match.winnerId = p1.userId;
+        match.status = "completed";
+      } else if (!p1 && p2) {
+        match.winnerId = p2.userId;
         match.status = "completed";
       }
 
@@ -233,10 +260,10 @@ export class TournamentManager {
 
     tournament.matches = round1Matches;
 
-    // Generate empty matches for subsequent rounds
+    // Generate empty matches for subsequent rounds (exact halving)
     let previousRoundSize = round1Matches.length;
     for (let round = 2; round <= tournament.totalRounds; round++) {
-      const currentRoundSize = Math.ceil(previousRoundSize / 2);
+      const currentRoundSize = previousRoundSize / 2;
       for (let i = 0; i < currentRoundSize; i++) {
         tournament.matches.push({
           matchId: this.nextMatchId++,
@@ -249,6 +276,13 @@ export class TournamentManager {
         });
       }
       previousRoundSize = currentRoundSize;
+    }
+
+    // Propagate bye winners to subsequent rounds
+    for (const match of round1Matches) {
+      if (match.status === "completed" && match.winnerId !== null) {
+        this.advanceWinner(tournament, match);
+      }
     }
   }
 
@@ -268,7 +302,8 @@ export class TournamentManager {
       return ResultClass.Err({ message: "Match not found" });
     }
 
-    if (match.player1Id !== userId && match.player2Id !== userId) {
+    // For local tournaments, allow the host to start any match
+    if (!tournament.isLocal && match.player1Id !== userId && match.player2Id !== userId) {
       return ResultClass.Err({ message: "You are not in this match" });
     }
 
@@ -333,7 +368,7 @@ export class TournamentManager {
               "Content-Type": "application/json",
               "x-internal-secret": internalSecret,
             },
-            body: JSON.stringify({ tournamentId: tournamentId, playerAddress: undefined, score: winnerId }),
+            body: JSON.stringify({ tournamentId: tournamentId, playerAddress: undefined, score: Math.abs(winnerId) }),
           });
           if (!res.ok) {
             const text = await res.text();

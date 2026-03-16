@@ -501,7 +501,16 @@ export default function PongComponent({
               status: serverTournament.status === "completed" ? "completed" : "in_progress" as const,
               winner: serverTournament.winnerId ?
                 { id: serverTournament.winnerId, username: serverTournament.players?.find((p: any) => (p.userId || p.id) === serverTournament.winnerId)?.username || `Player ${serverTournament.winnerId}` } : null,
+              isLocal: serverTournament.isLocal || false,
             });
+
+            // For local tournaments, skip the lobby and go directly to bracket view
+            if (serverTournament.isLocal) {
+              console.log("[Pong-Stable] Local tournament - skipping lobby, going to bracket view");
+              setLobby(null);
+              setCurrentView("tournament");
+              return HandlerResult.Handled;
+            }
           }
 
           setCurrentView("lobby");
@@ -628,6 +637,7 @@ export default function PongComponent({
             status: tournamentFromServer.status === "completed" ? "completed" : "in_progress" as const,
             winner: findPlayer(tournamentFromServer.winnerId),
             onchainTxHashes: tournamentFromServer.onchainTxHashes || [],
+            isLocal: tournamentFromServer.isLocal || false,
           };
           
           console.log("[Pong-Stable] Setting tournament state with finals:", 
@@ -663,6 +673,12 @@ export default function PongComponent({
         const normalized = normalizeGameState(gameStatePayload);
         if (normalized) {
           setPlayerIDsHelper(normalized);
+          // For local tournament matches, the host may not own any paddle.
+          // Force playerOnePaddleID to 0 so keyboard handlers are active.
+          if (currentTournament?.isLocal) {
+            console.log("[Pong-Stable] Local tournament match - forcing keyboard activation");
+            setPlayerOnePaddleID(0);
+          }
           setGameState(normalized);
         }
         setLobby(null);
@@ -855,6 +871,13 @@ export default function PongComponent({
         // If we received valid game state and we're not in game view, switch to it
         if (currentViewRef.current !== 'game' && message.payload?.board_id && normalized && !normalized.gameOver) {
           console.log("[Pong] Received game state while not in game view, transitioning to game");
+          // For local tournaments, the host doesn't own any paddle so
+          // setPlayerIDsHelper above won't activate the keyboard handler.
+          // Force it here so controls work even if this fires before the
+          // joinTournamentMatch response.
+          if (tournamentRef.current?.isLocal) {
+            setPlayerOnePaddleID(0);
+          }
           // Preserve player data for leaderboard before clearing lobby
           const currentLobby = lobbyRef.current;
           if (currentLobby?.players) {
@@ -1042,11 +1065,12 @@ export default function PongComponent({
     function handleKeyDown(e: KeyboardEvent) {
       const gs = gameStateRef.current
       if (gs === null || playerOnePaddleID === -1) return
-      if (keysPressed.has(e.key)) return
-      keysPressed.add(e.key)
+      const key = e.key.toLowerCase()
+      if (keysPressed.has(key)) return
+      keysPressed.add(key)
 
       // Update pressed keys for client-side prediction
-      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
+      setPressedKeys(Array.from(keysPressed))
 
       if (gs.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
@@ -1054,23 +1078,24 @@ export default function PongComponent({
         pressed_keys: Array.from(keysPressed),
       }
       // console.debug for debugging stuck keys
-      // console.debug('[Pong] KeyDown', e.key, payload.pressed_keys)
+      // console.debug('[Pong] KeyDown', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
       const gs = gameStateRef.current
       if (gs === null || playerOnePaddleID === -1) return
-      keysPressed.delete(e.key)
+      const key = e.key.toLowerCase()
+      keysPressed.delete(key)
 
       // Update pressed keys for client-side prediction
-      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
+      setPressedKeys(Array.from(keysPressed))
 
       const payload = {
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug('[Pong] KeyUp', e.key, payload.pressed_keys)
+      // console.debug('[Pong] KeyUp', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -1112,35 +1137,37 @@ export default function PongComponent({
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
       const gs = gameStateRef.current
-      if (gs === null || playerTwoPaddleID === -1) return
-      if (keysPressed.has(e.key)) return
-      keysPressed.add(e.key)
+      if (gs === null || playerTwoPaddleID < 0) return
+      const key = e.key.toLowerCase()
+      if (keysPressed.has(key)) return
+      keysPressed.add(key)
 
       // Update pressed keys for client-side prediction
-      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
+      setPressedKeys(Array.from(keysPressed))
 
       if (gs.board_id === null) return
       const payload: TypeHandleGameKeysSchema = {
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug('[Pong] KeyDown (player2)', e.key, payload.pressed_keys)
+      // console.debug('[Pong] KeyDown (player2)', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
     function handleKeyUp(e: KeyboardEvent) {
       const gs = gameStateRef.current
-      if (gs === null || playerTwoPaddleID === -1) return
-      keysPressed.delete(e.key)
+      if (gs === null || playerTwoPaddleID < 0) return
+      const key = e.key.toLowerCase()
+      keysPressed.delete(key)
 
       // Update pressed keys for client-side prediction
-      setPressedKeys(Array.from(keysPressed).map(k => k.toLowerCase()))
+      setPressedKeys(Array.from(keysPressed))
 
       const payload = {
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug('[Pong] KeyUp (player2)', e.key, payload.pressed_keys)
+      // console.debug('[Pong] KeyUp (player2)', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -1231,6 +1258,7 @@ export default function PongComponent({
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
           aiCount: settings.aiCount,
+          ...(settings.localPlayerNames ? { localPlayerNames: settings.localPlayerNames } : {}),
         },
         target_container: "pong",
       }
@@ -1340,10 +1368,12 @@ export default function PongComponent({
         console.warn("[Pong] Cannot join match - no active tournament or not connected");
         return;
       }
-      console.log("[Pong] Joining tournament match:", matchId, "in tournament:", activeTournamentId);
+      const isLocal = tournamentRef.current?.isLocal;
+      console.log("[Pong] Joining tournament match:", matchId, "in tournament:", activeTournamentId, isLocal ? "(local)" : "");
       sendMessage(user_url.ws.pong.joinTournamentMatch, { 
         tournamentId: activeTournamentId, 
-        matchId 
+        matchId,
+        ...(isLocal ? { asLocalHost: true } : {}),
       });
     },
     [activeTournamentId, isConnected, sendMessage]
@@ -1581,6 +1611,11 @@ export default function PongComponent({
                         })()
                       }</span>
                     </p>
+                    {tournament?.onchainTxHashes && tournament.onchainTxHashes.length > 0 && (
+                      <p className="text-green-400 text-sm mb-6">
+                        {t('pong.recordedOnBlockchain')} ✓
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1653,30 +1688,19 @@ export default function PongComponent({
 
                 {/* Action Buttons */}
                 <div className="flex flex-col gap-4">
-                  {/* Tournament: Show "Next Match" button if winner and tournament not complete */}
+                  {/* Tournament: Show "Continue to Bracket" button */}
                   {(() => {
                     const effectiveTournamentId = activeTournamentId || tournament?.tournamentId || tournamentMatchResult?.tournamentId;
-                    // Check if I won my most recent match in this tournament
+                    const isTournamentComplete = tournament?.status === 'completed';
+                    const isLocal = tournament?.isLocal;
+                    
+                    // For local tournaments, always show continue (host controls the flow)
+                    // For remote tournaments, show continue only if the user won their match
                     const myCompletedMatch = tournament?.matches.find(m =>
                       m.status === 'completed' &&
                       m.winner === myUserId
                     );
-                    
-                    const isTournamentComplete = tournament?.status === 'completed';
-                    
-                    // Show continue if: I'm in a tournament, I won my match, tournament isn't complete
-                    const showContinue = effectiveTournamentId && myCompletedMatch && !isTournamentComplete;
-                    
-                    console.log('[GameOver] Button logic:', {
-                      activeTournamentId,
-                      effectiveTournamentId,
-                      tournamentId: tournament?.tournamentId,
-                      matchResultTournamentId: tournamentMatchResult?.tournamentId,
-                      myUserId,
-                      myCompletedMatch: myCompletedMatch ? { matchId: myCompletedMatch.matchId, winner: myCompletedMatch.winner } : null,
-                      isTournamentComplete,
-                      showContinue,
-                    });
+                    const showContinue = effectiveTournamentId && !isTournamentComplete && (isLocal || myCompletedMatch);
                     
                     if (showContinue) {
                       return (
@@ -1685,11 +1709,13 @@ export default function PongComponent({
                             console.log("[Pong] Continuing to tournament bracket");
                             setTournamentMatchResult(null);
                             setGameState(null);
+                            setPlayerOnePaddleID(-1);
+                            setPlayerTwoPaddleID(-2);
                             setCurrentView("tournament");
                           }}
                           className="px-12 py-4 text-xl bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all"
                         >
-                          {t('pong.continueToNextMatch')}
+                          {isLocal ? "⬅️ Back to Bracket" : t('pong.continueToNextMatch')}
                         </button>
                       );
                     }
@@ -1697,7 +1723,8 @@ export default function PongComponent({
                   })()}
 
                   {/* Tournament: Show "View Tournament" / "Watch Tournament" button to see bracket */}
-                  {(activeTournamentId || tournament?.tournamentId || tournamentMatchResult?.tournamentId) && tournament && (() => {
+                  {/* Hidden for local tournaments since "Back to Bracket" already does this */}
+                  {!tournament?.isLocal && (activeTournamentId || tournament?.tournamentId || tournamentMatchResult?.tournamentId) && tournament && (() => {
                     // Check if eliminated (lost and tournament still going)
                     const iEliminated = tournament.status !== 'completed' && tournament.matches.some(m =>
                       m.status === 'completed' &&

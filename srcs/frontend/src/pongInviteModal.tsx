@@ -21,6 +21,7 @@ export interface GameSettings {
   maxScore: number
   allowPowerups: boolean
   aiCount: number
+  localPlayerNames?: string[]
 }
 
 export default function PongInviteModal({
@@ -37,6 +38,25 @@ export default function PongInviteModal({
   const [maxScore, setMaxScore] = useState(5)
   const [allowPowerups, setAllowPowerups] = useState(true)
   const [aiCount, setAiCount] = useState(0)
+  const [isLocalTournament, setIsLocalTournament] = useState(false)
+  const [localPlayerNames, setLocalPlayerNames] = useState<string[]>(["", "", ""])
+
+  // Update local player count helper
+  const addLocalPlayer = () => {
+    if (localPlayerNames.length < 7) {
+      setLocalPlayerNames([...localPlayerNames, ""])
+    }
+  }
+  const removeLocalPlayer = (index: number) => {
+    if (localPlayerNames.length > 1) {
+      setLocalPlayerNames(localPlayerNames.filter((_, i) => i !== index))
+    }
+  }
+  const updateLocalPlayerName = (index: number, name: string) => {
+    const updated = [...localPlayerNames]
+    updated[index] = name
+    setLocalPlayerNames(updated)
+  }
 
   // Get room users from pong store (set by ChatHeader)
   const storeInviteRoomUsers = usePongStore((state) => state.inviteRoomUsers)
@@ -111,6 +131,39 @@ export default function PongInviteModal({
     // Always include current user
     const players = [currentUserId, ...selectedPlayers]
     
+    // For local tournaments, validate local player names
+    if (gameMode === "tournament" && isLocalTournament) {
+      const validNames = localPlayerNames.filter(n => n.trim().length > 0)
+      const totalPlayerCount = 1 + validNames.length + aiCount // host + local players + AI
+      if (totalPlayerCount < 4) {
+        alert(t('pong.alertTournamentPlayers'))
+        return
+      }
+      // Check for duplicate names
+      const nameSet = new Set(validNames.map(n => n.trim().toLowerCase()))
+      if (nameSet.size !== validNames.length) {
+        alert("Each local player must have a unique name")
+        return
+      }
+      
+      const settings: GameSettings = {
+        ballCount,
+        maxScore,
+        allowPowerups,
+        aiCount,
+        localPlayerNames: validNames,
+      }
+
+      const playerUsernameMap: { [key: number]: string } = {}
+      playerUsernameMap[currentUserId] = availablePlayers.find((u) => u.id === currentUserId)?.username 
+        || roomUsers.find(u => u.id === currentUserId)?.username
+        || "Host"
+
+      onCreateGame(gameMode, [currentUserId], settings, playerUsernameMap)
+      handleClose()
+      return
+    }
+
     // Total player count includes human players + AI players
     const totalPlayerCount = players.length + aiCount
 
@@ -253,7 +306,8 @@ export default function PongInviteModal({
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{getGameModeDescription()}</p>
           </div>
 
-          {/* Player Selection */}
+          {/* Player Selection - hidden for local tournaments */}
+          {!isLocalTournament && (
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
               {t('pong.selectPlayers')} ({t('pong.minPlayers')}: {getMinPlayers()})
@@ -309,6 +363,7 @@ export default function PongInviteModal({
               {aiCount > 0 && <span className="ml-1">({aiCount} 🤖)</span>}
             </div>
           </div>
+          )}
 
           {/* Game Settings */}
           <div>
@@ -372,6 +427,73 @@ export default function PongInviteModal({
               </div>
             </div>
           </div>
+
+          {/* Local Tournament Section */}
+          {gameMode === "tournament" && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <input
+                  type="checkbox"
+                  id="localTournament"
+                  checked={isLocalTournament}
+                  onChange={(e) => setIsLocalTournament(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="localTournament" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  🏠 Local Tournament (same keyboard)
+                </label>
+              </div>
+              {isLocalTournament && (
+                <div className="bg-gray-50/40 dark:bg-gray-900/70 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Add players who will take turns playing on this computer. Each match uses WASD vs Arrow Keys.
+                    You (the host) are automatically included.
+                  </p>
+                  <div className="space-y-2">
+                    {/* Host (fixed) */}
+                    <div className="flex items-center gap-2 p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+                      <span className="text-xs text-gray-500 w-6">🏠</span>
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">You (Host)</span>
+                    </div>
+                    {/* Local players */}
+                    {localPlayerNames.map((name, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-6">P{index + 2}</span>
+                        <input
+                          type="text"
+                          value={name}
+                          onChange={(e) => updateLocalPlayerName(index, e.target.value)}
+                          placeholder={`Player ${index + 2} name`}
+                          maxLength={20}
+                          className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                        />
+                        {localPlayerNames.length > 1 && (
+                          <button
+                            onClick={() => removeLocalPlayer(index)}
+                            className="text-red-500 hover:text-red-700 text-xs px-1"
+                          >✕</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={addLocalPlayer}
+                    disabled={localPlayerNames.length >= 7}
+                    className="mt-2 text-xs text-blue-500 hover:text-blue-700 disabled:text-gray-400"
+                  >
+                    + Add Player
+                  </button>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Total: {1 + localPlayerNames.filter(n => n.trim().length > 0).length + aiCount} players
+                    {aiCount > 0 && ` (${aiCount} 🤖)`}
+                    {(1 + localPlayerNames.filter(n => n.trim().length > 0).length + aiCount) < 4 && 
+                      <span className="text-red-500 ml-1">(need at least 4)</span>
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

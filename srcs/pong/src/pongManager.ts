@@ -31,6 +31,8 @@ type gameDataType = {
   aiManager: AIManager;
   // Player usernames for leaderboard display
   playerUsernames: { [key: number]: string };
+  // Local match: the authenticated host controlling both paddles
+  localHostUserId?: number;
 };
 
 const PONG_FRAME_INTERVAL_MS = 16; // ~60 FPS for maximum smoothness (localhost optimized)
@@ -151,7 +153,8 @@ export class PongManager {
     tournamentId?: number,
     matchId?: number,
     aiPlayerIds: number[] = [],
-    playerUsernames: { [key: number]: string } = {}
+    playerUsernames: { [key: number]: string } = {},
+    localHostUserId?: number
   ): Result<number, null> {
     let game = new PongGame(players, options);
     
@@ -211,18 +214,34 @@ export class PongManager {
     // Check if this is a local 1v1 mode (has guest player with ID -999)
     const GUEST_PLAYER_ID = -999;
     const isLocal1v1 = players.includes(GUEST_PLAYER_ID);
+    // Check if this is a local tournament match (localHostUserId is set)
+    const isLocalMatch = isLocal1v1 || (localHostUserId !== undefined);
+
+    // Store local host info for input routing
+    if (localHostUserId !== undefined) {
+      gameData.localHostUserId = localHostUserId;
+      // Register the host in playerToGame so input routing works
+      this.playerToGame.set(localHostUserId, game.id);
+      // Add host as spectator so they receive game state broadcasts
+      if (!players.includes(localHostUserId)) {
+        gameData.spectators.push(localHostUserId);
+      }
+    }
 
     // Register players for O(1) lookup
     for (const playerId of players) {
       this.playerToGame.set(playerId, game.id);
       for (const paddle of game.getPlayerPaddles(playerId)) {
-        if (isLocal1v1) {
-          // Local 1v1: Clear default keys, Host uses WASD, Guest uses arrows
+        if (isLocalMatch) {
+          // Local match (1v1 or tournament): Clear default keys
+          // First player uses WASD (a/d), second player uses arrows
           paddle.clearKeys();
-          if (playerId === GUEST_PLAYER_ID) {
+          if (playerId === players[1]) {
+            // Second player: arrows
             paddle.addLeftKey("arrowleft");
             paddle.addRightKey("arrowright");
-          } else {
+          } else if (playerId === players[0]) {
+            // First player: WASD
             paddle.addLeftKey("a");
             paddle.addRightKey("d");
           }
@@ -289,11 +308,24 @@ export class PongManager {
     // and let the client extrapolate forward
     game.handlePressedKeysForPlayer(parsedKeys, userId);
 
-    // For local 1v1 mode: the host also controls the guest's paddle with arrow keys
+    // For local match modes: route the host's keys to both players
     const GUEST_PLAYER_ID = -999;
     const players = game.getPlayers();
     const isLocal1v1 = players.includes(GUEST_PLAYER_ID);
-    if (isLocal1v1 && userId !== GUEST_PLAYER_ID) {
+
+    // Local tournament match: host controls both paddles
+    if (gameData.localHostUserId === userId && !isLocal1v1) {
+      // Route WASD keys to player 1 (first player in the match)
+      const wasdKeys = parsedKeys.filter(k => k === "a" || k === "d");
+      if (players[0] !== undefined) {
+        game.handlePressedKeysForPlayer(wasdKeys, players[0]);
+      }
+      // Route arrow keys to player 2 (second player in the match)
+      const arrowKeys = parsedKeys.filter(k => k === "arrowleft" || k === "arrowright");
+      if (players[1] !== undefined) {
+        game.handlePressedKeysForPlayer(arrowKeys, players[1]);
+      }
+    } else if (isLocal1v1 && userId !== GUEST_PLAYER_ID) {
       // Host is sending input - forward arrow keys to guest's paddle
       const arrowKeys = parsedKeys.filter(k => k === "arrowleft" || k === "arrowright");
       game.handlePressedKeysForPlayer(arrowKeys, GUEST_PLAYER_ID);
@@ -445,9 +477,16 @@ export class PongManager {
     const gameData = this.games.get(gameId);
     if (gameData) {
       console.log(`[PongManager] Cleaning up game ${gameId}`);
-      // Remove player-to-game mappings
+      // Remove player-to-game mappings — only if they still point to THIS game
+      // (a new game may have already overwritten the mapping)
       for (const playerId of gameData.game.getAllPlayerIds()) {
-        this.playerToGame.delete(playerId);
+        if (this.playerToGame.get(playerId) === gameId) {
+          this.playerToGame.delete(playerId);
+        }
+      }
+      // Also clean up localHostUserId mapping for local tournament matches
+      if (gameData.localHostUserId !== undefined && this.playerToGame.get(gameData.localHostUserId) === gameId) {
+        this.playerToGame.delete(gameData.localHostUserId);
       }
       this.games.delete(gameId);
     }

@@ -27,6 +27,7 @@ export interface TournamentData {
   status: "in_progress" | "completed"
   winner: { id: number; username: string; alias?: string } | null
   onchainTxHashes?: string[]
+  isLocal?: boolean
 }
 
 interface TournamentBracketProps {
@@ -164,7 +165,11 @@ export default function TournamentBracket({
           <div className="flex gap-8 min-w-max pb-4">
             {Array.from({ length: tournament.totalRounds }, (_, roundIndex) => {
               const round = roundIndex + 1
-              const matches = matchesByRound[round] || []
+              const matches = (matchesByRound[round] || []).filter(m => {
+                // Hide completed bye matches (one player slot empty)
+                if (m.status === "completed" && (!m.player1 || !m.player2)) return false;
+                return true;
+              })
               return (
                 <div key={round} className="flex flex-col justify-around min-w-[250px]">
                   <h3 className="text-center font-bold text-gray-700 dark:text-gray-300 mb-4">
@@ -204,7 +209,7 @@ export default function TournamentBracket({
                                 )}
                               </>
                             ) : (
-                              <span className="text-gray-400 italic">TBD</span>
+                              <span className="text-gray-400 italic">{match.status === "completed" ? "BYE" : "TBD"}</span>
                             )}
                           </div>
                         </div>
@@ -230,7 +235,7 @@ export default function TournamentBracket({
                                 )}
                               </>
                             ) : (
-                              <span className="text-gray-400 italic">TBD</span>
+                              <span className="text-gray-400 italic">{match.status === "completed" ? "BYE" : "TBD"}</span>
                             )}
                           </div>
                         </div>
@@ -239,9 +244,9 @@ export default function TournamentBracket({
                         {match.status === "pending" &&
                           match.player1 &&
                           match.player2 &&
-                          (match.player1.id === currentUserId || match.player2.id === currentUserId) && (() => {
+                          (tournament.isLocal || match.player1.id === currentUserId || match.player2.id === currentUserId) && (() => {
                             const isCurrentUserReady = match.readyPlayers?.includes(currentUserId) ?? false;
-                            const isWaiting = isCurrentUserReady || waitingForMatch === match.matchId;
+                            const isWaiting = !tournament.isLocal && (isCurrentUserReady || waitingForMatch === match.matchId);
                             return (
                               <button
                                 onClick={() => handleJoinMatch(match.matchId)}
@@ -249,10 +254,12 @@ export default function TournamentBracket({
                                 className={`mt-2 w-full py-1 text-xs rounded ${
                                   isWaiting
                                     ? "bg-yellow-500 text-white cursor-wait"
-                                    : "bg-blue-500 text-white hover:bg-blue-600"
+                                    : tournament.isLocal
+                                      ? "bg-green-500 text-white hover:bg-green-600"
+                                      : "bg-blue-500 text-white hover:bg-blue-600"
                                 }`}
                               >
-                                {isWaiting ? "⏳ Waiting for opponent..." : "Join Match"}
+                                {isWaiting ? "⏳ Waiting for opponent..." : tournament.isLocal ? "▶️ Start Match" : "Join Match"}
                               </button>
                             );
                           })()}
