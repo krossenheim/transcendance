@@ -1558,10 +1558,6 @@ export default function PongComponent({
           {gameState?.gameOver && (
             <div className="fixed inset-0 z-[2147483648] bg-black/85 flex flex-col items-center justify-center">
               <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-4 border-yellow-400 rounded-2xl p-12 text-center shadow-2xl max-w-lg">
-                {/* DEBUG: visible tournament state (REMOVE AFTER FIXING) */}
-                <p className="text-red-300 text-xs mb-2 font-mono break-all">
-                  DBG: aTid={String(activeTournamentId)} | t.id={String(tournament?.tournamentId)} | mr.tid={String(tournamentMatchResult?.tournamentId)} | ref={String(tournamentGameRef.current?.tournamentId)} | meta.tid={String((gameState?.metadata as any)?.tournamentId)} | win={String((window as any).__pongTournamentId)} | mode={String((window as any).__pongGameMode)} | pending={String((window as any).__pongTournamentPending)}
-                </p>
                 {/* Tournament Winner - Show special celebration if tournament is complete */}
                 {tournamentMatchResult?.isTournamentComplete && myUserId === tournamentMatchResult.winnerId ? (
                   <>
