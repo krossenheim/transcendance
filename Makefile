@@ -172,6 +172,7 @@ fclean: clean
 	for c in $(NGINX_NAME) $(HUB_NAME) $(CHATROOM_NAME) $(DATABASE_NAME) $(AUTH_NAME) $(PONG_NAME) $(USERS_NAME) hardhat blockchain-explorer; do \
 	    docker rm -f $$c 2>/dev/null || true; \
 	done
+	docker builder prune -af
 	docker volume prune -f
 	docker image prune -a -f
 	docker volume prune -f

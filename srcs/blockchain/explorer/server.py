@@ -11,8 +11,15 @@ import os
 
 PORT = 5100
 RPC_URL = os.environ.get('RPC_URL', 'http://hardhat:8545')
+PREFIX = '/blockchain-explorer'
 
 class ExplorerHandler(http.server.SimpleHTTPRequestHandler):
+    def translate_path(self, path):
+        # Strip the proxy prefix so file serving works
+        if path.startswith(PREFIX):
+            path = path[len(PREFIX):] or '/'
+        return super().translate_path(path)
+
     def end_headers(self):
         # Add CORS headers
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -26,7 +33,10 @@ class ExplorerHandler(http.server.SimpleHTTPRequestHandler):
     
     def do_POST(self):
         # Proxy RPC requests to Hardhat node
-        if self.path == '/rpc':
+        path = self.path
+        if path.startswith(PREFIX):
+            path = path[len(PREFIX):] or '/'
+        if path == '/rpc':
             try:
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
