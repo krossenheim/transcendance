@@ -13,20 +13,29 @@ PORT = 5100
 RPC_URL = os.environ.get('RPC_URL', 'http://hardhat:8545')
 PREFIX = '/blockchain-explorer'
 
-class ExplorerHandler(http.server.SimpleHTTPRequestHandler):
-    def translate_path(self, path):
-        # Strip the proxy prefix so file serving works
-        if path.startswith(PREFIX):
-            path = path[len(PREFIX):] or '/'
-        return super().translate_path(path)
+INDEX_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
+class ExplorerHandler(http.server.BaseHTTPRequestHandler):
     def end_headers(self):
         # Add CORS headers
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         super().end_headers()
-    
+
+    def do_GET(self):
+        # Serve index.html for any GET request to the explorer
+        try:
+            with open(INDEX_PATH, 'rb') as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+        except FileNotFoundError:
+            self.send_error(404)
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
@@ -62,8 +71,6 @@ class ExplorerHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
-
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 with socketserver.TCPServer(("", PORT), ExplorerHandler) as httpd:
     print(f"🔗 Blockchain Explorer running at http://localhost:{PORT}")
