@@ -113,9 +113,7 @@ export class PongManager {
         gameData.aiManager.refreshGameStates(currentGameState);
         for (const [aiPlayerId] of gameData.aiManager.getControllers()) {
           const aiKeys = gameData.aiManager.getAIKeys(aiPlayerId);
-          if (aiKeys.length > 0) {
-            gameData.game.handlePressedKeysForPlayer(aiKeys, aiPlayerId);
-          }
+          gameData.game.handlePressedKeysForPlayer(aiKeys, aiPlayerId);
         }
       }
       

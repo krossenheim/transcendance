@@ -1,14 +1,12 @@
 /**
- * AI Controller for Pong - Simple version
- * 
- * Logic:
- * 1. Check if ball is coming toward paddle
- * 2. Calculate where ball will hit
- * 3. Move paddle to that position
- * 4. Stop when there
+ * AI Controller for Pong
+ *
+ * Simulates ball trajectory with wall bounces to predict where
+ * the ball will reach the paddle's orbit, then moves there.
+ * Uses a committed target with hysteresis to prevent jitter.
  */
 
-const AI_REFRESH_INTERVAL_MS = 16;  // ~60fps for smoother response
+const AI_REFRESH_INTERVAL_MS = 16;
 
 export enum AIDifficulty {
   EASY = 1,
@@ -16,266 +14,360 @@ export enum AIDifficulty {
   HARD = 3,
 }
 
+// --- Helpers ---
+
+function normalizeAngle(a: number): number {
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+
+/** Shortest signed angular difference (target − current), in [−π, π]. */
+function angDiff(target: number, current: number): number {
+  return normalizeAngle(target - current);
+}
+
+interface WallData {
+  ax: number; ay: number;
+  bx: number; by: number;
+  playerId: number | null;
+}
+
+// ─────────────────────────────────────────────────────────
+
 export class AIController {
   private playerId: number;
   private lastRefreshTime: number = 0;
   private currentKeys: string[] = [];
-  
-  // Paddle state
-  private paddleX: number = 0;
-  private paddleY: number = 0;
-  
-  // Target position (absolute coordinates where ball will hit)
-  private targetX: number = 0;
-  private targetY: number = 0;
-  
-  // Is ball coming toward us?
-  private ballApproaching: boolean = false;
-  
-  // Have we calculated a target for the current approach?
-  private hasTarget: boolean = false;
-  
-  // Fixed paddle orbit radius (calculated once when paddle is first seen)
+
+  // Paddle geometry (fixed after init)
   private paddleOrbitRadius: number = 0;
-  
-  // Current movement direction
-  private currentDirection: number = 0;  // -1, 0, or 1
-  
-  // Time-based lock to prevent oscillation
-  private lastMoveTime: number = 0;
-  private readonly MOVE_COOLDOWN_MS = 100;  // 100ms cooldown after stopping
-  
+  private sectorCenter: number = 0;       // fixed "home" angle of this paddle
+  private sectorHalfWidth: number = Math.PI;
+  private isTopHalf: boolean = false;     // fixed from paddle direction, determines key mapping
+
+  // Current paddle angle (updated each frame from game state)
+  private paddleAngle: number = 0;
+
+  // Committed target angle — only updated when raw prediction differs significantly
+  private committedTargetAngle: number = 0;
+  private hasCommittedTarget: boolean = false;
+  private lastCommitTime: number = 0;        // timestamp of last target commit
+  private isMoving: boolean = false;         // whether the paddle was moving last frame
+
+  // Arena walls (parsed once)
+  private walls: WallData[] = [];
+  private myWallIndices: number[] = [];  // indices of walls belonging to this player
+  private myWallCenters: { x: number; y: number }[] = [];  // center of each owned wall
+  private initialized: boolean = false;
+
   constructor(playerId: number, _difficulty: AIDifficulty = AIDifficulty.MEDIUM) {
     this.playerId = playerId;
   }
-  
+
   public getKeys(): string[] {
     return this.currentKeys;
   }
-  
+
   public shouldRefresh(currentTime: number): boolean {
     return currentTime - this.lastRefreshTime >= AI_REFRESH_INTERVAL_MS;
   }
-  
+
+  // ── Main update ──────────────────────────────────────
+
   public refreshGameState(gameState: any): void {
     this.lastRefreshTime = Date.now();
     if (!gameState) return;
-    
-    // Get paddle position
+
+    const cx = 500, cy = 500;
     const paddles = gameState.paddles || [];
-    
+    const balls   = gameState.balls   || [];
+
+    // Find our paddle in the game state
+    let paddleX = 0, paddleY = 0;
+    let paddleDirAngle = 0;          // paddleDirection.angle() from JSON[2]
     for (const p of paddles) {
       const ownerId = Array.isArray(p) ? p[7] : (p?.owner_id ?? p?.ownerId ?? p?.player_id);
       if (ownerId === this.playerId) {
-        if (Array.isArray(p)) {
-          this.paddleX = p[0];
-          this.paddleY = p[1];
-        } else {
-          this.paddleX = p.x;
-          this.paddleY = p.y;
-        }
+        paddleX        = Array.isArray(p) ? p[0] : p.x;
+        paddleY        = Array.isArray(p) ? p[1] : p.y;
+        paddleDirAngle = Array.isArray(p) ? p[2] : 0;
         break;
       }
     }
-    
-    // Arena center
-    const centerX = 500;
-    const centerY = 500;
-    
-    // Calculate paddle's orbit radius (do this once, then keep it fixed)
-    if (this.paddleOrbitRadius === 0) {
-      this.paddleOrbitRadius = Math.sqrt(
-        (this.paddleX - centerX) * (this.paddleX - centerX) + 
-        (this.paddleY - centerY) * (this.paddleY - centerY)
-      );
+
+    // One-time initialisation
+    if (!this.initialized) {
+      this.paddleOrbitRadius = Math.sqrt((paddleX - cx) ** 2 + (paddleY - cy) ** 2);
+      this.sectorCenter      = paddleDirAngle;
+      this.committedTargetAngle = paddleDirAngle;
+
+      // isTopHalf must match paddle.ts: (Vec2(0,-1).dot(paddleDirection) > 0)
+      // paddleDirection = (cos(paddleDirAngle), sin(paddleDirAngle))
+      // dot with (0,-1) = -sin(paddleDirAngle)
+      // isTopHalf = -sin(paddleDirAngle) > 0 = sin(paddleDirAngle) < 0
+      this.isTopHalf = Math.sin(paddleDirAngle) < 0;
+
+      // Sector width based on total wall count (not paddle count)
+      const numWalls = (gameState.walls || []).length;
+      this.sectorHalfWidth = Math.PI / Math.max(numWalls, 2);
+
+      this.walls = [];
+      this.myWallIndices = [];
+      this.myWallCenters = [];
+      for (const w of (gameState.walls || [])) {
+        if (Array.isArray(w)) {
+          const idx = this.walls.length;
+          this.walls.push({ ax: w[0], ay: w[1], bx: w[2], by: w[3], playerId: w[6] });
+          if (w[6] === this.playerId) {
+            this.myWallIndices.push(idx);
+            this.myWallCenters.push({
+              x: (w[0] + w[2]) / 2,
+              y: (w[1] + w[3]) / 2,
+            });
+          }
+        }
+      }
+      this.initialized = true;
     }
-    const paddleRadius = this.paddleOrbitRadius;
-    
-    // Check if ball is approaching and calculate intercept point
-    const balls = gameState.balls || [];
-    let interceptPoint: { x: number; y: number } | null = null;
-    
+
+    this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
+
+    // ── Find the best ball to track ──
+
+    let bestAngle: number | null = null;
+    let bestTime  = Infinity;
+
     for (const b of balls) {
       let bx: number, by: number, vx: number, vy: number;
       if (Array.isArray(b)) {
-        // Ball format: [x, y, vx, vy, radius, inverseMass, id]
         bx = b[0]; by = b[1]; vx = b[2]; vy = b[3];
       } else {
         bx = b.x; by = b.y; vx = b.vx ?? 0; vy = b.vy ?? 0;
       }
-      
-      const velLen = Math.sqrt(vx * vx + vy * vy);
-      if (velLen < 1) continue; // No velocity
-      
-      // Check if ball is heading toward paddle's region
-      const toPaddleX = this.paddleX - bx;
-      const toPaddleY = this.paddleY - by;
-      const dist = Math.sqrt(toPaddleX * toPaddleX + toPaddleY * toPaddleY);
-      if (dist < 1) continue;
-      
-      // Calculate where ball will cross circle at paddle's radius
-      // Line-circle intersection: find t where |ballPos + t*velocity - center|² = radius²
-      const dx = bx - centerX;
-      const dy = by - centerY;
-      
-      // Quadratic: a*t² + b*t + c = 0
-      const a = vx * vx + vy * vy;
-      const bCoef = 2 * (vx * dx + vy * dy);
-      const c = dx * dx + dy * dy - paddleRadius * paddleRadius;
-      
-      const discriminant = bCoef * bCoef - 4 * a * c;
-      if (discriminant < 0) continue; // No intersection
-      
-      const sqrtDisc = Math.sqrt(discriminant);
-      const t1 = (-bCoef - sqrtDisc) / (2 * a);
-      const t2 = (-bCoef + sqrtDisc) / (2 * a);
-      
-      // Pick the positive t (future intersection)
-      let t = -1;
-      if (t1 > 0 && t2 > 0) t = Math.min(t1, t2);
-      else if (t1 > 0) t = t1;
-      else if (t2 > 0) t = t2;
-      
-      if (t < 0) continue; // No future intersection
-      
-      // Calculate intercept point
-      const ix = bx + t * vx;
-      const iy = by + t * vy;
-      
-      // Check if intercept is in our sector (within 60 degrees of our paddle angle)
-      const interceptAngle = Math.atan2(iy - centerY, ix - centerX);
-      const paddleAngleOnCircle = Math.atan2(this.paddleY - centerY, this.paddleX - centerX);
-      
-      let sectorDiff = interceptAngle - paddleAngleOnCircle;
-      // Normalize to [-PI, PI]
-      while (sectorDiff > Math.PI) sectorDiff -= 2 * Math.PI;
-      while (sectorDiff < -Math.PI) sectorDiff += 2 * Math.PI;
-      
-      // Only respond if intercept is within our sector
-      // Use double sector width to ensure AI reacts to balls heading near their area
-      const numPaddles = paddles.length;
-      const sectorWidth = (2 * Math.PI) / Math.max(numPaddles, 3);
-      const allowedSectorDiff = sectorWidth * 1.5;
-      
-      if (Math.abs(sectorDiff) > allowedSectorDiff) continue;
-      
-      interceptPoint = { x: ix, y: iy };
-      break;
+      if (vx * vx + vy * vy < 1) continue;
+
+      const result = this.simulateTrajectory(bx, by, vx, vy, cx, cy);
+      if (result && result.time < bestTime) {
+        bestTime  = result.time;
+        bestAngle = result.angle;
+      }
     }
-    
-    if (interceptPoint) {
-      this.targetX = interceptPoint.x;
-      this.targetY = interceptPoint.y;
-      this.hasTarget = true;
-      this.ballApproaching = true;
-    } else {
-      this.ballApproaching = false;
-      this.hasTarget = false;
-    }
-    
-    this.calculateKeys();
-  }
-  
-  private calculateKeys(): void {
-    const keys: string[] = [];
-    
-    // If no ball approaching or no target, stop
-    if (!this.ballApproaching || !this.hasTarget) {
-      this.currentDirection = 0;
-      this.currentKeys = keys;
-      return;
-    }
-    
-    // Arena center
-    const centerX = 500;
-    const centerY = 500;
-    
-    // Calculate angles on the circle (both paddle and target are on the same orbit)
-    const paddleAngleOnCircle = Math.atan2(this.paddleY - centerY, this.paddleX - centerX);
-    const targetAngleOnCircle = Math.atan2(this.targetY - centerY, this.targetX - centerX);
-    
-    // Angular difference (how far to rotate)
-    let angleDiff = targetAngleOnCircle - paddleAngleOnCircle;
-    // Normalize to [-PI, PI]
-    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-    
-    // Convert to a pixel-like scale for thresholds (1 radian ~= 450 pixels at radius 450)
-    const offset = angleDiff * this.paddleOrbitRadius;
-    
-    // Moderate thresholds
-    const startThreshold = 80;  // Start moving when offset > 80
-    const stopThreshold = 40;   // Stop moving when offset < 40
-    
-    const now = Date.now();
-    
-    // Calculate desired direction with hysteresis and cooldown
-    // Positive offset = target is counter-clockwise from paddle
-    if (this.currentDirection === 0) {
-      // Currently stopped - check cooldown before starting
-      const timeSinceStop = now - this.lastMoveTime;
-      if (timeSinceStop > this.MOVE_COOLDOWN_MS) {
-        if (offset > startThreshold) {
-          this.currentDirection = 1;  // Go counter-clockwise (increasing angle)
-        } else if (offset < -startThreshold) {
-          this.currentDirection = -1;  // Go clockwise (decreasing angle)
+
+    // ── Fallback: Simple directional threat check ──
+    // If trajectory simulation found nothing, check if any ball is heading
+    // toward our wall centers. This catches cases the simulation misses.
+    if (bestAngle === null) {
+      let bestFallbackDist = Infinity;
+      for (const b of balls) {
+        let bx: number, by: number, vx: number, vy: number;
+        if (Array.isArray(b)) {
+          bx = b[0]; by = b[1]; vx = b[2]; vy = b[3];
+        } else {
+          bx = b.x; by = b.y; vx = b.vx ?? 0; vy = b.vy ?? 0;
+        }
+        const speed = Math.sqrt(vx * vx + vy * vy);
+        if (speed < 1) continue;
+
+        for (const wc of this.myWallCenters) {
+          // Vector from ball to wall center
+          const toWallX = wc.x - bx, toWallY = wc.y - by;
+          const distToWall = Math.sqrt(toWallX * toWallX + toWallY * toWallY);
+          if (distToWall < 1) continue;
+          // Check if ball velocity points toward the wall (dot product > 0)
+          const dot = vx * toWallX + vy * toWallY;
+          if (dot <= 0) continue;
+          // Estimate time to reach (rough)
+          const timeEstimate = distToWall / speed;
+          if (timeEstimate < bestFallbackDist) {
+            bestFallbackDist = timeEstimate;
+            // Project where the ball will be at estimated time, get angle from center
+            const px = bx + vx * timeEstimate;
+            const py = by + vy * timeEstimate;
+            bestAngle = Math.atan2(py - cy, px - cx);
+          }
         }
       }
-    } else if (this.currentDirection === 1) {
-      // Currently moving counter-clockwise - stop when close
-      if (offset < stopThreshold) {
-        this.currentDirection = 0;
-        this.lastMoveTime = now;  // Start cooldown
-      }
-    } else if (this.currentDirection === -1) {
-      // Currently moving clockwise - stop when close
-      if (offset > -stopThreshold) {
-        this.currentDirection = 0;
-        this.lastMoveTime = now;  // Start cooldown
+    }
+
+    // If no ball is heading our way, drift back to sector center
+    const rawTarget = bestAngle ?? this.sectorCenter;
+
+    // ── Committed target with hysteresis ──
+    // Only update the committed target if the raw prediction has shifted
+    // significantly AND enough time has passed. This prevents oscillation.
+    const commitThreshold = 0.3;       // ~17 degrees — ignore smaller changes
+    const commitLockoutMs = 200;       // minimum ms between target changes
+    const now = Date.now();
+
+    if (!this.hasCommittedTarget) {
+      this.committedTargetAngle = rawTarget;
+      this.hasCommittedTarget = true;
+      this.lastCommitTime = now;
+    } else {
+      const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
+      const timeSinceCommit = now - this.lastCommitTime;
+      // Allow update if: big enough shift AND lockout expired, OR very large shift (emergency)
+      if ((shift > commitThreshold && timeSinceCommit > commitLockoutMs) || shift > 0.8) {
+        this.committedTargetAngle = rawTarget;
+        this.lastCommitTime = now;
       }
     }
-    
-    // Map direction to keys
-    // From tracing paddle.ts:
-    // - clockwiseBaseVelocity = paddleDirection.perp() (90° counter-clockwise rotation)
-    // - For top paddle facing up (0,-1): perp = (1,0) = moves right
-    // - Moving right at top = counter-clockwise = angle INCREASES
-    // So for isTopHalf=true:
-    //   arrowright → isClockwise=true → moveDir=+1 → angle INCREASES
-    //   arrowleft → isClockwise=false → moveDir=-1 → angle DECREASES
-    // For isTopHalf=false (bottom):
-    //   arrowright → isClockwise=false → moveDir=-1 → angle DECREASES  
-    //   arrowleft → isClockwise=true → moveDir=+1 → angle INCREASES
-    const isTopHalf = Math.sin(paddleAngleOnCircle) < 0;
-    
-    if (this.currentDirection === 1) {
-      // Need to INCREASE angle (positive offset means target has higher angle)
-      const key = isTopHalf ? 'arrowright' : 'arrowleft';
-      keys.push(key);
-    } else if (this.currentDirection === -1) {
-      // Need to DECREASE angle (negative offset means target has lower angle)  
-      const key = isTopHalf ? 'arrowleft' : 'arrowright';
-      keys.push(key);
-    }
-    
-    this.currentKeys = keys;
+
+    this.calculateKeys();
   }
-  
+
+  // ── Ball trajectory simulation with wall bounces ────
+
+  private simulateTrajectory(
+    bx: number, by: number, vx: number, vy: number,
+    cx: number, cy: number,
+  ): { angle: number; time: number } | null {
+    let px = bx, py = by, dvx = vx, dvy = vy;
+    let totalTime = 0;
+    const orbitR = this.paddleOrbitRadius;
+    const maxBounces = 12;
+    const maxTime    = 8;
+
+    for (let bounce = 0; bounce <= maxBounces && totalTime < maxTime; bounce++) {
+      const a = dvx * dvx + dvy * dvy;
+      if (a < 1e-12) return null;
+
+      // ── Nearest wall hit ──
+      let wallT = Infinity, wallIdx = -1;
+      for (let i = 0; i < this.walls.length; i++) {
+        const w = this.walls[i]!;
+        const t = this.raySegment(px, py, dvx, dvy, w.ax, w.ay, w.bx, w.by);
+        if (t > 1e-4 && t < wallT) { wallT = t; wallIdx = i; }
+      }
+
+      // ── Check if ball crosses orbit circle before the wall hit ──
+      const odx = px - cx, ody = py - cy;
+      const bCoef = 2 * (dvx * odx + dvy * ody);
+      const c     = odx * odx + ody * ody - orbitR * orbitR;
+      const disc  = bCoef * bCoef - 4 * a * c;
+
+      if (disc >= 0) {
+        const sqrtD = Math.sqrt(disc);
+        const t1 = (-bCoef - sqrtD) / (2 * a);
+        const t2 = (-bCoef + sqrtD) / (2 * a);
+
+        for (const t of [t1, t2]) {
+          if (t > 1e-4 && t < wallT) {
+            const hx = px + t * dvx, hy = py + t * dvy;
+            const hitAngle = Math.atan2(hy - cy, hx - cx);
+            if (Math.abs(angDiff(hitAngle, this.sectorCenter)) < this.sectorHalfWidth * 2.0) {
+              return { angle: hitAngle, time: totalTime + t };
+            }
+          }
+        }
+      }
+
+      // ── If ball hits our own wall, that's a direct threat ──
+      // Project the wall-hit point onto the orbit circle to get the interception angle.
+      if (wallIdx !== -1 && this.myWallIndices.includes(wallIdx)) {
+        const hitX = px + wallT * dvx;
+        const hitY = py + wallT * dvy;
+        const hitAngle = Math.atan2(hitY - cy, hitX - cx);
+        return { angle: hitAngle, time: totalTime + wallT };
+      }
+
+      // ── Bounce off neutral or opponent wall and continue ──
+      if (wallIdx === -1) return null;
+      totalTime += wallT;
+      px += wallT * dvx;
+      py += wallT * dvy;
+
+      // Reflect velocity
+      const w  = this.walls[wallIdx]!;
+      const wdx = w.bx - w.ax, wdy = w.by - w.ay;
+      const wLen = Math.sqrt(wdx * wdx + wdy * wdy);
+      if (wLen < 1e-9) return null;
+      const nx = -wdy / wLen, ny = wdx / wLen;
+      const dot = dvx * nx + dvy * ny;
+      dvx -= 2 * dot * nx;
+      dvy -= 2 * dot * ny;
+
+      // Nudge off wall
+      const nDot = dvx * nx + dvy * ny;
+      const sign = nDot > 0 ? 1 : -1;
+      px += sign * nx * 0.5;
+      py += sign * ny * 0.5;
+    }
+    return null;
+  }
+
+  /** Ray vs line-segment intersection; returns t > 0 or −1. */
+  private raySegment(
+    ox: number, oy: number, dx: number, dy: number,
+    ax: number, ay: number, bx: number, by: number,
+  ): number {
+    const sdx = bx - ax, sdy = by - ay;
+    const denom = dx * sdy - dy * sdx;
+    if (Math.abs(denom) < 1e-9) return -1;
+    const t = ((ax - ox) * sdy - (ay - oy) * sdx) / denom;
+    const u = ((ax - ox) * dy  - (ay - oy) * dx)  / denom;
+    return (t > 1e-6 && u >= -0.01 && u <= 1.01) ? t : -1;
+  }
+
+  // ── Key decision ────────────────────────────────────
+
+  private calculateKeys(): void {
+    const diff   = angDiff(this.committedTargetAngle, this.paddleAngle);
+    const offset = Math.abs(diff) * this.paddleOrbitRadius;   // arc-length in pixels
+
+    // Directional hysteresis: use a larger threshold to START moving,
+    // and a smaller one to STOP. This prevents start-stop-start jitter.
+    const startThreshold = 40;   // only start moving if >40px away
+    const stopThreshold  = 12;   // keep moving until within 12px
+
+    if (this.isMoving) {
+      // Currently moving — stop only when close enough
+      if (offset < stopThreshold) {
+        this.currentKeys = [];
+        this.isMoving = false;
+        return;
+      }
+    } else {
+      // Currently stopped — only start if far enough
+      if (offset < startThreshold) {
+        this.currentKeys = [];
+        return;
+      }
+      this.isMoving = true;
+    }
+
+    // Key mapping uses the FIXED isTopHalf from paddle construction.
+    // In paddle.ts:
+    //   isTopHalf true:  arrowright → isClockwise=true  → moveDir=+1 → angle increases
+    //                    arrowleft  → isClockwise=false → moveDir=-1 → angle decreases
+    //   isTopHalf false: arrowleft  → isClockwise=true  → moveDir=+1 → angle increases
+    //                    arrowright → isClockwise=false → moveDir=-1 → angle decreases
+    if (diff > 0) {
+      // Need to increase angle
+      this.currentKeys = [this.isTopHalf ? 'arrowright' : 'arrowleft'];
+    } else {
+      // Need to decrease angle
+      this.currentKeys = [this.isTopHalf ? 'arrowleft' : 'arrowright'];
+    }
+  }
+
   public update(): void {
-    // Keys calculated during refreshGameState
+    // Keys are calculated during refreshGameState
   }
 }
 
+// ─────────────────────────────────────────────────────────
+
 export class AIManager {
   private controllers: Map<number, AIController> = new Map();
-  
+
   public addAI(playerId: number, difficulty: AIDifficulty = AIDifficulty.MEDIUM): void {
     if (this.controllers.has(playerId)) return;
-    const controller = new AIController(playerId, difficulty);
-    this.controllers.set(playerId, controller);
+    this.controllers.set(playerId, new AIController(playerId, difficulty));
     console.log(`[AIManager] Added AI for player ${playerId}`);
   }
-  
+
   public refreshGameStates(gameState: any): void {
     const now = Date.now();
     for (const controller of this.controllers.values()) {
@@ -284,18 +376,18 @@ export class AIManager {
       }
     }
   }
-  
+
   public getControllers(): Map<number, AIController> {
     return this.controllers;
   }
-  
+
   public getAIKeys(playerId: number): string[] {
     const controller = this.controllers.get(playerId);
     if (!controller) return [];
     controller.update();
     return controller.getKeys();
   }
-  
+
   public get count(): number {
     return this.controllers.size;
   }
