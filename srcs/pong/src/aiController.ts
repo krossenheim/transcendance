@@ -44,21 +44,22 @@ export class AIController {
   private paddleOrbitRadius: number = 0;
   private sectorCenter: number = 0;       // fixed "home" angle of this paddle
   private sectorHalfWidth: number = Math.PI;
+  private maxPaddleAngle: number = Math.PI; // maximum angular offset from sector center
   private isTopHalf: boolean = false;     // fixed from paddle direction, determines key mapping
 
   // Current paddle angle (updated each frame from game state)
   private paddleAngle: number = 0;
+  private paddleSpeed: number = 0;   // current paddle speed in px/s
 
   // Committed target angle — only updated when raw prediction differs significantly
   private committedTargetAngle: number = 0;
   private hasCommittedTarget: boolean = false;
   private lastCommitTime: number = 0;        // timestamp of last target commit
-  private isMoving: boolean = false;         // whether the paddle was moving last frame
+  private lastBallDetectedTime: number = 0;  // when we last saw a ball heading our way
 
   // Arena walls (parsed once)
   private walls: WallData[] = [];
   private myWallIndices: number[] = [];  // indices of walls belonging to this player
-  private myWallCenters: { x: number; y: number }[] = [];  // center of each owned wall
   private initialized: boolean = false;
 
   constructor(playerId: number, _difficulty: AIDifficulty = AIDifficulty.MEDIUM) {
@@ -86,12 +87,14 @@ export class AIController {
     // Find our paddle in the game state
     let paddleX = 0, paddleY = 0;
     let paddleDirAngle = 0;          // paddleDirection.angle() from JSON[2]
+    let boardPaddleSpeed = 0;        // paddle speed in px/s from JSON[8]
     for (const p of paddles) {
       const ownerId = Array.isArray(p) ? p[7] : (p?.owner_id ?? p?.ownerId ?? p?.player_id);
       if (ownerId === this.playerId) {
         paddleX        = Array.isArray(p) ? p[0] : p.x;
         paddleY        = Array.isArray(p) ? p[1] : p.y;
         paddleDirAngle = Array.isArray(p) ? p[2] : 0;
+        boardPaddleSpeed = Array.isArray(p) ? (p[8] || 0) : 0;
         break;
       }
     }
@@ -112,19 +115,18 @@ export class AIController {
       const numWalls = (gameState.walls || []).length;
       this.sectorHalfWidth = Math.PI / Math.max(numWalls, 2);
 
+      // The paddle can't reach beyond the sector boundaries.
+      // Use 90% of sector half-width as the max reachable angle from center.
+      this.maxPaddleAngle = this.sectorHalfWidth * 0.9;
+
       this.walls = [];
       this.myWallIndices = [];
-      this.myWallCenters = [];
       for (const w of (gameState.walls || [])) {
         if (Array.isArray(w)) {
           const idx = this.walls.length;
           this.walls.push({ ax: w[0], ay: w[1], bx: w[2], by: w[3], playerId: w[6] });
           if (w[6] === this.playerId) {
             this.myWallIndices.push(idx);
-            this.myWallCenters.push({
-              x: (w[0] + w[2]) / 2,
-              y: (w[1] + w[3]) / 2,
-            });
           }
         }
       }
@@ -132,6 +134,7 @@ export class AIController {
     }
 
     this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
+    this.paddleSpeed = boardPaddleSpeed;
 
     // ── Find the best ball to track ──
 
@@ -154,51 +157,34 @@ export class AIController {
       }
     }
 
-    // ── Fallback: Simple directional threat check ──
-    // If trajectory simulation found nothing, check if any ball is heading
-    // toward our wall centers. This catches cases the simulation misses.
-    if (bestAngle === null) {
-      let bestFallbackDist = Infinity;
-      for (const b of balls) {
-        let bx: number, by: number, vx: number, vy: number;
-        if (Array.isArray(b)) {
-          bx = b[0]; by = b[1]; vx = b[2]; vy = b[3];
-        } else {
-          bx = b.x; by = b.y; vx = b.vx ?? 0; vy = b.vy ?? 0;
-        }
-        const speed = Math.sqrt(vx * vx + vy * vy);
-        if (speed < 1) continue;
+    const now = Date.now();
 
-        for (const wc of this.myWallCenters) {
-          // Vector from ball to wall center
-          const toWallX = wc.x - bx, toWallY = wc.y - by;
-          const distToWall = Math.sqrt(toWallX * toWallX + toWallY * toWallY);
-          if (distToWall < 1) continue;
-          // Check if ball velocity points toward the wall (dot product > 0)
-          const dot = vx * toWallX + vy * toWallY;
-          if (dot <= 0) continue;
-          // Estimate time to reach (rough)
-          const timeEstimate = distToWall / speed;
-          if (timeEstimate < bestFallbackDist) {
-            bestFallbackDist = timeEstimate;
-            // Project where the ball will be at estimated time, get angle from center
-            const px = bx + vx * timeEstimate;
-            const py = by + vy * timeEstimate;
-            bestAngle = Math.atan2(py - cy, px - cx);
-          }
-        }
-      }
+    // ── Clamp the detected angle to the paddle's reachable range ──
+    if (bestAngle !== null) {
+      const offsetFromCenter = angDiff(bestAngle, this.sectorCenter);
+      const clamped = Math.max(-this.maxPaddleAngle, Math.min(this.maxPaddleAngle, offsetFromCenter));
+      bestAngle = normalizeAngle(this.sectorCenter + clamped);
+      this.lastBallDetectedTime = now;
     }
 
-    // If no ball is heading our way, drift back to sector center
-    const rawTarget = bestAngle ?? this.sectorCenter;
+    // ── Decide the raw target ──
+    // If we see a ball, track it. If not, keep the last committed target
+    // for a grace period before falling back to sector center.
+    const ballGracePeriodMs = 1500;  // keep last target for 1.5s after losing the ball
+    let rawTarget: number;
+    if (bestAngle !== null) {
+      rawTarget = bestAngle;
+    } else if (now - this.lastBallDetectedTime < ballGracePeriodMs) {
+      // No ball detected, but we recently saw one — hold position
+      rawTarget = this.committedTargetAngle;
+    } else {
+      // No ball for a while — drift back to center
+      rawTarget = this.sectorCenter;
+    }
 
     // ── Committed target with hysteresis ──
-    // Only update the committed target if the raw prediction has shifted
-    // significantly AND enough time has passed. This prevents oscillation.
-    const commitThreshold = 0.3;       // ~17 degrees — ignore smaller changes
-    const commitLockoutMs = 200;       // minimum ms between target changes
-    const now = Date.now();
+    const commitThreshold = 0.15;      // ~8.6 degrees — ignore smaller changes
+    const commitLockoutMs = 150;       // minimum ms between target changes
 
     if (!this.hasCommittedTarget) {
       this.committedTargetAngle = rawTarget;
@@ -207,8 +193,7 @@ export class AIController {
     } else {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
-      // Allow update if: big enough shift AND lockout expired, OR very large shift (emergency)
-      if ((shift > commitThreshold && timeSinceCommit > commitLockoutMs) || shift > 0.8) {
+      if (shift > commitThreshold && timeSinceCommit > commitLockoutMs) {
         this.committedTargetAngle = rawTarget;
         this.lastCommitTime = now;
       }
@@ -316,38 +301,24 @@ export class AIController {
     const diff   = angDiff(this.committedTargetAngle, this.paddleAngle);
     const offset = Math.abs(diff) * this.paddleOrbitRadius;   // arc-length in pixels
 
-    // Directional hysteresis: use a larger threshold to START moving,
-    // and a smaller one to STOP. This prevents start-stop-start jitter.
-    const startThreshold = 40;   // only start moving if >40px away
-    const stopThreshold  = 12;   // keep moving until within 12px
+    // Compute per-frame displacement at current paddle speed.
+    // Thresholds prevent oscillation while keeping the paddle responsive.
+    // The paddle moves at ~45px per frame and stops instantly when keys are released.
+    // If we're within one frame's displacement, stop — pressing a key would overshoot.
+    // The paddle is ~53px half-width, so stopping 45px from exact target still catches the ball.
+    const frameMs = AI_REFRESH_INTERVAL_MS;
+    const perFramePx = this.paddleSpeed * (frameMs / 1000);
+    const deadZone = Math.max(perFramePx, 20);
 
-    if (this.isMoving) {
-      // Currently moving — stop only when close enough
-      if (offset < stopThreshold) {
-        this.currentKeys = [];
-        this.isMoving = false;
-        return;
-      }
-    } else {
-      // Currently stopped — only start if far enough
-      if (offset < startThreshold) {
-        this.currentKeys = [];
-        return;
-      }
-      this.isMoving = true;
+    if (offset < deadZone) {
+      this.currentKeys = [];
+      return;
     }
 
     // Key mapping uses the FIXED isTopHalf from paddle construction.
-    // In paddle.ts:
-    //   isTopHalf true:  arrowright → isClockwise=true  → moveDir=+1 → angle increases
-    //                    arrowleft  → isClockwise=false → moveDir=-1 → angle decreases
-    //   isTopHalf false: arrowleft  → isClockwise=true  → moveDir=+1 → angle increases
-    //                    arrowright → isClockwise=false → moveDir=-1 → angle decreases
     if (diff > 0) {
-      // Need to increase angle
       this.currentKeys = [this.isTopHalf ? 'arrowright' : 'arrowleft'];
     } else {
-      // Need to decrease angle
       this.currentKeys = [this.isTopHalf ? 'arrowleft' : 'arrowright'];
     }
   }
