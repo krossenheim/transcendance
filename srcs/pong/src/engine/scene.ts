@@ -20,9 +20,13 @@ export class Scene {
     private objects: BaseObject[];
     private elapsedTime: number = 0;
     private timeScale: number = 1.0;
+    private arenaCenterX: number;
+    private arenaCenterY: number;
 
-    constructor(ballSpeed: number = 450) {
+    constructor(ballSpeed: number = 450, arenaCenterX: number = 500, arenaCenterY: number = 500) {
         this.objects = [];
+        this.arenaCenterX = arenaCenterX;
+        this.arenaCenterY = arenaCenterY;
         targetBallSpeed = ballSpeed;
     }
 
@@ -111,6 +115,10 @@ export class Scene {
         let shouldContinue = true;
         let timeout = 1000;
 
+        // Track zero-time collisions to detect stuck loops (ball trapped between wall and paddle)
+        let zeroTimeCollisionCount = 0;
+        const MAX_ZERO_TIME_COLLISIONS = 8;
+
         while (timeRemaining > EPS && shouldContinue && timeout-- > 0) {
             const collision = this.getNextCollisionBetweenObjects(mainObjects || this.objects);
 
@@ -120,6 +128,45 @@ export class Scene {
             }
 
             const earliestHit = collision.time;
+
+            // Track zero-time (or near-zero) collisions
+            if (earliestHit < FAT_EPS) {
+                zeroTimeCollisionCount++;
+            } else {
+                zeroTimeCollisionCount = 0;
+            }
+
+            // If too many zero-time collisions in a row, the ball is stuck between surfaces.
+            // Force-eject the ball toward the arena center to break the loop.
+            if (zeroTimeCollisionCount >= MAX_ZERO_TIME_COLLISIONS) {
+                let stuckBall: CircleObject | null = null;
+                if (collision.objectA instanceof CircleObject && collision.objectA.inverseMass > 0) {
+                    stuckBall = collision.objectA;
+                } else if (collision.objectB instanceof CircleObject && collision.objectB.inverseMass > 0) {
+                    stuckBall = collision.objectB;
+                }
+                if (stuckBall) {
+                    // Push ball toward arena center
+                    const toCenterX = this.arenaCenterX - stuckBall.center.x;
+                    const toCenterY = this.arenaCenterY - stuckBall.center.y;
+                    const toCenterLen = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
+                    if (toCenterLen > EPS) {
+                        const pushDist = stuckBall.radius * 3;
+                        stuckBall.center.x += (toCenterX / toCenterLen) * pushDist;
+                        stuckBall.center.y += (toCenterY / toCenterLen) * pushDist;
+                    }
+                    // Give it a velocity toward center so it doesn't immediately re-collide
+                    const speed = stuckBall.velocity.len();
+                    if (speed > EPS && toCenterLen > EPS) {
+                        stuckBall.velocity.x = (toCenterX / toCenterLen) * speed;
+                        stuckBall.velocity.y = (toCenterY / toCenterLen) * speed;
+                    }
+                    console.warn(`[Scene] Ball stuck in collision loop - ejected toward center from (${stuckBall.center.x.toFixed(1)}, ${stuckBall.center.y.toFixed(1)})`);
+                }
+                zeroTimeCollisionCount = 0;
+                continue;
+            }
+
             this.moveSceneObjects(earliestHit);
             timeRemaining -= earliestHit;
 

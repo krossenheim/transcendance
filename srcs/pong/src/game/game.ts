@@ -350,7 +350,7 @@ export class PongGame {
         console.log(`[PongGame] Created game with ${players.length} players, gameMode=${gameOptions.gameMode ?? 'default'}, gameDuration=${gameOptions.gameDuration}`);
         
         // Initialize scene with ball speed for constant speed enforcement
-        this.scene = new Scene(gameOptions.ballSpeed);
+        this.scene = new Scene(gameOptions.ballSpeed, gameOptions.canvasWidth / 2, gameOptions.canvasHeight / 2);
 
         // Initialize deterministic RNG with provided seed or random seed
         this.rng = gameOptions.seed !== undefined

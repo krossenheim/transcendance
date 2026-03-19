@@ -229,10 +229,16 @@ export class PongManager {
     // Register players for O(1) lookup
     for (const playerId of players) {
       this.playerToGame.set(playerId, game.id);
+      const isAI = aiPlayerIds.includes(playerId);
       for (const paddle of game.getPlayerPaddles(playerId)) {
-        if (isLocalMatch) {
+        if (isAI) {
+          // AI players always use arrowleft/arrowright (what the AI controller emits)
+          paddle.clearKeys();
+          paddle.addLeftKey("arrowleft");
+          paddle.addRightKey("arrowright");
+        } else if (isLocalMatch) {
           // Local match (1v1 or tournament): Clear default keys
-          // First player uses WASD (a/d), second player uses arrows
+          // First human player uses WASD (a/d), second human player uses arrows
           paddle.clearKeys();
           if (playerId === players[1]) {
             // Second player: arrows
