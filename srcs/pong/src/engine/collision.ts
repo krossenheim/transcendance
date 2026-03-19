@@ -216,10 +216,10 @@ export function resolveCircleLineCollision(
 
     // --- BUG FIX 2: POSITIONAL CORRECTION (Anti-Leak) ---
     // If the ball has sunk into the wall, push it out immediately.
+    // Add a safety margin so the post-collision nudge doesn't push it back in.
     const overlap = ball.radius - dist;
     if (overlap > 0) {
-        // Push ball out by overlap amount
-        ball.center.addScaled(scratchNormal, overlap);
+        ball.center.addScaled(scratchNormal, overlap + 1.5);
     }
 
     // 7. Apply Impulse (Bounce)

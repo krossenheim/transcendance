@@ -224,9 +224,10 @@ export function resolveCircleLineCollision(
     }
 
     // 7. Positional Correction (Anti-Leak): push ball out if penetrating
+    // Add a safety margin to prevent re-overlap from paddle movement
     const overlap = ball.radius - dist;
     if (overlap > 0) {
-        ball.center = ball.center.add(wallNormal.mul(overlap));
+        ball.center = ball.center.add(wallNormal.mul(overlap + 1.5));
     }
 
     // 8. Apply Impulse (Bounce)
