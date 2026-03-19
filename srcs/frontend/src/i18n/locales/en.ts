@@ -133,6 +133,8 @@ export const en = {
     cy: 'Welsh',
     tlh: 'Klingon',
     sjn: 'Sindarin',
+    la: 'Latin',
+    pig: 'Pig Latin',
   },
 
   // Friends

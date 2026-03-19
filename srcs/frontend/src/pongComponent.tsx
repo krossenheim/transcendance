@@ -1498,6 +1498,14 @@ export default function PongComponent({
             <button
               onClick={() => {
                 console.log("[Pong] Back button clicked during game");
+                // If in an active tournament, go back to bracket view instead of fully exiting
+                const tid = activeTournamentIdRef.current || tournamentRef.current?.tournamentId;
+                if (tid && tournamentRef.current) {
+                  console.log("[Pong] Returning to tournament bracket view");
+                  resetGameState();
+                  setCurrentView("tournament");
+                  return;
+                }
                 if (lobbyRef.current && isConnected) {
                   sendMessage(user_url.ws.pong.leaveLobby, { lobbyId: lobbyRef.current.lobbyId })
                 }

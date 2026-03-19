@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 70">
+  <rect width="100" height="70" fill="#5B0A3A"/>
+  <!-- Laurel wreath left branch -->
+  <path d="M36 50 Q30 42 32 34 Q28 38 26 32 Q24 38 22 30 Q22 38 18 32 Q20 40 22 44 Q26 50 36 54 Z" fill="#C8A84E" opacity="0.9"/>
+  <!-- Laurel wreath right branch -->
+  <path d="M64 50 Q70 42 68 34 Q72 38 74 32 Q76 38 78 30 Q78 38 82 32 Q80 40 78 44 Q74 50 64 54 Z" fill="#C8A84E" opacity="0.9"/>
+  <!-- Wreath base tie -->
+  <path d="M42 52 Q50 58 58 52 Q50 55 42 52" fill="#C8A84E" stroke="#C8A84E" stroke-width="1"/>
+  <!-- SPQR text -->
+  <text x="50" y="40" text-anchor="middle" font-family="serif" font-weight="bold" font-size="16" fill="#FFD700" letter-spacing="1">SPQR</text>
+</svg>
