@@ -32,6 +32,7 @@ export const PongBallSchema = z
     z.coerce.number(), // velocity y
     z.coerce.number(), // radius
     z.coerce.number(), // inverse mass
+    z.coerce.number(), // id
   ]);
 
 export const PongPaddleSchema = z
@@ -44,6 +45,7 @@ export const PongPaddleSchema = z
     z.coerce.number(), // velocity x
     z.coerce.number(), // velocity y
     z.coerce.number(), // player id
+    z.coerce.number(), // board paddle speed
   ]);
 
 const PongWallSchema = z

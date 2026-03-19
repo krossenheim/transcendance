@@ -75,6 +75,16 @@ export function getWallCollisionTime(
             }
         }
     }
+
+    // Check if ball is already penetrating the wall segment.
+    // This catches cases where the paddle moved into the ball
+    // (mirroring how getBallCollisionTime returns 0 on overlap).
+    const projT = wallLenSq > EPS ? Math.max(0, Math.min(1, pointRelativeStart.dot(wallVec) / wallLenSq)) : 0;
+    const closestOnSeg = wallVec.mul(projT);
+    const distToSegment = pointRelativeStart.sub(closestOnSeg).len();
+    if (distToSegment < ball.radius - EPS) {
+        return 0;
+    }
     
     return null;
 }
@@ -218,8 +228,13 @@ export function resolveCircleLineCollision(
     const relativeVelocity = ball.velocity.sub(wall.velocity);
     const velocityAlongNormal = relativeVelocity.dot(wallNormal);
     
-    // If moving away, don't resolve velocity (but still do positional correction)
+    // If moving away, don't resolve velocity — but still push the ball
+    // out if it's overlapping (e.g. paddle moved into ball).
     if (velocityAlongNormal > 0) {
+        const overlapEarly = ball.radius - dist;
+        if (overlapEarly > 0) {
+            ball.center = ball.center.add(wallNormal.mul(overlapEarly + 1.5));
+        }
         return;
     }
 

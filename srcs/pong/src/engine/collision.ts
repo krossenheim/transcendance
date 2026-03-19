@@ -63,6 +63,17 @@ export function getWallCollisionTime(
         }
     }
     
+    // Check if ball is already penetrating the wall segment.
+    // This catches cases where the paddle moved into the ball
+    // (mirroring how getBallCollisionTime returns 0 on overlap).
+    const projT = wallLenSq > EPS ? Math.max(0, Math.min(1, scratchRelativeStart.dot(scratchWallVec) / wallLenSq)) : 0;
+    const dx = scratchRelativeStart.x - scratchWallVec.x * projT;
+    const dy = scratchRelativeStart.y - scratchWallVec.y * projT;
+    const distToSegmentSq = dx * dx + dy * dy;
+    if (distToSegmentSq < ball.radius * ball.radius - EPS) {
+        return 0;
+    }
+
     return null;
 }
 
@@ -208,9 +219,13 @@ export function resolveCircleLineCollision(
     scratchRelativeVelocity.copy(ball.velocity).sub(wall.velocity);
     const velocityAlongNormal = scratchRelativeVelocity.dot(scratchNormal);
 
-    // If moving away, do not resolve velocity
+    // If moving away, do not resolve velocity — but still push the ball
+    // out if it's overlapping (e.g. paddle moved into ball).
     if (velocityAlongNormal > 0) {
-        // ... But DO resolve position if we are deep inside (optional, but prevents leaking)
+        const overlapEarly = ball.radius - dist;
+        if (overlapEarly > 0) {
+            ball.center.addScaled(scratchNormal, overlapEarly + 1.5);
+        }
         return;
     }
 
