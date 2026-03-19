@@ -137,6 +137,7 @@ export const ru: TranslationKeys = {
     sjn: 'Синдарин',
     la: 'Латинский',
     pig: 'Поросячья латынь',
+    dot: 'Дотракийский',
   },
 
   // Friends

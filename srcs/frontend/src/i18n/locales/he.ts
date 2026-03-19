@@ -137,6 +137,7 @@ export const he: TranslationKeys = {
     sjn: 'סינדרין',
     la: 'לטינית',
     pig: 'לטינית חזירית',
+    dot: 'דותראקי',
   },
 
   // Friends

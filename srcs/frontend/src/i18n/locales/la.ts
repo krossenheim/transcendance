@@ -137,6 +137,7 @@ export const la: TranslationKeys = {
     sjn: 'Sindarina',
     la: 'Latina',
     pig: 'Porcina Latina',
+    dot: 'Dothraki',
   },
 
   // Friends

@@ -137,6 +137,7 @@ export const tlh: TranslationKeys = {
     sjn: "'elv Hol",
     la: "roman Hol",
     pig: "bIQ Ha' Hol",
+    dot: "Dothraki Hol",
   },
 
   // Friends

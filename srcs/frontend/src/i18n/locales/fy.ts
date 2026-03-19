@@ -135,6 +135,7 @@ export const fy = {
     sjn: 'Sindarin',
     la: 'Latyn',
     pig: 'Bargelatyn',
+    dot: 'Dothraki',
   },
 
   // Friends

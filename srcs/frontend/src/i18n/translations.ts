@@ -12,8 +12,9 @@ import { tlh } from './locales/tlh';
 import { sjn } from './locales/sjn';
 import { la } from './locales/la';
 import { pig } from './locales/pig';
+import { dot } from './locales/dot';
 
-export type Language = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn' | 'la' | 'pig';
+export type Language = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn' | 'la' | 'pig' | 'dot';
 
 export const translations: Record<Language, TranslationKeys> = {
   en,
@@ -28,6 +29,7 @@ export const translations: Record<Language, TranslationKeys> = {
   sjn,
   la,
   pig,
+  dot,
 };
 
 export const languageNames: { [key in Language]: string } = {
@@ -43,6 +45,7 @@ export const languageNames: { [key in Language]: string } = {
   sjn: 'Sindarin',
   la: 'Latina',
   pig: 'Igpay Atinlay',
+  dot: 'Dothraki',
 };
 
 export const languageFlags: { [key in Language]: string } = {
@@ -58,6 +61,7 @@ export const languageFlags: { [key in Language]: string } = {
   sjn: '',
   la: '',
   pig: '',
+  dot: '',
 };
 
 export type { TranslationKeys };

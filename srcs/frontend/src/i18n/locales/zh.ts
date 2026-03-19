@@ -137,6 +137,7 @@ export const zh: TranslationKeys = {
     sjn: '辛达林语',
     la: '拉丁语',
     pig: '猪拉丁语',
+    dot: '多斯拉克语',
   },
 
   // Friends

@@ -137,6 +137,7 @@ export const pig: TranslationKeys = {
     sjn: 'Indarinsay',
     la: 'Atinlay',
     pig: 'Igpay Atinlay',
+    dot: 'Othrakiday',
   },
 
   // Friends

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage, languageNames, languageFlags } from '../i18n';
 
-type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn' | 'la' | 'pig';
+type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn' | 'la' | 'pig' | 'dot';
 
 // Languages that use image flags instead of emoji
 const imageFlags: Partial<Record<SupportedLanguage, string>> = {
@@ -10,6 +10,7 @@ const imageFlags: Partial<Record<SupportedLanguage, string>> = {
   sjn: '/static/react_dist/flags/sjn.svg',
   la: '/static/react_dist/flags/la.svg',
   pig: '/static/react_dist/flags/pig.png',
+  dot: '/static/react_dist/flags/Dothraki_flag.webp',
 };
 
 function FlagDisplay({ lang, className }: { lang: SupportedLanguage; className?: string }) {
@@ -24,7 +25,7 @@ export default function LanguageSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he', 'es', 'nl', 'fy', 'cy', 'tlh', 'sjn', 'la', 'pig'];
+  const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he', 'es', 'nl', 'fy', 'cy', 'tlh', 'sjn', 'la', 'pig', 'dot'];
 
   // Close dropdown when clicking outside
   useEffect(() => {

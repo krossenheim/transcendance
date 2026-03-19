@@ -135,6 +135,7 @@ export const es = {
     sjn: 'Sindarin',
     la: 'Latín',
     pig: 'Pig Latin',
+    dot: 'Dothraki',
   },
 
   // Friends
