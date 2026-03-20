@@ -836,6 +836,12 @@ export default function PongComponent({
           return HandlerResult.Handled;
         }
 
+        // Drop game updates when in tournament view but not actively playing
+        // (e.g. spectator returned to bracket — server still sends updates until unsubscribed)
+        if (currentViewRef.current === "tournament" && gameStateRef.current === null) {
+          return HandlerResult.Handled;
+        }
+
         if (message.payload?.gameOver) {
           console.log("[Pong] 🎮 GAME OVER RECEIVED!", { 
             gameOver: message.payload.gameOver, 
@@ -869,7 +875,8 @@ export default function PongComponent({
           }
         }
         // If we received valid game state and we're not in game view, switch to it
-        if (currentViewRef.current !== 'game' && message.payload?.board_id && normalized && !normalized.gameOver) {
+        // But NOT if we're in the tournament bracket view — the user navigated there deliberately
+        if (currentViewRef.current !== 'game' && currentViewRef.current !== 'tournament' && message.payload?.board_id && normalized && !normalized.gameOver) {
           console.log("[Pong] Received game state while not in game view, transitioning to game");
           // For local tournaments, the host doesn't own any paddle so
           // setPlayerIDsHelper above won't activate the keyboard handler.
