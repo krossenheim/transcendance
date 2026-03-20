@@ -1502,7 +1502,13 @@ export default function PongComponent({
                 const tid = activeTournamentIdRef.current || tournamentRef.current?.tournamentId;
                 if (tid && tournamentRef.current) {
                   console.log("[Pong] Returning to tournament bracket view");
+                  // Save tournament data before reset (resetGameState clears everything)
+                  const savedTournament = tournamentRef.current;
+                  const savedTournamentId = tid;
                   resetGameState();
+                  // Restore tournament context so bracket view can render
+                  setTournament(savedTournament);
+                  setActiveTournamentId(savedTournamentId);
                   setCurrentView("tournament");
                   return;
                 }
