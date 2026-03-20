@@ -239,6 +239,11 @@ export const he: TranslationKeys = {
     enablePowerups: 'הפעל כוחות (ניסיוני)',
     aiPlayers: 'שחקני AI',
     aiDescription: 'הוסף יריבי AI שמנבאים את תנועת הכדור ומשתמשים בכוחות מיוחדים',
+    aiDifficulty: 'רמת קושי AI',
+    aiEasy: 'קל',
+    aiMedium: 'בינוני',
+    aiHard: 'קשה',
+    aiNightmare: 'סיוט',
     ai: 'AI',
     createGame: 'צור משחק',
     // Pong Lobby

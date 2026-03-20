@@ -237,6 +237,11 @@ export const en = {
     enablePowerups: 'Enable Power-ups (experimental)',
     aiPlayers: 'AI Players',
     aiDescription: 'Add AI opponents that predict ball movement and use powerups',
+    aiDifficulty: 'AI Difficulty',
+    aiEasy: 'Easy',
+    aiMedium: 'Medium',
+    aiHard: 'Hard',
+    aiNightmare: 'Nightmare',
     ai: 'AI',
     createGame: 'Create Game',
     // Pong Lobby

@@ -4,15 +4,80 @@
  * Simulates ball trajectory with wall bounces to predict where
  * the ball will reach the paddle's orbit, then moves there.
  * Uses a committed target with hysteresis to prevent jitter.
+ *
+ * Difficulty affects reaction speed, prediction accuracy, and dead-zone size.
  */
-
-const AI_REFRESH_INTERVAL_MS = 16;
 
 export enum AIDifficulty {
   EASY = 1,
   MEDIUM = 2,
   HARD = 3,
+  NIGHTMARE = 4,
 }
+
+interface DifficultyParams {
+  refreshIntervalMs: number;    // How often the AI recalculates (lower = faster reactions)
+  maxBounces: number;           // How many wall bounces to simulate (higher = better prediction)
+  commitThreshold: number;      // Angular change needed to re-commit target (lower = more responsive)
+  commitLockoutMs: number;      // Minimum ms between target changes (lower = faster re-targeting)
+  deadZoneMultiplier: number;   // Multiplier for dead zone (lower = more precise positioning)
+  minDeadZonePx: number;        // Minimum dead zone in pixels
+  predictionError: number;      // Random angle offset added to prediction (radians, 0 = perfect)
+  sectorMatchWidth: number;     // Multiplier for sector matching (lower = fewer false positive intercepts)
+  ballGracePeriodMs: number;    // How long to hold position after losing ball tracking
+  speedMultiplier: number;      // Paddle speed multiplier for AI (1.0 = normal)
+}
+
+const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
+  [AIDifficulty.EASY]: {
+    refreshIntervalMs: 150,
+    maxBounces: 4,
+    commitThreshold: 0.3,
+    commitLockoutMs: 300,
+    deadZoneMultiplier: 2.0,
+    minDeadZonePx: 40,
+    predictionError: 0.25,
+    sectorMatchWidth: 2.0,
+    ballGracePeriodMs: 500,
+    speedMultiplier: 1.0,
+  },
+  [AIDifficulty.MEDIUM]: {
+    refreshIntervalMs: 50,
+    maxBounces: 8,
+    commitThreshold: 0.12,
+    commitLockoutMs: 100,
+    deadZoneMultiplier: 1.0,
+    minDeadZonePx: 15,
+    predictionError: 0.08,
+    sectorMatchWidth: 1.5,
+    ballGracePeriodMs: 1200,
+    speedMultiplier: 1.0,
+  },
+  [AIDifficulty.HARD]: {
+    refreshIntervalMs: 16,
+    maxBounces: 20,
+    commitThreshold: 0.04,
+    commitLockoutMs: 30,
+    deadZoneMultiplier: 0.5,
+    minDeadZonePx: 5,
+    predictionError: 0,
+    sectorMatchWidth: 1.2,
+    ballGracePeriodMs: 2000,
+    speedMultiplier: 1.0,
+  },
+  [AIDifficulty.NIGHTMARE]: {
+    refreshIntervalMs: 16,
+    maxBounces: 20,
+    commitThreshold: 0.02,
+    commitLockoutMs: 15,
+    deadZoneMultiplier: 0.3,
+    minDeadZonePx: 3,
+    predictionError: 0,
+    sectorMatchWidth: 1.1,
+    ballGracePeriodMs: 3000,
+    speedMultiplier: 5.0,
+  },
+};
 
 // --- Helpers ---
 
@@ -37,6 +102,7 @@ interface WallData {
 
 export class AIController {
   private playerId: number;
+  private params: DifficultyParams;
   private lastRefreshTime: number = 0;
   private currentKeys: string[] = [];
 
@@ -57,13 +123,18 @@ export class AIController {
   private lastCommitTime: number = 0;        // timestamp of last target commit
   private lastBallDetectedTime: number = 0;  // when we last saw a ball heading our way
 
-  // Arena walls (parsed once)
+  // Arena walls (refreshed from game state to handle eliminations)
   private walls: WallData[] = [];
   private myWallIndices: number[] = [];  // indices of walls belonging to this player
   private initialized: boolean = false;
 
-  constructor(playerId: number, _difficulty: AIDifficulty = AIDifficulty.MEDIUM) {
+  constructor(playerId: number, difficulty: AIDifficulty = AIDifficulty.MEDIUM) {
     this.playerId = playerId;
+    this.params = DIFFICULTY_PARAMS[difficulty];
+  }
+
+  public getSpeedMultiplier(): number {
+    return this.params.speedMultiplier;
   }
 
   public getKeys(): string[] {
@@ -71,7 +142,7 @@ export class AIController {
   }
 
   public shouldRefresh(currentTime: number): boolean {
-    return currentTime - this.lastRefreshTime >= AI_REFRESH_INTERVAL_MS;
+    return currentTime - this.lastRefreshTime >= this.params.refreshIntervalMs;
   }
 
   // ── Main update ──────────────────────────────────────
@@ -99,7 +170,7 @@ export class AIController {
       }
     }
 
-    // One-time initialisation
+    // One-time initialisation of stable paddle geometry
     if (!this.initialized) {
       this.paddleOrbitRadius = Math.sqrt((paddleX - cx) ** 2 + (paddleY - cy) ** 2);
       this.sectorCenter      = paddleDirAngle;
@@ -119,18 +190,20 @@ export class AIController {
       // Use 90% of sector half-width as the max reachable angle from center.
       this.maxPaddleAngle = this.sectorHalfWidth * 0.9;
 
-      this.walls = [];
-      this.myWallIndices = [];
-      for (const w of (gameState.walls || [])) {
-        if (Array.isArray(w)) {
-          const idx = this.walls.length;
-          this.walls.push({ ax: w[0], ay: w[1], bx: w[2], by: w[3], playerId: w[6] });
-          if (w[6] === this.playerId) {
-            this.myWallIndices.push(idx);
-          }
+      this.initialized = true;
+    }
+
+    // Refresh walls every frame to pick up elimination changes
+    this.walls = [];
+    this.myWallIndices = [];
+    for (const w of (gameState.walls || [])) {
+      if (Array.isArray(w)) {
+        const idx = this.walls.length;
+        this.walls.push({ ax: w[0], ay: w[1], bx: w[2], by: w[3], playerId: w[6] });
+        if (w[6] === this.playerId) {
+          this.myWallIndices.push(idx);
         }
       }
-      this.initialized = true;
     }
 
     this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
@@ -167,14 +240,51 @@ export class AIController {
       this.lastBallDetectedTime = now;
     }
 
+    // ── Fallback: track nearest ball's current angle when trajectory prediction fails ──
+    // This prevents paddles from freezing after eliminations when the ball bounces
+    // in patterns the trajectory simulation can't resolve within its bounce limit.
+    let fallbackAngle: number | null = null;
+    if (bestAngle === null && balls.length > 0) {
+      let nearestDist = Infinity;
+      for (const b of balls) {
+        const bx2 = Array.isArray(b) ? b[0] : b.x;
+        const by2 = Array.isArray(b) ? b[1] : b.y;
+        const dist = Math.sqrt((bx2 - cx) ** 2 + (by2 - cy) ** 2);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          fallbackAngle = Math.atan2(by2 - cy, bx2 - cx);
+        }
+      }
+      if (fallbackAngle !== null) {
+        // Only use fallback if the ball is roughly in our sector (within 2x sector width)
+        if (Math.abs(angDiff(fallbackAngle, this.sectorCenter)) < this.sectorHalfWidth * 2.0) {
+          const offsetFromCenter = angDiff(fallbackAngle, this.sectorCenter);
+          const clamped = Math.max(-this.maxPaddleAngle, Math.min(this.maxPaddleAngle, offsetFromCenter));
+          fallbackAngle = normalizeAngle(this.sectorCenter + clamped);
+        } else {
+          fallbackAngle = null; // Ball not in our sector, don't chase it
+        }
+      }
+    }
+
     // ── Decide the raw target ──
-    // If we see a ball, track it. If not, keep the last committed target
-    // for a grace period before falling back to sector center.
-    const ballGracePeriodMs = 1500;  // keep last target for 1.5s after losing the ball
+    // If we see a ball, track it. If trajectory prediction failed but ball is in
+    // our sector, track its current position. Otherwise hold or drift to center.
     let rawTarget: number;
     if (bestAngle !== null) {
+      // Add difficulty-based prediction error
+      if (this.params.predictionError > 0) {
+        bestAngle = normalizeAngle(bestAngle + (Math.random() - 0.5) * 2 * this.params.predictionError);
+        // Re-clamp after adding error
+        const offsetFromCenter = angDiff(bestAngle, this.sectorCenter);
+        const clamped = Math.max(-this.maxPaddleAngle, Math.min(this.maxPaddleAngle, offsetFromCenter));
+        bestAngle = normalizeAngle(this.sectorCenter + clamped);
+      }
       rawTarget = bestAngle;
-    } else if (now - this.lastBallDetectedTime < ballGracePeriodMs) {
+    } else if (fallbackAngle !== null) {
+      rawTarget = fallbackAngle;
+      this.lastBallDetectedTime = now; // Keep the grace period alive while tracking
+    } else if (now - this.lastBallDetectedTime < this.params.ballGracePeriodMs) {
       // No ball detected, but we recently saw one — hold position
       rawTarget = this.committedTargetAngle;
     } else {
@@ -183,9 +293,6 @@ export class AIController {
     }
 
     // ── Committed target with hysteresis ──
-    const commitThreshold = 0.15;      // ~8.6 degrees — ignore smaller changes
-    const commitLockoutMs = 150;       // minimum ms between target changes
-
     if (!this.hasCommittedTarget) {
       this.committedTargetAngle = rawTarget;
       this.hasCommittedTarget = true;
@@ -193,7 +300,7 @@ export class AIController {
     } else {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
-      if (shift > commitThreshold && timeSinceCommit > commitLockoutMs) {
+      if (shift > this.params.commitThreshold && timeSinceCommit > this.params.commitLockoutMs) {
         this.committedTargetAngle = rawTarget;
         this.lastCommitTime = now;
       }
@@ -211,8 +318,9 @@ export class AIController {
     let px = bx, py = by, dvx = vx, dvy = vy;
     let totalTime = 0;
     const orbitR = this.paddleOrbitRadius;
-    const maxBounces = 12;
+    const maxBounces = this.params.maxBounces;
     const maxTime    = 8;
+    const sectorMatch = this.sectorHalfWidth * this.params.sectorMatchWidth;
 
     for (let bounce = 0; bounce <= maxBounces && totalTime < maxTime; bounce++) {
       const a = dvx * dvx + dvy * dvy;
@@ -241,7 +349,7 @@ export class AIController {
           if (t > 1e-4 && t < wallT) {
             const hx = px + t * dvx, hy = py + t * dvy;
             const hitAngle = Math.atan2(hy - cy, hx - cx);
-            if (Math.abs(angDiff(hitAngle, this.sectorCenter)) < this.sectorHalfWidth * 2.0) {
+            if (Math.abs(angDiff(hitAngle, this.sectorCenter)) < sectorMatch) {
               return { angle: hitAngle, time: totalTime + t };
             }
           }
@@ -301,14 +409,11 @@ export class AIController {
     const diff   = angDiff(this.committedTargetAngle, this.paddleAngle);
     const offset = Math.abs(diff) * this.paddleOrbitRadius;   // arc-length in pixels
 
-    // Compute per-frame displacement at current paddle speed.
-    // Thresholds prevent oscillation while keeping the paddle responsive.
-    // The paddle moves at ~45px per frame and stops instantly when keys are released.
-    // If we're within one frame's displacement, stop — pressing a key would overshoot.
-    // The paddle is ~53px half-width, so stopping 45px from exact target still catches the ball.
-    const frameMs = AI_REFRESH_INTERVAL_MS;
+    // Dead zone: stop moving when close enough to the target.
+    // Higher difficulty = smaller dead zone = more precise positioning.
+    const frameMs = this.params.refreshIntervalMs;
     const perFramePx = this.paddleSpeed * (frameMs / 1000);
-    const deadZone = Math.max(perFramePx, 20);
+    const deadZone = Math.max(perFramePx * this.params.deadZoneMultiplier, this.params.minDeadZonePx);
 
     if (offset < deadZone) {
       this.currentKeys = [];
@@ -357,6 +462,12 @@ export class AIManager {
     if (!controller) return [];
     controller.update();
     return controller.getKeys();
+  }
+
+  public getAISpeedMultiplier(playerId: number): number {
+    const controller = this.controllers.get(playerId);
+    if (!controller) return 1.0;
+    return controller.getSpeedMultiplier();
   }
 
   public get count(): number {

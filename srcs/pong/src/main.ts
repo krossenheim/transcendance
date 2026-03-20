@@ -1,6 +1,7 @@
 "use strict";
 import { PongGameOptions } from "./game/game.js";
 import { PongManager } from "./pongManager.js";
+import { AIDifficulty } from "./aiController.js";
 import LobbyManager from "./lobbyManager.js";
 import TournamentManager from "./tournamentManager.js";
 import websocketPlugin from "@fastify/websocket";
@@ -338,7 +339,7 @@ socket.registerHandler(user_url.ws.pong.getGameState, async (body, response) => 
 // Lobby and Tournament handlers
 socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   const user_id = body.userId;
-  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups, aiCount, localPlayerNames } = body.payload;
+  const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups, aiCount, aiDifficulty, localPlayerNames } = body.payload;
 
   console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
   console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}, aiCount=${aiCount || 0}, localPlayerNames=${JSON.stringify(localPlayerNames)}`);
@@ -366,7 +367,8 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
     ballCount,
     maxScore,
     allowPowerups || false,
-    aiCount || 0
+    aiCount || 0,
+    aiDifficulty || 3
   );
 
   if (lobbyResult.isErr()) {
@@ -1015,7 +1017,9 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     tournamentId,
     matchId,
     aiPlayerIds, // Pass AI player IDs so pongManager can set up AI controllers
-    lobbyPlayerUsernames // Pass player usernames for leaderboard
+    lobbyPlayerUsernames, // Pass player usernames for leaderboard
+    undefined, // localHostUserId
+    lobby.aiDifficulty as AIDifficulty || AIDifficulty.HARD
   );
 
   if (gameResult.isErr()) {

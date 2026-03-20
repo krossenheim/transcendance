@@ -237,6 +237,11 @@ export const es = {
     enablePowerups: 'Activar potenciadores (experimental)',
     aiPlayers: 'Jugadores IA',
     aiDescription: 'Añadir oponentes IA que predicen el movimiento de la pelota y usan potenciadores',
+    aiDifficulty: 'Dificultad IA',
+    aiEasy: 'Fácil',
+    aiMedium: 'Medio',
+    aiHard: 'Difícil',
+    aiNightmare: 'Pesadilla',
     ai: 'IA',
     createGame: 'Crear partida',
     // Pong Lobby

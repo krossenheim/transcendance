@@ -75,33 +75,9 @@ export class PongManager {
   private handleGameFrames() {
     const now = Date.now();
     for (const [gameId, gameData] of this.games.entries()) {
-      if (gameData.game.isGameOver()) {
-        if (gameData.didGameEnd === false) {
-          gameData.didGameEnd = true;
-          
-          // Send one final game state with gameOver: true to clients
-          const finalGameState = gameData.game.fetchBoardJSON();
-          finalGameState.serverTimestamp = now;
-          // Include player usernames and tournament info for leaderboard/UI
-          if (finalGameState.metadata) {
-            finalGameState.metadata.playerUsernames = gameData.playerUsernames;
-          } else {
-            finalGameState.metadata = { playerUsernames: gameData.playerUsernames };
-          }
-          if (gameData.tournamentId !== undefined) {
-            finalGameState.metadata.tournamentId = gameData.tournamentId;
-          }
-          if (gameData.matchId !== undefined) {
-            finalGameState.metadata.matchId = gameData.matchId;
-          }
-          this.hubSocket.sendMessage(user_url.ws.pong.getGameState, {
-            recipients: [...Array.from(gameData.game.getAllPlayerIds()), ...gameData.spectators],
-            code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
-            payload: finalGameState,
-          });
-          
-          this.onGameEnd(gameId, gameData);
-        }
+      // Check game-over AFTER simulation so the final frame still runs
+      // (prevents AI paddles from freezing on the frame a player is eliminated)
+      if (gameData.didGameEnd) {
         continue;
       }
 
@@ -111,13 +87,33 @@ export class PongManager {
       if (gameData.aiManager.count > 0) {
         const currentGameState = gameData.game.fetchBoardJSON();
         gameData.aiManager.refreshGameStates(currentGameState);
+        // Temporarily boost AI paddle speeds based on difficulty
+        const aiSpeedBackups: Map<number, number> = new Map();
         for (const [aiPlayerId] of gameData.aiManager.getControllers()) {
+          const multiplier = gameData.aiManager.getAISpeedMultiplier(aiPlayerId);
+          if (multiplier !== 1.0) {
+            const paddles = gameData.game.getPlayerPaddles(aiPlayerId);
+            for (const paddle of paddles) {
+              aiSpeedBackups.set(aiPlayerId, paddle.getSpeed());
+              paddle.setSpeedUnclamped(paddle.getSpeed() * multiplier);
+            }
+          }
           const aiKeys = gameData.aiManager.getAIKeys(aiPlayerId);
           gameData.game.handlePressedKeysForPlayer(aiKeys, aiPlayerId);
         }
+        
+        gameData.game.playSimulation(deltaTime);
+        
+        // Restore AI paddle speeds after simulation
+        for (const [aiPlayerId, originalSpeed] of aiSpeedBackups) {
+          const paddles = gameData.game.getPlayerPaddles(aiPlayerId);
+          for (const paddle of paddles) {
+            paddle.setSpeedUnclamped(originalSpeed);
+          }
+        }
+      } else {
+        gameData.game.playSimulation(deltaTime);
       }
-      
-      gameData.game.playSimulation(deltaTime);
       gameData.last_frame_time = now;
       
       // Fetch game state and add server timestamp for client-side lag compensation
@@ -142,6 +138,12 @@ export class PongManager {
         code: user_url.ws.pong.getGameState.schema.output.GameUpdate.code,
         payload: gameState,
       });
+
+      // Handle game-over after simulation and broadcast, so clients get the final state
+      if (gameData.game.isGameOver() && !gameData.didGameEnd) {
+        gameData.didGameEnd = true;
+        this.onGameEnd(gameId, gameData);
+      }
     }
   }
 
@@ -152,7 +154,8 @@ export class PongManager {
     matchId?: number,
     aiPlayerIds: number[] = [],
     playerUsernames: { [key: number]: string } = {},
-    localHostUserId?: number
+    localHostUserId?: number,
+    aiDifficulty: AIDifficulty = AIDifficulty.HARD
   ): Result<number, null> {
     let game = new PongGame(players, options);
     
@@ -167,10 +170,7 @@ export class PongManager {
     // Initialize AI manager
     const aiManager = new AIManager();
     for (const aiId of aiPlayerIds) {
-      // Vary difficulty slightly for each AI
-      const difficultyIndex = Math.abs(aiId) % 3;
-      const difficulty = [AIDifficulty.EASY, AIDifficulty.MEDIUM, AIDifficulty.HARD][difficultyIndex] || AIDifficulty.MEDIUM;
-      aiManager.addAI(aiId, difficulty);
+      aiManager.addAI(aiId, aiDifficulty);
     }
     
     if (aiPlayerIds.length > 0) {

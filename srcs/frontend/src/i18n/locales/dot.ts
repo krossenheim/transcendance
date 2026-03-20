@@ -239,6 +239,11 @@ export const dot: TranslationKeys = {
     enablePowerups: 'Azhat Atihi (vosecchi eth)',
     aiPlayers: 'AI Lajaki',
     aiDescription: 'Azhat AI lajaki haji savvon hrazef dothrakh ma atihi',
+    aiDifficulty: 'AI Athjahakar',
+    aiEasy: 'Fikhat',
+    aiMedium: 'Aranikh',
+    aiHard: 'Athjahakar',
+    aiNightmare: 'Athdrivar',
     ai: 'AI',
     createGame: 'Thira Lajat',
     // Pong Lobby

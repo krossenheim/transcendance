@@ -239,6 +239,11 @@ export const pig: TranslationKeys = {
     enablePowerups: 'Enableway Owerplay-upsway (experimentalway)',
     aiPlayers: 'AI-way Ayersplay',
     aiDescription: 'Addway AI-way opponentsway atthay edictpray allbay ovementmay andway useway owerpupsay',
+    aiDifficulty: 'AI-way Ifficultyday',
+    aiEasy: 'Easyday',
+    aiMedium: 'Ediummay',
+    aiHard: 'Ardhay',
+    aiNightmare: 'Ightmarenay',
     ai: 'AI-way',
     createGame: 'Eatecray Amegay',
     // Pong Lobby

@@ -239,6 +239,11 @@ export const la: TranslationKeys = {
     enablePowerups: 'Potentias Activare (experimentale)',
     aiPlayers: 'Lusores AI',
     aiDescription: 'Adversarios AI addere qui motum pilae praedicunt et potentiis utuntur',
+    aiDifficulty: 'Difficultas AI',
+    aiEasy: 'Facilis',
+    aiMedium: 'Mediocris',
+    aiHard: 'Difficilis',
+    aiNightmare: 'Somnium',
     ai: 'AI',
     createGame: 'Ludum Creare',
     // Pong Lobby

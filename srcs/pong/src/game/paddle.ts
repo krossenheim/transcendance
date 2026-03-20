@@ -224,6 +224,10 @@ export class PongPaddle extends MultiObject {
 		this.boardPaddleSpeed = Math.max(this.basePaddleSpeed * 0.1, Math.min(this.basePaddleSpeed * 3, newSpeed));
 	}
 
+	public setSpeedUnclamped(newSpeed: number): void {
+		this.boardPaddleSpeed = newSpeed;
+	}
+
 	public toJSON(): PongPaddleJSON {
 		const center = this.getCenter();
 		const velocity = this.velocity;

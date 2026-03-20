@@ -20,6 +20,7 @@ import { type PongInvitation } from "./pongInviteNotifications"
 import { usePredictedGameState } from "./usePredictedGameState"
 import { useLanguage } from "./i18n/LanguageContext"
 import { usePongStore } from "./stores/pongStore"
+import { setGamePlayerIds } from "@utils/users"
 // local: avoid importing server-side db helpers
 
 // =========================
@@ -92,6 +93,11 @@ export default function PongComponent({
         seed: raw.metadata?.seed,
         allPlayers: raw.metadata?.allPlayers,
       });
+
+      // Set game player IDs for unique color assignment
+      if (raw.metadata?.allPlayers) {
+        setGamePlayerIds(raw.metadata.allPlayers);
+      }
       
       // Cleanup: limit cache size to prevent memory leaks (keep last 10 games)
       if (cachedStaticStatesRef.current.size > 10) {
@@ -560,6 +566,7 @@ export default function PongComponent({
           if (currentLobby.gameMode === "1v1" && currentLobby.players.length === 1) {
             const hostPlayer = currentLobby.players[0];
             if (hostPlayer) {
+              setGamePlayerIds([hostPlayer.id, -999]);
               setDebugPlayers([
                 { id: hostPlayer.id, username: "WASD" },
                 { id: -999, username: "Arrow" }
@@ -572,6 +579,7 @@ export default function PongComponent({
               const aiId = -1001 - i;
               allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
             }
+            setGamePlayerIds(allPlayers.map(p => p.id));
             setDebugPlayers(allPlayers);
           }
         }
@@ -892,6 +900,7 @@ export default function PongComponent({
             if (currentLobby.gameMode === "1v1" && currentLobby.players.length === 1) {
               const hostPlayer = currentLobby.players[0];
               if (hostPlayer) {
+                setGamePlayerIds([hostPlayer.id, -999]);
                 setDebugPlayers([
                   { id: hostPlayer.id, username: "WASD" },
                   { id: -999, username: "Arrow" }
@@ -906,6 +915,7 @@ export default function PongComponent({
                 const aiId = -1001 - i; // AI IDs are -1001, -1002, etc.
                 allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
               }
+              setGamePlayerIds(allPlayers.map(p => p.id));
               setDebugPlayers(allPlayers);
             }
           }
@@ -1243,6 +1253,7 @@ export default function PongComponent({
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
           aiCount: settings.aiCount,
+          aiDifficulty: settings.aiDifficulty,
         },
         status: "waiting",
       }
@@ -1265,6 +1276,7 @@ export default function PongComponent({
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
           aiCount: settings.aiCount,
+          aiDifficulty: settings.aiDifficulty,
           ...(settings.localPlayerNames ? { localPlayerNames: settings.localPlayerNames } : {}),
         },
         target_container: "pong",

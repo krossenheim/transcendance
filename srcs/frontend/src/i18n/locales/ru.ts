@@ -239,6 +239,11 @@ export const ru: TranslationKeys = {
     enablePowerups: 'Включить бонусы (экспериментально)',
     aiPlayers: 'ИИ игроки',
     aiDescription: 'Добавить ИИ противников, которые предсказывают движение мяча и используют бонусы',
+    aiDifficulty: 'Сложность ИИ',
+    aiEasy: 'Легко',
+    aiMedium: 'Средне',
+    aiHard: 'Сложно',
+    aiNightmare: 'Кошмар',
     ai: 'ИИ',
     createGame: 'Создать игру',
     // Pong Lobby

@@ -35,6 +35,7 @@ export interface Lobby {
   maxScore: number;
   allowPowerups: boolean;
   aiCount: number; // Number of AI players (0-5)
+  aiDifficulty: number; // 1=Easy, 2=Medium, 3=Hard
   status: "waiting" | "starting" | "in_progress";
   gameId?: number; // Set when game starts
   tournamentId?: number; // Set if this is a tournament
@@ -58,7 +59,8 @@ export class LobbyManager {
     ballCount: number,
     maxScore: number,
     allowPowerups: boolean = false,
-    aiCount: number = 0
+    aiCount: number = 0,
+    aiDifficulty: number = 3
   ): Result<Lobby, ErrorResponseType> {
     if (playerIds.length < 1) {
       return ResultClass.Err({ message: "Lobby requires at least 1 player" });
@@ -87,6 +89,7 @@ export class LobbyManager {
       maxScore,
       allowPowerups,
       aiCount: Math.min(5, Math.max(0, aiCount)), // Clamp between 0-5
+      aiDifficulty: Math.min(3, Math.max(1, aiDifficulty)),
       status: "waiting",
     };
 
