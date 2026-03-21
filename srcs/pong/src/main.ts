@@ -211,7 +211,7 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
 
     const gameResult = singletonPong.startGame(
       matchPlayerIds,
-      createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+      createGameOptionsFromLobby(tournament.ballCount, tournament.allowPowerups, tournament.maxScore),
       tournamentId,
       match.matchId,
       matchPlayerIds, // both are AI
@@ -411,6 +411,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
         ballCount,
         maxScore,
         tournamentUsernames,
+        allowPowerups || false,
         isLocalTournament || false,
         isLocalTournament ? user_id : undefined
       );
@@ -599,7 +600,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
     // Start game as a local match with the host controlling both paddles
     const gameResult = singletonPong.startGame(
       playerIds,
-      createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+      createGameOptionsFromLobby(tournament.ballCount, tournament.allowPowerups, tournament.maxScore),
       tournamentId,
       matchId,
       matchAiPlayerIds,
@@ -714,7 +715,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
   const matchAiPlayerIds = playerIds.filter(id => isAiPlayer(id));
   const gameResult = singletonPong.startGame(
     playerIds,
-    createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+    createGameOptionsFromLobby(tournament.ballCount, tournament.allowPowerups, tournament.maxScore),
     tournamentId,
     matchId,
     matchAiPlayerIds,
@@ -1119,7 +1120,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
 
           const pendingGameResult = singletonPong.startGame(
             pendingPlayerIds,
-            createGameOptionsFromLobby(tournament.ballCount, false, tournament.maxScore),
+            createGameOptionsFromLobby(tournament.ballCount, tournament.allowPowerups, tournament.maxScore),
             tournamentId,
             pendingMatch.matchId,
             pendingAiPlayerIds,
