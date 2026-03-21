@@ -240,30 +240,28 @@ export class AIController {
       this.lastBallDetectedTime = now;
     }
 
-    // ── Fallback: track nearest ball's current angle when trajectory prediction fails ──
+    // ── Fallback: track ball closest to our sector when trajectory prediction fails ──
     // This prevents paddles from freezing after eliminations when the ball bounces
     // in patterns the trajectory simulation can't resolve within its bounce limit.
     let fallbackAngle: number | null = null;
     if (bestAngle === null && balls.length > 0) {
-      let nearestDist = Infinity;
+      let bestAngDist = Infinity;
       for (const b of balls) {
         const bx2 = Array.isArray(b) ? b[0] : b.x;
         const by2 = Array.isArray(b) ? b[1] : b.y;
-        const dist = Math.sqrt((bx2 - cx) ** 2 + (by2 - cy) ** 2);
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          fallbackAngle = Math.atan2(by2 - cy, bx2 - cx);
+        const ballAngle = Math.atan2(by2 - cy, bx2 - cx);
+        const angDistToSector = Math.abs(angDiff(ballAngle, this.sectorCenter));
+        if (angDistToSector < bestAngDist) {
+          bestAngDist = angDistToSector;
+          fallbackAngle = ballAngle;
         }
       }
       if (fallbackAngle !== null) {
-        // Only use fallback if the ball is roughly in our sector (within 2x sector width)
-        if (Math.abs(angDiff(fallbackAngle, this.sectorCenter)) < this.sectorHalfWidth * 2.0) {
-          const offsetFromCenter = angDiff(fallbackAngle, this.sectorCenter);
-          const clamped = Math.max(-this.maxPaddleAngle, Math.min(this.maxPaddleAngle, offsetFromCenter));
-          fallbackAngle = normalizeAngle(this.sectorCenter + clamped);
-        } else {
-          fallbackAngle = null; // Ball not in our sector, don't chase it
-        }
+        // Always track — clamp to reachable range even if ball is outside sector.
+        // This makes the AI move to the nearest edge instead of freezing.
+        const offsetFromCenter = angDiff(fallbackAngle, this.sectorCenter);
+        const clamped = Math.max(-this.maxPaddleAngle, Math.min(this.maxPaddleAngle, offsetFromCenter));
+        fallbackAngle = normalizeAngle(this.sectorCenter + clamped);
       }
     }
 
