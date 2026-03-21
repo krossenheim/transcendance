@@ -9,6 +9,8 @@ import { OurSocket } from "@app/shared/socket_to_hub";
 import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import { createFastify } from "@app/shared/api/service/common/fastify";
+import containers from "@app/shared/internal_api";
+import { PlayerLobbyStatus, LobbyStatus } from "@app/shared/api/service/pong/lobby_interfaces";
 // Prometheus metrics
 import client from "prom-client";
 
@@ -390,6 +392,32 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
     }
   }
 
+  // Persist lobby and invited players to DB (only real user IDs)
+  const realPlayerIds = filterHumanIds(effectivePlayerIds);
+  if (realPlayerIds.length > 0) {
+    const dbPlayers = realPlayerIds.map(id => ({
+      userId: id,
+      state: id === user_id ? PlayerLobbyStatus.Joined : PlayerLobbyStatus.Invited,
+    }));
+    const dbSettings: Record<string, string> = {
+      gameMode: lobby.gameMode,
+      ballCount: String(lobby.ballCount),
+      maxScore: String(lobby.maxScore),
+      allowPowerups: String(lobby.allowPowerups),
+      aiCount: String(lobby.aiCount),
+      aiDifficulty: String(lobby.aiDifficulty),
+    };
+    containers.db.post(int_url.http.db.createLobbyFull, {
+      lobbyId: lobby.lobbyId,
+      hostUserId: user_id,
+      players: dbPlayers,
+      settings: dbSettings,
+    }).then(res => {
+      if (res.isErr()) console.error("[Pong] Failed to persist lobby to DB:", res.unwrapErr());
+      else console.log(`[Pong] Lobby ${lobby.lobbyId} persisted to DB`);
+    });
+  }
+
   console.log(`[Pong] Created lobby, returning to ALL players including invitees: ${JSON.stringify(effectivePlayerIds)}`);
   // If this lobby is a tournament, create a Tournament on the server-side
   // and attach it to the lobby so invitees receive tournament context.
@@ -472,6 +500,19 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
 
   const lobby = toggleResult.unwrap();
 
+  // Persist ready state change to DB
+  const player = lobby.players.find((p) => p.userId === user_id);
+  if (player) {
+    const newState = player.isReady ? PlayerLobbyStatus.Ready : PlayerLobbyStatus.Joined;
+    containers.db.post(int_url.http.db.setLobbyPlayerState, {
+      lobbyId: lobby.lobbyId,
+      userId: user_id,
+      state: newState,
+    }).then(res => {
+      if (res.isErr()) console.error("[Pong] Failed to persist player ready state to DB:", res.unwrapErr());
+    });
+  }
+
   // Return lobby state to all players
   const playerIds = lobby.players.map((p) => p.userId);
   console.log(`[Pong] Toggled ready, returning lobby state to all players: ${JSON.stringify(playerIds)}`);
@@ -508,7 +549,8 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
     }));
   }
 
-  const removeResult = lobbyManager.removePlayerFromLobby(lobby.lobbyId, user_id);
+  const actualLobbyId = lobby.lobbyId;
+  const removeResult = lobbyManager.removePlayerFromLobby(actualLobbyId, user_id);
 
   if (removeResult.isErr()) {
     return Result.Ok(response.select("NotInLobby").reply({
@@ -518,8 +560,23 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
 
   const updatedLobby = removeResult.unwrap();
 
+  // Persist leave to DB
+  if (!isAiPlayer(user_id) && !isLocalPlayer(user_id)) {
+    containers.db.post(int_url.http.db.setLobbyPlayerState, {
+      lobbyId: actualLobbyId,
+      userId: user_id,
+      state: PlayerLobbyStatus.Left,
+    }).then(res => {
+      if (res.isErr()) console.error("[Pong] Failed to persist player leave to DB:", res.unwrapErr());
+    });
+  }
+
   // If lobby was deleted (empty), just notify the leaving player
   if (updatedLobby === null) {
+    // Also delete lobby from DB
+    containers.db.post(int_url.http.db.deleteLobbyFromDb, { lobbyId: actualLobbyId }).then(res => {
+      if (res.isErr()) console.error("[Pong] Failed to delete lobby from DB:", res.unwrapErr());
+    });
     console.log(`[Pong] Lobby ${lobbyId} deleted (empty)`);
     return Result.Ok(response.select("LeftLobby").reply({
       message: "Left lobby",
@@ -1048,6 +1105,14 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
 
   // Mark lobby as in progress
   lobbyManager.startGame(lobbyId, user_id, gameId);
+
+  // Persist lobby state change to DB
+  containers.db.post(int_url.http.db.updateLobbyState, {
+    lobbyId: lobby.lobbyId,
+    state: LobbyStatus.GameInProgress,
+  }).then(res => {
+    if (res.isErr()) console.error("[Pong] Failed to persist lobby state to DB:", res.unwrapErr());
+  });
 
   // Get game state directly
   const gameState = singletonPong.getGameState(user_id, gameId);

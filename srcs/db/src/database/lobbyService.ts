@@ -52,6 +52,13 @@ export class LobbyService {
 		).map(result => Number(result.lastInsertRowid));
 	}
 
+	private _dbCreateNewLobbyWithId(lobbyId: number, hostUserId: number): Result<number, DatabaseError> {
+		return this.db.run(
+			`INSERT INTO game_lobbies (lobbyId, hostUserId, lobbyState) VALUES (?, ?, ?)`,
+			[lobbyId, hostUserId, LobbyStatus.WaitingForPlayers]
+		).map(result => Number(result.lastInsertRowid));
+	}
+
 	private _dbDeleteLobby(lobbyId: number): Result<RunResult, DatabaseError> {
 		return this.db.run(
 			`DELETE FROM game_lobbies WHERE lobbyId = ?`,
@@ -66,6 +73,18 @@ export class LobbyService {
 		);
 	}
 
+	private _dbSaveLobbySettings(lobbyId: number, settings: Record<string, string>): Result<void, DatabaseError> {
+		for (const [key, value] of Object.entries(settings)) {
+			const result = this.db.run(
+				`INSERT INTO lobby_settings (lobbyId, settingKey, settingValue) VALUES (?, ?, ?)
+				 ON CONFLICT(lobbyId, settingKey) DO UPDATE SET settingValue = excluded.settingValue`,
+				[lobbyId, key, value]
+			);
+			if (result.isErr()) return Result.Err(result.unwrapErr());
+		}
+		return Result.Ok(undefined);
+	}
+
 	public setUserLobbyState(lobbyId: number, userId: number, state: PlayerLobbyStatus): Result<RunResult, DatabaseError> {
 		return this._dbSetOrUpdateUserLobbyState(lobbyId, userId, state);
 	}
@@ -75,6 +94,22 @@ export class LobbyService {
 			const lobbyId = this._dbCreateNewLobby(hostUserId).unwrap();
 			this._dbSetOrUpdateUserLobbyState(lobbyId, hostUserId, PlayerLobbyStatus.Joined).unwrap();
 			return this._dbGetLobbyById(lobbyId);
+		});
+	}
+
+	public createLobbyFull(
+		lobbyId: number,
+		hostUserId: number,
+		players: { userId: number; state: number }[],
+		settings: Record<string, string>
+	): Result<void, DatabaseError> {
+		return this.db.transaction(() => {
+			this._dbCreateNewLobbyWithId(lobbyId, hostUserId).unwrap();
+			for (const player of players) {
+				this._dbSetOrUpdateUserLobbyState(lobbyId, player.userId, player.state as PlayerLobbyStatus).unwrap();
+			}
+			this._dbSaveLobbySettings(lobbyId, settings).unwrap();
+			return Result.Ok(undefined);
 		});
 	}
 

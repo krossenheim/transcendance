@@ -1735,6 +1735,69 @@ export const int_url = defineRoutes({
           },
         }
       },
+
+      // Lobby persistence endpoints
+      createLobbyFull: {
+        endpoint: "/internal_api/db/lobby/create",
+        method: "POST",
+        schema: {
+          body: z.object({
+            lobbyId: z.number().int().min(1),
+            hostUserId: userIdValue,
+            players: z.array(z.object({
+              userId: userIdValue,
+              state: z.number().int().min(0).max(5),
+            })),
+            settings: z.record(z.string(), z.string()),
+          }),
+          response: {
+            201: z.null(),
+            500: ErrorResponse,
+          },
+        },
+      },
+      setLobbyPlayerState: {
+        endpoint: "/internal_api/db/lobby/set_player_state",
+        method: "POST",
+        schema: {
+          body: z.object({
+            lobbyId: z.number().int().min(1),
+            userId: userIdValue,
+            state: z.number().int().min(0).max(5),
+          }),
+          response: {
+            200: z.null(),
+            500: ErrorResponse,
+          },
+        },
+      },
+      updateLobbyState: {
+        endpoint: "/internal_api/db/lobby/update_state",
+        method: "POST",
+        schema: {
+          body: z.object({
+            lobbyId: z.number().int().min(1),
+            state: z.number().int().min(0).max(3),
+          }),
+          response: {
+            200: z.null(),
+            500: ErrorResponse,
+          },
+        },
+      },
+      deleteLobbyFromDb: {
+        endpoint: "/internal_api/db/lobby/delete",
+        method: "POST",
+        schema: {
+          body: z.object({
+            lobbyId: z.number().int().min(1),
+          }),
+          response: {
+            200: z.null(),
+            500: ErrorResponse,
+          },
+        },
+      },
     },
 
     chat: {
