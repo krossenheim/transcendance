@@ -30,15 +30,15 @@ interface DifficultyParams {
 
 const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
   [AIDifficulty.EASY]: {
-    refreshIntervalMs: 150,
+    refreshIntervalMs: 120,
     maxBounces: 4,
-    commitThreshold: 0.3,
-    commitLockoutMs: 300,
-    deadZoneMultiplier: 2.0,
-    minDeadZonePx: 40,
+    commitThreshold: 0.15,
+    commitLockoutMs: 250,
+    deadZoneMultiplier: 1.5,
+    minDeadZonePx: 20,
     predictionError: 0.25,
     sectorMatchWidth: 2.0,
-    ballGracePeriodMs: 500,
+    ballGracePeriodMs: 1000,
     speedMultiplier: 1.0,
   },
   [AIDifficulty.MEDIUM]: {
