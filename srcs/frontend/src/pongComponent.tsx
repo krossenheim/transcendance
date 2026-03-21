@@ -93,11 +93,6 @@ export default function PongComponent({
         seed: raw.metadata?.seed,
         allPlayers: raw.metadata?.allPlayers,
       });
-
-      // Set game player IDs for unique color assignment
-      if (raw.metadata?.allPlayers) {
-        setGamePlayerIds(raw.metadata.allPlayers);
-      }
       
       // Cleanup: limit cache size to prevent memory leaks (keep last 10 games)
       if (cachedStaticStatesRef.current.size > 10) {
@@ -373,6 +368,13 @@ export default function PongComponent({
   useEffect(() => {
     activeTournamentIdRef.current = activeTournamentId
   }, [activeTournamentId])
+
+  // Set stable tournament-wide player colors so bracket doesn't flicker
+  useEffect(() => {
+    if (tournament?.players && tournament.players.length > 0) {
+      setGamePlayerIds(tournament.players.map(p => p.id));
+    }
+  }, [tournament?.players])
 
   // BULLETPROOF ref: stores tournament info from the moment the game starts.
   // Cannot be cleared by Zustand state changes or React re-renders.
@@ -738,9 +740,17 @@ export default function PongComponent({
         if (normalized) {
           setPlayerIDsHelper(normalized);
           setGameState(normalized);
+          // Update refs immediately so game state routing works before next render
+          gameStateRef.current = normalized;
+          // Remove this game from watched set so updates go to main view, not mini-preview
+          if (normalized.board_id != null) {
+            watchedGameIdsRef.current.delete(normalized.board_id);
+          }
         }
         setLobby(null);
         setCurrentView("game");
+        // Update view ref immediately so routing doesn't intercept updates
+        currentViewRef.current = "game";
         return HandlerResult.Handled;
       }
       
