@@ -32,6 +32,7 @@ export interface Tournament {
   ballCount: number;
   maxScore: number;
   allowPowerups: boolean;
+  aiDifficulty: number;
   onchainTxHashes?: string[];
   isLocal?: boolean;
   hostUserId?: number;
@@ -55,6 +56,7 @@ export class TournamentManager {
     maxScore: number,
     playerUsernames: { [key: number]: string } = {},
     allowPowerups: boolean = false,
+    aiDifficulty: number = 3,
     isLocal: boolean = false,
     hostUserId?: number
   ): Result<Tournament, ErrorResponseType> {
@@ -85,6 +87,7 @@ export class TournamentManager {
       ballCount,
       maxScore,
       allowPowerups,
+      aiDifficulty,
       onchainTxHashes: [],
       isLocal,
       ...(hostUserId !== undefined ? { hostUserId } : {}),

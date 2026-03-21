@@ -215,7 +215,9 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
       tournamentId,
       match.matchId,
       matchPlayerIds, // both are AI
-      playerUsernames
+      playerUsernames,
+      undefined,
+      tournament.aiDifficulty as AIDifficulty || AIDifficulty.HARD
     );
 
     if (gameResult.isErr()) {
@@ -412,6 +414,7 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
         maxScore,
         tournamentUsernames,
         allowPowerups || false,
+        aiDifficulty || 3,
         isLocalTournament || false,
         isLocalTournament ? user_id : undefined
       );
@@ -605,7 +608,8 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
       matchId,
       matchAiPlayerIds,
       tournamentPlayerUsernames,
-      user_id // localHostUserId - the host controls both paddles
+      user_id, // localHostUserId - the host controls both paddles
+      tournament.aiDifficulty as AIDifficulty || AIDifficulty.HARD
     );
 
     if (gameResult.isErr()) {
@@ -719,7 +723,9 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
     tournamentId,
     matchId,
     matchAiPlayerIds,
-    tournamentPlayerUsernames
+    tournamentPlayerUsernames,
+    undefined,
+    tournament.aiDifficulty as AIDifficulty || AIDifficulty.HARD
   );
 
   if (gameResult.isErr()) {
@@ -1124,7 +1130,9 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
             tournamentId,
             pendingMatch.matchId,
             pendingAiPlayerIds,
-            pendingPlayerUsernames
+            pendingPlayerUsernames,
+            undefined,
+            tournament.aiDifficulty as AIDifficulty || AIDifficulty.HARD
           );
 
           if (pendingGameResult.isErr()) {
