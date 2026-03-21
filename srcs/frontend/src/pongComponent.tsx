@@ -437,6 +437,46 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe, setLobby, setCurrentView]);
 
+  // STABLE subscription for leaveLobby — remaining players receive LobbyUpdate when someone leaves
+  useEffect(() => {
+    if (!subscribe) return;
+
+    const unsubscribe = subscribe(user_url.ws.pong.leaveLobby, (message, schema) => {
+      console.log("[Pong-Stable] Received leaveLobby:", message.code);
+
+      if (message.code === schema.output.LobbyUpdate.code) {
+        const lobbyData = message.payload;
+        const currentAuth = authResponseRef.current;
+        if (currentAuth && lobbyData.players.some((p: any) =>
+          p.userId === currentAuth.user.id || p.id === currentAuth.user.id
+        )) {
+          setLobby({
+            lobbyId: lobbyData.lobbyId,
+            gameMode: lobbyData.gameMode,
+            players: lobbyData.players.map((p: any) => ({
+              id: p.userId || p.id,
+              username: p.username,
+              isReady: p.isReady,
+              isHost: p.isHost,
+            })),
+            settings: {
+              ballCount: lobbyData.ballCount ?? 1,
+              maxScore: lobbyData.maxScore ?? 5,
+              allowPowerups: lobbyData.allowPowerups ?? false,
+              aiCount: lobbyData.aiCount ?? 0,
+            },
+            status: lobbyData.status,
+          });
+        }
+        return HandlerResult.Handled;
+      }
+
+      return HandlerResult.NotHandled;
+    });
+
+    return () => unsubscribe();
+  }, [subscribe, setLobby]);
+
   // STABLE subscription for createLobby (separate from main effect to avoid missing LobbyCreated during subscription churn)
   useEffect(() => {
     if (!subscribe) return;
