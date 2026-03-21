@@ -267,8 +267,8 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
 
 function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number, gameMode?: string): PongGameOptions {
   console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}, gameMode=${gameMode}`);
-  // lastOneStanding games run until 1 player remains, so use a very long duration
-  const effectiveDuration = gameMode === 'lastOneStanding' ? 999999 : 180;
+  // No time limit — games end by score (maxScore) or last player standing
+  const effectiveDuration = 999999;
   const options: PongGameOptions = {
     canvasWidth: 1000,
     canvasHeight: 1000,
