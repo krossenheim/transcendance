@@ -48,7 +48,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
   };
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden bg-slate-900 text-gray-100 font-sans ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`flex flex-col h-screen overflow-hidden bg-transparent text-gray-100 font-sans ${isRTL ? 'rtl' : 'ltr'}`}>
       
       {/* Global Logic Controllers */}
       <PongInvitationHandler authResponse={authResponse} setPongInvitations={setPongInvitations} />
