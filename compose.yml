@@ -105,6 +105,8 @@ services:
       - ./globals.env
       - ./secrets.env
       - ./srcs/${AUTH_NAME}/service_env.env
+    environment:
+      - FRONTEND_URL=${FRONTEND_URL}
     build:
       context: .
       dockerfile: ./srcs/${AUTH_NAME}/Dockerfile

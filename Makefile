@@ -13,6 +13,13 @@ COMPOSE_PROGRESS ?= auto
 # Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
 
+# Auto-detect frontend URL from VM IP (override with: make FRONTEND_URL=https://1.2.3.4:8443)
+HOST_IP ?= $(shell hostname -I 2>/dev/null | awk '{print $$1}')
+FRONTEND_URL ?= https://$(HOST_IP):8443
+
+# Common env overrides passed to docker compose
+DC_ENV := VOLUMES_DIR=${VOLUMES_DIR} FRONTEND_URL=${FRONTEND_URL}
+
 # React build directory for npm arguments
 REACT_DIR := $(SOURCES_DIR)/nginx/react_source
 # Node.js memory tuning (override with: make NODE_MAX_OLD_SPACE=6144 build)
@@ -20,7 +27,7 @@ NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
 all: ensure_env ensure_volumes check-deps down build ensure_network
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --remove-orphans
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --remove-orphans
 
 ensure_env:
 	@if [ ! -f "$(PATH_TO_COMPOSE_ENV_FILE)" ]; then \
@@ -43,9 +50,9 @@ down:
 	@# Automatically bring down monitoring if any monitoring container is running
 	@if docker ps -q --filter "name=prometheus" --filter "name=grafana" --filter "name=alertmanager" 2>/dev/null | grep -q .; then \
 		echo "Monitoring containers detected, bringing down everything..."; \
-		VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; \
+		$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; \
 	else \
-		VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; \
+		$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; \
 	fi
 	@# Clean up the network if it exists and is unused
 	@docker network rm transcendance_network 2>/dev/null || true
@@ -58,10 +65,10 @@ ensure_network:
 			--label com.docker.compose.project=srcs transcendance_network
 
 up-all:
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
 
 down-all:
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
 RED := \033[0;31m
 YELLOW := \033[1;33m
@@ -81,10 +88,10 @@ EXPLORER_IMAGE_TAG := blockchain-explorer:local
 BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
 
 rebuild:
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --build --no-deps ${s}
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --build --no-deps ${s}
 
 build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build db auth chat hub pong users nginx
+	$(DC_ENV) docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build db auth chat hub pong users nginx
 
 build_hardhat_if_needed:
 	@if ! docker image inspect $(HARDHAT_IMAGE_TAG) >/dev/null 2>&1; then \
@@ -155,7 +162,7 @@ check-npm-deps:
 	fi
 
 print_config: create_shared_volume_folder
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
 
 create_shared_volume_folder:
 	@if [ ! -d "$(VOLUMES_DIR)" ]; then \
@@ -163,7 +170,7 @@ create_shared_volume_folder:
 	fi
 
 clean: down
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --volumes --rmi all --remove-orphans
 	rm -rf "$(VOLUMES_DIR)"
 
 fclean: clean
@@ -179,7 +186,7 @@ fclean: clean
 	docker image prune -a -f
 
 re-front:
-	VOLUMES_DIR=${VOLUMES_DIR} docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --build --no-deps nginx
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --build --no-deps nginx
 
 list:
 	docker ps -a
