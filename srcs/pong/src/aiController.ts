@@ -122,6 +122,7 @@ export class AIController {
   private hasCommittedTarget: boolean = false;
   private lastCommitTime: number = 0;        // timestamp of last target commit
   private lastBallDetectedTime: number = 0;  // when we last saw a ball heading our way
+  private usingFallback: boolean = false;     // true when trajectory prediction failed and fallback is active
 
   // Arena walls (refreshed from game state to handle eliminations)
   private walls: WallData[] = [];
@@ -147,8 +148,9 @@ export class AIController {
 
   // ── Main update ──────────────────────────────────────
 
-  public refreshGameState(gameState: any): void {
-    this.lastRefreshTime = Date.now();
+  public refreshGameState(gameState: any, timestamp: number = Date.now()): void {
+    const now = timestamp;
+    this.lastRefreshTime = now;
     if (!gameState) return;
 
     const cx = 500, cy = 500;
@@ -230,8 +232,6 @@ export class AIController {
       }
     }
 
-    const now = Date.now();
-
     // ── Clamp the detected angle to the paddle's reachable range ──
     if (bestAngle !== null) {
       const offsetFromCenter = angDiff(bestAngle, this.sectorCenter);
@@ -240,19 +240,42 @@ export class AIController {
       this.lastBallDetectedTime = now;
     }
 
-    // ── Fallback: track ball closest to our sector when trajectory prediction fails ──
+    // ── Fallback: track the most threatening ball when trajectory prediction fails ──
     // This prevents paddles from freezing after eliminations when the ball bounces
     // in patterns the trajectory simulation can't resolve within its bounce limit.
+    // Prefer balls that are heading TOWARD our sector over those just nearby.
     let fallbackAngle: number | null = null;
     if (bestAngle === null && balls.length > 0) {
-      let bestAngDist = Infinity;
+      let bestScore = -Infinity;
       for (const b of balls) {
         const bx2 = Array.isArray(b) ? b[0] : b.x;
         const by2 = Array.isArray(b) ? b[1] : b.y;
+        const bvx = Array.isArray(b) ? b[2] : (b.vx ?? 0);
+        const bvy = Array.isArray(b) ? b[3] : (b.vy ?? 0);
         const ballAngle = Math.atan2(by2 - cy, bx2 - cx);
         const angDistToSector = Math.abs(angDiff(ballAngle, this.sectorCenter));
-        if (angDistToSector < bestAngDist) {
-          bestAngDist = angDistToSector;
+
+        // Score: lower angular distance = better, heading toward sector = big bonus
+        let score = -angDistToSector;
+        const speed = Math.sqrt(bvx * bvx + bvy * bvy);
+        if (speed > 1) {
+          // Compute how much the ball velocity points toward our sector center
+          const sectorX = Math.cos(this.sectorCenter);
+          const sectorY = Math.sin(this.sectorCenter);
+          // Vector from ball to our sector center on orbit
+          const toSectorX = cx + sectorX * this.paddleOrbitRadius - bx2;
+          const toSectorY = cy + sectorY * this.paddleOrbitRadius - by2;
+          const toSectorLen = Math.sqrt(toSectorX * toSectorX + toSectorY * toSectorY);
+          if (toSectorLen > 1) {
+            // dot of normalized velocity with direction to our sector
+            const dot = (bvx * toSectorX + bvy * toSectorY) / (speed * toSectorLen);
+            // Bonus for heading toward us (dot > 0), penalty for heading away
+            score += dot * 2.0;
+          }
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
           fallbackAngle = ballAngle;
         }
       }
@@ -279,8 +302,10 @@ export class AIController {
         bestAngle = normalizeAngle(this.sectorCenter + clamped);
       }
       rawTarget = bestAngle;
+      this.usingFallback = false;
     } else if (fallbackAngle !== null) {
       rawTarget = fallbackAngle;
+      this.usingFallback = true;
       this.lastBallDetectedTime = now; // Keep the grace period alive while tracking
     } else if (now - this.lastBallDetectedTime < this.params.ballGracePeriodMs) {
       // No ball detected, but we recently saw one — hold position
@@ -291,6 +316,15 @@ export class AIController {
     }
 
     // ── Committed target with hysteresis ──
+    // When using fallback (trajectory failed), be more responsive:
+    // reduce thresholds so the paddle doesn't hold a stale position.
+    const commitThreshold = this.usingFallback
+      ? this.params.commitThreshold * 0.5
+      : this.params.commitThreshold;
+    const commitLockout = this.usingFallback
+      ? Math.min(this.params.commitLockoutMs, 16)
+      : this.params.commitLockoutMs;
+
     if (!this.hasCommittedTarget) {
       this.committedTargetAngle = rawTarget;
       this.hasCommittedTarget = true;
@@ -298,7 +332,7 @@ export class AIController {
     } else {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
-      if (shift > this.params.commitThreshold && timeSinceCommit > this.params.commitLockoutMs) {
+      if (shift > commitThreshold && timeSinceCommit > commitLockout) {
         this.committedTargetAngle = rawTarget;
         this.lastCommitTime = now;
       }
@@ -409,8 +443,10 @@ export class AIController {
 
     // Dead zone: stop moving when close enough to the target.
     // Higher difficulty = smaller dead zone = more precise positioning.
+    // Account for speed multiplier so the dead zone matches actual paddle movement.
     const frameMs = this.params.refreshIntervalMs;
-    const perFramePx = this.paddleSpeed * (frameMs / 1000);
+    const effectiveSpeed = this.paddleSpeed * this.params.speedMultiplier;
+    const perFramePx = effectiveSpeed * (frameMs / 1000);
     const deadZone = Math.max(perFramePx * this.params.deadZoneMultiplier, this.params.minDeadZonePx);
 
     if (offset < deadZone) {
@@ -446,7 +482,7 @@ export class AIManager {
     const now = Date.now();
     for (const controller of this.controllers.values()) {
       if (controller.shouldRefresh(now)) {
-        controller.refreshGameState(gameState);
+        controller.refreshGameState(gameState, now);
       }
     }
   }
