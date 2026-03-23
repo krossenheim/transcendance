@@ -346,7 +346,10 @@ export class AIController {
       }
     }
 
-    this.calculateKeys();
+    // Only recalculate keys if we have a new target to move toward
+    if (!this.reachedTarget) {
+      this.calculateKeys();
+    }
   }
 
   // ── Ball trajectory simulation with wall bounces ────
