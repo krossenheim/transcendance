@@ -31,32 +31,32 @@ interface DifficultyParams {
 const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
   [AIDifficulty.EASY]: {
     refreshIntervalMs: 1000,
-    maxBounces: 3,
-    commitThreshold: 0.15,
-    commitLockoutMs: 200,
+    maxBounces: 10,
+    commitThreshold: 0.08,
+    commitLockoutMs: 100,
     deadZoneMultiplier: 0.08,
     minDeadZonePx: 15,
-    predictionError: 0.3,
-    sectorMatchWidth: 2.0,
-    ballGracePeriodMs: 2000,
+    predictionError: 0.18,
+    sectorMatchWidth: 1.8,
+    ballGracePeriodMs: 3000,
     speedMultiplier: 1.0,
   },
   [AIDifficulty.MEDIUM]: {
     refreshIntervalMs: 1000,
-    maxBounces: 8,
-    commitThreshold: 0.12,
-    commitLockoutMs: 100,
+    maxBounces: 15,
+    commitThreshold: 0.06,
+    commitLockoutMs: 50,
     deadZoneMultiplier: 0.06,
     minDeadZonePx: 10,
-    predictionError: 0.15,
+    predictionError: 0.08,
     sectorMatchWidth: 1.5,
-    ballGracePeriodMs: 2000,
+    ballGracePeriodMs: 3000,
     speedMultiplier: 1.0,
   },
   [AIDifficulty.HARD]: {
     refreshIntervalMs: 1000,
-    maxBounces: 20,
-    commitThreshold: 0.04,
+    maxBounces: 25,
+    commitThreshold: 0.03,
     commitLockoutMs: 30,
     deadZoneMultiplier: 0.04,
     minDeadZonePx: 5,
@@ -67,7 +67,7 @@ const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
   },
   [AIDifficulty.NIGHTMARE]: {
     refreshIntervalMs: 1000,
-    maxBounces: 20,
+    maxBounces: 30,
     commitThreshold: 0.02,
     commitLockoutMs: 15,
     deadZoneMultiplier: 0.02,
@@ -351,7 +351,7 @@ export class AIController {
     let totalTime = 0;
     const orbitR = this.paddleOrbitRadius;
     const maxBounces = this.params.maxBounces;
-    const maxTime    = 8;
+    const maxTime    = 12;
     const sectorMatch = this.sectorHalfWidth * this.params.sectorMatchWidth;
 
     for (let bounce = 0; bounce <= maxBounces && totalTime < maxTime; bounce++) {
