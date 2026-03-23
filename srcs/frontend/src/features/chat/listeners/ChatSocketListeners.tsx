@@ -102,7 +102,10 @@ export const ChatSocketListeners = () => {
           if (chatStore.rooms.data.currentRoomId === message.payload.roomId)
             chatStore.rooms.state.updateUserRoomState(message.payload.user, ChatRoomUserAccessType.INVITED)
 
-          toast.success(`User invited to room successfully`);
+          const currentUserId = useGlobalStore.getState().me.data.currentUserId
+          if (message.payload.user !== currentUserId) {
+            toast.success(`User invited to room successfully`);
+          }
           return HandlerResult.Handled
         }
         if (message.code === schema.output.NoSuchRoom.code) {
