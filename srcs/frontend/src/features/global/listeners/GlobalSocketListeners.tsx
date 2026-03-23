@@ -58,6 +58,11 @@ const BaseSocketListeners = () => {
                     return HandlerResult.Handled;
                 }
 
+                case schema.output.FailedToUpdate.code: {
+                    toast.error(payload.payload.message || "Failed to update profile");
+                    return HandlerResult.Handled;
+                }
+
                 default:
                     return HandlerResult.NotHandled;
             }
