@@ -19,6 +19,7 @@ export const ChatUserSidebar: React.FC = () => {
   const { sendMessage } = useWebSocket();
   const currentRoomUserConnections = useChatStore(state => state.rooms.data.currentRoomUserConnections);
   const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
+  const currentUserFriends = useGlobalStore(state => state.users.data.friends);
   const publicUserDataCache = useGlobalStore(state => state.users.data.userCache);
 
   const requestUserData = (userId: number) => {
@@ -50,6 +51,7 @@ export const ChatUserSidebar: React.FC = () => {
             }
 
             const visibleUsername = userData ? userData.alias || userData.username : `User ${user.userId}`
+            const isFriend = currentUserFriends.has(user.userId)
             const isOnline = onlineUsers.has(user.userId)
             
             return (
@@ -57,6 +59,7 @@ export const ChatUserSidebar: React.FC = () => {
                 userId={user.userId}
                 username={visibleUsername}
                 isOnline={isOnline}
+                isFriend={isFriend}
                 onClick={(userId) => openProfileModal(userId)}
               />
             )
