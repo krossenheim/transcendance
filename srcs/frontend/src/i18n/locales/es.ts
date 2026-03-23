@@ -208,6 +208,7 @@ export const es = {
     declineInvite: 'Rechazar invitación',
     // Menu buttons
     createGameButton: '🎮 Crear partida',
+    menuDescription: 'Crea una partida local, invita amigos o juega contra la IA.',
     quickPlay: '🤖 Partida rápida (Solo)',
     debugMode: '🎯 Depuración: 8 jugadores (3 bolas)',
     // Pong Invite Modal

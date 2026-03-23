@@ -209,6 +209,7 @@ export const sjn: TranslationKeys = {
     acceptInvite: "Garo lalaith",
     declineInvite: "Avo lalaith",
     createGameButton: "🎮 Panna Teilien",
+    menuDescription: "Panna teilien sinomë, esta mellyn, hir natha AI.",
     quickPlay: "🤖 Cîr Teilio (Er)",
     debugMode: "🎯 Cered: Toloth Teilienrim (neled coron)",
     createPongGame: "Panna Teilien",

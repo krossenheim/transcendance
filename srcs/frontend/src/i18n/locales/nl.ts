@@ -207,6 +207,7 @@ export const nl = {
     acceptInvite: 'Uitnodiging accepteren',
     declineInvite: 'Uitnodiging weigeren',
     createGameButton: '🎮 Spel aanmaken',
+    menuDescription: 'Maak een lokaal spel, nodig vrienden uit, of speel tegen AI.',
     quickPlay: '🤖 Snel spelen (Solo)',
     debugMode: '🎯 Debug: 8 spelers (3 ballen)',
     createPongGame: 'Pong spel aanmaken',
