@@ -342,6 +342,7 @@ export const nl = {
     statistics: 'Statistieken',
     wins: 'Overwinningen',
     losses: 'Verliezen',
+    winRate: 'Winstpercentage',
     gamesPlayed: 'Gespeelde spellen',
     loadingProfile: 'Profiel laden...',
     profileNotFound: 'Profiel niet gevonden',

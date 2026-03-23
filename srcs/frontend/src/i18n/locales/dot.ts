@@ -349,6 +349,7 @@ export const dot: TranslationKeys = {
     statistics: 'Tolorro Kishi',
     wins: 'Vichomeroon',
     losses: 'Athdissaroon',
+    winRate: 'Vichomerat',
     gamesPlayed: 'Lajat Eth',
     loadingProfile: 'Ayyeyaan profili...',
     profileNotFound: 'Vos profili',

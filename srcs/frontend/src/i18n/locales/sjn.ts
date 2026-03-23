@@ -342,6 +342,7 @@ export const sjn: TranslationKeys = {
     statistics: "Nothrim",
     wins: "Gollor",
     losses: "Awarth",
+    winRate: "Gollorath",
     gamesPlayed: "Teilien Carnen",
     loadingProfile: "Lûth dartho...",
     profileNotFound: "Law lûth hired",

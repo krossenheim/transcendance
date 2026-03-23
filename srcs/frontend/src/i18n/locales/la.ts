@@ -349,6 +349,7 @@ export const la: TranslationKeys = {
     statistics: 'Statisticae',
     wins: 'Victoriae',
     losses: 'Clades',
+    winRate: 'Procentum Victoriarum',
     gamesPlayed: 'Ludi Facti',
     loadingProfile: 'Profilum oneratur...',
     profileNotFound: 'Profilum non inventum',

@@ -349,6 +349,7 @@ export const zh: TranslationKeys = {
     statistics: '统计数据',
     wins: '胜利',
     losses: '失败',
+    winRate: '胜率',
     gamesPlayed: '已进行的游戏',
     loadingProfile: '加载资料中...',
     profileNotFound: '未找到资料',

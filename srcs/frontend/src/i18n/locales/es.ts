@@ -347,6 +347,7 @@ export const es = {
     statistics: 'Estadísticas',
     wins: 'Victorias',
     losses: 'Derrotas',
+    winRate: 'Porcentaje de victorias',
     gamesPlayed: 'Partidas jugadas',
     loadingProfile: 'Cargando perfil...',
     profileNotFound: 'Perfil no encontrado',

@@ -342,6 +342,7 @@ export const cy = {
     statistics: 'Ystadegau',
     wins: 'Enillion',
     losses: 'Colledion',
+    winRate: 'Cyfradd Ennill',
     gamesPlayed: 'Gemau wedi\'u chwarae',
     loadingProfile: 'Yn llwytho proffil...',
     profileNotFound: 'Proffil heb ei ganfod',

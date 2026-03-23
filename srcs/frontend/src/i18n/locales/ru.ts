@@ -349,6 +349,7 @@ export const ru: TranslationKeys = {
     statistics: 'Статистика',
     wins: 'Победы',
     losses: 'Поражения',
+    winRate: 'Процент побед',
     gamesPlayed: 'Игр сыграно',
     loadingProfile: 'Загрузка профиля...',
     profileNotFound: 'Профиль не найден',

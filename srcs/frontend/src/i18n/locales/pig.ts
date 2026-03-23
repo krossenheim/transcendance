@@ -349,6 +349,7 @@ export const pig: TranslationKeys = {
     statistics: 'Atisticssay',
     wins: 'Insway',
     losses: 'Osseslay',
+    winRate: 'Inray',
     gamesPlayed: 'Amesgay Ayedplay',
     loadingProfile: 'Oadinglay ofilepray...',
     profileNotFound: 'Ofilepray otnay oundfay',

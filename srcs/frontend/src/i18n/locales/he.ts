@@ -349,6 +349,7 @@ export const he: TranslationKeys = {
     statistics: 'סטטיסטיקות',
     wins: 'ניצחונות',
     losses: 'הפסדים',
+    winRate: 'אחוז ניצחונות',
     gamesPlayed: 'משחקים ששוחקו',
     loadingProfile: 'טוען פרופיל...',
     profileNotFound: 'פרופיל לא נמצא',

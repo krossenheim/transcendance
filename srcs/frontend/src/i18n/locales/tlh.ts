@@ -344,6 +344,7 @@ export const tlh: TranslationKeys = {
     statistics: "De'mey",
     wins: "Qapla'mey",
     losses: "lujmey",
+    winRate: "Qapla' rate",
     gamesPlayed: "Qujpu'",
     loadingProfile: "nuv loStaH...",
     profileNotFound: "nuv tu'lu'be'",

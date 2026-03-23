@@ -342,6 +342,7 @@ export const fy = {
     statistics: 'Statistiken',
     wins: 'Winsten',
     losses: 'Ferlies',
+    winRate: 'Winrate',
     gamesPlayed: 'Spullen spile',
     loadingProfile: 'Profyl lade...',
     profileNotFound: 'Profyl net fûn',
