@@ -117,6 +117,10 @@ export class AIController {
   private paddleAngle: number = 0;
   private paddleSpeed: number = 0;   // current paddle speed in px/s
 
+  // Estimated paddle angle — tracks position between refreshes to prevent overshoot
+  private estimatedPaddleAngle: number = 0;
+  private lastUpdateTime: number = 0;
+
   // Committed target angle — only updated when raw prediction differs significantly
   private committedTargetAngle: number = 0;
   private hasCommittedTarget: boolean = false;
@@ -209,6 +213,7 @@ export class AIController {
     }
 
     this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
+    this.estimatedPaddleAngle = this.paddleAngle; // Sync estimate with real position on refresh
     this.paddleSpeed = boardPaddleSpeed;
 
     // ── Find the best ball to track ──
@@ -438,15 +443,17 @@ export class AIController {
   // ── Key decision ────────────────────────────────────
 
   private calculateKeys(): void {
-    const diff   = angDiff(this.committedTargetAngle, this.paddleAngle);
+    this.calculateKeysFromAngle(this.paddleAngle);
+  }
+
+  private calculateKeysFromAngle(currentAngle: number): void {
+    const diff   = angDiff(this.committedTargetAngle, currentAngle);
     const offset = Math.abs(diff) * this.paddleOrbitRadius;   // arc-length in pixels
 
     // Dead zone: stop moving when close enough to the target.
-    // Higher difficulty = smaller dead zone = more precise positioning.
-    // Account for speed multiplier so the dead zone matches actual paddle movement.
-    const frameMs = this.params.refreshIntervalMs;
     const effectiveSpeed = this.paddleSpeed * this.params.speedMultiplier;
-    const perFramePx = effectiveSpeed * (frameMs / 1000);
+    // Use a small fixed frame time for dead zone calculation (not the 1s refresh)
+    const perFramePx = effectiveSpeed * 0.032; // ~2 frames at 16ms
     const deadZone = Math.max(perFramePx * this.params.deadZoneMultiplier, this.params.minDeadZonePx);
 
     if (offset < deadZone) {
@@ -462,8 +469,33 @@ export class AIController {
     }
   }
 
+  /**
+   * Called every game frame (~16ms). Advances the estimated paddle position
+   * based on current key direction and stops pressing keys when the estimated
+   * position has reached the target — preventing overshoot between 1s refreshes.
+   * This does NOT read the game state (compliant with 1s refresh rule).
+   */
   public update(): void {
-    // Keys are calculated during refreshGameState
+    const now = Date.now();
+    if (this.lastUpdateTime === 0) {
+      this.lastUpdateTime = now;
+      return;
+    }
+    const dt = (now - this.lastUpdateTime) / 1000;
+    this.lastUpdateTime = now;
+
+    // Advance estimated angle based on which keys are held
+    if (this.currentKeys.length > 0 && this.paddleSpeed > 0 && this.paddleOrbitRadius > 0) {
+      const angularSpeed = (this.paddleSpeed * this.params.speedMultiplier) / this.paddleOrbitRadius;
+      const key = this.currentKeys[0];
+      let direction = 0;
+      if (key === 'arrowright') direction = this.isTopHalf ? 1 : -1;
+      else if (key === 'arrowleft') direction = this.isTopHalf ? -1 : 1;
+      this.estimatedPaddleAngle = normalizeAngle(this.estimatedPaddleAngle + direction * angularSpeed * dt);
+    }
+
+    // Recalculate keys from estimated position to catch overshoot
+    this.calculateKeysFromAngle(this.estimatedPaddleAngle);
   }
 }
 
