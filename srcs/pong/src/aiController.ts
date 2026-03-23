@@ -120,6 +120,7 @@ export class AIController {
   // Estimated paddle angle — tracks position between refreshes to prevent overshoot
   private estimatedPaddleAngle: number = 0;
   private lastUpdateTime: number = 0;
+  private reachedTarget: boolean = false; // Locks paddle once it reaches target (prevents jitter)
 
   // Committed target angle — only updated when raw prediction differs significantly
   private committedTargetAngle: number = 0;
@@ -334,12 +335,14 @@ export class AIController {
       this.committedTargetAngle = rawTarget;
       this.hasCommittedTarget = true;
       this.lastCommitTime = now;
+      this.reachedTarget = false;
     } else {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
       if (shift > commitThreshold && timeSinceCommit > commitLockout) {
         this.committedTargetAngle = rawTarget;
         this.lastCommitTime = now;
+        this.reachedTarget = false;
       }
     }
 
@@ -476,6 +479,12 @@ export class AIController {
    * This does NOT read the game state (compliant with 1s refresh rule).
    */
   public update(): void {
+    // If paddle already reached target, stay still until next refresh gives a new target
+    if (this.reachedTarget) {
+      this.currentKeys = [];
+      return;
+    }
+
     const now = Date.now();
     if (this.lastUpdateTime === 0) {
       this.lastUpdateTime = now;
@@ -495,7 +504,13 @@ export class AIController {
     }
 
     // Recalculate keys from estimated position to catch overshoot
+    const prevKeys = this.currentKeys;
     this.calculateKeysFromAngle(this.estimatedPaddleAngle);
+
+    // If we just entered the dead zone, lock in place
+    if (this.currentKeys.length === 0 && prevKeys.length > 0) {
+      this.reachedTarget = true;
+    }
   }
 }
 
