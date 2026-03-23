@@ -835,6 +835,50 @@ export const user_url = defineRoutes({
         },
       },
 
+      getLobbyState: {
+        funcId: "get_lobby_state",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: EmptySchema,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            LobbyFound: {
+              code: 0,
+              payload: LobbyDataSchemaOld,
+            },
+            NotInLobby: {
+              code: 1,
+              payload: z.object({ message: z.string() }),
+            },
+          },
+        },
+      },
+
+      declineLobbyInvitation: {
+        funcId: "decline_lobby_invitation",
+        container: "pong",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: z.object({ lobbyId: gameIdValue }),
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Declined: {
+              code: 0,
+              payload: z.object({ message: z.string() }),
+            },
+            LobbyUpdate: {
+              code: 1,
+              payload: LobbyDataSchemaOld,
+            },
+            NotInLobby: {
+              code: 2,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
       startFromLobby: {
         funcId: "start_game_from_lobby",
         container: "pong",

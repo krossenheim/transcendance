@@ -308,6 +308,18 @@ export default function PongComponent({
   }, [isConnected, lastCreatedBoardId, sendMessage]);
 
   // =========================
+  // Resync lobby state after reconnect
+  // =========================
+  const wasConnected = useRef(false)
+  useEffect(() => {
+    if (isConnected && !wasConnected.current && currentViewRef.current === "lobby") {
+      console.log("[Pong] Reconnected while in lobby, requesting lobby state resync");
+      sendMessage(user_url.ws.pong.getLobbyState, {});
+    }
+    wasConnected.current = isConnected;
+  }, [isConnected, sendMessage]);
+
+  // =========================
   // Subscribe to pong WebSocket events
   // =========================
   
@@ -392,6 +404,93 @@ export default function PongComponent({
       setActiveTournamentId(fallbackId);
     }
   }, [tournament, tournamentMatchResult, gameState, activeTournamentId, setActiveTournamentId])
+
+  // STABLE subscription for getLobbyState (resync lobby after reconnect)
+  useEffect(() => {
+    if (!subscribe) return;
+
+    const unsubscribe = subscribe(user_url.ws.pong.getLobbyState, (message, schema) => {
+      console.log("[Pong-Stable] Received getLobbyState:", message.code);
+
+      if (message.code === schema.output.LobbyFound.code) {
+        const lobbyData = message.payload;
+        setLobby({
+          lobbyId: lobbyData.lobbyId,
+          gameMode: lobbyData.gameMode,
+          players: lobbyData.players.map((p: any) => ({
+            id: p.userId || p.id,
+            username: p.username,
+            isReady: p.isReady,
+            isHost: p.isHost,
+          })),
+          settings: {
+            ballCount: lobbyData.ballCount ?? 1,
+            maxScore: lobbyData.maxScore ?? 5,
+            allowPowerups: lobbyData.allowPowerups ?? false,
+            aiCount: lobbyData.aiCount ?? 0,
+          },
+          status: lobbyData.status,
+        });
+        console.log("[Pong-Stable] Lobby state resynced after reconnect");
+        return HandlerResult.Handled;
+      }
+
+      if (message.code === schema.output.NotInLobby.code) {
+        console.log("[Pong-Stable] Server says not in lobby, clearing local lobby state");
+        setLobby(null);
+        setCurrentView("menu");
+        return HandlerResult.Handled;
+      }
+
+      return HandlerResult.NotHandled;
+    });
+
+    return () => unsubscribe();
+  }, [subscribe, setLobby, setCurrentView]);
+
+  // STABLE subscription for declineLobbyInvitation (host receives updated lobby when someone declines)
+  useEffect(() => {
+    if (!subscribe) return;
+
+    const unsubscribe = subscribe(user_url.ws.pong.declineLobbyInvitation, (message, schema) => {
+      console.log("[Pong-Stable] Received declineLobbyInvitation:", message.code);
+
+      if (message.code === schema.output.LobbyUpdate.code) {
+        const lobbyData = message.payload;
+        const currentAuth = authResponseRef.current;
+        if (currentAuth && lobbyData.players.some((p: any) =>
+          p.userId === currentAuth.user.id || p.id === currentAuth.user.id
+        )) {
+          setLobby({
+            lobbyId: lobbyData.lobbyId,
+            gameMode: lobbyData.gameMode,
+            players: lobbyData.players.map((p: any) => ({
+              id: p.userId || p.id,
+              username: p.username,
+              isReady: p.isReady,
+              isHost: p.isHost,
+            })),
+            settings: {
+              ballCount: lobbyData.ballCount ?? 1,
+              maxScore: lobbyData.maxScore ?? 5,
+              allowPowerups: lobbyData.allowPowerups ?? false,
+              aiCount: lobbyData.aiCount ?? 0,
+            },
+            status: lobbyData.status,
+          });
+        }
+        return HandlerResult.Handled;
+      }
+
+      if (message.code === schema.output.Declined.code) {
+        return HandlerResult.Handled;
+      }
+
+      return HandlerResult.NotHandled;
+    });
+
+    return () => unsubscribe();
+  }, [subscribe, setLobby]);
 
   // STABLE subscription for togglePlayerReady (separate from main effect to avoid missing messages during resubscription)
   useEffect(() => {

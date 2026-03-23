@@ -608,6 +608,100 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
   }));
 });
 
+// Handler for getting current lobby state (used after reconnection)
+socket.registerHandler(user_url.ws.pong.getLobbyState, async (body, response) => {
+  const user_id = body.userId;
+
+  const lobby = lobbyManager.getLobbyForPlayer(user_id);
+  if (!lobby) {
+    return Result.Ok(response.select("NotInLobby").reply({
+      message: "Not in a lobby",
+    }));
+  }
+
+  return Result.Ok(response.select("LobbyFound").reply({
+    lobbyId: lobby.lobbyId,
+    gameMode: lobby.gameMode,
+    players: lobby.players,
+    ballCount: lobby.ballCount,
+    maxScore: lobby.maxScore,
+    allowPowerups: lobby.allowPowerups,
+    aiCount: lobby.aiCount || 0,
+    status: lobby.status,
+  }));
+});
+
+// Handler for declining a lobby invitation
+socket.registerHandler(user_url.ws.pong.declineLobbyInvitation, async (body, response) => {
+  const user_id = body.userId;
+  const { lobbyId } = body.payload;
+
+  let lobby = lobbyManager.getLobby(lobbyId);
+  if (!lobby) {
+    lobby = lobbyManager.getLobbyForPlayer(user_id);
+  }
+  if (!lobby) {
+    return Result.Ok(response.select("NotInLobby").reply({
+      message: "Lobby not found",
+    }));
+  }
+
+  const actualLobbyId = lobby.lobbyId;
+  const removeResult = lobbyManager.removePlayerFromLobby(actualLobbyId, user_id);
+
+  if (removeResult.isErr()) {
+    return Result.Ok(response.select("NotInLobby").reply({
+      message: removeResult.unwrapErr().message,
+    }));
+  }
+
+  const updatedLobby = removeResult.unwrap();
+
+  // Persist decline to DB
+  if (!isAiPlayer(user_id) && !isLocalPlayer(user_id)) {
+    containers.db.post(int_url.http.db.setLobbyPlayerState, {
+      lobbyId: actualLobbyId,
+      userId: user_id,
+      state: PlayerLobbyStatus.Declined,
+    }).then(res => {
+      if (res.isErr()) console.error("[Pong] Failed to persist player decline to DB:", res.unwrapErr());
+    });
+  }
+
+  // If lobby was deleted (empty), just notify the declining player
+  if (updatedLobby === null) {
+    containers.db.post(int_url.http.db.deleteLobbyFromDb, { lobbyId: actualLobbyId }).then(res => {
+      if (res.isErr()) console.error("[Pong] Failed to delete lobby from DB:", res.unwrapErr());
+    });
+    return Result.Ok(response.select("Declined").reply({
+      message: "Invitation declined",
+    }));
+  }
+
+  // Notify remaining players of updated lobby state
+  const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
+  if (remainingPlayerIds.length > 0) {
+    socket.sendMessage(user_url.ws.pong.declineLobbyInvitation, {
+      recipients: filterHumanIds(remainingPlayerIds),
+      code: user_url.ws.pong.declineLobbyInvitation.schema.output.LobbyUpdate.code,
+      payload: {
+        lobbyId: updatedLobby.lobbyId,
+        gameMode: updatedLobby.gameMode,
+        players: updatedLobby.players,
+        ballCount: updatedLobby.ballCount,
+        maxScore: updatedLobby.maxScore,
+        allowPowerups: updatedLobby.allowPowerups,
+        aiCount: updatedLobby.aiCount || 0,
+        status: updatedLobby.status,
+      },
+    });
+  }
+
+  return Result.Ok(response.select("Declined").reply({
+    message: "Invitation declined",
+  }));
+});
+
 // Handler for joining a specific tournament match
 socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, response) => {
   const user_id = body.userId;

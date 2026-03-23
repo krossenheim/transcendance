@@ -7,6 +7,8 @@ import PongComponent from "./pongComponent";
 import PongInvitationHandler from "./pongInvitationHandler";
 import PongInviteNotifications, { PongInvitation } from "./pongInviteNotifications";
 import SettingsPage from "./pages/settings"; // Imported the new page
+import { useWebSocket } from "./socketComponent";
+import { user_url } from "@app/shared/api/service/common/endpoints";
 
 import { useGlobalStore } from "@features/global/store/globalStore";
 import { AuthResponseType } from "@app/shared/api/service/auth/loginResponse";
@@ -28,6 +30,7 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
 
   const navigate = useNavigate();
   const { isRTL } = useLanguage();
+  const { sendMessage } = useWebSocket();
 
   const [pongInvitations, setPongInvitations] = useState<PongInvitation[]>([]);
   const [showPongInviteModal, setShowPongInviteModal] = useState(false);
@@ -57,7 +60,13 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
       <PongInviteNotifications 
          invitations={pongInvitations} 
          onAccept={handleAcceptInvitation} 
-         onDecline={(id) => setPongInvitations(prev => prev.filter(i => i.inviteId !== id))}
+         onDecline={(id) => {
+           const invitation = pongInvitations.find(inv => inv.inviteId === id);
+           if (invitation) {
+             sendMessage(user_url.ws.pong.declineLobbyInvitation, { lobbyId: invitation.lobbyId });
+           }
+           setPongInvitations(prev => prev.filter(i => i.inviteId !== id));
+         }}
       />
 
       {/* Modals */}

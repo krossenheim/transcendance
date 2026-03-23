@@ -49,6 +49,10 @@ export function useWebSocket() {
   return context;
 }
 
+const INITIAL_RECONNECT_DELAY_MS = 1000
+const MAX_RECONNECT_DELAY_MS = 30000
+const MAX_RECONNECT_ATTEMPTS = 10
+
 export default function SocketComponent({
   AuthResponseObject,
   children,
@@ -59,6 +63,9 @@ export default function SocketComponent({
   const socket = useRef<WebSocket | null>(null)
   const messageQueue = useRef<string[]>([])
   const [isConnected, setIsConnected] = useState(false)
+  const reconnectAttempts = useRef(0)
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const intentionalClose = useRef(false)
   
   const subscribers = useRef<Map<string, Set<SocketCallbackSubscribtion<any>>>>(new Map())
 
@@ -160,6 +167,7 @@ export default function SocketComponent({
     ws.onopen = () => {
       console.log('[Socket] Connected')
       setIsConnected(true)
+      reconnectAttempts.current = 0
       ws.send(JSON.stringify({
         authorization: AuthResponseObject!.tokens.jwt,
       }))
@@ -172,10 +180,28 @@ export default function SocketComponent({
 
     ws.onmessage = handleMessage
 
-    ws.onclose = () => {
-      console.log('[Socket] Disconnected')
+    ws.onclose = (event) => {
+      console.log('[Socket] Disconnected', event.code)
       setIsConnected(false)
       socket.current = null
+      globalSocket = null
+
+      if (intentionalClose.current || event.code === 1000) return
+
+      if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(`[Socket] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`)
+        return
+      }
+      const delay = Math.min(
+        INITIAL_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current),
+        MAX_RECONNECT_DELAY_MS
+      )
+      reconnectAttempts.current++
+      console.log(`[Socket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})...`)
+      reconnectTimer.current = setTimeout(() => {
+        reconnectTimer.current = null
+        connect()
+      }, delay)
     }
 
     ws.onerror = (err) => {
@@ -186,7 +212,15 @@ export default function SocketComponent({
 
   useEffect(() => {
     connect()
-    return () => closeGlobalSocket()
+    return () => {
+      intentionalClose.current = true
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current)
+        reconnectTimer.current = null
+      }
+      closeGlobalSocket()
+      intentionalClose.current = false
+    }
   }, [connect])
 
   return (
