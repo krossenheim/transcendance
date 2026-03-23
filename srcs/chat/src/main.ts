@@ -65,13 +65,14 @@ socket.registerHandler(user_url.ws.chat.sendDirectMessage, async (body, response
   }
 
   const roomResult = dmResult.unwrap();
-  if (roomResult.created)
+  if (roomResult.created) {
     await socket.invokeHandler(user_url.ws.chat.listRooms, [requester.id, target.id], {});
 
-  await socket.invokeHandler(user_url.ws.chat.sendMessage, requester.id, {
-    roomId: roomResult.room.getId(),
-    messageString: message_string,
-  });
+    await socket.invokeHandler(user_url.ws.chat.sendMessage, requester.id, {
+      roomId: roomResult.room.getId(),
+      messageString: message_string,
+    });
+  }
 
   return Result.Ok(response.select("MessageSent").reply({
     roomId: roomResult.room.getId(),

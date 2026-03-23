@@ -210,6 +210,7 @@ export const dot: TranslationKeys = {
     declineInvite: 'Vos Ast',
     // Menu buttons
     createGameButton: '🎮 Thira Lajat',
+    menuDescription: 'Thira lajat anna, ast she yalli, hash AI tihat.',
     quickPlay: '🤖 Lajat Sandi (Kishi)',
     debugMode: '🎯 Debug: 8 Lajaki (3 hrazef)',
     // Pong Invite Modal

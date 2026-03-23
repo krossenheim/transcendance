@@ -209,6 +209,7 @@ export const tlh: TranslationKeys = {
     acceptInvite: "rI'Se' laj",
     declineInvite: "rI'Se' lajQo'",
     createGameButton: "🎮 Quj chenmoH",
+    menuDescription: "naDev Quj chenmoH, juppu' rI', ghap AI ghob.",
     quickPlay: "🤖 nom Quj (wa')",
     debugMode: "🎯 DevwI': chorgh QujwI' (wej moQ)",
     createPongGame: "moQ Quj chenmoH",

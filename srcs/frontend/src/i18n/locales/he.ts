@@ -210,6 +210,7 @@ export const he: TranslationKeys = {
     declineInvite: 'דחה הזמנה',
     // Menu buttons
     createGameButton: '🎮 צור משחק',
+    menuDescription: 'צור משחק מקומי, הזמן חברים, או שחק נגד AI.',
     quickPlay: '🤖 משחק מהיר (סולו)',
     debugMode: '🎯 ניפוי: 8 שחקנים (3 כדורים)',
     // Pong Invite Modal

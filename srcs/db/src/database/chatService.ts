@@ -192,7 +192,16 @@ export class ChatService {
     }
 
     return this.db.transaction(() => {
-      const newRoom = this._dbCreateNewChatRoom(`DM ${userA} ${userB}`, ChatRoomType.DIRECT_MESSAGE).unwrap();
+      let roomName = `DM ${userA} ${userB}`;
+      const usersResult = userService.fetchPublicUsersByIds([userA, userB]);
+      if (usersResult.isOk()) {
+        const users = usersResult.unwrap();
+        const nameA = users.find(u => u.id === userA);
+        const nameB = users.find(u => u.id === userB);
+        if (nameA && nameB)
+          roomName = `DM ${nameA.alias ?? nameA.username} & ${nameB.alias ?? nameB.username}`;
+      }
+      const newRoom = this._dbCreateNewChatRoom(roomName, ChatRoomType.DIRECT_MESSAGE).unwrap();
       this._dbSetUserRoomAccessType(userA, newRoom.roomId, ChatRoomUserAccessType.JOINED).unwrap();
       this._dbSetUserRoomAccessType(userB, newRoom.roomId, ChatRoomUserAccessType.JOINED).unwrap();
       return this.fetchRoomById(newRoom.roomId).map(room => ({ room, created: true }));

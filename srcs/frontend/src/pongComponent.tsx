@@ -245,12 +245,7 @@ export default function PongComponent({
     }
   }, [currentView, gameState, setCurrentView, onNavigateToChat])
 
-  // If we land on the menu view with nothing pending, redirect to chat
-  useEffect(() => {
-    if (currentView === "menu" && !showInviteModal && !showInviteModalLocal && !acceptedLobbyId) {
-      if (onNavigateToChat) onNavigateToChat()
-    }
-  }, [currentView, onNavigateToChat, showInviteModal, showInviteModalLocal, acceptedLobbyId])
+  // No longer auto-redirect from menu to chat — users can browse the pong menu directly
 
   // Cleanup polling on unmount (in case any leftover intervals exist)
   useEffect(() => {
@@ -1580,7 +1575,21 @@ export default function PongComponent({
     <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
-      {/* Menu view removed — users start games from chat invitations */}
+      {/* Menu View */}
+      {currentView === "menu" && (
+        <div className="flex flex-col items-center justify-center w-full h-full gap-6">
+          <h2 className="text-3xl font-bold text-white">🏓 Pong</h2>
+          <p className="text-gray-400 text-center max-w-md">
+            {t('pong.menuDescription')}
+          </p>
+          <button
+            onClick={() => setShowInviteModalLocal(true)}
+            className="px-8 py-4 text-xl bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all shadow-lg"
+          >
+            🎮 {t('pong.createGameButton')}
+          </button>
+        </div>
+      )}
 
       {/* Lobby View */}
       {currentView === "lobby" && lobby && authResponse && (
