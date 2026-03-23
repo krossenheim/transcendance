@@ -204,7 +204,7 @@ export default function ProfileComponent() {
               </div>
 
               {/* Game Stats Section */}
-              {profile.gameResults && (
+              {profile.gameResults && profile.accountType !== UserAccountType.System && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.statistics') || 'Game Stats'}</h4>
                   <div className="grid grid-cols-3 gap-3">
