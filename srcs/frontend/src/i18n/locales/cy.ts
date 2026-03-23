@@ -207,6 +207,7 @@ export const cy = {
     acceptInvite: 'Derbyn gwahoddiad',
     declineInvite: 'Gwrthod gwahoddiad',
     createGameButton: '🎮 Creu gêm',
+    menuDescription: "Creu gêm leol, gwahodd ffrindiau, neu chwarae yn erbyn AI.",
     quickPlay: '🤖 Chwarae cyflym (Unigol)',
     debugMode: '🎯 Dadfygio: 8 chwaraewr (3 pêl)',
     createPongGame: 'Creu gêm Pong',

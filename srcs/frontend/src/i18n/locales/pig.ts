@@ -210,6 +210,7 @@ export const pig: TranslationKeys = {
     declineInvite: 'Eclineday Invitationway',
     // Menu buttons
     createGameButton: '🎮 Eatecray Amegay',
+    menuDescription: 'Eatecray a ocallay amegay, inviteway iendsfray, orway ayplay againstway AI.',
     quickPlay: '🤖 Ickquay Ayplay (Olosay)',
     debugMode: '🎯 Ebugday: 8 Ayersplay (3 allsbay)',
     // Pong Invite Modal

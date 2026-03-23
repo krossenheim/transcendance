@@ -207,6 +207,7 @@ export const fy = {
     acceptInvite: 'Utnoediging akseptearje',
     declineInvite: 'Utnoediging wegerje',
     createGameButton: '🎮 Spul oanmeitsje',
+    menuDescription: 'Meitsje in lokaal spul, noegje freonen út, of spylje tsjin AI.',
     quickPlay: '🤖 Fluch spylje (Solo)',
     debugMode: '🎯 Debug: 8 spilers (3 ballen)',
     createPongGame: 'Pong spul oanmeitsje',

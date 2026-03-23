@@ -210,6 +210,7 @@ export const la: TranslationKeys = {
     declineInvite: 'Invitationem Declinare',
     // Menu buttons
     createGameButton: '🎮 Ludum Creare',
+    menuDescription: 'Ludum localem crea, amicos invita, vel contra AI lude.',
     quickPlay: '🤖 Ludus Celer (Solus)',
     debugMode: '🎯 Debug: VIII Lusores (III pilae)',
     // Pong Invite Modal
