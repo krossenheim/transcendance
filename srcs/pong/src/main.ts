@@ -685,7 +685,7 @@ socket.registerHandler(user_url.ws.pong.declineLobbyInvitation, async (body, res
 // Handler for joining a specific tournament match
 socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, response) => {
   const user_id = body.userId;
-  const { tournamentId, matchId, asLocalHost } = body.payload;
+  const { tournamentId, matchId } = body.payload;
   
 
   const tournament = tournamentManager.getTournament(tournamentId);

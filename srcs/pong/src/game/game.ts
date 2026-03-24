@@ -237,14 +237,9 @@ export class PongGame {
         for (let i = 0; i < wallSegments.length; i++) {
             scaledAPos.copy(center).addScaled(new Vec2(0, -1).rotate(i * angleStep - halfAngleStep), halfSize);
             scaledBPos.copy(center).addScaled(new Vec2(0, -1).rotate(i * angleStep + halfAngleStep), halfSize);
-            if (ENABLE_GAME_LOGS) {
-                const segLen = scaledSegLen.copy(scaledBPos).sub(scaledAPos).len();
-            }
             const wall = this.createWallSegment(scaledAPos, scaledBPos, wallSegments[i]!);
             this.walls.push(wall);
             this.scene.addObject(wall);
-            if (ENABLE_GAME_LOGS) {
-            }
         }
 
         let powerupBaseRadius = Infinity;

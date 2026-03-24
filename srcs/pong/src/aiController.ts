@@ -105,7 +105,7 @@ export class AIController {
   private params: DifficultyParams;
   private lastRefreshTime: number = 0;
   private currentKeys: string[] = [];
-  private logCounter: number = 0; // throttle per-frame logging
+
 
   // Paddle geometry (fixed after init)
   private paddleOrbitRadius: number = 0;
@@ -215,7 +215,6 @@ export class AIController {
     }
 
     this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
-    const estimateDrift = Math.abs(angDiff(this.estimatedPaddleAngle, this.paddleAngle)) * this.paddleOrbitRadius;
     this.estimatedPaddleAngle = this.paddleAngle; // Sync estimate with real position on refresh
     this.paddleSpeed = boardPaddleSpeed;
 
@@ -343,7 +342,6 @@ export class AIController {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
       if (shift > commitThreshold && timeSinceCommit > commitLockout) {
-        const oldTarget = this.committedTargetAngle;
         this.committedTargetAngle = rawTarget;
         this.lastCommitTime = now;
         this.reachedTarget = false;
@@ -488,8 +486,6 @@ export class AIController {
    * This does NOT read the game state (compliant with 1s refresh rule).
    */
   public update(): void {
-    this.logCounter++;
-    const shouldLog = this.logCounter % 60 === 0; // log once per second at 60fps
 
     // If paddle already reached target, stay still until next refresh gives a new target
     if (this.reachedTarget) {
@@ -546,10 +542,7 @@ export class AIController {
     // Recalculate keys from estimated position
     this.calculateKeysFromAngle(this.estimatedPaddleAngle);
 
-    if (shouldLog && this.currentKeys.length > 0) {
-      const diff = angDiff(this.committedTargetAngle, this.estimatedPaddleAngle);
-      const offset = Math.abs(diff) * this.paddleOrbitRadius;
-    }
+
   }
 }
 
