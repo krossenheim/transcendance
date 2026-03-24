@@ -107,7 +107,7 @@ export const CreateLobbySchema = z
     ballCount: z.coerce.number().int().min(1).max(5),
     maxScore: z.coerce.number().int().min(3).max(21),
     allowPowerups: z.boolean().optional().default(false),
-    aiCount: z.coerce.number().int().min(0).max(5).optional().default(0),
+    aiCount: z.coerce.number().int().min(0).max(7).optional().default(0),
     aiDifficulty: z.coerce.number().int().min(1).max(4).optional().default(3),
     localPlayerNames: z.array(z.string().min(1).max(20)).optional(),
   })
@@ -170,7 +170,7 @@ export const LobbyDataSchema = z
     ballCount: z.coerce.number(),
     maxScore: z.coerce.number(),
     allowPowerups: z.boolean(),
-    aiCount: z.coerce.number().int().min(0).max(5).optional().default(0),
+    aiCount: z.coerce.number().int().min(0).max(7).optional().default(0),
     status: z.enum(["waiting", "starting", "in_progress"]),
     tournament: TournamentDataSchema.optional(),
   })

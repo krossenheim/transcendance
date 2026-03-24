@@ -420,7 +420,7 @@ export default function PongInviteModal({
                 <input
                   type="range"
                   min="0"
-                  max="5"
+                  max="7"
                   value={aiCount}
                   onChange={(e) => setAiCount(Number(e.target.value))}
                   className="w-full"

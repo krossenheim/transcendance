@@ -34,7 +34,7 @@ export interface Lobby {
   ballCount: number;
   maxScore: number;
   allowPowerups: boolean;
-  aiCount: number; // Number of AI players (0-5)
+  aiCount: number; // Number of AI players (0-7)
   aiDifficulty: number; // 1=Easy, 2=Medium, 3=Hard
   status: "waiting" | "starting" | "in_progress";
   gameId?: number; // Set when game starts
@@ -87,7 +87,7 @@ export class LobbyManager {
       ballCount,
       maxScore,
       allowPowerups,
-      aiCount: Math.min(5, Math.max(0, aiCount)), // Clamp between 0-5
+      aiCount: Math.min(7, Math.max(0, aiCount)), // Clamp between 0-7
       aiDifficulty: Math.min(3, Math.max(1, aiDifficulty)),
       status: "waiting",
     };
