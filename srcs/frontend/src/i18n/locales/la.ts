@@ -210,6 +210,7 @@ export const la: TranslationKeys = {
     declineInvite: 'Invitationem Declinare',
     // Menu buttons
     createGameButton: '🎮 Ludum Creare',
+    menuDescription: 'Ludum localem crea, amicos invita, vel contra AI lude.',
     quickPlay: '🤖 Ludus Celer (Solus)',
     debugMode: '🎯 Debug: VIII Lusores (III pilae)',
     // Pong Invite Modal
@@ -349,6 +350,7 @@ export const la: TranslationKeys = {
     statistics: 'Statisticae',
     wins: 'Victoriae',
     losses: 'Clades',
+    winRate: 'Procentum Victoriarum',
     gamesPlayed: 'Ludi Facti',
     loadingProfile: 'Profilum oneratur...',
     profileNotFound: 'Profilum non inventum',

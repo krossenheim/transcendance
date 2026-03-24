@@ -210,6 +210,7 @@ export const ru: TranslationKeys = {
     declineInvite: 'Отклонить приглашение',
     // Menu buttons
     createGameButton: '🎮 Создать игру',
+    menuDescription: 'Создайте локальную игру, пригласите друзей или играйте против ИИ.',
     quickPlay: '🤖 Быстрая игра (Соло)',
     debugMode: '🎯 Отладка: 8 игроков (3 мяча)',
     // Pong Invite Modal
@@ -349,6 +350,7 @@ export const ru: TranslationKeys = {
     statistics: 'Статистика',
     wins: 'Победы',
     losses: 'Поражения',
+    winRate: 'Процент побед',
     gamesPlayed: 'Игр сыграно',
     loadingProfile: 'Загрузка профиля...',
     profileNotFound: 'Профиль не найден',

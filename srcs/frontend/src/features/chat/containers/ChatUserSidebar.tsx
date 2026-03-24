@@ -19,10 +19,11 @@ export const ChatUserSidebar: React.FC = () => {
   const { sendMessage } = useWebSocket();
   const currentRoomUserConnections = useChatStore(state => state.rooms.data.currentRoomUserConnections);
   const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
+  const currentUserFriends = useGlobalStore(state => state.users.data.friends);
   const publicUserDataCache = useGlobalStore(state => state.users.data.userCache);
 
   const requestUserData = (userId: number) => {
-    sendMessage(user_url.ws.users.requestUserProfileData, userId);
+      sendMessage(user_url.ws.users.requestUserProfileData, userId);
   }
 
   const joinedUsers = currentRoomUserConnections.filter(user => user.userState === ChatRoomUserAccessType.JOINED);
@@ -30,7 +31,7 @@ export const ChatUserSidebar: React.FC = () => {
   return (
     <div className="w-48 glass-light-xs dark:glass-dark-xs glass-border border-l border-gray-200 dark:border-gray-700 overflow-y-auto hidden md:block h-full">
       <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm z-10">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">{t('chat.users')} ({joinedUsers.length})</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">{t('chat.users')} ({joinedUsers.length})</h3>
       </div>
       <div className="p-2 space-y-1">
         {[...joinedUsers]
@@ -50,13 +51,15 @@ export const ChatUserSidebar: React.FC = () => {
             }
 
             const visibleUsername = userData ? userData.alias || userData.username : `User ${user.userId}`
+            const isFriend = currentUserFriends.has(user.userId)
             const isOnline = onlineUsers.has(user.userId)
-            
+
             return (
               <UserListItem
                 userId={user.userId}
                 username={visibleUsername}
                 isOnline={isOnline}
+                isFriend={isFriend}
                 onClick={(userId) => openProfileModal(userId)}
               />
             )

@@ -208,6 +208,7 @@ export const en = {
     declineInvite: 'Decline Invitation',
     // Menu buttons
     createGameButton: '🎮 Create Game',
+    menuDescription: 'Create a local game, invite friends, or play against AI.',
     quickPlay: '🤖 Quick Play (Solo)',
     debugMode: '🎯 Debug: 8 Players (3 balls)',
     // Pong Invite Modal
@@ -344,10 +345,11 @@ export const en = {
     editProfile: 'Edit Profile',
     changeAvatar: 'Change Avatar',
     matchHistory: 'Match History',
-    statistics: 'Statistics',
+    statistics: 'Game Statistics',
     wins: 'Wins',
     losses: 'Losses',
     gamesPlayed: 'Games Played',
+    winRate: 'Win Rate',
     loadingProfile: 'Loading profile...',
     profileNotFound: 'Profile not found',
     requestTimeout: 'Request timed out. The profile endpoint may not be implemented or is not responding.',

@@ -12,10 +12,9 @@ import { useEffect, useState } from "react";
 function UserStatusPill({ isOnline }: { isOnline: boolean }) {
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
-        isOnline
-          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${isOnline
+        ? "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800"
+        : "bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600"
         }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
@@ -28,7 +27,7 @@ function UserAccountTypePill({ accountType }: { accountType: UserAccountType }) 
   switch (accountType) {
     case UserAccountType.Guest:
       return (
-        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">
+        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-800">
           Guest
         </span>
       );
@@ -40,18 +39,19 @@ function UserAccountTypePill({ accountType }: { accountType: UserAccountType }) 
 export default function ProfileComponent() {
   const { t } = useLanguage()
   const { sendMessage } = useWebSocket()
-  
+
   const { isOpen, targetUserId, closeProfileModal } = useProfileModalStore()
-  
+
   const currentUserId = useGlobalStore(state => state.me.data.currentUserId);
   const onlineUsers = useGlobalStore(state => state.users.data.onlineUsers);
+  const currentUserFriends = useGlobalStore(state => state.users.data.friends);
   const userAvatarFetcher = useGlobalStore(state => state.users.actions.fetchUserProfileUrl);
-  
-  const profile = useGlobalStore(state => 
+
+  const profile = useGlobalStore(state =>
     targetUserId ? state.users.data.userCache.get(targetUserId) : null
   )
 
-  const [avatarBlobUrl, setAvatarBlobUrl] = useState<string | null>(null)
+  const [avatarBlobUrl, setAvatarBlobUrl] = useState < string | null > (null)
 
   useEffect(() => {
     if (isOpen && targetUserId) {
@@ -89,11 +89,11 @@ export default function ProfileComponent() {
 
   const handleStartDM = () => {
     if (targetUserId) {
-        sendMessage(user_url.ws.chat.sendDirectMessage, { 
-            targetUserId: targetUserId, 
-            messageString: "👋" 
-        });
-        closeProfileModal();
+      sendMessage(user_url.ws.chat.sendDirectMessage, {
+        targetUserId: targetUserId,
+        messageString: "👋"
+      });
+      closeProfileModal();
     }
   }
 
@@ -104,11 +104,24 @@ export default function ProfileComponent() {
   const isOwnProfile = currentUserId === targetUserId;
 
   const displayName = getVisualUserName(profile, targetUserId);
+  const isFriend = currentUserFriends.has(targetUserId ?? -1);
+
+  const formatWinPercentage = (percentage: number | undefined) => {
+    if (percentage === undefined || percentage === null) return "0%";
+    return `${Math.round(percentage)}%`;
+  }
+
+  // Shared card classes to keep the Bio and Stats visual style perfectly aligned
+  const cardClasses = isFriend 
+    ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' 
+    : 'bg-gray-50/50 dark:bg-black/20 border-gray-100 dark:border-gray-700';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeProfileModal}>
       <div
-        className="bg-white/50 dark:bg-dark-800 shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-sm rounded-xl"
+        className={`bg-white/90 dark:bg-dark-800/90 shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-md rounded-xl transition-all ${
+          isFriend ? 'ring-2 ring-blue-500/40 shadow-blue-500/10' : 'border border-gray-200 dark:border-dark-700'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {!profile ? (
@@ -119,7 +132,7 @@ export default function ProfileComponent() {
         ) : (
           <>
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex justify-between items-center">
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${isFriend ? 'border-blue-500/20 bg-blue-50/50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-dark-700'}`}>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('profile.userProfile')}</h2>
               <button
                 onClick={closeProfileModal}
@@ -133,7 +146,9 @@ export default function ProfileComponent() {
 
               <div className="flex items-start space-x-4">
                 {/* Avatar */}
-                <div className="relative h-20 w-20 flex-shrink-0 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700 border-2 border-white dark:border-gray-600 shadow-sm">
+                <div className={`relative h-20 w-20 flex-shrink-0 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700 border-4 shadow-sm transition-colors ${
+                  isFriend ? 'border-blue-400 dark:border-blue-500' : 'border-white dark:border-gray-600'
+                }`}>
                   {avatarBlobUrl ? (
                     <img
                       src={avatarBlobUrl}
@@ -149,10 +164,15 @@ export default function ProfileComponent() {
 
                 <div className="flex-1 min-w-0 pt-1">
                   <h3 
-                    className="text-2xl font-bold leading-tight truncate" 
+                    className="text-2xl font-bold leading-tight truncate flex items-center gap-2" 
                     style={{ color: getUserColorCSS(profile.id, true) }}
                   >
                     {displayName}
+                    {isFriend && (
+                      <svg className="w-5 h-5 text-blue-500 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    )}
                   </h3>
 
                   <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
@@ -163,19 +183,60 @@ export default function ProfileComponent() {
                   <div className="flex flex-wrap gap-2 mt-2">
                     <UserStatusPill isOnline={isUserOnline} />
                     <UserAccountTypePill accountType={profile.accountType} />
+
+                    {isFriend && (
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        Friend
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Bio Section */}
               <div>
-                <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.bio')}</h4>
-                <div className="bg-gray-50/50 dark:bg-black/20 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.bio') || 'Bio'}</h4>
+                <div className={`p-3 rounded-lg border ${cardClasses}`}>
                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
-                     {profile.bio || <span className="italic opacity-70">{t('profile.noBioYet')}</span>}
+                     {profile.bio || <span className="italic opacity-70">{t('profile.noBioYet') || 'No bio yet.'}</span>}
                    </p>
                 </div>
               </div>
+
+              {/* Game Stats Section */}
+              {profile.gameResults && profile.accountType !== UserAccountType.System && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.statistics') || 'Game Stats'}</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
+                      <span className="text-xl font-bold text-gray-900 dark:text-white leading-none">
+                        {profile.gameResults.total_games_played ?? 0}
+                      </span>
+                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1.5 uppercase tracking-wider">
+                        {t('profile.gamesPlayed')}
+                      </span>
+                    </div>
+                    
+                    <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
+                      <span className="text-xl font-bold text-green-600 dark:text-green-400 leading-none">
+                        {profile.gameResults.wins ?? 0}
+                      </span>
+                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1.5 uppercase tracking-wider">
+                        {t('profile.wins')}
+                      </span>
+                    </div>
+
+                    <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
+                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none">
+                        {formatWinPercentage(profile.gameResults.win_rate)}
+                      </span>
+                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1.5 uppercase tracking-wider">
+                        {t('profile.winRate')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               {!isOwnProfile && profile.accountType != UserAccountType.System && (

@@ -126,13 +126,6 @@ CREATE TABLE IF NOT EXISTS lobby_settings (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_lobby_settings_lobbyId ON lobby_settings(lobbyId);
 
--- CREATE TABLE IF NOT EXISTS lobby_games (
---   gameId INTEGER PRIMARY KEY AUTOINCREMENT,
---   lobbyId INTEGER NOT NULL,
---   gameState INTEGER NOT NULL, -- 0: waiting for players, 1: game starting, 2: game in progress, 3: game ended
---   FOREIGN KEY(lobbyId) REFERENCES game_lobbies(lobbyId) ON UPDATE CASCADE ON DELETE CASCADE
--- ) STRICT;
-
 INSERT INTO users (username, email, bio, accountType) VALUES ('System', 'system@localhost', 'I had a life once. Now I have a computer', 0) ON CONFLICT(username) DO NOTHING;
 
 PRAGMA foreign_keys = ON;

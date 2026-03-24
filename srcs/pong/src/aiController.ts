@@ -30,47 +30,47 @@ interface DifficultyParams {
 
 const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
   [AIDifficulty.EASY]: {
-    refreshIntervalMs: 80,
-    maxBounces: 3,
-    commitThreshold: 0.15,
-    commitLockoutMs: 200,
-    deadZoneMultiplier: 0.6,
+    refreshIntervalMs: 1000,
+    maxBounces: 10,
+    commitThreshold: 0.08,
+    commitLockoutMs: 100,
+    deadZoneMultiplier: 0.08,
     minDeadZonePx: 15,
-    predictionError: 0.3,
-    sectorMatchWidth: 2.0,
-    ballGracePeriodMs: 1000,
+    predictionError: 0.18,
+    sectorMatchWidth: 1.8,
+    ballGracePeriodMs: 3000,
     speedMultiplier: 1.0,
   },
   [AIDifficulty.MEDIUM]: {
-    refreshIntervalMs: 50,
-    maxBounces: 8,
-    commitThreshold: 0.12,
-    commitLockoutMs: 100,
-    deadZoneMultiplier: 1.0,
-    minDeadZonePx: 15,
+    refreshIntervalMs: 1000,
+    maxBounces: 15,
+    commitThreshold: 0.06,
+    commitLockoutMs: 50,
+    deadZoneMultiplier: 0.06,
+    minDeadZonePx: 10,
     predictionError: 0.08,
     sectorMatchWidth: 1.5,
-    ballGracePeriodMs: 1200,
+    ballGracePeriodMs: 3000,
     speedMultiplier: 1.0,
   },
   [AIDifficulty.HARD]: {
-    refreshIntervalMs: 16,
-    maxBounces: 20,
-    commitThreshold: 0.04,
+    refreshIntervalMs: 1000,
+    maxBounces: 25,
+    commitThreshold: 0.03,
     commitLockoutMs: 30,
-    deadZoneMultiplier: 0.5,
+    deadZoneMultiplier: 0.04,
     minDeadZonePx: 5,
     predictionError: 0,
     sectorMatchWidth: 1.2,
-    ballGracePeriodMs: 2000,
+    ballGracePeriodMs: 3000,
     speedMultiplier: 1.0,
   },
   [AIDifficulty.NIGHTMARE]: {
-    refreshIntervalMs: 16,
-    maxBounces: 20,
+    refreshIntervalMs: 1000,
+    maxBounces: 30,
     commitThreshold: 0.02,
     commitLockoutMs: 15,
-    deadZoneMultiplier: 0.3,
+    deadZoneMultiplier: 0.02,
     minDeadZonePx: 3,
     predictionError: 0,
     sectorMatchWidth: 1.1,
@@ -105,6 +105,7 @@ export class AIController {
   private params: DifficultyParams;
   private lastRefreshTime: number = 0;
   private currentKeys: string[] = [];
+  private logCounter: number = 0; // throttle per-frame logging
 
   // Paddle geometry (fixed after init)
   private paddleOrbitRadius: number = 0;
@@ -116,6 +117,11 @@ export class AIController {
   // Current paddle angle (updated each frame from game state)
   private paddleAngle: number = 0;
   private paddleSpeed: number = 0;   // current paddle speed in px/s
+
+  // Estimated paddle angle — tracks position between refreshes to prevent overshoot
+  private estimatedPaddleAngle: number = 0;
+  private lastUpdateTime: number = 0;
+  private reachedTarget: boolean = false; // Locks paddle once it reaches target (prevents jitter)
 
   // Committed target angle — only updated when raw prediction differs significantly
   private committedTargetAngle: number = 0;
@@ -209,6 +215,9 @@ export class AIController {
     }
 
     this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
+    const estimateDrift = Math.abs(angDiff(this.estimatedPaddleAngle, this.paddleAngle)) * this.paddleOrbitRadius;
+    console.log(`[AI-${this.playerId}] REFRESH-SYNC: real=${this.paddleAngle.toFixed(4)} est=${this.estimatedPaddleAngle.toFixed(4)} drift=${estimateDrift.toFixed(2)}px speed=${boardPaddleSpeed.toFixed(1)}`);
+    this.estimatedPaddleAngle = this.paddleAngle; // Sync estimate with real position on refresh
     this.paddleSpeed = boardPaddleSpeed;
 
     // ── Find the best ball to track ──
@@ -329,16 +338,28 @@ export class AIController {
       this.committedTargetAngle = rawTarget;
       this.hasCommittedTarget = true;
       this.lastCommitTime = now;
+      this.reachedTarget = false;
+      this.lastUpdateTime = 0; // Reset so next update() gets a fresh dt
+      console.log(`[AI-${this.playerId}] REFRESH: first commit target=${rawTarget.toFixed(3)} paddle=${this.paddleAngle.toFixed(3)} fallback=${this.usingFallback}`);
     } else {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
       if (shift > commitThreshold && timeSinceCommit > commitLockout) {
+        const oldTarget = this.committedTargetAngle;
         this.committedTargetAngle = rawTarget;
         this.lastCommitTime = now;
+        this.reachedTarget = false;
+        this.lastUpdateTime = 0; // Reset so next update() gets a fresh dt
+        console.log(`[AI-${this.playerId}] REFRESH: target CHANGED ${oldTarget.toFixed(3)}->${rawTarget.toFixed(3)} shift=${shift.toFixed(3)} paddle=${this.paddleAngle.toFixed(3)} fallback=${this.usingFallback}`);
+      } else {
+        console.log(`[AI-${this.playerId}] REFRESH: target KEPT=${this.committedTargetAngle.toFixed(3)} raw=${rawTarget.toFixed(3)} shift=${shift.toFixed(3)} paddle=${this.paddleAngle.toFixed(3)} reached=${this.reachedTarget} fallback=${this.usingFallback}`);
       }
     }
 
-    this.calculateKeys();
+    // Only recalculate keys if we have a new target to move toward
+    if (!this.reachedTarget) {
+      this.calculateKeys();
+    }
   }
 
   // ── Ball trajectory simulation with wall bounces ────
@@ -351,7 +372,7 @@ export class AIController {
     let totalTime = 0;
     const orbitR = this.paddleOrbitRadius;
     const maxBounces = this.params.maxBounces;
-    const maxTime    = 8;
+    const maxTime    = 12;
     const sectorMatch = this.sectorHalfWidth * this.params.sectorMatchWidth;
 
     for (let bounce = 0; bounce <= maxBounces && totalTime < maxTime; bounce++) {
@@ -438,15 +459,17 @@ export class AIController {
   // ── Key decision ────────────────────────────────────
 
   private calculateKeys(): void {
-    const diff   = angDiff(this.committedTargetAngle, this.paddleAngle);
+    this.calculateKeysFromAngle(this.paddleAngle);
+  }
+
+  private calculateKeysFromAngle(currentAngle: number): void {
+    const diff   = angDiff(this.committedTargetAngle, currentAngle);
     const offset = Math.abs(diff) * this.paddleOrbitRadius;   // arc-length in pixels
 
     // Dead zone: stop moving when close enough to the target.
-    // Higher difficulty = smaller dead zone = more precise positioning.
-    // Account for speed multiplier so the dead zone matches actual paddle movement.
-    const frameMs = this.params.refreshIntervalMs;
     const effectiveSpeed = this.paddleSpeed * this.params.speedMultiplier;
-    const perFramePx = effectiveSpeed * (frameMs / 1000);
+    // Use a small fixed frame time for dead zone calculation (not the 1s refresh)
+    const perFramePx = effectiveSpeed * 0.032; // ~2 frames at 16ms
     const deadZone = Math.max(perFramePx * this.params.deadZoneMultiplier, this.params.minDeadZonePx);
 
     if (offset < deadZone) {
@@ -462,8 +485,78 @@ export class AIController {
     }
   }
 
+  /**
+   * Called every game frame (~16ms). Advances the estimated paddle position
+   * based on current key direction and stops pressing keys when the estimated
+   * position has reached the target — preventing overshoot between 1s refreshes.
+   * This does NOT read the game state (compliant with 1s refresh rule).
+   */
   public update(): void {
-    // Keys are calculated during refreshGameState
+    this.logCounter++;
+    const shouldLog = this.logCounter % 60 === 0; // log once per second at 60fps
+
+    // If paddle already reached target, stay still until next refresh gives a new target
+    if (this.reachedTarget) {
+      this.currentKeys = [];
+      return;
+    }
+
+    const now = Date.now();
+    if (this.lastUpdateTime === 0) {
+      this.lastUpdateTime = now;
+      return;
+    }
+    const dt = (now - this.lastUpdateTime) / 1000;
+    this.lastUpdateTime = now;
+
+    // Check distance to target BEFORE moving
+    const diffBefore = angDiff(this.committedTargetAngle, this.estimatedPaddleAngle);
+    const offsetBefore = Math.abs(diffBefore) * this.paddleOrbitRadius;
+
+    // Dead zone calculation
+    const effectiveSpeed = this.paddleSpeed * this.params.speedMultiplier;
+    const perFramePx = effectiveSpeed * 0.032;
+    const deadZone = Math.max(perFramePx * this.params.deadZoneMultiplier, this.params.minDeadZonePx);
+
+    // Already in dead zone → stop and lock
+    if (offsetBefore < deadZone) {
+      if (this.currentKeys.length > 0) {
+        console.log(`[AI-${this.playerId}] UPDATE: in deadZone, REACHED TARGET, locking (offset=${offsetBefore.toFixed(2)}px deadZone=${deadZone.toFixed(2)}px)`);
+      }
+      this.currentKeys = [];
+      this.reachedTarget = true;
+      return;
+    }
+
+    // Advance estimated angle based on which keys are held
+    if (this.currentKeys.length > 0 && this.paddleSpeed > 0 && this.paddleOrbitRadius > 0) {
+      const angularSpeed = effectiveSpeed / this.paddleOrbitRadius;
+      const step = angularSpeed * dt;
+
+      // If the step would overshoot past the target, snap to target instead
+      if (step >= Math.abs(diffBefore)) {
+        this.estimatedPaddleAngle = this.committedTargetAngle;
+        this.currentKeys = [];
+        this.reachedTarget = true;
+        console.log(`[AI-${this.playerId}] UPDATE: would overshoot (step=${(step * this.paddleOrbitRadius).toFixed(1)}px > offset=${offsetBefore.toFixed(1)}px), snapped to target, locking`);
+        return;
+      }
+
+      const key = this.currentKeys[0];
+      let direction = 0;
+      if (key === 'arrowright') direction = this.isTopHalf ? 1 : -1;
+      else if (key === 'arrowleft') direction = this.isTopHalf ? -1 : 1;
+      this.estimatedPaddleAngle = normalizeAngle(this.estimatedPaddleAngle + direction * step);
+    }
+
+    // Recalculate keys from estimated position
+    this.calculateKeysFromAngle(this.estimatedPaddleAngle);
+
+    if (shouldLog && this.currentKeys.length > 0) {
+      const diff = angDiff(this.committedTargetAngle, this.estimatedPaddleAngle);
+      const offset = Math.abs(diff) * this.paddleOrbitRadius;
+      console.log(`[AI-${this.playerId}] UPDATE: holding ${this.currentKeys.join(',')} est=${this.estimatedPaddleAngle.toFixed(4)} target=${this.committedTargetAngle.toFixed(4)} offset=${offset.toFixed(2)}px`);
+    }
   }
 }
 

@@ -96,6 +96,15 @@ export class UserService {
 		);
 	}
 
+	private _storeGameResults(results: GameResultType[]): Result<null, DatabaseError> {
+		return this.db.transaction(() => {
+			const insert = this.db.prepare(`INSERT INTO player_game_results (gameId, userId, score, rank) VALUES (?, ?, ?, ?)`);
+			for (const result of results)
+				insert.run(result.gameId, result.userId, result.score, result.rank);
+			return Result.Ok(null);
+		});
+	}
+
 	private _fetchUserBaseInfoByIdList(ids: number[]): Result<BaseUserType[], DatabaseError> {
 		if (ids.length === 0)
 			return Result.Ok([]);
@@ -358,15 +367,16 @@ export class UserService {
 			.flatMap(() => this.fetchUserById(userId));
 	}
 
+	async storeGameResults(results: GameResultType[]): Promise<Result<null, DatabaseError>> {
+		return this._storeGameResults(results);
+	}
+
 	async anonymizeUser(userId: number): Promise<Result<FullUserType, DatabaseError>> {
-		return Result.Err(DatabaseError.internal('Anonymize user is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
+		return Result.Err(DatabaseError.internal('Feature discontinued'));
 	}
 
 	async deleteUser(userId: number): Promise<Result<null, DatabaseError>> {
-		return Result.Err(DatabaseError.internal('Delete user is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
+		return Result.Err(DatabaseError.internal('Feature discontinued'));
 	}
 
-	async storeGameResults(results: GameResultType[]): Promise<Result<null, DatabaseError>> {
-		return Result.Err(DatabaseError.internal('Store game results is currently disabled until we can ensure it works correctly without leaving orphaned data.'));
-	}
 }

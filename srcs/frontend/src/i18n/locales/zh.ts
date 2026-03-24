@@ -210,6 +210,7 @@ export const zh: TranslationKeys = {
     declineInvite: '拒绝邀请',
     // Menu buttons
     createGameButton: '🎮 创建游戏',
+    menuDescription: '创建本地游戏、邀请朋友或与AI对战。',
     quickPlay: '🤖 快速游戏（单人）',
     debugMode: '🎯 调试：8名玩家（3个球）',
     // Pong Invite Modal
@@ -349,6 +350,7 @@ export const zh: TranslationKeys = {
     statistics: '统计数据',
     wins: '胜利',
     losses: '失败',
+    winRate: '胜率',
     gamesPlayed: '已进行的游戏',
     loadingProfile: '加载资料中...',
     profileNotFound: '未找到资料',

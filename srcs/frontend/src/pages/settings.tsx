@@ -11,7 +11,6 @@ import { useState } from "react"
 enum SettingsTab {
   Profile = 'profile',
   Security = 'security',
-  Privacy = 'privacy',
   Appearance = 'appearance'
 }
 
@@ -58,8 +57,6 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-
-        {activeTab === 'privacy' && (<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Data & Privacy</h2>)}
 
         {activeTab === 'appearance' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">

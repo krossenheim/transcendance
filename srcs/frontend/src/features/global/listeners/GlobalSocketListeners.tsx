@@ -58,6 +58,11 @@ const BaseSocketListeners = () => {
                     return HandlerResult.Handled;
                 }
 
+                case schema.output.FailedToUpdate.code: {
+                    toast.error(payload.payload.message || "Failed to update profile");
+                    return HandlerResult.Handled;
+                }
+
                 default:
                     return HandlerResult.NotHandled;
             }
@@ -85,13 +90,13 @@ const BaseSocketListeners = () => {
 
                     // Check for new friend requests
                     const currentFriendRequestIds = new Set(
-                        currentNotifications.pendingFriendRequests.map(r => r.fromUserId)
+                        currentNotifications.pendingFriendRequests.map(r => r.friendId)
                     );
                     const newFriendRequests = newNotifications.pendingFriendRequests.filter(
-                        r => !currentFriendRequestIds.has(r.fromUserId)
+                        r => !currentFriendRequestIds.has(r.friendId)
                     );
                     for (const req of newFriendRequests) {
-                        const username = req.user?.username || `User ${req.fromUserId}`;
+                        const username = req.username || `User ${req.friendId}`;
                         toast.info(`${username} sent you a friend request`);
                     }
 
