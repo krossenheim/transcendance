@@ -111,7 +111,6 @@ export class TournamentManager {
     }
 
     if (tournament.status === "registration" && tournament.matches.length === 0) {
-      console.log(`[TournamentManager] Auto-generating bracket for tournament ${tournamentId}`);
       this.generateBracket(tournament);
       tournament.status = "in_progress";
     }

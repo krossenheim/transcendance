@@ -70,7 +70,6 @@ export class LobbyManager {
     for (const playerId of playerIds) {
       const existingLobbyId = this.playerToLobby.get(playerId);
       if (existingLobbyId !== undefined) {
-        console.log(`[LobbyManager] Auto-removing player ${playerId} from lobby ${existingLobbyId}`);
         this.removePlayerFromLobby(existingLobbyId, playerId);
       }
     }

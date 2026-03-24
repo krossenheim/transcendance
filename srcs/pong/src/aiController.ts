@@ -216,7 +216,6 @@ export class AIController {
 
     this.paddleAngle = Math.atan2(paddleY - cy, paddleX - cx);
     const estimateDrift = Math.abs(angDiff(this.estimatedPaddleAngle, this.paddleAngle)) * this.paddleOrbitRadius;
-    console.log(`[AI-${this.playerId}] REFRESH-SYNC: real=${this.paddleAngle.toFixed(4)} est=${this.estimatedPaddleAngle.toFixed(4)} drift=${estimateDrift.toFixed(2)}px speed=${boardPaddleSpeed.toFixed(1)}`);
     this.estimatedPaddleAngle = this.paddleAngle; // Sync estimate with real position on refresh
     this.paddleSpeed = boardPaddleSpeed;
 
@@ -340,7 +339,6 @@ export class AIController {
       this.lastCommitTime = now;
       this.reachedTarget = false;
       this.lastUpdateTime = 0; // Reset so next update() gets a fresh dt
-      console.log(`[AI-${this.playerId}] REFRESH: first commit target=${rawTarget.toFixed(3)} paddle=${this.paddleAngle.toFixed(3)} fallback=${this.usingFallback}`);
     } else {
       const shift = Math.abs(angDiff(rawTarget, this.committedTargetAngle));
       const timeSinceCommit = now - this.lastCommitTime;
@@ -350,9 +348,7 @@ export class AIController {
         this.lastCommitTime = now;
         this.reachedTarget = false;
         this.lastUpdateTime = 0; // Reset so next update() gets a fresh dt
-        console.log(`[AI-${this.playerId}] REFRESH: target CHANGED ${oldTarget.toFixed(3)}->${rawTarget.toFixed(3)} shift=${shift.toFixed(3)} paddle=${this.paddleAngle.toFixed(3)} fallback=${this.usingFallback}`);
       } else {
-        console.log(`[AI-${this.playerId}] REFRESH: target KEPT=${this.committedTargetAngle.toFixed(3)} raw=${rawTarget.toFixed(3)} shift=${shift.toFixed(3)} paddle=${this.paddleAngle.toFixed(3)} reached=${this.reachedTarget} fallback=${this.usingFallback}`);
       }
     }
 
@@ -521,7 +517,6 @@ export class AIController {
     // Already in dead zone → stop and lock
     if (offsetBefore < deadZone) {
       if (this.currentKeys.length > 0) {
-        console.log(`[AI-${this.playerId}] UPDATE: in deadZone, REACHED TARGET, locking (offset=${offsetBefore.toFixed(2)}px deadZone=${deadZone.toFixed(2)}px)`);
       }
       this.currentKeys = [];
       this.reachedTarget = true;
@@ -538,7 +533,6 @@ export class AIController {
         this.estimatedPaddleAngle = this.committedTargetAngle;
         this.currentKeys = [];
         this.reachedTarget = true;
-        console.log(`[AI-${this.playerId}] UPDATE: would overshoot (step=${(step * this.paddleOrbitRadius).toFixed(1)}px > offset=${offsetBefore.toFixed(1)}px), snapped to target, locking`);
         return;
       }
 
@@ -555,7 +549,6 @@ export class AIController {
     if (shouldLog && this.currentKeys.length > 0) {
       const diff = angDiff(this.committedTargetAngle, this.estimatedPaddleAngle);
       const offset = Math.abs(diff) * this.paddleOrbitRadius;
-      console.log(`[AI-${this.playerId}] UPDATE: holding ${this.currentKeys.join(',')} est=${this.estimatedPaddleAngle.toFixed(4)} target=${this.committedTargetAngle.toFixed(4)} offset=${offset.toFixed(2)}px`);
     }
   }
 }
@@ -568,7 +561,6 @@ export class AIManager {
   public addAI(playerId: number, difficulty: AIDifficulty = AIDifficulty.MEDIUM): void {
     if (this.controllers.has(playerId)) return;
     this.controllers.set(playerId, new AIController(playerId, difficulty));
-    console.log(`[AIManager] Added AI for player ${playerId}`);
   }
 
   public refreshGameStates(gameState: any): void {

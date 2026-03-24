@@ -50,7 +50,6 @@ function filterHumanIds(ids: number[]): number[] {
 
 // Connect tournament manager to pong manager for match completion
 singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winnerId) => {
-  console.log(`[Pong] Recording tournament match winner: tournament=${tournamentId}, match=${matchId}, winner=${winnerId}`);
   const result = await tournamentManager.recordMatchWinner(tournamentId, matchId, winnerId);
   if (result.isErr()) {
     console.error("Failed to record match winner:", result.unwrapErr());
@@ -58,9 +57,7 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
   }
   
   const tournament = result.unwrap();
-  console.log(`[Pong] Tournament match recorded. Status: ${tournament.status}, Winner: ${tournament.winnerId}`);
   if (tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0) {
-    console.log(`[Pong] On-chain tx hashes: ${tournament.onchainTxHashes.join(", ")}`);
   }
 
   // Find the completed match to get the loser
@@ -114,7 +111,6 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
       isTournamentComplete,
     };
 
-    console.log(`[Pong] Sending local tournament match result to host ${hostId}`);
     socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
       recipients: [hostId],
       code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
@@ -148,7 +144,6 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
       isTournamentComplete,
     };
 
-    console.log(`[Pong] Sending match result to participant ${playerId}: winner=${winnerId}, loser=${loserId}, nextMatch=${nextMatch?.matchId || 'none'}`);
     
     socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
       recipients: [playerId],
@@ -173,7 +168,6 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
       isTournamentComplete,
     };
 
-    console.log(`[Pong] Sending tournament update to non-participant ${playerId}: nextMatch=${nextMatch?.matchId || 'none'}`);
     
     socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
       recipients: [playerId],
@@ -204,7 +198,6 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
 
     // Both players are AI — auto-start this match
     const matchPlayerIds = [match.player1Id, match.player2Id];
-    console.log(`[Pong] Auto-starting AI vs AI match ${match.matchId}: ${matchPlayerIds.join(' vs ')}`);
 
     const playerUsernames: { [key: number]: string } = {};
     for (const p of tournament.players) {
@@ -229,7 +222,6 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
 
     const gameId = gameResult.unwrap();
     tournamentManager.startTournamentMatch(tournamentId, match.matchId, match.player1Id, gameId);
-    console.log(`[Pong] AI vs AI match ${match.matchId} started (game ${gameId})`);
 
     // Notify all human tournament participants of the tournament state update
     const humanPlayerIds = filterHumanIds(tournament.players.map(p => p.userId));
@@ -268,7 +260,6 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
 }
 
 function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, maxScore?: number, gameMode?: string): PongGameOptions {
-  console.log(`[Pong] createGameOptionsFromLobby called: ballCount=${ballCount}, allowPowerups=${allowPowerups}, maxScore=${maxScore}, gameMode=${gameMode}`);
   // No time limit — games end by score (maxScore) or last player standing
   const effectiveDuration = 999999;
   const options: PongGameOptions = {
@@ -288,7 +279,6 @@ function createGameOptionsFromLobby(ballCount: number, allowPowerups: boolean, m
   if (maxScore !== undefined) {
     options.maxScore = maxScore;
   }
-  console.log(`[Pong] Game options: powerupFrequency=${options.powerupFrequency}, maxScore=${options.maxScore}, gameMode=${options.gameMode}`);
   return options;
 }
 
@@ -345,8 +335,6 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   const user_id = body.userId;
   const { gameMode, playerIds, playerUsernames, ballCount, maxScore, allowPowerups, aiCount, aiDifficulty, localPlayerNames } = body.payload;
 
-  console.log(`[Pong] ===== CREATE LOBBY HANDLER CALLED =====`);
-  console.log(`[Pong] Creating lobby: host=${user_id}, mode=${gameMode}, players=${JSON.stringify(playerIds)}, aiCount=${aiCount || 0}, localPlayerNames=${JSON.stringify(localPlayerNames)}`);
 
   // For local tournaments: generate virtual player IDs for local players
   const isLocalTournament = gameMode === "tournament" && localPlayerNames && localPlayerNames.length > 0;
@@ -360,7 +348,6 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
       effectivePlayerIds.push(localId);
       effectivePlayerUsernames[String(localId)] = localPlayerNames[i]!;
     }
-    console.log(`[Pong] Local tournament: generated ${localPlayerNames.length} local player IDs`);
   }
 
   // Create the lobby
@@ -414,11 +401,9 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
       settings: dbSettings,
     }).then(res => {
       if (res.isErr()) console.error("[Pong] Failed to persist lobby to DB:", res.unwrapErr());
-      else console.log(`[Pong] Lobby ${lobby.lobbyId} persisted to DB`);
     });
   }
 
-  console.log(`[Pong] Created lobby, returning to ALL players including invitees: ${JSON.stringify(effectivePlayerIds)}`);
   // If this lobby is a tournament, create a Tournament on the server-side
   // and attach it to the lobby so invitees receive tournament context.
   let tournamentPayload = undefined;
@@ -451,7 +436,6 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
         // Record the tournamentId on the lobby so it can be looked up later
         lobbyManager.setTournamentId(lobby.lobbyId, tournament.tournamentId);
         tournamentPayload = tournament;
-        console.log(`[Pong] Created ${isLocalTournament ? 'local ' : ''}tournament ${tournament.tournamentId} for lobby ${lobby.lobbyId}`);
       } else {
         console.error("Failed to create tournament for lobby:", tResult.unwrapErr());
       }
@@ -487,7 +471,6 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
   if (toggleResult.isErr()) {
     const playerLobby = lobbyManager.getLobbyForPlayer(user_id);
     if (playerLobby) {
-      console.log(`[Pong] togglePlayerReady: lobbyId ${lobbyId} not found, using player lookup -> lobby ${playerLobby.lobbyId}`);
       toggleResult = lobbyManager.togglePlayerReady(playerLobby.lobbyId, user_id);
     }
   }
@@ -515,7 +498,6 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
 
   // Return lobby state to all players
   const playerIds = lobby.players.map((p) => p.userId);
-  console.log(`[Pong] Toggled ready, returning lobby state to all players: ${JSON.stringify(playerIds)}`);
 
   return Result.Ok(response.select("LobbyUpdate").replyTo(
     playerIds,
@@ -540,7 +522,6 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
   if (!lobby) {
     lobby = lobbyManager.getLobbyForPlayer(user_id);
     if (lobby) {
-      console.log(`[Pong] leaveLobby: lobbyId ${lobbyId} not found, using player lookup -> lobby ${lobby.lobbyId}`);
     }
   }
   if (!lobby) {
@@ -577,7 +558,6 @@ socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
     containers.db.post(int_url.http.db.deleteLobbyFromDb, { lobbyId: actualLobbyId }).then(res => {
       if (res.isErr()) console.error("[Pong] Failed to delete lobby from DB:", res.unwrapErr());
     });
-    console.log(`[Pong] Lobby ${lobbyId} deleted (empty)`);
     return Result.Ok(response.select("LeftLobby").reply({
       message: "Left lobby",
     }));
@@ -707,7 +687,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
   const user_id = body.userId;
   const { tournamentId, matchId, asLocalHost } = body.payload;
   
-  console.log(`[Pong] Join tournament match request: user=${user_id}, tournament=${tournamentId}, match=${matchId}, asLocalHost=${asLocalHost}`);
 
   const tournament = tournamentManager.getTournament(tournamentId);
   if (!tournament) {
@@ -740,7 +719,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 
   // For local tournaments: auto-ready both players and start immediately
   if (isLocalTournament) {
-    console.log(`[Pong] Local tournament: host ${user_id} starting match ${matchId} (${match.player1Id} vs ${match.player2Id})`);
     
     // Build playerUsernames from tournament player data
     const tournamentPlayerUsernames: { [key: number]: string } = {};
@@ -782,7 +760,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
       }));
     }
 
-    console.log(`[Pong] Local tournament match ${matchId} started with game ${gameId}`);
 
     // Return game state to the host (who controls both paddles)
     return Result.Ok(response.select("MatchStarted").reply(gameState.unwrap()));
@@ -805,7 +782,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
   if (!bothReady) {
     const opponentId = match.player1Id === user_id ? match.player2Id : match.player1Id;
     if (opponentId !== null && isAiPlayer(opponentId)) {
-      console.log(`[Pong] Auto-readying AI opponent ${opponentId} for match ${matchId}`);
       const aiReadyResult = tournamentManager.markPlayerReady(tournamentId, matchId, opponentId);
       if (!aiReadyResult.isErr()) {
         bothReady = aiReadyResult.unwrap().bothReady;
@@ -815,7 +791,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 
   // If not both ready, notify waiting and broadcast updated ready status to all tournament players
   if (!bothReady) {
-    console.log(`[Pong] Player ${user_id} ready for match ${matchId}, waiting for opponent`);
     
     // Broadcast tournament state update to all tournament players so they see the ready status in realtime
     const allTournamentPlayerIds = filterHumanIds(tournament.players.map(p => p.userId));
@@ -858,7 +833,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
     }));
   }
 
-  console.log(`[Pong] Both players ready for match ${matchId}, starting game`);
 
   // Both ready - create the game
   // Build playerUsernames from tournament player data for leaderboard display
@@ -903,7 +877,6 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
     }));
   }
 
-  console.log(`[Pong] Tournament match ${matchId} started with game ${gameId}, players: ${playerIds.join(', ')}`);
 
   // Broadcast tournament state update to all tournament players so they can spectate
   const allTournamentPlayerIds = filterHumanIds(tournament.players.map(p => p.userId));
@@ -957,7 +930,6 @@ socket.registerHandler(user_url.ws.pong.spectateMatch, async (body, response) =>
   const user_id = body.userId;
   const { tournamentId, matchId } = body.payload;
   
-  console.log(`[Pong] Spectate request: user=${user_id}, tournament=${tournamentId}, match=${matchId}`);
 
   const tournament = tournamentManager.getTournament(tournamentId);
   if (!tournament) {
@@ -1004,7 +976,6 @@ socket.registerHandler(user_url.ws.pong.spectateMatch, async (body, response) =>
     }));
   }
 
-  console.log(`[Pong] User ${user_id} now spectating match ${matchId} (game ${gameId})`);
 
   return Result.Ok(response.select("Spectating").reply(spectateResult.unwrap()));
 });
@@ -1014,7 +985,6 @@ socket.registerHandler(user_url.ws.pong.watchTournamentMatches, async (body, res
   const user_id = body.userId;
   const { tournamentId } = body.payload;
 
-  console.log(`[Pong] Watch tournament request: user=${user_id}, tournament=${tournamentId}`);
 
   const tournament = tournamentManager.getTournament(tournamentId);
   if (!tournament) {
@@ -1046,7 +1016,6 @@ socket.registerHandler(user_url.ws.pong.watchTournamentMatches, async (body, res
     }
   }
 
-  console.log(`[Pong] User ${user_id} now watching ${watching.length} tournament matches`);
 
   return Result.Ok(response.select("Watching").reply({ watching }));
 });
@@ -1060,7 +1029,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   if (!lobby) {
     lobby = lobbyManager.getLobbyForPlayer(user_id);
     if (lobby) {
-      console.log(`[Pong] startFromLobby: lobbyId ${lobbyId} not found, using player lookup -> lobby ${lobby.lobbyId}`);
     }
   }
   if (!lobby) {
@@ -1102,7 +1070,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     const pendingMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, user_id);
     if (pendingMatch) {
       matchId = pendingMatch.matchId;
-      console.log(`[Pong] Starting tournament match: tournament=${tournamentId}, match=${matchId}, players=${pendingMatch.player1Id} vs ${pendingMatch.player2Id}`);
     } else {
       console.warn(`[Pong] No pending match found for user ${user_id} in tournament ${tournamentId}`);
     }
@@ -1130,7 +1097,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   const GUEST_PLAYER_ID = -999;
   if (lobby.gameMode === "1v1" && playerIds.length === 1 && (!lobby.aiCount || lobby.aiCount === 0)) {
     playerIds.push(GUEST_PLAYER_ID);
-    console.log(`[Pong] Added guest player for local 1v1 mode`);
   }
   
   // Add AI players if requested (NOT for tournament bracket matches — AI already in bracket)
@@ -1140,7 +1106,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
       const aiId = AI_PLAYER_ID_BASE - i;
       playerIds.push(aiId);
       aiPlayerIds.push(aiId);
-      console.log(`[Pong] Added AI player ${i + 1} with ID ${aiId}`);
     }
   } else {
     // For tournament matches, detect AI players already in the match playerIds
@@ -1150,7 +1115,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
       }
     }
     if (aiPlayerIds.length > 0) {
-      console.log(`[Pong] Tournament match includes AI players: ${aiPlayerIds.join(', ')}`);
     }
   }
   
@@ -1226,7 +1190,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
         .filter(id => !matchPlayerIds.has(id)));
       
       if (otherPlayerIds.length > 0) {
-        console.log(`[Pong] Notifying non-match players ${otherPlayerIds.join(', ')} to view tournament bracket`);
         
         // Build tournament data for the notification
         const tournamentData = {
@@ -1272,7 +1235,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
           if (pendingMatch.player1Id === null || pendingMatch.player2Id === null) continue;
 
           const pendingPlayerIds = [pendingMatch.player1Id, pendingMatch.player2Id];
-          console.log(`[Pong] Auto-starting parallel match ${pendingMatch.matchId} for players ${pendingPlayerIds.join(', ')}`);
 
           // Build usernames for this match from tournament player data
           const pendingPlayerUsernames: { [key: number]: string } = {};
@@ -1323,7 +1285,6 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   }
 
   // Clean up lobby now that game has started
-  console.log(`[Pong] Game ${gameId} started from lobby ${lobbyId}, removing lobby`);
   lobbyManager.removeLobby(lobbyId);
 
   return Result.Ok({

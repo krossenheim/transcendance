@@ -174,7 +174,6 @@ export class PongManager {
     }
     
     if (aiPlayerIds.length > 0) {
-      console.log(`[PongManager] Created game with ${aiPlayerIds.length} AI players: ${aiPlayerIds.join(', ')}`);
     }
     
     // Build complete playerUsernames including AI players
@@ -362,7 +361,6 @@ export class PongManager {
     // Add to spectators if not already
     if (!gameData.spectators.includes(userId)) {
       gameData.spectators.push(userId);
-      console.log(`[PongManager] Added spectator ${userId} to game ${gameId}`);
     }
     
     // Return current game state
@@ -452,14 +450,11 @@ export class PongManager {
     if (storageResult.isErr()) {
       console.error("Failed to store game results:", storageResult.unwrapErr());
     } else {
-      console.log("Game results stored successfully.");
     }
-    console.log("Game ended. Final rankings:", rankings);
 
     // If this was a tournament match, record the winner
     const winnerId = game.getWinner();
     if (gameData.tournamentId !== undefined && gameData.matchId !== undefined && winnerId !== null) {
-      console.log(`[PongManager] Tournament match ended. Tournament: ${gameData.tournamentId}, Match: ${gameData.matchId}, Winner: ${winnerId}`);
       // Emit event for tournament manager to handle
       // This will be handled by the tournament callback if set
       if (this.tournamentMatchEndCallback) {
@@ -480,7 +475,6 @@ export class PongManager {
   private cleanupGame(gameId: number): void {
     const gameData = this.games.get(gameId);
     if (gameData) {
-      console.log(`[PongManager] Cleaning up game ${gameId}`);
       // Remove player-to-game mappings — only if they still point to THIS game
       // (a new game may have already overwritten the mapping)
       for (const playerId of gameData.game.getAllPlayerIds()) {

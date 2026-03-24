@@ -232,7 +232,6 @@ export class PongGame {
         const angleStep = (2 * Math.PI) / wallSegments.length;
 
         if (ENABLE_GAME_LOGS) {
-            console.log(`[PongGame] constructPlayingField: wallSegments.length=${wallSegments.length} angleStep=${angleStep} halfAngleStep=${halfAngleStep}`);
         }
 
         for (let i = 0; i < wallSegments.length; i++) {
@@ -240,13 +239,11 @@ export class PongGame {
             scaledBPos.copy(center).addScaled(new Vec2(0, -1).rotate(i * angleStep + halfAngleStep), halfSize);
             if (ENABLE_GAME_LOGS) {
                 const segLen = scaledSegLen.copy(scaledBPos).sub(scaledAPos).len();
-                console.log(`[PongGame] wall#${i} start=(${scaledAPos.x.toFixed(2)},${scaledAPos.y.toFixed(2)}) end=(${scaledBPos.x.toFixed(2)},${scaledBPos.y.toFixed(2)}) segLen=${segLen.toFixed(2)}`);
             }
             const wall = this.createWallSegment(scaledAPos, scaledBPos, wallSegments[i]!);
             this.walls.push(wall);
             this.scene.addObject(wall);
             if (ENABLE_GAME_LOGS) {
-                console.log(`[PongGame] Created wall #${i} player=${wallSegments[i]} start=(${scaledAPos.x.toFixed(2)},${scaledAPos.y.toFixed(2)}) end=(${scaledBPos.x.toFixed(2)},${scaledBPos.y.toFixed(2)})`);
             }
         }
 
@@ -272,7 +269,6 @@ export class PongGame {
             this.paddles.push(paddle);
             this.scene.addObject(paddle);
             if (ENABLE_GAME_LOGS) {
-                console.log(`[PongGame] Created paddle #${i} player=${wallSegments[i]} center=(${scaledPaddleCenter.x.toFixed(2)},${scaledPaddleCenter.y.toFixed(2)}) size=${playerPaddleSize.toFixed(2)} offset=${playerPaddleOffset}`);
             }
         }
 
@@ -301,7 +297,6 @@ export class PongGame {
                     // In lastOneStanding mode: ball bounces normally, player gets eliminated
                     if (this.gameOptions.gameMode === 'lastOneStanding') {
                         if (!this.eliminatedPlayers.has(other.playerId) && !this.pendingEliminations.includes(other.playerId)) {
-                            console.log(`[PongGame] lastOneStanding: Queuing elimination of player ${other.playerId}. Active: [${this.players.join(',')}]`);
                             this.pendingEliminations.push(other.playerId);
                         }
                         return CollisionResponse.BOUNCE;
@@ -319,7 +314,6 @@ export class PongGame {
 
         ball.inverseMass = inverseMass;
         if (ENABLE_GAME_LOGS) {
-            console.log(`[PongGame] Spawned ball id=${ball.id} pos=(${position.x.toFixed(2)},${position.y.toFixed(2)}) vel=(${velocity.x.toFixed(2)},${velocity.y.toFixed(2)}) radius=${radius}`);
         }
         this.balls.push(ball);
         this.scene.addObject(ball);
@@ -347,7 +341,6 @@ export class PongGame {
         this.allOriginalPlayers = Array.from(players);
         this.gameOptions = gameOptions;
         
-        console.log(`[PongGame] Created game with ${players.length} players, gameMode=${gameOptions.gameMode ?? 'default'}, gameDuration=${gameOptions.gameDuration}`);
         
         // Initialize scene with ball speed for constant speed enforcement
         this.scene = new Scene(gameOptions.ballSpeed, gameOptions.canvasWidth / 2, gameOptions.canvasHeight / 2);
@@ -692,7 +685,6 @@ export class PongGame {
     public eliminatePlayer(playerId: number): void {
         if (this.eliminatedPlayers.has(playerId)) return; // Already eliminated
         this.eliminatedPlayers.add(playerId);
-        console.log(`[PongGame] Player ${playerId} eliminated in lastOneStanding mode. Remaining: [${this.players.filter(id => id !== playerId).join(',')}]`);
 
         // Remove paddles for this player
         for (const paddle of this.paddles.filter(paddle => paddle.playerId === playerId))
