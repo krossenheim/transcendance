@@ -821,9 +821,9 @@ export class PongGame {
     }
 
     public isGameOver(): boolean {
-        // In lastOneStanding mode, game ends when only 1 (or 0) active players remain
-        if (this.gameOptions.gameMode === 'lastOneStanding') {
-            return this.players.length <= 1;
+        // End game if fewer than 2 active players remain (e.g. player disconnected)
+        if (this.players.length <= 1) {
+            return true;
         }
         // Check time-based end (tick-based for determinism)
         const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);

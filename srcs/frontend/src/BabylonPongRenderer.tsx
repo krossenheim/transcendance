@@ -244,6 +244,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     // Camera
     const camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 25, Vector3.Zero(), scene)
     camera.attachControl(canvasRef.current, true)
+    camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput")
     camera.lowerRadiusLimit = 10
     camera.upperRadiusLimit = 50
 

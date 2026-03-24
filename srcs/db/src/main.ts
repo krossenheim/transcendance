@@ -28,7 +28,20 @@ import { TwoFactorService } from "./database/twoFactorService.js";
 const twoFactorService = new TwoFactorService(db);
 
 // Cast to any to avoid FastifyInstance type mismatch with route plugins
-const fastify: any = createFastify();
+const fastify: any = createFastify({
+  bodyLimit: 10 * 1024 * 1024, // 10MB for base64-encoded profile images
+  logger: {
+    level: "info",
+    transport: {
+      target: "pino-pretty",
+      options: {
+        colorize: true,
+        translateTime: "HH:MM:ss Z",
+        ignore: "pid,hostname",
+      },
+    },
+  },
+});
 
 // Register routes
 import userRoutes from "./routes/users.js";
