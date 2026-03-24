@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import {
 	serializerCompiler,
 	validatorCompiler,
@@ -26,7 +26,7 @@ function addHealthcheckRoute(fastify: any) {
 	);
 }
 
-export function createFastify(options = {
+export function createFastify(options: FastifyServerOptions = {
 	logger: {
 		level: "info", // or 'debug' for more verbosity
 		transport: {
