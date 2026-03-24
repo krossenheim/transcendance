@@ -812,6 +812,10 @@ export class PongGame {
         if (this.players.length <= 1) {
             return true;
         }
+        // In lastOneStanding mode, the only win condition is 1 player remaining
+        if (this.gameOptions.gameMode === 'lastOneStanding') {
+            return false;
+        }
         // Check time-based end (tick-based for determinism)
         const gameDurationTicks = Math.floor(this.gameOptions.gameDuration * TICK_RATE);
         if (this.currentTick >= gameDurationTicks) {
