@@ -32,7 +32,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ user, message, isSelf,
       <div className={`px-4 py-2 max-w-[85%] shadow-sm text-sm break-words leading-relaxed
           ${isSelf 
               ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' 
-              : 'glass-light-xs dark:glass-dark-xs glass-border text-gray-900 dark:text-gray-100 rounded-2xl rounded-tl-none'
+              : 'glass-dark-xs glass-border text-gray-100 rounded-2xl rounded-tl-none'
           }
       `}> 
         <p>{message.messageString}</p>

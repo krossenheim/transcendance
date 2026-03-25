@@ -280,15 +280,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   }
 
   return (
-    <div className="p-4 flex-none glass-light-xs dark:glass-dark-xs glass-border border-t border-gray-200 dark:border-gray-700 z-20">
-        <div className={`relative w-full border rounded-full bg-white dark:bg-gray-900/50 flex flex-nowrap items-center p-1 transition-colors min-h-[46px] shadow-sm ${
+    <div className="p-4 flex-none glass-dark-xs glass-border border-t border-gray-700 z-20">
+        <div className={`relative w-full border rounded-full bg-gray-900/50 flex flex-nowrap items-center p-1 transition-colors min-h-[46px] shadow-sm ${
            argError 
              ? "border-red-500" 
-             : "border-gray-300 dark:border-gray-600 focus-within:border-gray-400 dark:focus-within:border-gray-500"
+             : "border-gray-600 focus-within:border-gray-500"
         }`}>
           {activeCommand ? (
             <>
-              <div className="flex-shrink-0 flex items-center bg-transparent text-purple-700 dark:text-purple-300 pl-3 pr-2 select-none border-r border-gray-300 dark:border-gray-600 h-6">
+              <div className="flex-shrink-0 flex items-center bg-transparent text-purple-300 pl-3 pr-2 select-none border-r border-gray-600 h-6">
                 <span className="font-bold text-sm">{COMMAND_PREFIX}{activeCommand.name}</span>
               </div>
               <div className="flex-1 flex flex-nowrap overflow-visible items-center relative pl-2">
@@ -313,26 +313,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                       onFocus={() => { setActiveArgIndex(idx); setArgError(null); }}
                       className={`w-full text-sm outline-none px-2 py-1 bg-transparent transition-all rounded-md border focus:outline-none focus:ring-0 shadow-none ${
                         activeArgIndex === idx 
-                          ? (argError ? "border-red-400 bg-red-50 dark:bg-red-900/10" : "border-blue-400 bg-blue-50/30 dark:bg-blue-900/10") 
-                          : "border-transparent hover:border-gray-200 dark:hover:border-gray-700 text-gray-500 dark:text-gray-400"
+                          ? (argError ? "border-red-400 bg-red-900/10" : "border-blue-400 bg-blue-900/10") 
+                          : "border-transparent hover:border-gray-700 text-gray-400"
                       }`}
                       placeholder={argDef.description}
                     />
                     {activeArgIndex === idx && (
                       <div className="absolute left-0 bottom-full w-full min-w-[200px] flex flex-col-reverse gap-2 z-[100] px-1 pointer-events-none mb-3">
                         {showArgSuggestions && argSuggestions.length > 0 && (
-                           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-xl overflow-hidden pointer-events-auto max-h-60 overflow-y-auto no-scrollbar w-full animate-in slide-in-from-bottom-2">
-                               <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                           <div className="bg-gray-800 border border-gray-700 shadow-2xl rounded-xl overflow-hidden pointer-events-auto max-h-60 overflow-y-auto no-scrollbar w-full animate-in slide-in-from-bottom-2">
+                               <div className="px-3 py-2 bg-gray-800/80 border-b border-gray-700 text-xs font-bold text-gray-500 uppercase tracking-wider">
                                  Suggestions
                                </div>
                                {argSuggestions.map((sug, sIdx) => (
                                   <div 
                                     key={sug}
                                     id={`suggestion-item-${sIdx}`}
-                                    className={`px-4 py-2.5 text-sm cursor-pointer border-b border-gray-100 dark:border-gray-700/50 last:border-0 transition-colors ${
+                                    className={`px-4 py-2.5 text-sm cursor-pointer border-b border-gray-700/50 last:border-0 transition-colors ${
                                       sIdx === selectedIndex 
-                                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200 font-semibold pl-6' 
-                                        : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200'
+                                        ? 'bg-blue-900/40 text-blue-200 font-semibold pl-6' 
+                                        : 'hover:bg-gray-700 text-gray-200'
                                     }`}
                                     onMouseDown={(e) => { e.preventDefault(); selectArgSuggestion(sug); }}
                                   >
@@ -371,7 +371,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleRawKeyDown}
-              className="flex-1 bg-transparent outline-none focus:outline-none focus:ring-0 shadow-none border-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 py-1.5 px-4 min-w-0"
+              className="flex-1 bg-transparent outline-none focus:outline-none focus:ring-0 shadow-none border-none text-sm text-gray-100 placeholder-gray-500 py-1.5 px-4 min-w-0"
               placeholder={roomData ? t('chat.typePlaceholder') : t('chat.selectRoomFirst')}
               disabled={!roomData}
             />
@@ -385,15 +385,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
             className={`px-5 py-2 mr-1 rounded-full text-sm font-semibold transition-all ${
                roomData 
                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md active:scale-95' 
-                 : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                 : 'bg-gray-700 text-gray-400 cursor-not-allowed'
             }`}
           >
             {t('chat.send')}
           </button>
 
           {showCommandSuggestions && (
-            <div className="absolute left-0 bottom-full mb-3 w-72 glass-light-sm dark:glass-dark-sm glass-border shadow-2xl rounded-xl z-[90] overflow-hidden flex flex-col no-scrollbar">
-              <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
+            <div className="absolute left-0 bottom-full mb-3 w-72 glass-dark-sm glass-border shadow-2xl rounded-xl z-[90] overflow-hidden flex flex-col no-scrollbar">
+              <div className="px-3 py-2 bg-gray-800/80 border-b border-gray-700">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Slash Commands</span>
               </div>
               <div className="max-h-60 overflow-y-auto no-scrollbar" ref={suggestionsListRef}>
@@ -404,12 +404,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                     onMouseDown={(e) => { e.preventDefault(); enterCommandMode(cmd); }}
                     className={`w-full text-left px-4 py-2.5 text-sm block transition-colors border-l-4 ${
                       idx === selectedIndex 
-                        ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 border-purple-500" 
-                        : "hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent text-gray-700 dark:text-gray-300"
+                        ? "bg-purple-900/30 text-purple-300 border-purple-500" 
+                        : "hover:bg-gray-800/50 border-transparent text-gray-300"
                     }`}
                   >
                     <span className="font-bold mr-2">{COMMAND_PREFIX}{cmd.name}</span>
-                    <span className="text-gray-500 dark:text-gray-400 text-xs truncate">{cmd.description}</span>
+                    <span className="text-gray-400 text-xs truncate">{cmd.description}</span>
                   </button>
                 ))}
               </div>

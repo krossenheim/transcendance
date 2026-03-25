@@ -59,7 +59,7 @@ export const ChatHeader: React.FC = () => {
   };
 
   return (
-    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-500/70 to-purple-500/70 flex-none">
+    <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-500/70 to-purple-500/70 flex-none">
       <h2 className="text-lg font-semibold text-white">
         {roomData ? `#${roomData.roomName}` : t('chat.selectRoom')}
       </h2>

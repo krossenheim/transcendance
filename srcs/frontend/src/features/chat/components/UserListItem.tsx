@@ -22,8 +22,8 @@ export const UserListItem: React.FC<{
       key={userId}
       onClick={() => onClick(userId)}
       className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer rounded-md transition-all group ${isFriend
-          ? 'bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 ring-1 ring-blue-500/30 shadow-sm'
-          : 'hover:bg-gray-200 dark:hover:bg-gray-700/60'
+          ? 'bg-blue-500/10 hover:bg-blue-500/20 ring-1 ring-blue-500/30 shadow-sm'
+          : 'hover:bg-gray-700/60'
       }`}
     >
       <UserOnlineStatusIndicatorDot isOnline={isOnline} />

@@ -29,8 +29,8 @@ export const ChatUserSidebar: React.FC = () => {
   const joinedUsers = currentRoomUserConnections.filter(user => user.userState === ChatRoomUserAccessType.JOINED);
 
   return (
-    <div className="w-48 glass-light-xs dark:glass-dark-xs glass-border border-l border-gray-200 dark:border-gray-700 overflow-y-auto hidden md:block h-full">
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 sticky top-0 backdrop-blur-sm z-10">
+    <div className="w-48 glass-dark-xs glass-border border-l border-gray-700 overflow-y-auto hidden md:block h-full">
+      <div className="p-3 border-b border-gray-700 bg-gray-800/50 sticky top-0 backdrop-blur-sm z-10">
           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">{t('chat.users')} ({joinedUsers.length})</h3>
       </div>
       <div className="p-2 space-y-1">

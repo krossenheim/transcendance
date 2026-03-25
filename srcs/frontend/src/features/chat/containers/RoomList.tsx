@@ -69,8 +69,8 @@ const RoomList: React.FC = () => {
   }, [sendMessage]);
 
   return (
-    <div className="glass-light-sm dark:glass-dark-sm glass-border h-[300px] md:h-[600px] flex flex-col overflow-hidden" role="navigation" aria-label="Chat rooms list">
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-500/70 to-pink-500/70">
+    <div className="glass-dark-sm glass-border h-[300px] md:h-[600px] flex flex-col overflow-hidden" role="navigation" aria-label="Chat rooms list">
+      <div className="px-4 py-3 border-b border-gray-700 bg-gradient-to-r from-purple-500/70 to-pink-500/70">
         <h2 className="text-lg font-semibold text-white" id="room-list-title">{t('chat.rooms')}</h2>
       </div>
 
@@ -87,7 +87,7 @@ const RoomList: React.FC = () => {
               className={`relative w-full text-left px-4 py-3 transition-all cursor-pointer ${
                 isCurrent
                   ? "bg-blue-500 text-white shadow-md"
-                  : "bg-gray-50 dark:bg-gray-700/45 hover:bg-gray-100 dark:hover:bg-gray-600/45 text-gray-800 dark:text-gray-200"
+                  : "bg-gray-700/45 hover:bg-gray-600/45 text-gray-200"
               }`}
               onClick={() => handleSelectRoom(room.roomId)}
               role="button"
@@ -130,11 +130,11 @@ const RoomList: React.FC = () => {
             </div>
           )})
         ) : (
-          <p className="text-gray-400 dark:text-gray-500 text-center text-sm italic py-8">{t('chat.noRooms')}</p>
+          <p className="text-gray-500 text-center text-sm italic py-8">{t('chat.noRooms')}</p>
         )}
       </div>
 
-      <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+      <div className="p-3 border-t border-gray-700 space-y-2">
         {inputFormState !== formInputMode.NONE ? (
           <div className="space-y-2">
             <input
@@ -143,7 +143,7 @@ const RoomList: React.FC = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleInputForm()}
-              className="w-full border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 dark:bg-gray-700/70 dark:text-gray-200"
+              className="w-full border border-gray-600 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-700/70 text-gray-200"
               autoFocus
               aria-label="New room name"
             />
@@ -160,7 +160,7 @@ const RoomList: React.FC = () => {
                   setInputFormState(formInputMode.NONE)
                   setInputValue("")
                 }}
-                className="flex-1 bg-gray-200 text-gray-700 px-3 py-2 hover:bg-gray-300 text-sm"
+                className="flex-1 bg-gray-700 text-gray-200 px-3 py-2 hover:bg-gray-600 text-sm"
                 aria-label="Cancel room creation"
               >
                 {t('common.cancel')}
@@ -178,7 +178,7 @@ const RoomList: React.FC = () => {
             </button>
             <button
               onClick={handleRefreshRooms}
-              className="w-full bg-gray-100 text-gray-700 px-4 py-2 hover:bg-gray-200 transition-all"
+              className="w-full bg-gray-700 text-gray-200 px-4 py-2 hover:bg-gray-600 transition-all"
               aria-label="Refresh rooms list"
             >
             🔄 {t('chat.refreshRooms')}
