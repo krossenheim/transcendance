@@ -267,6 +267,9 @@ export class UserSocket {
   }
 
   public async handleMessage(ctx: HubCTX, message: string): Promise<Result<null, string>> {
+    // Ignore application-level keepalive pings from the frontend
+    if (message === 'ping') return Result.Ok(null);
+
     if (this.isAuthenticating) {
       this.messageStack.push(message);
       return Result.Ok(null);

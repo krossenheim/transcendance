@@ -46,6 +46,11 @@ function listInternalContainerConnection(socket: WebSocket, request: FastifyRequ
   return containerName;
 }
 
+// Ping interval to keep WebSocket connections alive through nginx proxy_read_timeout.
+// Nginx closes idle connections after WEBSOCKET_TIMEOUT (default 300s). Periodic pings
+// ensure the connection is never considered idle during tournament bracket views, etc.
+const WS_PING_INTERVAL_MS = 30_000; // 30 seconds
+
 async function main() {
   await fastify.register(websocketPlugin);
 
@@ -56,7 +61,15 @@ async function main() {
       const connectionName = listInternalContainerConnection(socket, req);
       if (connectionName === null) return;
 
+      // Keepalive ping for internal container connections
+      const pingInterval = setInterval(() => {
+        if (socket.readyState === 1 /* WebSocket.OPEN */) {
+          socket.ping();
+        }
+      }, WS_PING_INTERVAL_MS);
+
       socket.on("close", () => {
+        clearInterval(pingInterval);
         const internalSocket = ctx.getInternalContainerSocketByWebSocket(socket);
         if (internalSocket) {
           console.log("Container disconnected: " + internalSocket.getContainerName());
@@ -87,6 +100,13 @@ async function main() {
     "/ws",
     { websocket: true },
     (socket: WebSocket, req: FastifyRequest) => {
+      // Keepalive ping for client connections through nginx
+      const pingInterval = setInterval(() => {
+        if (socket.readyState === 1 /* WebSocket.OPEN */) {
+          socket.ping();
+        }
+      }, WS_PING_INTERVAL_MS);
+
       socket.on("message", async (message: WebSocket.RawData) => {
         let decodedMessage = rawDataToString(message);
         if (!decodedMessage) return;
@@ -101,6 +121,7 @@ async function main() {
       });
 
       socket.on("close", () => {
+        clearInterval(pingInterval);
         ctx.disconnectUserSocket(socket);
       });
     }

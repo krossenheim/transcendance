@@ -86,7 +86,7 @@ export class PongManager {
       // Process AI inputs before simulation
       if (gameData.aiManager.count > 0) {
         const currentGameState = gameData.game.fetchBoardJSON();
-        gameData.aiManager.refreshGameStates(currentGameState);
+        gameData.aiManager.refreshAll(currentGameState);
         // Temporarily boost AI paddle speeds based on difficulty
         const aiSpeedBackups: Map<number, number> = new Map();
         for (const [aiPlayerId] of gameData.aiManager.getControllers()) {

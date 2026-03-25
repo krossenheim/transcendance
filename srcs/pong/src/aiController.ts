@@ -556,7 +556,7 @@ export class AIManager {
     this.controllers.set(playerId, new AIController(playerId, difficulty));
   }
 
-  public refreshGameStates(gameState: any): void {
+  public refreshAll(gameState: any): void {
     const now = Date.now();
     for (const controller of this.controllers.values()) {
       if (controller.shouldRefresh(now)) {

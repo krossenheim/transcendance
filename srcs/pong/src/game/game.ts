@@ -383,7 +383,8 @@ export class PongGame {
         }
 
         let leftOverTime = deltaTime;
-        while (leftOverTime > EPS) {
+        let safetyIterations = 2000; // Prevent event loop blockage from micro-steps
+        while (leftOverTime > EPS && safetyIterations-- > 0) {
             let timeStep = leftOverTime;
             const timeScale = this.scene.getTimeScale();
             for (const paddle of this.paddles) {
@@ -391,6 +392,12 @@ export class PongGame {
                 // This ensures paddles stop exactly at their bounds and don't overshoot.
                 const paddleMaxTime = paddle.updatePaddleVelocity() / timeScale;
                 timeStep = Math.min(paddleMaxTime, timeStep);
+            }
+
+            // If timeStep is extremely small but non-zero, skip to leftOverTime
+            // to avoid millions of micro-iterations that would block the event loop
+            if (timeStep < 1e-6 && leftOverTime > timeStep * 10) {
+                timeStep = leftOverTime;
             }
 
             this.scene.playSimulation(timeStep, this.balls);

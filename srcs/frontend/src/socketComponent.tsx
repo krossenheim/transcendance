@@ -52,6 +52,11 @@ export function useWebSocket() {
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const MAX_RECONNECT_DELAY_MS = 30000
 const MAX_RECONNECT_ATTEMPTS = 10
+// Application-level keepalive interval. The hub sends protocol-level pings,
+// but the browser WebSocket API cannot send protocol-level pings. This
+// lightweight message ensures nginx also sees client→server traffic and
+// doesn't close the connection during idle periods (e.g. tournament bracket).
+const WS_KEEPALIVE_INTERVAL_MS = 30_000 // 30 seconds
 
 export default function SocketComponent({
   AuthResponseObject,
@@ -65,6 +70,7 @@ export default function SocketComponent({
   const [isConnected, setIsConnected] = useState(false)
   const reconnectAttempts = useRef(0)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const keepaliveTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const intentionalClose = useRef(false)
   
   const subscribers = useRef<Map<string, Set<SocketCallbackSubscribtion<any>>>>(new Map())
@@ -176,6 +182,13 @@ export default function SocketComponent({
         const msg = messageQueue.current.shift()!
         ws.send(msg)
       }
+      // Start keepalive pings so nginx doesn't close idle connections
+      if (keepaliveTimer.current) clearInterval(keepaliveTimer.current)
+      keepaliveTimer.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send('ping')
+        }
+      }, WS_KEEPALIVE_INTERVAL_MS)
     }
 
     ws.onmessage = handleMessage
@@ -185,6 +198,10 @@ export default function SocketComponent({
       setIsConnected(false)
       socket.current = null
       globalSocket = null
+      if (keepaliveTimer.current) {
+        clearInterval(keepaliveTimer.current)
+        keepaliveTimer.current = null
+      }
 
       if (intentionalClose.current || event.code === 1000) return
 
@@ -217,6 +234,10 @@ export default function SocketComponent({
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current)
         reconnectTimer.current = null
+      }
+      if (keepaliveTimer.current) {
+        clearInterval(keepaliveTimer.current)
+        keepaliveTimer.current = null
       }
       closeGlobalSocket()
       intentionalClose.current = false
