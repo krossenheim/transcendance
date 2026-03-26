@@ -41,11 +41,8 @@ export async function chatRoutes(fastify: any) {
 
     registerRoute(fastify, int_url.http.db.getUserRooms, async (request, reply) => {
         const userRoomsResult = chatService.getUserRooms(request.params.userId, ChatRoomUserAccessType.JOINED);
-        console.log("Fetching rooms for user:", request.params.userId);
-        console.log("Result of fetching user rooms:", userRoomsResult);
         if (userRoomsResult.isErr())
             return reply.status(500).send({ message: userRoomsResult.unwrapErr().message });
-        console.log("Fetched user rooms:", userRoomsResult.unwrap());
         return reply.status(200).send(userRoomsResult.unwrap());
     });
 
@@ -72,7 +69,6 @@ export async function chatRoutes(fastify: any) {
 
     registerRoute(fastify, int_url.http.db.fetchDMRoomInfo, async (request, reply) => {
         const fetchDMRoomResult = chatService.fetchDMRoom(request.params.userId1, request.params.userId2);
-        console.log(fetchDMRoomResult);
         if (fetchDMRoomResult.isErr())
             return reply.status(500).send({ message: fetchDMRoomResult.unwrapErr().message });
         else return reply.status(200).send(fetchDMRoomResult.unwrap());

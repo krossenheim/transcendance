@@ -74,7 +74,6 @@ export function wsBlockUserHandlers(socket: OurSocket) {
       }
 
       const blockResult = await blockUser(me, blockedUser);
-      console.log("Block user result:", blockResult);
       switch (blockResult.result) {
         case BlockUserResult.AlreadyBlocked:
         case BlockUserResult.SameUser:
@@ -87,7 +86,6 @@ export function wsBlockUserHandlers(socket: OurSocket) {
             message: "Failed to update friendship status",
           }));
         case BlockUserResult.Success:
-          console.log("Block successful, usersUpdated:", blockResult.usersUpdated);
           socket.invokeHandler(
             user_url.ws.users.fetchUserConnections,
             blockResult.usersUpdated,

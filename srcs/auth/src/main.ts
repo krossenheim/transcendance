@@ -296,7 +296,6 @@ registerRoute(fastify, pub_url.http.auth.createNormalUser, async (request, reply
 		return reply.status(500).send({ message: responseResult.unwrapErr() });
 	}
 	const response = responseResult.unwrap();
-	console.log("Response from user service:", response.status, response.data);
 
 	if (response.status === 400) {
 		return reply.status(400).send({ message: 'Invalid user data or user already exists' });
@@ -325,7 +324,6 @@ registerRoute(fastify, pub_url.http.auth.createGuestUser, async (request, reply)
 		return reply.status(500).send({ message: responseResult.unwrapErr() });
 	}
 	const response = responseResult.unwrap();
-	console.log("Response from user service:", response.status, response.data);
 
 	const newUserParse = FullUser.safeParse(response.data);
 	if (response.status !== 201 || !newUserParse.success) {

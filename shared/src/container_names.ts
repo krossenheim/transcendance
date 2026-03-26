@@ -54,7 +54,6 @@ containersIpToName.set(process.env.USERS_IPV4_ADDRESS, process.env.USERS_NAME);
 // 
 
 export const my_address = run_bash_command("getent hosts ${HOSTNAME} | awk '{print $1}'");
-console.log("My address is: " + my_address);
 if (!my_address)
 {
     throw new Error("'getent hosts ${HOSTNAME} | awk '{print $1}' did not return any output.")

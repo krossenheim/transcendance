@@ -10,6 +10,5 @@ export function rawDataToString(data: RawData): string | undefined {
   } else if (Array.isArray(data)) {
     return Buffer.concat(data).toString();
   }
-  console.log("Unknown message type");
   return undefined;
 }

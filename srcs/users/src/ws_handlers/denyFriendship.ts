@@ -63,7 +63,6 @@ export function wsDenyFriendshipHandlers(socket: OurSocket) {
         }));
 
       const confirmResult = await denyUserFriendshipRequest(me, friend);
-      console.log("Friendship confirmation result:", confirmResult);
       switch (confirmResult.result) {
         case DenyFriendshipResult.SameUser:
         case DenyFriendshipResult.NoPendingInvite:

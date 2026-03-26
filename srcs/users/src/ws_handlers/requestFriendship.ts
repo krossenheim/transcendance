@@ -77,7 +77,6 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
         }));
 
       const friendshipResult = await requestUserFriendship(me, friend);
-      console.log("Friendship request result:", friendshipResult);
       switch (friendshipResult.result) {
         case FriendshipCreationResult.SameUser:
         case FriendshipCreationResult.AlreadyFriends:

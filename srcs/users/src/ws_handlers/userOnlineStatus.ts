@@ -29,7 +29,6 @@ export async function fetchAllowedOnlineStatusViewers(userId: number): Promise<A
     int_url.http.chat.getUserConnections,
     { userId: userId }
   );
-  console.log("Chat connections for user", userId, ":", chatConnections);
 
   if (chatConnections.isOk() && chatConnections.unwrap().status === 200) {
     const result_array = chatConnections.unwrap().data as Array<number>;

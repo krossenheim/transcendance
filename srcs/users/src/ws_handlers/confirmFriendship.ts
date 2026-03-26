@@ -76,7 +76,6 @@ export function wsConfirmFriendshipHandlers(socket: OurSocket) {
         }));
 
       const confirmResult = await confirmUserFriendship(me, friend);
-      console.log("Friendship confirmation result:", confirmResult);
       switch (confirmResult.result) {
         case ConfirmFriendshipResult.SameUser:
         case ConfirmFriendshipResult.UserBlocked:

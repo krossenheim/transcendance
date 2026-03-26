@@ -72,7 +72,6 @@ export class OurSocket {
     payload: z.infer<T["schema"]["args"]>
   ): Promise<Result<void, ErrorResponseType>> {
     if (handlerEndpoint.container !== this.container) {
-      console.log(`Invoking handler on different container "${handlerEndpoint.container}" from "${this.container}"`);
       const userIdValue = userId instanceof Array ? userId : [userId];
       this._sendMessageToHub(new ServiceToHubBroadcastMessage(
         handlerEndpoint.container,
@@ -354,7 +353,6 @@ export class OurSocket {
     const str = rawDataToString(data);
     if (!str)
       return Result.Err({ message: "Failed to convert WS data to string" });
-    console.log("Received WS message:", str);
 
     const parsedMessage = HubToServiceMessage.fromRawString(str);
     if (parsedMessage.isErr()) {
@@ -397,12 +395,10 @@ export class OurSocket {
       console.warn(`Message queue full (${MAX_MESSAGE_QUEUE_SIZE}), dropping oldest message`);
       this.messageStack.shift();
     }
-    console.log("Socket not open, stacking message:", messageString);
     this.messageStack.push(messageString);
   }
 
   private _connectToHub(): WebSocket {
-    console.log("Connecting to hub...");
     const socket = new WebSocket(`ws://${process.env.HUB_NAME}:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS}/inter_api`);
 
     socket.on("message", async (data: WebSocket.RawData) => {
@@ -434,24 +430,20 @@ export class OurSocket {
       );
 
       this.reconnectAttempts++;
-      console.log(`Reconnecting to hub in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
 
       setTimeout(() => {
         this.lastReconnectTime = Date.now();
         this.socket = this._connectToHub();
       }, delay);
-      console.log(`Last reconnect time set to ${this.lastReconnectTime}`);
     });
 
     socket.on("open", () => {
-      console.log("WebSocket connection to hub established");
       this.reconnectAttempts = 0;
 
       const messagesToSend = [...this.messageStack];
       this.messageStack = [];
 
       for (const message of messagesToSend) {
-        console.log("Sending stacked message to hub:", message);
         try {
           this.socket.send(message);
         } catch (error) {

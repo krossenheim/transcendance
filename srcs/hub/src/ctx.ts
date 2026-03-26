@@ -31,13 +31,11 @@ export class HubCTX {
         console.error("Socket to container not open, cannot send.");
       else {
         socket.send(message.toString());
-        console.log(`Informed container ${socket_obj.getContainerName()} of user ${connected ? 'connection' : 'dis-connection'}: ${user_id}`);
       }
     }
   }
 
   public disconnectUserSocket(socket: WebSocket) {
-    console.log("Disconnecting user socket.");
     const userSocket = this.socketUsers.get(socket);
     if (userSocket === undefined) return;
 

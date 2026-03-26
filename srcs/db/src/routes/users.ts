@@ -49,8 +49,6 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(401).send({ message: 'Invalid password' });
 
 		const outUser = userService.fetchUserById(user.id);
-		console.log('Login successful for user:', username);
-		console.log('User data:', outUser);
 		if (outUser.isErr()) {
 			console.error('Error fetching user:', outUser.unwrapErr());
 			return reply.status(500).send({ message: outUser.unwrapErr().message });
@@ -81,7 +79,6 @@ async function userRoutes(fastify: FastifyInstance) {
 
 	registerRoute(fastify, int_url.http.db.createNormalUser, async (request, reply) => {
 		const { username, email, password } = request.body;
-		console.log("Creating user:", username, email);
 
 		const userResult = await userService.createNewUser(username, email, await hashPassword(password), UserAccountType.User);
 

@@ -65,8 +65,6 @@ async function handleUserConnectionUpdateNotification(userId: number, isOnline: 
 socketToHub.registerReceiver(
   int_url.ws.hub.userConnected,
   async (data, schema) => {
-    console.log("Received userConnected event with data:", data);
-
     if (data.code === 0) {
       const connectedUserId = data.payload.userId;
       const wasAlreadyOnline = onlineUsers.has(connectedUserId);
@@ -101,8 +99,6 @@ socketToHub.registerReceiver(
 socketToHub.registerReceiver(
   int_url.ws.hub.userDisconnected,
   async (data, schema) => {
-    console.log("Received userDisconnected event with data:", data);
-
     if (data.code === 0) {
       const disconnectedUserId = data.payload.userId;
       const wasOnline = onlineUsers.delete(disconnectedUserId);
@@ -125,12 +121,10 @@ registerRoute(
   fastify,
   user_url.http.users.fetchUserAvatar,
   async (request, reply) => {
-    console.log(request.body);
     const fetchResult = await containers.db.post(
       int_url.http.db.getUserPfp,
       request.body.payload
     );
-    console.log("Fetch result:", fetchResult);
     if (fetchResult.isErr()) {
       reply.code(500).send({ message: "Internal server error" });
       return;
@@ -142,8 +136,6 @@ registerRoute(
       return;
     }
 
-    console.log("Sending avatar with content type image/png");
-    console.log(result.data);
     reply.type('data:image/png;base64');
     reply.code(200).send(result.data);
   }

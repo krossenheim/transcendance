@@ -69,7 +69,6 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
       }
 
       const removeResult = await removeFriendship(me, friend);
-      console.log("Remove friendship result:", removeResult);
       
       switch (removeResult.result) {
         case RemoveFriendshipResult.NotFriends:

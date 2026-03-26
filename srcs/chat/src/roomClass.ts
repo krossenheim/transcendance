@@ -222,7 +222,6 @@ class ChatRooms {
         const rooms = allRoomsResult.unwrap().data as Array<TypeFullRoomInfoSchema>;
         for (const roomInfo of rooms) {
           this.rooms.set(roomInfo.room.roomId, new Room(roomInfo.room, roomInfo.userConnections.map(uc => [uc.userId, uc.userState])));
-          console.log("Loaded room from DB on startup:", roomInfo.room.roomId);
         }
       } else {
         console.error("Failed to load rooms from DB on startup.", allRoomsResult.isErr() ? allRoomsResult.unwrapErr() : allRoomsResult.unwrap());
@@ -257,7 +256,6 @@ class ChatRooms {
     const userConnections: Array<[number, number]> = roomInfo.userConnections.map(uc => [uc.userId, uc.userState]);
     const newRoom = new Room(roomInfo.room, userConnections);
     this.rooms.set(newRoom.roomId, newRoom);
-    console.log("Loaded room from DB:", newRoom);
     return Result.Ok(newRoom);
   }
 
@@ -351,9 +349,7 @@ class ChatRooms {
       return Result.Ok({ room: currentRoom, created: false });
 
     const userRoomsResult = await containers.db.get(int_url.http.db.fetchDMRoomInfo, { userId1: user1_id, userId2: user2_id });
-    console.log("Fetched DM room info result:", userRoomsResult);
     if (userRoomsResult.isOk() && userRoomsResult.unwrap().status === 200) {
-      console.log("DM room found in DB, loading...");
       const roomData = userRoomsResult.unwrap().data.room as TypeFullRoomInfoSchema;
       this.rooms.set(roomData.room.roomId, new Room(roomData.room, roomData.userConnections.map(uc => [uc.userId, uc.userState])));
       return Result.Ok({ room: this.rooms.get(roomData.room.roomId)!, created: userRoomsResult.unwrap().data.created });
@@ -440,10 +436,8 @@ class ChatRooms {
       }
 
       room.users.push(user_id);
-      console.log(`User ${user_id} joined room ${room.roomId}.`);
 
       const userDataResult = await containers.db.fetchUserData(user_id, true);
-      console.log("Fetched user data for join message:", userDataResult);
       if (userDataResult.isOk()) {
         const result = await containers.chat.post(int_url.http.chat.sendSystemMessage, {
           roomId: room.roomId,
@@ -451,7 +445,6 @@ class ChatRooms {
         }).catch((err) => {
           console.error('Failed to send system message for new room:', err);
         });
-        console.log("Sent join system message result:", result);
       } else {
         console.error(`Failed to fetch user data for user ${user_id} to send join message.`);
       }
@@ -516,7 +509,6 @@ class ChatRooms {
       roomId: room.roomId,
       user_to_remove: user_id,
     });
-    console.log(`[leaveRoom] removeUserFromRoom result:`, removeUserResult.isOk() ? removeUserResult.unwrap() : removeUserResult.unwrapErr());
     if (removeUserResult.isErr() || removeUserResult.unwrap().status !== 200) {
       console.error(`[leaveRoom] Failed to remove user ${user_id} from room ${roomIdReq}:`, removeUserResult.isErr() ? removeUserResult.unwrapErr() : removeUserResult.unwrap());
       return Result.Ok({
@@ -534,8 +526,6 @@ class ChatRooms {
     if (allowedIndex !== -1) {
       room.allowedUsers.splice(allowedIndex, 1);
     }
-
-    console.log(`User ${user_id} left room ${room.roomId}.`);
 
     // Notify remaining users that user left
     return Result.Ok({

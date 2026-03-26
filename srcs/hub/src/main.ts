@@ -41,7 +41,6 @@ function listInternalContainerConnection(socket: WebSocket, request: FastifyRequ
     return null;
   }
 
-  console.log("Container connected: " + containerName);
   ctx.saveInternalContainerSocket(containerName, socket);
   return containerName;
 }
@@ -70,10 +69,6 @@ async function main() {
 
       socket.on("close", () => {
         clearInterval(pingInterval);
-        const internalSocket = ctx.getInternalContainerSocketByWebSocket(socket);
-        if (internalSocket) {
-          console.log("Container disconnected: " + internalSocket.getContainerName());
-        }
       });
 
       socket.on("message", async (message: WebSocket.RawData) => {
@@ -176,13 +171,11 @@ async function main() {
   );
   const host = process.env.BACKEND_HUB_BIND_TO || "crash";
 
-  console.log(`Listening to port / host: ${port}/${host}`);
   fastify.listen({ port, host }, (err, address) => {
     if (err) {
-      console.log(err);
+      console.error(err);
       process.exit(1);
     }
-    console.log(`Server listening at ${address}`);
   });
 }
 

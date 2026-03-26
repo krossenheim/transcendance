@@ -8,7 +8,6 @@ import path from 'path';
 import fs from 'fs';
 
 const ZOD_VALIDATION: boolean = process.env.DB_ZOD_VALIDATION === 'true';
-console.log(`Zod validation is ${ZOD_VALIDATION ? 'enabled' : 'disabled'}`);
 
 export enum DatabaseErrorType {
 	CONFLICT = 'CONFLICT',

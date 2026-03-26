@@ -28,9 +28,9 @@ function addHealthcheckRoute(fastify: any) {
 
 export function createFastify(options: FastifyServerOptions = {
 	logger: {
-		level: "info", // or 'debug' for more verbosity
+		level: "info",
 		transport: {
-			target: "pino-pretty", // pretty-print logs in development
+			target: "pino-pretty",
 			options: {
 				colorize: true,
 				translateTime: "HH:MM:ss Z",
@@ -39,9 +39,24 @@ export function createFastify(options: FastifyServerOptions = {
 		},
 	},
 }): FastifyInstance {
+	// Disable Fastify's built-in request/response logging so we can control it
+	options.disableRequestLogging = true;
+
 	const server = Fastify(options);
 	server.setValidatorCompiler(validatorCompiler);
 	server.setSerializerCompiler(serializerCompiler);
+
+	// Only log failed (non-2xx) API responses
+	server.addHook('onResponse', (request, reply, done) => {
+		if (reply.statusCode < 200 || reply.statusCode >= 300) {
+			request.log.warn(
+				{ method: request.method, url: request.url, statusCode: reply.statusCode, responseTime: reply.elapsedTime },
+				'request failed'
+			);
+		}
+		done();
+	});
+
 	addHealthcheckRoute(server);
 	return server;
 }

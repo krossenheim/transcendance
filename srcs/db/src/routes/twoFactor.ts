@@ -54,7 +54,6 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     const result = await twoFactorService.enable(userId, code);
 
     if (result.isErr()) {
-      console.log('Error enabling 2FA for userId:', userId, 'Code:', code, 'Error:', result.unwrapErr());
       return reply.status(400).send({ message: result.unwrapErr().message });
     }
 
@@ -79,7 +78,6 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     const result = twoFactorService.verify(userId, code);
 
     if (result.isErr()) {
-      console.log('Error verifying 2FA code for userId:', userId, 'Code:', code, 'Error:', result.unwrapErr());
       return reply.status(400).send({ message: result.unwrapErr().message });
     }
 
