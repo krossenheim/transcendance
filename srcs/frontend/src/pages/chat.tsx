@@ -1,5 +1,6 @@
 import RoomList from "@features/chat/containers/RoomList";
 import ChatBox from "@features/chat/containers/ChatBox";
+import BannerAd from "@src/components/BannerAd";
 
 import { user_url } from "@app/shared/api/service/common/endpoints";
 import { getSocketSenderRef } from "@utils/socketRef";
@@ -23,6 +24,7 @@ export default function ChatPage() {
             <ChatBox />
           </div>
         </div>
+        <BannerAd />
       </div>
     </div>
   )
