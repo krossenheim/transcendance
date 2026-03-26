@@ -20,7 +20,7 @@ export class HubCTX {
   }
 
   private _notifyContainersOfConnectionStateChange(user_id: number, connected: boolean) {
-    for (const [socket, socket_obj] of this.internalContainerSocketBySocket.entries()) {
+    for (const [socket] of this.internalContainerSocketBySocket.entries()) {
       const message = new HubToServiceReceiverMessage(
         "hub",
         connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
