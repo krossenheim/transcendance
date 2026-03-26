@@ -58,7 +58,6 @@ export class OurSocket {
   private handlerCallables: Record<string, HandlerCallable> = {};
   private receiverCallables: Record<string, ReceiverCallable> = {};
   private messageStack: Array<string> = [];
-  private lastReconnectTime: number = 0;
   private reconnectAttempts: number = 0;
 
   constructor(container: string) {
@@ -432,7 +431,6 @@ export class OurSocket {
       this.reconnectAttempts++;
 
       setTimeout(() => {
-        this.lastReconnectTime = Date.now();
         this.socket = this._connectToHub();
       }, delay);
     });

@@ -439,7 +439,7 @@ class ChatRooms {
 
       const userDataResult = await containers.db.fetchUserData(user_id, true);
       if (userDataResult.isOk()) {
-        const result = await containers.chat.post(int_url.http.chat.sendSystemMessage, {
+        await containers.chat.post(int_url.http.chat.sendSystemMessage, {
           roomId: room.roomId,
           messageString: `${userDataResult.unwrap().username} has joined the room!`,
         }).catch((err) => {
