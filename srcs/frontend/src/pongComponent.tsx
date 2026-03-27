@@ -14,7 +14,11 @@ import PowerupDisplay from "./PowerupDisplay"
 import PongLeaderboard from "./PongLeaderboard"
 import PongInviteModal, { type GameMode, type GameSettings } from "./pongInviteModal"
 import PongLobby, { type PongLobbyData } from "./pongLobby"
-import TournamentBracket, { type TournamentData, type TournamentMatch } from "./tournamentBracket"
+import TournamentBracket from "./tournamentBracket"
+import type {
+  TypeTournamentData,
+  TypeTournamentMatchResult,
+} from "@app/shared/api/service/pong/pong_interfaces"
 import TournamentStats from "./tournamentStats"
 import { type PongInvitation } from "./pongInviteNotifications"
 import { usePredictedGameState } from "./usePredictedGameState"
@@ -379,7 +383,7 @@ export default function PongComponent({
   // Set stable tournament-wide player colors so bracket doesn't flicker
   useEffect(() => {
     if (tournament?.players && tournament.players.length > 0) {
-      setGamePlayerIds(tournament.players.map(p => p.id));
+      setGamePlayerIds(tournament.players.map(p => p.userId));
     }
   }, [tournament?.players])
 
@@ -617,34 +621,7 @@ export default function PongComponent({
             (window as any).__pongTournamentId = serverTournament.tournamentId;
             console.log("[Pong-Stable] 🏆 Stored tournament ID in ref + window:", serverTournament.tournamentId);
 
-            setTournament({
-              tournamentId: serverTournament.tournamentId,
-              name: serverTournament.name || "Tournament",
-              mode: serverTournament.mode || message.payload.gameMode,
-              players: serverTournament.players?.map((p: any) => ({
-                id: p.userId || p.id,
-                username: p.username || `Player ${p.userId || p.id}`,
-                alias: p.alias,
-              })) || [],
-              matches: serverTournament.matches?.map((m: any) => ({
-                matchId: m.matchId,
-                round: m.round,
-                player1: serverTournament.players?.find((p: any) => (p.userId || p.id) === m.player1Id) ?
-                  { id: m.player1Id, username: serverTournament.players?.find((p: any) => (p.userId || p.id) === m.player1Id)?.username || `Player ${m.player1Id}` } : null,
-                player2: serverTournament.players?.find((p: any) => (p.userId || p.id) === m.player2Id) ?
-                  { id: m.player2Id, username: serverTournament.players?.find((p: any) => (p.userId || p.id) === m.player2Id)?.username || `Player ${m.player2Id}` } : null,
-                winner: m.winnerId,
-                status: m.status,
-                readyPlayers: m.readyPlayers || [],
-                gameId: m.gameId ?? undefined,
-              })) || [],
-              currentRound: serverTournament.currentRound || 1,
-              totalRounds: serverTournament.totalRounds || 2,
-              status: serverTournament.status === "completed" ? "completed" : "in_progress" as const,
-              winner: serverTournament.winnerId ?
-                { id: serverTournament.winnerId, username: serverTournament.players?.find((p: any) => (p.userId || p.id) === serverTournament.winnerId)?.username || `Player ${serverTournament.winnerId}` } : null,
-              isLocal: serverTournament.isLocal || false,
-            });
+            setTournament(serverTournament as TypeTournamentData);
 
             // For local tournaments, skip the lobby and go directly to bracket view
             if (serverTournament.isLocal) {
@@ -749,45 +726,12 @@ export default function PongComponent({
         
         // Always update tournament state with latest data from server
         if (result.tournament) {
-          const tournamentFromServer = result.tournament;
-          const mapPlayer = (p: any) => ({
-            id: p.userId || p.id,
-            username: p.username || `Player ${p.userId || p.id}`,
-            alias: p.alias,
-          });
-          const findPlayer = (playerId: number | null) => {
-            if (playerId === null) return null;
-            const p = tournamentFromServer.players?.find((pl: any) => (pl.userId || pl.id) === playerId);
-            return p ? mapPlayer(p) : null;
-          };
-          
-          const newTournament: TournamentData = {
-            tournamentId: tournamentFromServer.tournamentId,
-            name: tournamentFromServer.name || "Tournament",
-            mode: "tournament",
-            players: tournamentFromServer.players?.map(mapPlayer) || [],
-            matches: tournamentFromServer.matches?.map((m: any) => ({
-              matchId: m.matchId,
-              round: m.round,
-              player1: findPlayer(m.player1Id),
-              player2: findPlayer(m.player2Id),
-              winner: m.winnerId,
-              status: m.status,
-              readyPlayers: m.readyPlayers || [],
-              gameId: m.gameId ?? undefined,
-            })) || [],
-            currentRound: tournamentFromServer.currentRound || 1,
-            totalRounds: tournamentFromServer.totalRounds || 2,
-            status: tournamentFromServer.status === "completed" ? "completed" : "in_progress" as const,
-            winner: findPlayer(tournamentFromServer.winnerId),
-            onchainTxHashes: tournamentFromServer.onchainTxHashes || [],
-            isLocal: tournamentFromServer.isLocal || false,
-          };
+          const tournamentFromServer = result.tournament as TypeTournamentData;
           
           console.log("[Pong-Stable] Setting tournament state with finals:", 
-            newTournament.matches.find(m => m.round === newTournament.totalRounds));
+            tournamentFromServer.matches.find(m => m.round === tournamentFromServer.totalRounds));
           
-          setTournament(newTournament);
+          setTournament(tournamentFromServer);
           setActiveTournamentId(tournamentFromServer.tournamentId);
         }
       }
@@ -811,7 +755,7 @@ export default function PongComponent({
         // Set players from tournament data for score display (use ref)
         const currentTournament = tournamentRef.current;
         if (currentTournament?.players) {
-          setDebugPlayers(currentTournament.players.map(p => ({ id: p.id, username: p.alias || p.username })));
+          setDebugPlayers(currentTournament.players.map(p => ({ id: p.userId, username: p.alias || p.username })));
         }
         
         const normalized = normalizeGameState(gameStatePayload);
@@ -867,7 +811,7 @@ export default function PongComponent({
         // Set players from tournament data for score display
         const currentTournament = tournamentRef.current;
         if (currentTournament?.players) {
-          setDebugPlayers(currentTournament.players.map(p => ({ id: p.id, username: p.alias || p.username })));
+          setDebugPlayers(currentTournament.players.map(p => ({ id: p.userId, username: p.alias || p.username })));
         }
         
         const normalized = normalizeGameState(gameStatePayload);
@@ -1115,29 +1059,6 @@ export default function PongComponent({
         // Note: Tournament state update is handled by the stable subscription above
         // This handler only deals with game over UI state
         
-        // Store match result info for game over UI
-        const mapResultPlayer = (playerId: number | null): { id: number; username: string; alias?: string } | null => {
-          if (playerId === null) return null;
-          const p: any = result.tournament?.players?.find((player: any) => (player.userId || player.id) === playerId);
-          if (!p) return null;
-          const mapped: { id: number; username: string; alias?: string } = { 
-            id: p.userId || p.id, 
-            username: p.username || `Player ${playerId}` 
-          };
-          if (p.alias) mapped.alias = p.alias;
-          return mapped;
-        };
-        
-        const nextMatch: TournamentMatch | null = result.nextMatch ? {
-          matchId: result.nextMatch.matchId,
-          round: result.nextMatch.round,
-          player1: mapResultPlayer(result.nextMatch.player1Id),
-          player2: mapResultPlayer(result.nextMatch.player2Id),
-          winner: result.nextMatch.winnerId,
-          status: result.nextMatch.status,
-          readyPlayers: result.nextMatch.readyPlayers || [],
-        } : null;
-        
         // If winnerId is 0, this is a "match started" notification for spectators
         // They should go to tournament view (not game view since they're not playing)
         if (result.winnerId === 0 && currentViewRef.current !== 'game') {
@@ -1148,14 +1069,7 @@ export default function PongComponent({
           return HandlerResult.Handled;
         }
         
-        setTournamentMatchResult({
-          tournamentId: result.tournamentId,
-          matchId: result.matchId,
-          winnerId: result.winnerId,
-          loserId: result.loserId,
-          nextMatch,
-          isTournamentComplete: result.isTournamentComplete,
-        });
+        setTournamentMatchResult(result as TypeTournamentMatchResult);
         
         return HandlerResult.Handled;
       }
@@ -1796,8 +1710,8 @@ export default function PongComponent({
                     <p className="text-white text-2xl mb-6">
                       {t('pong.winner')}: <span className="text-green-500 font-bold">{
                         (() => {
-                          const winnerId = tournamentMatchResult?.winnerId || tournament?.winner?.id;
-                          const player = tournament?.players?.find(p => p.id === winnerId);
+                          const winnerId = tournamentMatchResult?.winnerId || tournament?.winnerId;
+                          const player = tournament?.players?.find(p => p.userId === winnerId);
                           return player?.alias || player?.username || `Player ${winnerId}`;
                         })()
                       }</span>
@@ -1815,7 +1729,7 @@ export default function PongComponent({
                       (() => {
                         const winnerId = gameState.winner;
                         const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
-                        const players = debugPlayers || tournament?.players?.map(p => ({ id: p.id, username: p.alias || p.username })) || lobby?.players?.map(p => ({ id: p.id, username: p.username })) || [];
+                        const players = debugPlayers || tournament?.players?.map(p => ({ id: p.userId, username: p.alias || p.username })) || lobby?.players?.map(p => ({ id: p.id, username: p.username })) || [];
                         const winner = players.find(p => p.id === winnerId);
                         return winner?.username || (winnerId != null ? playerUsernames?.[String(winnerId)] : undefined) || `${t('pong.player')} ${winnerId}`;
                       })()
@@ -1829,7 +1743,7 @@ export default function PongComponent({
                     ? Object.entries(gameState.score).map(([p, s]: [string, any]) => {
                         const playerId = parseInt(p);
                         const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
-                        const players = debugPlayers || tournament?.players?.map(pl => ({ id: pl.id, username: pl.alias || pl.username })) || lobby?.players?.map(pl => ({ id: pl.id, username: pl.username })) || [];
+                        const players = debugPlayers || tournament?.players?.map(pl => ({ id: pl.userId, username: pl.alias || pl.username })) || lobby?.players?.map(pl => ({ id: pl.id, username: pl.username })) || [];
                         const player = players.find(pl => pl.id === playerId);
                         const name = player?.username || playerUsernames?.[String(playerId)] || `${t('pong.player')} ${p}`;
                         return `${name}: ${s}`;
@@ -1843,17 +1757,17 @@ export default function PongComponent({
                   // Check if I won or lost my completed match
                   const myCompletedMatch = tournament?.matches.find(m =>
                     m.status === 'completed' &&
-                    (m.player1?.id === myUserId || m.player2?.id === myUserId)
+                    (m.player1Id === myUserId || m.player2Id === myUserId)
                   );
-                  const iWon = myCompletedMatch && myCompletedMatch.winner === myUserId;
-                  const iLost = myCompletedMatch && myCompletedMatch.winner !== myUserId;
+                  const iWon = myCompletedMatch && myCompletedMatch.winnerId === myUserId;
+                  const iLost = myCompletedMatch && myCompletedMatch.winnerId !== myUserId;
                   
                   const isTournamentComplete = tournament?.status === 'completed';
                   
                   console.log('[GameOver] Tournament state debug:', {
                     myUserId,
                     tournamentStatus: tournament?.status,
-                    myCompletedMatch: myCompletedMatch ? { matchId: myCompletedMatch.matchId, winner: myCompletedMatch.winner } : null,
+                    myCompletedMatch: myCompletedMatch ? { matchId: myCompletedMatch.matchId, winnerId: myCompletedMatch.winnerId } : null,
                     iWon,
                     iLost,
                     isTournamentComplete,
@@ -1889,7 +1803,7 @@ export default function PongComponent({
                     // For remote tournaments, show continue only if the user won their match
                     const myCompletedMatch = tournament?.matches.find(m =>
                       m.status === 'completed' &&
-                      m.winner === myUserId
+                      m.winnerId === myUserId
                     );
                     const showContinue = effectiveTournamentId && !isTournamentComplete && (isLocal || myCompletedMatch);
                     
@@ -1919,8 +1833,8 @@ export default function PongComponent({
                     // Check if eliminated (lost and tournament still going)
                     const iEliminated = tournament.status !== 'completed' && tournament.matches.some(m =>
                       m.status === 'completed' &&
-                      (m.player1?.id === myUserId || m.player2?.id === myUserId) &&
-                      m.winner !== myUserId
+                      (m.player1Id === myUserId || m.player2Id === myUserId) &&
+                      m.winnerId !== myUserId
                     );
                     return (
                       <button

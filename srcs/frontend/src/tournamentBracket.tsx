@@ -4,34 +4,14 @@ import React from "react"
 import { getUserColorCSS } from "@utils/users"
 import MiniPongCanvas from "./MiniPongCanvas"
 import type { TypeGameStateSchema } from "./types/pong-interfaces"
-
-export interface TournamentMatch {
-  matchId: number
-  round: number
-  player1: { id: number; username: string; alias?: string } | null
-  player2: { id: number; username: string; alias?: string } | null
-  winner: number | null
-  status: "pending" | "in_progress" | "completed"
-  readyPlayers?: number[] // Players who clicked "Join Match"
-  gameId?: number // Associated pong game ID when match is in progress
-}
-
-export interface TournamentData {
-  tournamentId: number
-  name: string
-  mode: "tournament"
-  players: Array<{ id: number; username: string; alias?: string }>
-  matches: TournamentMatch[]
-  currentRound: number
-  totalRounds: number
-  status: "in_progress" | "completed"
-  winner: { id: number; username: string; alias?: string } | null
-  onchainTxHashes?: string[]
-  isLocal?: boolean
-}
+import type {
+  TypeTournamentData,
+  TypeTournamentMatch,
+  TypeTournamentPlayer,
+} from "@app/shared/api/service/pong/pong_interfaces"
 
 interface TournamentBracketProps {
-  tournament: TournamentData
+  tournament: TypeTournamentData
   currentUserId: number
   onJoinMatch: (matchId: number) => void
   onSpectate: (matchId: number) => void
@@ -51,6 +31,13 @@ export default function TournamentBracket({
 }: TournamentBracketProps) {
   const [waitingForMatch, setWaitingForMatch] = React.useState<number | null>(null)
 
+  const findPlayer = (playerId: number | null): TypeTournamentPlayer | null => {
+    if (playerId === null) return null;
+    return tournament.players.find(p => p.userId === playerId) ?? null;
+  };
+
+  const winnerPlayer = findPlayer(tournament.winnerId);
+
   // Reset waiting state when match status changes
   React.useEffect(() => {
     if (waitingForMatch !== null) {
@@ -67,7 +54,7 @@ export default function TournamentBracket({
   };
 
   // Group matches by round
-  const matchesByRound: Record<number, TournamentMatch[]> = {}
+  const matchesByRound: Record<number, TypeTournamentMatch[]> = {}
   tournament.matches.forEach((match) => {
     if (!matchesByRound[match.round]) matchesByRound[match.round] = []
     matchesByRound[match.round]!.push(match)
@@ -92,14 +79,14 @@ export default function TournamentBracket({
               {" • "}Round {tournament.currentRound} of {tournament.totalRounds}
             </p>
           </div>
-          {tournament.status === "completed" && tournament.winner && (
+          {tournament.status === "completed" && winnerPlayer && (
             <div className="text-right">
               <div className="text-xs text-gray-500">Winner</div>
               <div
                 className="text-xl font-bold"
-                style={{ color: getUserColorCSS(tournament.winner.id, true) }}
+                style={{ color: getUserColorCSS(winnerPlayer.userId, true) }}
               >
-                👑 {tournament.winner.alias || tournament.winner.username}
+                👑 {winnerPlayer.alias || winnerPlayer.username}
               </div>
             </div>
           )}
@@ -144,16 +131,16 @@ export default function TournamentBracket({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {tournament.players.map((player) => (
             <div
-              key={player.id}
+              key={player.userId}
               className="p-2 bg-gray-50/40 dark:bg-gray-900/70 rounded-lg border border-gray-200 dark:border-gray-700 text-center"
             >
               <div
                 className="text-sm font-medium"
-                style={{ color: getUserColorCSS(player.id, true) }}
+                style={{ color: getUserColorCSS(player.userId, true) }}
               >
                 {player.alias || player.username}
               </div>
-              {player.id === currentUserId && <div className="text-xs text-blue-500">(You)</div>}
+              {player.userId === currentUserId && <div className="text-xs text-blue-500">(You)</div>}
             </div>
           ))}
         </div>
@@ -167,7 +154,7 @@ export default function TournamentBracket({
               const round = roundIndex + 1
               const matches = (matchesByRound[round] || []).filter(m => {
                 // Hide completed bye matches (one player slot empty)
-                if (m.status === "completed" && (!m.player1 || !m.player2)) return false;
+                if (m.status === "completed" && (m.player1Id === null || m.player2Id === null)) return false;
                 return true;
               })
               return (
@@ -192,23 +179,26 @@ export default function TournamentBracket({
 
                         {/* Player 1 */}
                         <div
-                          className={`p-2 mb-1 rounded ${match.winner === match.player1?.id
+                          className={`p-2 mb-1 rounded ${match.winnerId === match.player1Id
                             ? "bg-green-100 dark:bg-green-900/30 font-bold"
                             : "bg-white/50 dark:bg-gray-800/80"
                             }`}
                         >
                           <div className="text-sm flex items-center justify-between">
-                            {match.player1 ? (
+                            {match.player1Id !== null ? (() => {
+                              const p1 = findPlayer(match.player1Id);
+                              return (
                               <>
-                                <span style={{ color: getUserColorCSS(match.player1.id, true) }}>
-                                  {match.player1.alias || match.player1.username}
-                                  {match.winner === match.player1.id && " 👑"}
+                                <span style={{ color: getUserColorCSS(match.player1Id, true) }}>
+                                  {p1?.alias || p1?.username || `Player ${match.player1Id}`}
+                                  {match.winnerId === match.player1Id && " 👑"}
                                 </span>
-                                {match.status === "pending" && match.readyPlayers?.includes(match.player1.id) && (
+                                {match.status === "pending" && match.readyPlayers?.includes(match.player1Id) && (
                                   <span className="text-green-500 text-xs">✓ Ready</span>
                                 )}
                               </>
-                            ) : (
+                              );
+                            })() : (
                               <span className="text-gray-400 italic">{match.status === "completed" ? "BYE" : "TBD"}</span>
                             )}
                           </div>
@@ -218,23 +208,26 @@ export default function TournamentBracket({
 
                         {/* Player 2 */}
                         <div
-                          className={`p-2 rounded ${match.winner === match.player2?.id
+                          className={`p-2 rounded ${match.winnerId === match.player2Id
                             ? "bg-green-100 dark:bg-green-900/30 font-bold"
                             : "bg-white/50 dark:bg-gray-800/80"
                             }`}
                         >
                           <div className="text-sm flex items-center justify-between">
-                            {match.player2 ? (
+                            {match.player2Id !== null ? (() => {
+                              const p2 = findPlayer(match.player2Id);
+                              return (
                               <>
-                                <span style={{ color: getUserColorCSS(match.player2.id, true) }}>
-                                  {match.player2.alias || match.player2.username}
-                                  {match.winner === match.player2.id && " 👑"}
+                                <span style={{ color: getUserColorCSS(match.player2Id, true) }}>
+                                  {p2?.alias || p2?.username || `Player ${match.player2Id}`}
+                                  {match.winnerId === match.player2Id && " 👑"}
                                 </span>
-                                {match.status === "pending" && match.readyPlayers?.includes(match.player2.id) && (
+                                {match.status === "pending" && match.readyPlayers?.includes(match.player2Id) && (
                                   <span className="text-green-500 text-xs">✓ Ready</span>
                                 )}
                               </>
-                            ) : (
+                              );
+                            })() : (
                               <span className="text-gray-400 italic">{match.status === "completed" ? "BYE" : "TBD"}</span>
                             )}
                           </div>
@@ -242,9 +235,9 @@ export default function TournamentBracket({
 
                         {/* Match Actions */}
                         {match.status === "pending" &&
-                          match.player1 &&
-                          match.player2 &&
-                          (tournament.isLocal || match.player1.id === currentUserId || match.player2.id === currentUserId) && (() => {
+                          match.player1Id !== null &&
+                          match.player2Id !== null &&
+                          (tournament.isLocal || match.player1Id === currentUserId || match.player2Id === currentUserId) && (() => {
                             const isCurrentUserReady = match.readyPlayers?.includes(currentUserId) ?? false;
                             const isWaiting = !tournament.isLocal && (isCurrentUserReady || waitingForMatch === match.matchId);
                             return (
@@ -264,7 +257,7 @@ export default function TournamentBracket({
                             );
                           })()}
                         {match.status === "in_progress" && (() => {
-                          const isInMatch = match.player1?.id === currentUserId || match.player2?.id === currentUserId;
+                          const isInMatch = match.player1Id === currentUserId || match.player2Id === currentUserId;
                           const hasLivePreview = !isInMatch && match.gameId != null && getWatchedGameState;
                           return (
                             <div className="mt-2">

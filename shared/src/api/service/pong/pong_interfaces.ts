@@ -236,6 +236,8 @@ export const TournamentMatchResultSchema = z
   .strict();
 
 export type TypeTournamentMatchResult = z.infer<typeof TournamentMatchResultSchema>;
+export type TypeTournamentPlayer = z.infer<typeof TournamentPlayerSchema>;
+export type TypeTournamentMatch = z.infer<typeof TournamentMatchSchema>;
 
 export type TypePlayerDeclaresReadyForGame = z.infer<
   typeof PlayerDeclaresReadyForGame

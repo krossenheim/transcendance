@@ -1,42 +1,23 @@
 import type { Result } from "@app/shared/api/service/common/result";
 import { Result as ResultClass } from "@app/shared/api/service/common/result";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
+import type {
+  TypeTournamentPlayer,
+  TypeTournamentMatch,
+  TypeTournamentData,
+} from "@app/shared/api/service/pong/pong_interfaces";
 
-export interface TournamentPlayer {
-  userId: number;
-  username: string;
-  alias?: string;
-}
+export type TournamentPlayer = TypeTournamentPlayer;
 
-export interface TournamentMatch {
-  matchId: number;
-  round: number;
-  player1Id: number | null;
-  player2Id: number | null;
-  winnerId: number | null;
-  status: "pending" | "in_progress" | "completed";
-  gameId?: number; // Associated pong game ID when started
-  readyPlayers: number[]; // Players who clicked "Join Match"
-}
+// Server-side matches always have readyPlayers initialized
+export type TournamentMatch = TypeTournamentMatch & { readyPlayers: number[] };
 
-export interface Tournament {
-  tournamentId: number;
-  name: string;
-  mode: "tournament";
-  players: TournamentPlayer[];
+// Server-side tournament extends the shared schema with game-settings fields
+export type Tournament = Omit<TypeTournamentData, 'matches'> & {
   matches: TournamentMatch[];
-  currentRound: number;
-  totalRounds: number;
-  status: "registration" | "in_progress" | "completed";
-  winnerId: number | null;
-  ballCount: number;
-  maxScore: number;
   allowPowerups: boolean;
   aiDifficulty: number;
-  onchainTxHashes?: string[];
-  isLocal?: boolean;
-  hostUserId?: number;
-}
+};
 
 export class TournamentManager {
   private tournaments: Map<number, Tournament>;

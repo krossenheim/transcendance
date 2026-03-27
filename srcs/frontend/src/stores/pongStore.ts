@@ -1,19 +1,12 @@
 import { create } from 'zustand';
 import type { TypeGameStateSchema } from '../types/pong-interfaces';
 import type { PongLobbyData } from '../pongLobby';
-import type { TournamentData, TournamentMatch } from '../tournamentBracket';
+import type {
+    TypeTournamentData,
+    TypeTournamentMatchResult,
+} from '@app/shared/api/service/pong/pong_interfaces';
 
 export type PongView = "menu" | "lobby" | "game" | "tournament";
-
-// Tournament match result received after a match ends
-export interface TournamentMatchResultInfo {
-    tournamentId: number;
-    matchId: number;
-    winnerId: number | null;
-    loserId: number | null;
-    nextMatch: TournamentMatch | null;
-    isTournamentComplete: boolean;
-}
 
 interface PongState {
     // Core game state
@@ -33,10 +26,10 @@ interface PongState {
     debugPlayers: Array<{ id: number; username: string }> | null;
 
     // Tournament state
-    tournament: TournamentData | null;
+    tournament: TypeTournamentData | null;
     activeTournamentId: number | null;
     showTournamentStats: boolean;
-    tournamentMatchResult: TournamentMatchResultInfo | null;
+    tournamentMatchResult: TypeTournamentMatchResult | null;
 
     // Modals
     showInviteModalLocal: boolean;
@@ -58,11 +51,11 @@ interface PongState {
     setDebugPlayers: (players: Array<{ id: number; username: string }> | null) => void;
 
     // Actions - Tournament
-    setTournament: (tournament: TournamentData | null) => void;
+    setTournament: (tournament: TypeTournamentData | null) => void;
     setActiveTournamentId: (id: number | null) => void;
     setShowTournamentStats: (show: boolean) => void;
     updateTournamentPlayerAlias: (userId: number, alias: string) => void;
-    setTournamentMatchResult: (result: TournamentMatchResultInfo | null) => void;
+    setTournamentMatchResult: (result: TypeTournamentMatchResult | null) => void;
 
     // Actions - Modals
     setShowInviteModalLocal: (show: boolean) => void;
@@ -160,7 +153,7 @@ export const usePongStore = create<PongState>((set, get) => ({
             tournament: {
                 ...tournament,
                 players: tournament.players.map((p) =>
-                    p.id === userId ? { ...p, alias } : p
+                    p.userId === userId ? { ...p, alias } : p
                 ),
             },
         });
