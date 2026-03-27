@@ -1,7 +1,7 @@
 import type { Result } from "@app/shared/api/service/common/result";
 import { Result as ResultClass } from "@app/shared/api/service/common/result";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
-import { LobbyPlayerSchema } from "@app/shared/api/service/pong/pong_interfaces";
+import { LobbyDataSchema } from "@app/shared/api/service/pong/pong_interfaces";
 // import type { LobbyDataType } from "@app/shared/api/service/pong/pong_interfaces";
 
 // class Lobby {
@@ -29,21 +29,20 @@ import { LobbyPlayerSchema } from "@app/shared/api/service/pong/pong_interfaces"
 // }
 import { z } from "zod";
 
-type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>
-
-export interface Lobby {
-  lobbyId: number;
-  gameMode: "1v1" | "multiplayer" | "tournament" | "lastOneStanding";
-  players: LobbyPlayer[];
-  ballCount: number;
-  maxScore: number;
-  allowPowerups: boolean;
-  aiCount: number; // Number of AI players (0-7)
-  aiDifficulty: number; // 1=Easy, 2=Medium, 3=Hard
-  status: "waiting" | "starting" | "in_progress";
-  gameId?: number; // Set when game starts
-  tournamentId?: number; // Set if this is a tournament
-}
+// export interface Lobby {
+//   lobbyId: number;
+//   gameMode: "1v1" | "multiplayer" | "tournament" | "lastOneStanding";
+//   players: LobbyPlayer[];
+//   ballCount: number;
+//   maxScore: number;
+//   allowPowerups: boolean;
+//   aiCount: number;
+//   aiDifficulty: number;
+//   status: "waiting" | "starting" | "in_progress";
+//   gameId?: number;
+//   tournamentId?: number;
+// }
+export type Lobby = z.infer<typeof LobbyDataSchema>;
 
 export class LobbyManager {
   private lobbies: Map<number, Lobby>;
