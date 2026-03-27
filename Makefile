@@ -174,6 +174,8 @@ clean: down
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
 	rm -rf "$(PROJECT_ROOT)static/react_dist/assets"
+	# Remove VM-side node_modules installed by check-npm-deps / build_react
+	find "$(PROJECT_ROOT)" -maxdepth 3 -name node_modules -type d -exec rm -rf {} +
 	# Remove all service containers by name
 	for c in $(NGINX_NAME) $(HUB_NAME) $(CHATROOM_NAME) $(DATABASE_NAME) $(AUTH_NAME) $(PONG_NAME) $(USERS_NAME) hardhat blockchain-explorer; do \
 	    docker rm -f $$c 2>/dev/null || true; \
