@@ -10,6 +10,7 @@ import { int_url, user_url } from "@app/shared/api/service/common/endpoints";
 import { Result } from "@app/shared/api/service/common/result";
 import { createFastify } from "@app/shared/api/service/common/fastify";
 import containers from "@app/shared/internal_api";
+import { Lobby } from "./lobbyManager.js";
 import { PlayerLobbyStatus, LobbyStatus } from "@app/shared/api/service/pong/lobby_interfaces";
 // Prometheus metrics
 import client from "prom-client";
@@ -55,7 +56,7 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
     console.error("Failed to record match winner:", result.unwrapErr());
     return;
   }
-  
+
   const tournament = result.unwrap();
   if (tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0) {
   }
@@ -66,7 +67,7 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
     console.error(`[Pong] Could not find match ${matchId} in tournament ${tournamentId}`);
     return;
   }
-  
+
   const loserId = completedMatch.player1Id === winnerId ? completedMatch.player2Id : completedMatch.player1Id;
   if (loserId === null) {
     console.error(`[Pong] Could not determine loser for match ${matchId}`);
@@ -126,14 +127,14 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
   const matchPlayerIds = filterHumanIds(
     [completedMatch.player1Id, completedMatch.player2Id].filter(id => id !== null) as number[]
   );
-  
+
   // All human tournament players
   const allPlayerIds = filterHumanIds(tournament.players.map(p => p.userId));
-  
+
   // Send match result to players who were IN the match
   for (const playerId of matchPlayerIds) {
     const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
-    
+
     const payload = {
       tournamentId,
       matchId,
@@ -144,7 +145,7 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
       isTournamentComplete,
     };
 
-    
+
     socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
       recipients: [playerId],
       code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
@@ -157,7 +158,7 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
   const otherPlayerIds = allPlayerIds.filter(id => !matchPlayerIds.includes(id));
   for (const playerId of otherPlayerIds) {
     const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
-    
+
     const payload = {
       tournamentId,
       matchId,
@@ -168,7 +169,7 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
       isTournamentComplete,
     };
 
-    
+
     socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
       recipients: [playerId],
       code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
@@ -514,78 +515,79 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
   ));
 });
 
-socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
-  const user_id = body.userId;
-  const { lobbyId } = body.payload;
+export enum ThrowUserOutOfLobbyResult {
+  Success,
+  LobbyNotFound,
+  FailedToRemovePlayer,
+  FailedToDeleteLobby,
+};
 
-  let lobby = lobbyManager.getLobby(lobbyId);
-  if (!lobby) {
-    lobby = lobbyManager.getLobbyForPlayer(user_id);
-    if (lobby) {
+export type ThrowUserOutOfLobbyResultType =
+  | { result: ThrowUserOutOfLobbyResult.Success, updatedLobby: Lobby | null }
+  | { result: ThrowUserOutOfLobbyResult.LobbyNotFound }
+  | { result: ThrowUserOutOfLobbyResult.FailedToRemovePlayer }
+  | { result: ThrowUserOutOfLobbyResult.FailedToDeleteLobby }
+
+async function throwUserOutOfLobby(userId: number, lobbyId: number): Promise<ThrowUserOutOfLobbyResultType> {
+  let lobby = lobbyManager.getLobbyForPlayer(userId);
+  if (!lobby)
+    return { result: ThrowUserOutOfLobbyResult.LobbyNotFound };
+
+  if (!isAiPlayer(userId) && !isLocalPlayer(userId)) {
+    let result = await containers.db.post(int_url.http.db.setLobbyPlayerState, {
+      lobbyId: lobbyId,
+      userId,
+      state: PlayerLobbyStatus.Left,
+    });
+    if (result.isErr())
+      return { result: ThrowUserOutOfLobbyResult.FailedToRemovePlayer };
+  }
+
+  const updatedLobby = lobbyManager.removePlayerFromLobby(lobbyId, userId).unwrap();
+  if (updatedLobby === null) {
+    let result = await containers.db.post(int_url.http.db.deleteLobbyFromDb, {
+      lobbyId: lobbyId,
+    });
+    if (result.isErr())
+      return { result: ThrowUserOutOfLobbyResult.FailedToDeleteLobby };
+  } else {
+    const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
+    if (remainingPlayerIds.length > 0) {
+      socket.sendMessage(user_url.ws.pong.leaveLobby, {
+        recipients: remainingPlayerIds,
+        code: user_url.ws.pong.leaveLobby.schema.output.LobbyUpdate.code,
+        payload: {
+          lobbyId: updatedLobby.lobbyId,
+          gameMode: updatedLobby.gameMode,
+          players: updatedLobby.players,
+          ballCount: updatedLobby.ballCount,
+          maxScore: updatedLobby.maxScore,
+          allowPowerups: updatedLobby.allowPowerups,
+          aiCount: updatedLobby.aiCount || 0,
+          status: updatedLobby.status,
+        },
+      });
     }
   }
-  if (!lobby) {
-    return Result.Ok(response.select("NotInLobby").reply({
-      message: "Lobby not found",
-    }));
+
+  return {
+    result: ThrowUserOutOfLobbyResult.Success,
+    updatedLobby,
+  };
+}
+
+socket.registerHandler(user_url.ws.pong.leaveLobby, async (body, response) => {
+  const removePlayerResult = await throwUserOutOfLobby(body.userId, body.payload.lobbyId);
+
+  switch (removePlayerResult.result) {
+    case ThrowUserOutOfLobbyResult.LobbyNotFound:
+      return Result.Ok(response.select("NotInLobby").reply({ message: "Lobby not found" }));
+    case ThrowUserOutOfLobbyResult.FailedToRemovePlayer:
+    case ThrowUserOutOfLobbyResult.FailedToDeleteLobby:
+      return Result.Ok(response.select("FailedToLeave").reply({ message: "Something went wrong on our end" }));
+    case ThrowUserOutOfLobbyResult.Success:
+      return Result.Ok(response.select("LeftLobby").reply({ message: "Left lobby" }));
   }
-
-  const actualLobbyId = lobby.lobbyId;
-  const removeResult = lobbyManager.removePlayerFromLobby(actualLobbyId, user_id);
-
-  if (removeResult.isErr()) {
-    return Result.Ok(response.select("NotInLobby").reply({
-      message: removeResult.unwrapErr().message,
-    }));
-  }
-
-  const updatedLobby = removeResult.unwrap();
-
-  // Persist leave to DB
-  if (!isAiPlayer(user_id) && !isLocalPlayer(user_id)) {
-    containers.db.post(int_url.http.db.setLobbyPlayerState, {
-      lobbyId: actualLobbyId,
-      userId: user_id,
-      state: PlayerLobbyStatus.Left,
-    }).then(res => {
-      if (res.isErr()) console.error("[Pong] Failed to persist player leave to DB:", res.unwrapErr());
-    });
-  }
-
-  // If lobby was deleted (empty), just notify the leaving player
-  if (updatedLobby === null) {
-    // Also delete lobby from DB
-    containers.db.post(int_url.http.db.deleteLobbyFromDb, { lobbyId: actualLobbyId }).then(res => {
-      if (res.isErr()) console.error("[Pong] Failed to delete lobby from DB:", res.unwrapErr());
-    });
-    return Result.Ok(response.select("LeftLobby").reply({
-      message: "Left lobby",
-    }));
-  }
-
-  // Notify remaining players of updated lobby state
-  const remainingPlayerIds = updatedLobby.players.map((p) => p.userId);
-  if (remainingPlayerIds.length > 0) {
-    socket.sendMessage(user_url.ws.pong.leaveLobby, {
-      recipients: remainingPlayerIds,
-      code: user_url.ws.pong.leaveLobby.schema.output.LobbyUpdate.code,
-      payload: {
-        lobbyId: updatedLobby.lobbyId,
-        gameMode: updatedLobby.gameMode,
-        players: updatedLobby.players,
-        ballCount: updatedLobby.ballCount,
-        maxScore: updatedLobby.maxScore,
-        allowPowerups: updatedLobby.allowPowerups,
-        aiCount: updatedLobby.aiCount || 0,
-        status: updatedLobby.status,
-      },
-    });
-  }
-
-  // Notify leaving player they left
-  return Result.Ok(response.select("LeftLobby").reply({
-    message: "Left lobby",
-  }));
 });
 
 // Handler for getting current lobby state (used after reconnection)
@@ -686,7 +688,7 @@ socket.registerHandler(user_url.ws.pong.declineLobbyInvitation, async (body, res
 socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, response) => {
   const user_id = body.userId;
   const { tournamentId, matchId } = body.payload;
-  
+
 
   const tournament = tournamentManager.getTournament(tournamentId);
   if (!tournament) {
@@ -719,7 +721,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 
   // For local tournaments: auto-ready both players and start immediately
   if (isLocalTournament) {
-    
+
     // Build playerUsernames from tournament player data
     const tournamentPlayerUsernames: { [key: number]: string } = {};
     for (const p of tournament.players) {
@@ -791,7 +793,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 
   // If not both ready, notify waiting and broadcast updated ready status to all tournament players
   if (!bothReady) {
-    
+
     // Broadcast tournament state update to all tournament players so they see the ready status in realtime
     const allTournamentPlayerIds = filterHumanIds(tournament.players.map(p => p.userId));
     const tournamentData = {
@@ -811,7 +813,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 
     for (const playerId of allTournamentPlayerIds) {
       const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
-      
+
       socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
         recipients: [playerId],
         code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
@@ -881,7 +883,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
   // Broadcast tournament state update to all tournament players so they can spectate
   const allTournamentPlayerIds = filterHumanIds(tournament.players.map(p => p.userId));
   const spectatorIds = allTournamentPlayerIds.filter(id => !playerIds.includes(id));
-  
+
   if (spectatorIds.length > 0) {
     const tournamentData = {
       tournamentId: tournament.tournamentId,
@@ -900,7 +902,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 
     for (const playerId of spectatorIds) {
       const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
-      
+
       socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
         recipients: [playerId],
         code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
@@ -929,7 +931,7 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
 socket.registerHandler(user_url.ws.pong.spectateMatch, async (body, response) => {
   const user_id = body.userId;
   const { tournamentId, matchId } = body.payload;
-  
+
 
   const tournament = tournamentManager.getTournament(tournamentId);
   if (!tournament) {
@@ -1005,7 +1007,7 @@ socket.registerHandler(user_url.ws.pong.watchTournamentMatches, async (body, res
   const watching: Array<{ matchId: number; gameId: number }> = [];
   for (const match of tournament.matches) {
     if (match.status !== "in_progress") continue;
-    
+
     const gameId = singletonPong.getGameIdByTournamentMatch(tournamentId, match.matchId);
     if (gameId === null) continue;
 
@@ -1056,16 +1058,16 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   // Get tournament and match info if this is a tournament game
   let tournamentId: number | undefined;
   let matchId: number | undefined;
-  
+
   if (lobby.tournamentId) {
     tournamentId = lobby.tournamentId;
-    
+
     // Ensure bracket is generated before looking for matches
     const bracketResult = tournamentManager.ensureBracketGenerated(tournamentId);
     if (bracketResult.isErr()) {
       console.warn(`[Pong] Failed to generate bracket: ${bracketResult.unwrapErr().message}`);
     }
-    
+
     // Find the next pending match for the host
     const pendingMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, user_id);
     if (pendingMatch) {
@@ -1088,7 +1090,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   } else {
     playerIds = lobby.players.map((p) => p.userId);
   }
-  
+
   // For 1v1 local mode with only 1 player and NO AI, add a virtual guest player.
   // Use -999 to avoid conflict with -1 which means "no player" in wall segments.
   // When AI players are present they fill the opponent slot, so adding a guest
@@ -1098,7 +1100,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   if (lobby.gameMode === "1v1" && playerIds.length === 1 && (!lobby.aiCount || lobby.aiCount === 0)) {
     playerIds.push(GUEST_PLAYER_ID);
   }
-  
+
   // Add AI players if requested (NOT for tournament bracket matches — AI already in bracket)
   const aiPlayerIds: number[] = [];
   if (!tournamentId) {
@@ -1117,7 +1119,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
     if (aiPlayerIds.length > 0) {
     }
   }
-  
+
   // Build playerUsernames from lobby players (or tournament players) for leaderboard
   const lobbyPlayerUsernames: { [key: number]: string } = {};
   for (const p of lobby.players) {
@@ -1134,7 +1136,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
   }
 
   const gameResult = singletonPong.startGame(
-    playerIds, 
+    playerIds,
     createGameOptionsFromLobby(lobby.ballCount, lobby.allowPowerups, lobby.maxScore, lobby.gameMode),
     tournamentId,
     matchId,
@@ -1188,9 +1190,9 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
       const otherPlayerIds = filterHumanIds(tournament.players
         .map(p => p.userId)
         .filter(id => !matchPlayerIds.has(id)));
-      
+
       if (otherPlayerIds.length > 0) {
-        
+
         // Build tournament data for the notification
         const tournamentData = {
           tournamentId: tournament.tournamentId,
@@ -1211,7 +1213,7 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
         // They should go to tournament view and wait (or play their own match)
         for (const playerId of otherPlayerIds) {
           const nextMatch = tournamentManager.getNextPendingMatchForPlayer(tournamentId, playerId);
-          
+
           socket.sendMessage(user_url.ws.pong.tournamentMatchResult, {
             recipients: [playerId],
             code: user_url.ws.pong.tournamentMatchResult.schema.output.MatchResult.code,
@@ -1300,6 +1302,11 @@ socket.registerReceiver(int_url.ws.hub.userDisconnected, async (wrapper) => {
 
   const userId = wrapper.payload.userId;
   singletonPong.handleUserDisconnect(userId);
+
+  const playerLobby = lobbyManager.getLobbyForPlayer(userId);
+  if (playerLobby !== undefined)
+    await throwUserOutOfLobby(userId, playerLobby.lobbyId);
+
   return Result.Ok(null);
 });
 

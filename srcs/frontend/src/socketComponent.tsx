@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, createContext, useContext, useCallback } f
 import { ClientToHubMessage, HubToClientMessage } from "@app/shared/socket_messages"
 import type { WebSocketRouteDef } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "@app/shared/api/service/auth/loginResponse"
+import { useNavigate } from "react-router-dom";
 import { z } from "zod"
 
 import { HubToClientMessageScheme } from "@app/shared/socket_messages"
@@ -69,6 +70,7 @@ export default function SocketComponent({
   const messageQueue = useRef<string[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const reconnectAttempts = useRef(0)
+  const navigate = useNavigate();
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const keepaliveTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const intentionalClose = useRef(false)
@@ -202,23 +204,24 @@ export default function SocketComponent({
         clearInterval(keepaliveTimer.current)
         keepaliveTimer.current = null
       }
+      window.location.href = "/";
 
-      if (intentionalClose.current || event.code === 1000) return
+      // if (intentionalClose.current || event.code === 1000) return
 
-      if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
-        console.error(`[Socket] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`)
-        return
-      }
-      const delay = Math.min(
-        INITIAL_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current),
-        MAX_RECONNECT_DELAY_MS
-      )
-      reconnectAttempts.current++
-      console.log(`[Socket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})...`)
-      reconnectTimer.current = setTimeout(() => {
-        reconnectTimer.current = null
-        connect()
-      }, delay)
+      // if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+      //   console.error(`[Socket] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`)
+      //   return
+      // }
+      // const delay = Math.min(
+      //   INITIAL_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current),
+      //   MAX_RECONNECT_DELAY_MS
+      // )
+      // reconnectAttempts.current++
+      // console.log(`[Socket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})...`)
+      // reconnectTimer.current = setTimeout(() => {
+      //   reconnectTimer.current = null
+      //   connect()
+      // }, delay)
     }
 
     ws.onerror = (err) => {

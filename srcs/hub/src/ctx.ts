@@ -26,7 +26,7 @@ export class HubCTX {
         connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
         0,
         `{"userId":${user_id}}`
-      )
+      ) 
       if (socket.readyState > 1)
         console.error("Socket to container not open, cannot send.");
       else {
@@ -45,16 +45,21 @@ export class HubCTX {
       this._notifyContainersOfConnectionStateChange(userSocket.id!, false);
     }
 
+    socket.close();
     this.socketUsers.delete(socket);
   }
 
   public saveUserSocket(socket: UserSocket) {
-    this.socketUsers.set(socket.getSocket(), socket);
-
     if (socket.isAuthenticated()) {
+      let currentUserSocket = this.getUserSocketById(socket.id!);
+      if (currentUserSocket !== undefined)
+        this.disconnectUserSocket(currentUserSocket.getSocket());
+
       this.userSockets.set(socket.id!, socket);
       this._notifyContainersOfConnectionStateChange(socket.id!, true);
     }
+
+    this.socketUsers.set(socket.getSocket(), socket);
   }
 
   public getUserSocketBySocket(socket: WebSocket): UserSocket {
