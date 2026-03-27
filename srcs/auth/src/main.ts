@@ -40,7 +40,7 @@ fastify.addHook('preHandler', async (request, reply) => {
 
 });
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://localhost';
+const GITHUB_OAUTH2_REDIRECT_URL = process.env.GITHUB_OAUTH2_REDIRECT_URL || 'https://localhost';
 
 // OAuth state management
 const pendingOAuthStates = new Map<string, number>();
@@ -229,7 +229,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 			const tokenData = tokens.unwrap();
 			// Use URL fragment (hash) instead of query params to prevent tokens from being logged in server access logs
-			const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+			const redirectUrl = `${GITHUB_OAUTH2_REDIRECT_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 			return reply.redirect(redirectUrl);
 		}
 
@@ -280,7 +280,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 
 		// Use URL fragment (hash) instead of query params to prevent tokens from being logged
 		const tokenData = tokens.unwrap();
-		const redirectUrl = `${FRONTEND_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+		const redirectUrl = `${GITHUB_OAUTH2_REDIRECT_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 		return reply.redirect(redirectUrl);
 	} catch (err: unknown) {
 		const errorMessage = err instanceof Error ? err.message : 'Unknown error';

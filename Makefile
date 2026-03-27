@@ -13,12 +13,10 @@ COMPOSE_PROGRESS ?= auto
 # Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
 
-# Auto-detect frontend URL from VM IP (override with: make FRONTEND_URL=https://1.2.3.4:8443)
-HOST_IP ?= $(shell hostname -I 2>/dev/null | awk '{print $$1}')
-FRONTEND_URL ?= https://$(HOST_IP):8443
+# Auto-detect frontend URL from VM IP (override with: make GITHUB_OAUTH2_REDIRECT_URL=https://1.2.3.4:8443)
 
 # Common env overrides passed to docker compose
-DC_ENV := VOLUMES_DIR=${VOLUMES_DIR} FRONTEND_URL=${FRONTEND_URL}
+DC_ENV := VOLUMES_DIR=${VOLUMES_DIR}
 
 # React build directory for npm arguments
 REACT_DIR := $(SOURCES_DIR)/nginx/react_source

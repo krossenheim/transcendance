@@ -21,7 +21,7 @@ services:
       start_period: 10s
     restart: always
     ports:
-      - "8443:443"
+      - "443:443"
     volumes:
       - ./certs:/etc/nginx/mkcert:ro
     networks:
@@ -105,8 +105,6 @@ services:
       - ./globals.env
       - ./secrets.env
       - ./srcs/${AUTH_NAME}/service_env.env
-    environment:
-      - FRONTEND_URL=${FRONTEND_URL}
     build:
       context: .
       dockerfile: ./srcs/${AUTH_NAME}/Dockerfile
