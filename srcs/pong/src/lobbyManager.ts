@@ -1,6 +1,7 @@
 import type { Result } from "@app/shared/api/service/common/result";
 import { Result as ResultClass } from "@app/shared/api/service/common/result";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
+import { LobbyPlayerSchema } from "@app/shared/api/service/pong/pong_interfaces";
 // import type { LobbyDataType } from "@app/shared/api/service/pong/pong_interfaces";
 
 // class Lobby {
@@ -20,12 +21,15 @@ import type { ErrorResponseType } from "@app/shared/api/service/common/error";
 // }
 
 
-export interface LobbyPlayer {
-  userId: number;
-  username: string;
-  isReady: boolean;
-  isHost: boolean;
-}
+// export interface LobbyPlayer {
+//   userId: number;
+//   username: string;
+//   isReady: boolean;
+//   isHost: boolean;
+// }
+import { z } from "zod";
+
+type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>
 
 export interface Lobby {
   lobbyId: number;
