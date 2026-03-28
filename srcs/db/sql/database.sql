@@ -102,8 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_messagesId ON chat_messages(roomId);
 CREATE TABLE IF NOT EXISTS game_lobbies (
   lobbyId INTEGER PRIMARY KEY AUTOINCREMENT,
   hostUserId INTEGER NOT NULL,
-  lobbyState INTEGER NOT NULL, -- 0: waiting for players, 1: game starting, 2: game in progress, 3: game ended
-  lobbyGameId INTEGER DEFAULT NULL
+  lobbyState INTEGER NOT NULL -- 0: waiting for players, 1: game starting, 2: game in progress, 3: game ended
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_lobby_hostUserId ON game_lobbies(hostUserId);
 

@@ -139,7 +139,7 @@ export const TournamentMatchSchema = z
     winnerId: anyPlayerIdValue.nullable(),
     status: z.enum(["pending", "in_progress", "completed"]),
     gameId: gameIdValue.optional(), // Associated pong game ID when match is in progress
-    readyPlayers: z.array(anyPlayerIdValue).optional(), // Players who clicked "Join Match"
+    readyPlayers: z.array(anyPlayerIdValue).default([]), // Players who clicked "Join Match"
   })
   .strict();
 
@@ -156,6 +156,8 @@ export const TournamentDataSchema = z
     winnerId: anyPlayerIdValue.nullable(),
     ballCount: z.coerce.number(),
     maxScore: z.coerce.number(),
+    allowPowerups: z.boolean().default(false),
+    aiDifficulty: z.coerce.number().default(3),
     onchainTxHashes: z.array(z.string()).optional(),
     isLocal: z.boolean().optional(),
     hostUserId: anyPlayerIdValue.optional(),
@@ -171,7 +173,10 @@ export const LobbyDataSchema = z
     maxScore: z.coerce.number(),
     allowPowerups: z.boolean(),
     aiCount: z.coerce.number().int().min(0).max(7).optional().default(0),
+    aiDifficulty: z.coerce.number().int().min(1).max(4).default(3),
     status: z.enum(["waiting", "starting", "in_progress"]),
+    gameId: gameIdValue.optional(),
+    tournamentId: gameIdValue.optional(),
     tournament: TournamentDataSchema.optional(),
   })
   .strict();

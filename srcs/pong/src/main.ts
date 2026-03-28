@@ -12,13 +12,6 @@ import { createFastify } from "@app/shared/api/service/common/fastify";
 import containers from "@app/shared/internal_api";
 import { Lobby } from "./lobbyManager.js";
 import { PlayerLobbyStatus, LobbyStatus } from "@app/shared/api/service/pong/lobby_interfaces";
-// Prometheus metrics
-import client from "prom-client";
-
-// Collect default Node.js metrics
-client.collectDefaultMetrics({ prefix: 'pong_' });
-
-// Expose metrics on /metrics
 import BlockchainService from "./services/blockchainService.js";
 
 // Cast to any to avoid FastifyInstance type mismatch with websocket plugin
@@ -87,6 +80,8 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
     winnerId: tournament.winnerId,
     ballCount: tournament.ballCount,
     maxScore: tournament.maxScore,
+    allowPowerups: tournament.allowPowerups,
+    aiDifficulty: tournament.aiDifficulty,
     onchainTxHashes: tournament.onchainTxHashes || [],
     isLocal: tournament.isLocal,
     hostUserId: tournament.hostUserId,
@@ -238,6 +233,8 @@ async function autoStartAiVsAiMatches(tournamentId: number): Promise<void> {
       winnerId: tournament.winnerId,
       ballCount: tournament.ballCount,
       maxScore: tournament.maxScore,
+      allowPowerups: tournament.allowPowerups,
+      aiDifficulty: tournament.aiDifficulty,
       onchainTxHashes: tournament.onchainTxHashes || [],
     };
 
@@ -511,6 +508,7 @@ socket.registerHandler(user_url.ws.pong.togglePlayerReady, async (body, response
       allowPowerups: lobby.allowPowerups,
       status: lobby.status,
       aiCount: lobby.aiCount || 0,
+      aiDifficulty: lobby.aiDifficulty,
     }
   ));
 });
@@ -564,6 +562,7 @@ async function throwUserOutOfLobby(userId: number, lobbyId: number): Promise<Thr
           maxScore: updatedLobby.maxScore,
           allowPowerups: updatedLobby.allowPowerups,
           aiCount: updatedLobby.aiCount || 0,
+          aiDifficulty: updatedLobby.aiDifficulty,
           status: updatedLobby.status,
         },
       });
@@ -609,6 +608,7 @@ socket.registerHandler(user_url.ws.pong.getLobbyState, async (body, response) =>
     maxScore: lobby.maxScore,
     allowPowerups: lobby.allowPowerups,
     aiCount: lobby.aiCount || 0,
+    aiDifficulty: lobby.aiDifficulty,
     status: lobby.status,
   }));
 });
@@ -674,6 +674,7 @@ socket.registerHandler(user_url.ws.pong.declineLobbyInvitation, async (body, res
         maxScore: updatedLobby.maxScore,
         allowPowerups: updatedLobby.allowPowerups,
         aiCount: updatedLobby.aiCount || 0,
+        aiDifficulty: updatedLobby.aiDifficulty,
         status: updatedLobby.status,
       },
     });
@@ -808,6 +809,8 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
       winnerId: tournament.winnerId,
       ballCount: tournament.ballCount,
       maxScore: tournament.maxScore,
+      allowPowerups: tournament.allowPowerups,
+      aiDifficulty: tournament.aiDifficulty,
       onchainTxHashes: tournament.onchainTxHashes || [],
     };
 
@@ -897,6 +900,8 @@ socket.registerHandler(user_url.ws.pong.joinTournamentMatch, async (body, respon
       winnerId: tournament.winnerId,
       ballCount: tournament.ballCount,
       maxScore: tournament.maxScore,
+      allowPowerups: tournament.allowPowerups,
+      aiDifficulty: tournament.aiDifficulty,
       onchainTxHashes: tournament.onchainTxHashes || [],
     };
 
@@ -1206,6 +1211,8 @@ socket.registerHandler(user_url.ws.pong.startFromLobby, async (body, response) =
           winnerId: tournament.winnerId,
           ballCount: tournament.ballCount,
           maxScore: tournament.maxScore,
+          allowPowerups: tournament.allowPowerups,
+          aiDifficulty: tournament.aiDifficulty,
           onchainTxHashes: tournament.onchainTxHashes || [],
         };
 
@@ -1325,17 +1332,6 @@ const port = parseInt(
   10
 );
 const host = process.env.PONG_BIND_TO || "0.0.0.0";
-
-// register a /metrics route for Prometheus to scrape
-fastify.get('/metrics', async (request: any, reply: any) => {
-  try {
-    reply.header('Content-Type', client.register.contentType);
-    const metrics = await client.register.metrics();
-    return reply.send(metrics);
-  } catch (err) {
-    reply.status(500).send('Could not collect metrics');
-  }
-});
 
 // Public API: Get tournament stats including on-chain tx hashes
 fastify.get('/public_api/pong/tournaments/:id/stats', async (request: any, reply: any) => {

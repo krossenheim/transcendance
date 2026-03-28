@@ -43,7 +43,6 @@ export const LobbyDataSchema = z.object({
 	lobbyId: z.number().int().min(1),
 	hostUserId: userIdValue,
 	lobbyState: z.enum(LobbyStatus),
-	lobbyGameId: z.number().int().min(1).nullable(),
 	players: StringToJSON(z.array(z.tuple([userIdValue, z.string(), z.enum(PlayerLobbyStatus)]))),
 	settings: StringToJSON(LobbySettingsSchema),
 }).strict();
