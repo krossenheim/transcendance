@@ -41,9 +41,33 @@ YELLOW		= \033[0;33m
 RED			= \033[0;31m
 NC			= \033[0m
 
-.PHONY: all clean fclean re install deps help
+.PHONY: all clean fclean re install deps check-deps help
 
-all: $(NAME)
+# Check if required headers are available, install if missing
+check-deps:
+	@MISSING=""; \
+	echo "$(YELLOW)Checking dependencies...$(NC)"; \
+	if ! echo '#include <curl/curl.h>' | $(CC) -E -x c - >/dev/null 2>&1; then \
+		MISSING="$$MISSING libcurl4-openssl-dev"; \
+	fi; \
+	if ! echo '#include <libwebsockets.h>' | $(CC) -E -x c - >/dev/null 2>&1; then \
+		MISSING="$$MISSING libwebsockets-dev"; \
+	fi; \
+	if ! echo '#include <ncurses.h>' | $(CC) -E -x c - >/dev/null 2>&1; then \
+		MISSING="$$MISSING libncurses5-dev"; \
+	fi; \
+	if ! echo '#include <openssl/ssl.h>' | $(CC) -E -x c - >/dev/null 2>&1; then \
+		MISSING="$$MISSING libssl-dev"; \
+	fi; \
+	if [ -n "$$MISSING" ]; then \
+		echo "$(RED)Missing packages:$$MISSING$(NC)"; \
+		echo "$(YELLOW)Installing missing dependencies...$(NC)"; \
+		sudo apt-get update -qq && sudo apt-get install -y $$MISSING; \
+	else \
+		echo "$(GREEN)All dependencies found.$(NC)"; \
+	fi
+
+all: check-deps $(NAME)
 
 $(NAME): $(OBJ_DIR) $(OBJS)
 	@echo "$(GREEN)Linking $(NAME)...$(NC)"
@@ -99,7 +123,8 @@ help:
 	@echo "  clean    - Remove object files"
 	@echo "  fclean   - Remove object files and binary"
 	@echo "  re       - Rebuild everything"
-	@echo "  deps     - Install system dependencies"
+	@echo "  deps     - Install all system dependencies"
+	@echo "  check-deps - Check and install missing dependencies"
 	@echo "  install  - Install binary to /usr/local/bin"
 	@echo "  uninstall- Remove binary from /usr/local/bin"
 	@echo "  debug    - Build with debug symbols and sanitizers"
