@@ -60,8 +60,8 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
 
       if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
-      const me = usersMapResult.unwrap()[body.userId];
-      const friend = usersMapResult.unwrap()[body.payload];
+      const me = usersMapResult.unwrap().get(body.userId);
+      const friend = usersMapResult.unwrap().get(body.payload);
       if (me === undefined || friend === undefined) {
         return Result.Ok(response.select("UserDoesNotExist").reply({
           message: "User not found",
@@ -69,7 +69,7 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
       }
 
       const removeResult = await removeFriendship(me, friend);
-      
+
       switch (removeResult.result) {
         case RemoveFriendshipResult.NotFriends:
           return Result.Ok(response.select("NotFriends").reply({

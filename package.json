@@ -8,9 +8,11 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
+    "@vitest/ui": "^4.1.2",
     "syncpack": "^14.0.0",
     "typescript": "^5.9.3",
-    "vite-tsconfig-paths": "^6.0.5"
+    "vite-tsconfig-paths": "^6.0.5",
+    "vitest": "^4.1.2"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
@@ -24,5 +26,8 @@
     "typescript": "^5.9.3",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
+  },
+  "scripts": {
+    "test": "vitest run"
   }
 }
