@@ -4,43 +4,8 @@ import type { ErrorResponseType } from "@app/shared/api/service/common/error";
 import { TournamentPlayerSchema, TournamentMatchSchema, TournamentDataSchema } from "@app/shared/api/service/pong/pong_interfaces";
 import { z } from "zod";
 
-// export interface TournamentPlayer {
-//   userId: number;
-//   username: string;
-//   alias?: string;
-// }
 export type TournamentPlayer = z.infer<typeof TournamentPlayerSchema>;
-
-// export interface TournamentMatch {
-//   matchId: number;
-//   round: number;
-//   player1Id: number | null;
-//   player2Id: number | null;
-//   winnerId: number | null;
-//   status: "pending" | "in_progress" | "completed";
-//   gameId?: number;
-//   readyPlayers: number[];
-// }
 export type TournamentMatch = z.infer<typeof TournamentMatchSchema>;
-
-// export interface Tournament {
-//   tournamentId: number;
-//   name: string;
-//   mode: "tournament";
-//   players: TournamentPlayer[];
-//   matches: TournamentMatch[];
-//   currentRound: number;
-//   totalRounds: number;
-//   status: "registration" | "in_progress" | "completed";
-//   winnerId: number | null;
-//   ballCount: number;
-//   maxScore: number;
-//   allowPowerups: boolean;
-//   aiDifficulty: number;
-//   onchainTxHashes?: string[];
-//   isLocal?: boolean;
-//   hostUserId?: number;
-// }
 export type Tournament = z.infer<typeof TournamentDataSchema>;
 
 export class TournamentManager {

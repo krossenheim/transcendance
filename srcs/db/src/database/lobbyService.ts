@@ -16,7 +16,6 @@ export class LobbyService {
 				game_lobbies.lobbyId,
 				game_lobbies.hostUserId,
 				game_lobbies.lobbyState,
-				game_lobbies.lobbyGameId,
 				(
 					SELECT json_group_array(
 						json_array(lobby_players.userId, users.username, lobby_players.playerState)

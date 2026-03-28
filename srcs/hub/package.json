@@ -13,7 +13,6 @@
     "devDependencies": {
         "typescript": "^5.9.3",
         "@types/node": "^24.10.1",
-        "@types/jsonwebtoken": "^9.0.10",
         "@types/ws": "^8.18.1"
     },
     "scripts": {
