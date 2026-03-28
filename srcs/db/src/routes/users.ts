@@ -187,6 +187,17 @@ async function userRoutes(fastify: FastifyInstance) {
 		return reply.status(200).send(gameResults.unwrap());
 	});
 
+	registerRoute(fastify, int_url.http.db.fetchUserMatchHistory, async (request, reply) => {
+		const { userId } = request.params;
+		const userResult = userService.fetchUserById(userId);
+		if (userResult.isErr())
+			return reply.status(404).send({ message: userResult.unwrapErr().message });
+		const matchHistory = userService.fetchUserMatchHistory(userId);
+		if (matchHistory.isErr())
+			return reply.status(500).send({ message: matchHistory.unwrapErr().message });
+		return reply.status(200).send(matchHistory.unwrap());
+	});
+
 	registerRoute(fastify, int_url.http.db.storePongGameResults, async (request, reply) => {
 		const StorageResult = await userService.storeGameResults(request.body);
 		if (StorageResult.isErr())

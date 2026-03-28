@@ -47,7 +47,7 @@ import {
   SpectateMatchSchema,
   WatchTournamentMatchesSchema,
 } from "@app/shared/api/service/pong/pong_interfaces";
-import { GameResult } from "@app/shared/api/service/db/gameResult";
+import { GameResult, MatchHistoryEntry } from "@app/shared/api/service/db/gameResult";
 import { UserNotifications } from "@app/shared/api/service/db/notification";
 import { LobbyDataSchema as LobbyDBDataSchema } from "@app/shared/api/service/pong/lobby_interfaces";
 
@@ -610,6 +610,26 @@ export const user_url = defineRoutes({
             Success: {
               code: 0,
               payload: z.array(GameResult),
+            },
+            Failure: {
+              code: 1,
+              payload: ErrorResponse,
+            },
+          },
+        },
+      },
+
+      fetchUserMatchHistory: {
+        funcId: "fetch_user_match_history",
+        container: "users",
+        schema: {
+          args_wrapper: ForwardToContainerSchema,
+          args: userIdValue,
+          output_wrapper: PayloadHubToUsersSchema,
+          output: {
+            Success: {
+              code: 0,
+              payload: z.array(MatchHistoryEntry),
             },
             Failure: {
               code: 1,
@@ -1518,6 +1538,19 @@ export const int_url = defineRoutes({
             200: z.array(GameResult), // Retrieved game results
             404: ErrorResponse, // User not found
             500: ErrorResponse, // Internal server error
+          },
+        },
+      },
+
+      fetchUserMatchHistory: {
+        endpoint: "/internal_api/db/users/match_history/:userId",
+        method: "GET",
+        schema: {
+          params: GetUser,
+          response: {
+            200: z.array(MatchHistoryEntry),
+            404: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },

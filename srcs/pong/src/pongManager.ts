@@ -441,7 +441,11 @@ export class PongManager {
       .sort((a, b) => b[1] - a[1])
       .map(([playerId, score], index, list) => [playerId, score, list.findIndex(([_, s]) => s === score) + 1]);
 
-    const storageResult = await containers.db.post(int_url.http.db.storePongGameResults, rankings.map(([playerId, score, rank]) => ({
+    // Filter out AI (negative IDs like -1001) and local guest (-999) — they have no row
+    // in the users table, so the FK constraint would reject the entire transaction.
+    const realPlayerRankings = rankings.filter(([playerId]) => (playerId as number) > 0);
+
+    const storageResult = await containers.db.post(int_url.http.db.storePongGameResults, realPlayerRankings.map(([playerId, score, rank]) => ({
       gameId: game.id,
       userId: playerId as number,
       score: score as number,
@@ -449,7 +453,6 @@ export class PongManager {
     })), undefined, undefined);
     if (storageResult.isErr()) {
       console.error("Failed to store game results:", storageResult.unwrapErr());
-    } else {
     }
 
     // If this was a tournament match, record the winner

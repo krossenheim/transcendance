@@ -6,6 +6,7 @@ export const GameResult = z.object({
   userId: userIdValue,
   score: z.number(),
   rank: z.number(),
+  createdAt: z.number().optional(),
 });
 
 export const GameResultsWidget = z.object({
@@ -15,10 +16,47 @@ export const GameResultsWidget = z.object({
   win_rate: z.number(),
 }).strict();
 
+// Match history types — includes opponent info for each game
+export const MatchHistoryOpponent = z.object({
+  userId: z.number(),
+  username: z.string(),
+  alias: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  score: z.number(),
+  rank: z.number(),
+});
+
+export const MatchHistoryEntry = z.object({
+  gameId: gameIdValue,
+  score: z.number(),
+  rank: z.number(),
+  createdAt: z.number(),
+  opponents: z.array(MatchHistoryOpponent),
+});
+
+// Internal row schema for the self-join SQL query (not exported to clients)
+// Opponent fields are nullable because LEFT JOIN returns NULLs for AI-only games
+export const MatchHistoryRow = z.object({
+  gameId: gameIdValue,
+  score: z.number(),
+  rank: z.number(),
+  createdAt: z.number(),
+  opponentId: z.number().nullable(),
+  opponentScore: z.number().nullable(),
+  opponentRank: z.number().nullable(),
+  opponentUsername: z.string().nullable(),
+  opponentAlias: z.string().nullable(),
+  opponentAvatarUrl: z.string().nullable(),
+});
+
 export type GameResultType = z.infer<typeof GameResult>;
 export type GameResultsWidgetType = z.infer<typeof GameResultsWidget>;
+export type MatchHistoryEntryType = z.infer<typeof MatchHistoryEntry>;
+export type MatchHistoryRowType = z.infer<typeof MatchHistoryRow>;
 
 export default {
   GameResult,
   GameResultsWidget,
+  MatchHistoryEntry,
+  MatchHistoryOpponent,
 };

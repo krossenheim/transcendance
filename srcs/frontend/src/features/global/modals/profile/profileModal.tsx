@@ -3,8 +3,10 @@
 import { getUserColorCSS, getVisualUserName, getPlayerInitials } from "@utils/users";
 import { user_url } from "@app/shared/api/service/common/endpoints";
 import { UserAccountType } from "@app/shared/api/service/db/user";
+import type { MatchHistoryEntryType } from "@app/shared/api/service/db/gameResult";
 import { useProfileModalStore } from "./profileModalStore";
 import { useWebSocket } from "../../../../socketComponent";
+import { HandlerResult } from "../../../../socketComponent";
 import { useGlobalStore } from "../../store/globalStore";
 import { useLanguage } from "@language/LanguageContext";
 import { useEffect, useState } from "react";
@@ -38,7 +40,7 @@ function UserAccountTypePill({ accountType }: { accountType: UserAccountType }) 
 
 export default function ProfileComponent() {
   const { t } = useLanguage()
-  const { sendMessage } = useWebSocket()
+  const { sendMessage, subscribe } = useWebSocket()
 
   const { isOpen, targetUserId, closeProfileModal } = useProfileModalStore()
 
@@ -52,12 +54,33 @@ export default function ProfileComponent() {
   )
 
   const [avatarBlobUrl, setAvatarBlobUrl] = useState < string | null > (null)
+  const [matchHistory, setMatchHistory] = useState<MatchHistoryEntryType[]>([])
+  const [matchHistoryLoading, setMatchHistoryLoading] = useState(false)
 
   useEffect(() => {
     if (isOpen && targetUserId) {
       sendMessage(user_url.ws.users.requestUserProfileData, targetUserId)
+      setMatchHistory([])
+      setMatchHistoryLoading(true)
+      sendMessage(user_url.ws.users.fetchUserMatchHistory, targetUserId)
     }
   }, [isOpen, targetUserId, sendMessage])
+
+  useEffect(() => {
+    const unsub = subscribe(user_url.ws.users.fetchUserMatchHistory, (payload, schema) => {
+      if (payload.code === schema.output.Success.code) {
+        setMatchHistory(payload.payload as MatchHistoryEntryType[])
+        setMatchHistoryLoading(false)
+        return HandlerResult.Handled
+      }
+      if (payload.code === schema.output.Failure.code) {
+        setMatchHistoryLoading(false)
+        return HandlerResult.Handled
+      }
+      return HandlerResult.NotHandled
+    })
+    return unsub
+  }, [subscribe])
 
   useEffect(() => {
     if (profile?.avatarUrl) {
@@ -235,6 +258,78 @@ export default function ProfileComponent() {
                       </span>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Match History Section */}
+              {profile.accountType !== UserAccountType.System && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">
+                    {t('profile.matchHistory') || 'Match History'}
+                  </h4>
+                  {matchHistoryLoading ? (
+                    <div className={`p-4 rounded-lg border text-center ${cardClasses}`}>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
+                    </div>
+                  ) : matchHistory.length === 0 ? (
+                    <div className={`p-4 rounded-lg border text-center ${cardClasses}`}>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                        {t('profile.recentMatches') ? 'No matches yet' : 'No matches yet'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {matchHistory.slice(0, 10).map((match) => {
+                        const isWin = match.rank === 1
+                        const dateStr = new Date(match.createdAt * 1000).toLocaleDateString(undefined, {
+                          month: 'short', day: 'numeric', year: 'numeric'
+                        })
+                        return (
+                          <div
+                            key={match.gameId}
+                            className={`p-3 rounded-lg border flex items-center justify-between ${cardClasses}`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase rounded ${
+                                isWin
+                                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                                  : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                              }`}>
+                                {isWin ? (t('profile.win') || 'Win') : (t('profile.loss') || 'Loss')}
+                              </span>
+                              <div className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                                {match.opponents.length === 0
+                                  ? <span className="font-medium italic">AI</span>
+                                  : match.opponents.map((opp, i) => (
+                                    <span key={opp.userId}>
+                                      {i > 0 && ', '}
+                                      <span className="font-medium">{opp.alias || opp.username}</span>
+                                    </span>
+                                  ))
+                                }
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                {match.score}
+                                {match.opponents.length > 0 && (
+                                  <>
+                                    <span className="text-gray-400 dark:text-gray-500 font-normal mx-0.5">-</span>
+                                    {match.opponents.length === 1
+                                      ? match.opponents[0]!.score
+                                      : match.opponents.map(o => o.score).join('/')}
+                                  </>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                                {dateStr}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

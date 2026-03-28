@@ -19,6 +19,9 @@ socketToHub.register(wsUnblockUserHandlers);
 import { wsFetchUserGameResultsHandlers } from "./ws_handlers/fetchUserGameResults.js";
 socketToHub.register(wsFetchUserGameResultsHandlers);
 
+import { wsFetchUserMatchHistoryHandlers } from "./ws_handlers/fetchUserMatchHistory.js";
+socketToHub.register(wsFetchUserMatchHistoryHandlers);
+
 import { wsConfirmFriendshipHandlers } from "./ws_handlers/confirmFriendship.js";
 socketToHub.register(wsConfirmFriendshipHandlers);
 

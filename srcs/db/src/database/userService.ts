@@ -1,10 +1,10 @@
 import { type UserNotificationsType } from '@app/shared/api/service/db/notification.js';
 import type { FullUserType, BaseUserType, FriendType, UserAuthDataType, PublicUserDataType } from '@app/shared/api/service/db/user';
 import { Friend, UserAuthData, UserAccountType, BaseUser } from '@app/shared/api/service/db/user';
-import type { GameResultsWidgetType, GameResultType } from '@app/shared/api/service/db/gameResult';
+import type { GameResultsWidgetType, GameResultType, MatchHistoryEntryType, MatchHistoryRowType } from '@app/shared/api/service/db/gameResult';
 import { ChatRoomUserAccessType, TypeRoomSchema } from '@app/shared/api/service/chat/db_models';
 import { UserFriendshipStatusEnum } from '@app/shared/api/service/db/friendship';
-import { GameResult } from '@app/shared/api/service/db/gameResult';
+import { GameResult, MatchHistoryRow } from '@app/shared/api/service/db/gameResult';
 import { Result } from '@app/shared/api/service/common/result';
 import { Database, DatabaseError } from './database';
 import { Resvg } from '@resvg/resvg-js';
@@ -152,9 +152,25 @@ export class UserService {
 
 	private _dbFetchUserGameResults(userId: number, limit: number): Result<GameResultType[], DatabaseError> {
 		return this.db.all(
-			`SELECT gameId, userId, score, rank FROM player_game_results WHERE userId = ? ORDER BY gameId DESC LIMIT ?`,
+			`SELECT gameId, userId, score, rank, createdAt FROM player_game_results WHERE userId = ? ORDER BY gameId DESC LIMIT ?`,
 			GameResult,
 			[userId, limit]
+		);
+	}
+
+	private _dbFetchUserMatchHistory(userId: number, limit: number): Result<MatchHistoryRowType[], DatabaseError> {
+		return this.db.all(
+			`SELECT pgr.gameId, pgr.score, pgr.rank, pgr.createdAt,
+			        opp.userId AS opponentId, opp.score AS opponentScore, opp.rank AS opponentRank,
+			        u.username AS opponentUsername, u.alias AS opponentAlias, u.avatarUrl AS opponentAvatarUrl
+			 FROM player_game_results pgr
+			 LEFT JOIN player_game_results opp ON pgr.gameId = opp.gameId AND opp.userId != pgr.userId
+			 LEFT JOIN users u ON u.id = opp.userId
+			 WHERE pgr.userId = ?
+			 ORDER BY pgr.createdAt DESC
+			 LIMIT ?`,
+			MatchHistoryRow,
+			[userId, limit * 4]
 		);
 	}
 
@@ -178,6 +194,37 @@ export class UserService {
 
 	public fetchUserGameResults(userId: number, limit: number = 10): Result<GameResultType[], DatabaseError> {
 		return this._dbFetchUserGameResults(userId, limit);
+	}
+
+	public fetchUserMatchHistory(userId: number, limit: number = 20): Result<MatchHistoryEntryType[], DatabaseError> {
+		return this._dbFetchUserMatchHistory(userId, limit).map((rows) => {
+			const gameMap = new Map<number, MatchHistoryEntryType>();
+			for (const row of rows) {
+				let entry = gameMap.get(row.gameId);
+				if (!entry) {
+					entry = {
+						gameId: row.gameId,
+						score: row.score,
+						rank: row.rank,
+						createdAt: row.createdAt,
+						opponents: [],
+					};
+					gameMap.set(row.gameId, entry);
+				}
+				// Skip null opponents (from LEFT JOIN on AI-only games)
+				if (row.opponentId !== null) {
+					entry.opponents.push({
+						userId: row.opponentId,
+						username: row.opponentUsername ?? 'Unknown',
+						alias: row.opponentAlias,
+						avatarUrl: row.opponentAvatarUrl,
+						score: row.opponentScore ?? 0,
+						rank: row.opponentRank ?? 0,
+					});
+				}
+			}
+			return Array.from(gameMap.values()).slice(0, limit);
+		});
 	}
 
 	public generatePublicUserData(user: BaseUserType): Result<PublicUserDataType, DatabaseError> {
