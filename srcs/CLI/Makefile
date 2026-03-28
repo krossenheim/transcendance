@@ -41,7 +41,7 @@ YELLOW		= \033[0;33m
 RED			= \033[0;31m
 NC			= \033[0m
 
-.PHONY: all clean fclean re install deps check-deps help
+.PHONY: all build clean fclean re install deps check-deps help
 
 # Check if required headers are available, install if missing
 check-deps:
@@ -67,7 +67,11 @@ check-deps:
 		echo "$(GREEN)All dependencies found.$(NC)"; \
 	fi
 
-all: check-deps $(NAME)
+all:
+	@$(MAKE) --no-print-directory check-deps
+	@$(MAKE) --no-print-directory build
+
+build: $(NAME)
 
 $(NAME): $(OBJ_DIR) $(OBJS)
 	@echo "$(GREEN)Linking $(NAME)...$(NC)"
@@ -89,7 +93,7 @@ fclean: clean
 	@echo "$(RED)Removing $(NAME)...$(NC)"
 	rm -f $(NAME)
 
-re: fclean all
+re: fclean build
 
 # Install dependencies (Debian/Ubuntu)
 deps:
