@@ -88,8 +88,12 @@ BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
 rebuild:
 	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --build --no-deps ${s}
 
-build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed
+build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed build-cli
 	$(DC_ENV) docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build db auth chat hub pong users nginx
+
+build-cli:
+	@echo "Building pong-cli..."
+	$(MAKE) -C $(SOURCES_DIR)/CLI
 
 build_hardhat_if_needed:
 	@if ! docker image inspect $(HARDHAT_IMAGE_TAG) >/dev/null 2>&1; then \
@@ -196,4 +200,4 @@ fix_deps:
 	npm install -D syncpack
 	npx syncpack fix
 
-.PHONY: all dnginx down ensure_network build build-hardhat build-explorer build_react check-deps check-system-deps check-npm-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed
+.PHONY: all dnginx down ensure_network build build-cli build-hardhat build-explorer build_react check-deps check-system-deps check-npm-deps print_config create_shared_volume_folder clean fclean list build_hardhat_if_needed build_explorer_if_needed

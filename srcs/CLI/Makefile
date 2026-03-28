@@ -43,6 +43,10 @@ NC			= \033[0m
 
 .PHONY: all build clean fclean re install deps check-deps help
 
+all:
+	@$(MAKE) --no-print-directory check-deps
+	@$(MAKE) --no-print-directory build
+
 # Check if required headers are available, install if missing
 check-deps:
 	@MISSING=""; \
@@ -66,10 +70,6 @@ check-deps:
 	else \
 		echo "$(GREEN)All dependencies found.$(NC)"; \
 	fi
-
-all:
-	@$(MAKE) --no-print-directory check-deps
-	@$(MAKE) --no-print-directory build
 
 build: $(NAME)
 
