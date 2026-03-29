@@ -553,6 +553,29 @@ void game_update_state(game_state_t *game, const char *json_payload)
         game->winner_id = winner->valueint;
     }
     
+    /* Parse metadata: gameMode + eliminatedPlayers */
+    cJSON *metadata = cJSON_GetObjectItem(root, "metadata");
+    if (metadata && cJSON_IsObject(metadata)) {
+        cJSON *opts = cJSON_GetObjectItem(metadata, "gameOptions");
+        if (opts && cJSON_IsObject(opts)) {
+            cJSON *mode = cJSON_GetObjectItem(opts, "gameMode");
+            if (mode && cJSON_IsString(mode) && mode->valuestring) {
+                strncpy(game->game_mode, mode->valuestring,
+                        sizeof(game->game_mode) - 1);
+                game->game_mode[sizeof(game->game_mode) - 1] = '\0';
+            }
+        }
+        cJSON *elim = cJSON_GetObjectItem(metadata, "eliminatedPlayers");
+        if (elim && cJSON_IsArray(elim)) {
+            game->eliminated_count = 0;
+            cJSON *ep;
+            cJSON_ArrayForEach(ep, elim) {
+                if (game->eliminated_count < MAX_PLAYERS && cJSON_IsNumber(ep))
+                    game->eliminated_players[game->eliminated_count++] = ep->valueint;
+            }
+        }
+    }
+
     /* Mark game as active */
     game->game_active = !game->game_over;
 

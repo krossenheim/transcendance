@@ -726,7 +726,8 @@ static void game_to_screen(float gx, float gy, int canvas_w, int canvas_h,
                            int *sx, int *sy)
 {
     *sx = screen_x + (int)((gx / (float)canvas_w) * (float)screen_w);
-    *sy = screen_y + (int)((gy / (float)canvas_h) * (float)screen_h);
+    /* Flip Y — server Y=0 is at screen bottom in the web 3D view */
+    *sy = screen_y + (int)((((float)canvas_h - gy) / (float)canvas_h) * (float)screen_h);
 }
 
 /* Bresenham line drawing on ncurses window */
@@ -891,20 +892,18 @@ void renderer_draw_game(game_state_t *game)
         game_to_screen(w->x2, w->y2, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx2, &sy2);
 
-        /* Walls are default blue. In lastOneStanding, when a player is
-         * eliminated their paddle is removed but the wall keeps the
-         * player_id — color it with that player's color. */
+        /* Walls are default blue. In lastOneStanding, eliminated players'
+         * walls change to that player's color (server keeps the wall but
+         * adds the player to eliminatedPlayers). */
         int wall_cpair = COLOR_WALL;
-        if (w->player_id != -1) {
-            bool has_paddle = false;
-            for (int pi = 0; pi < game->paddle_count; pi++) {
-                if (game->paddles[pi].owner_id == w->player_id) {
-                    has_paddle = true;
+        if (w->player_id != -1
+            && strcmp(game->game_mode, "lastOneStanding") == 0) {
+            for (int ei = 0; ei < game->eliminated_count; ei++) {
+                if (game->eliminated_players[ei] == w->player_id) {
+                    wall_cpair = get_player_color(game, w->player_id);
                     break;
                 }
             }
-            if (!has_paddle)
-                wall_cpair = get_player_color(game, w->player_id);
         }
         wattron(win, COLOR_PAIR(wall_cpair));
 

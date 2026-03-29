@@ -139,6 +139,11 @@ typedef struct game_state {
     int             canvas_height;
     float           game_time;
     float           max_game_time;
+
+    /* Game mode and elimination tracking (for wall coloring) */
+    char            game_mode[32];
+    int             eliminated_players[MAX_PLAYERS];
+    int             eliminated_count;
     
     /* Input state */
     bool            key_up;
