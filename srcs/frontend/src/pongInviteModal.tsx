@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { getUserColorCSS } from "@utils/users"
 import { useLanguage } from "./i18n/LanguageContext"
 import { useGlobalStore } from "./features/global/store/globalStore"
 import { usePongStore } from "./stores/pongStore"
+import { user_url } from "@app/shared/api/service/common/endpoints"
+import { getSocketSenderRef } from "@utils/socketRef"
 
 export type GameMode = "1v1" | "multiplayer" | "tournament" | "lastOneStanding"
 
@@ -60,6 +62,13 @@ export default function PongInviteModal({
     setLocalPlayerNames(updated)
   }
 
+  // Username search state
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchedUsers, setSearchedUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
+  const [searchError, setSearchError] = useState("")
+  const [searching, setSearching] = useState(false)
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Get room users from pong store (set by ChatHeader)
   const storeInviteRoomUsers = usePongStore((state) => state.inviteRoomUsers)
   const setInviteRoomUsers = usePongStore((state) => state.setInviteRoomUsers)
@@ -70,10 +79,62 @@ export default function PongInviteModal({
   const userCache = useGlobalStore((state) => state.users.data.userCache)
   const fetchUserConnections = useGlobalStore((state) => state.users.actions.fetchUserConnections)
 
+  // Search for user by username using existing WS endpoint
+  const handleSearchUser = useCallback(() => {
+    const query = searchQuery.trim()
+    if (!query) return
+    setSearchError("")
+    setSearching(true)
+
+    // Send WS request (accepts string username)
+    getSocketSenderRef()(user_url.ws.users.requestUserProfileData, query)
+
+    // Poll userCache for the result (fire-and-forget WS pattern)
+    let attempts = 0
+    if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
+    searchTimeoutRef.current = setInterval(() => {
+      attempts++
+      const cache = useGlobalStore.getState().users.data.userCache
+      // Check if any cached user matches the searched username
+      const found = Array.from(cache.values()).find(
+        (u) => u.username.toLowerCase() === query.toLowerCase()
+      )
+      if (found) {
+        if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
+        setSearching(false)
+        if (found.id === currentUserId) {
+          setSearchError("That's you!")
+          return
+        }
+        // Avoid duplicates
+        setSearchedUsers((prev) => {
+          if (prev.some((u) => u.id === found.id)) return prev
+          return [...prev, { id: found.id, username: found.username, onlineStatus: found.onlineStatus ?? 0 }]
+        })
+        setSearchQuery("")
+      } else if (attempts > 20) {
+        // ~2 seconds timeout
+        if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
+        setSearching(false)
+        setSearchError("User not found")
+      }
+    }, 100)
+  }, [searchQuery, currentUserId])
+
+  // Cleanup search interval on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
+    }
+  }, [])
+
   // Clear store inviteRoomUsers when modal closes
   const handleClose = () => {
     setInviteRoomUsers([])
     setSelectedPlayers([])
+    setSearchedUsers([])
+    setSearchQuery("")
+    setSearchError("")
     onClose()
   }
 
@@ -96,29 +157,42 @@ export default function PongInviteModal({
   }, [isOpen]);
 
   // Build available players list: use roomUsers prop, then store inviteRoomUsers, then friends
+  // Always merge in searchedUsers so users found by search are always visible
   const availablePlayers = useMemo(() => {
+    let basePlayers: Array<{ id: number; username: string; onlineStatus?: number }> = []
+
     // Priority 1: prop roomUsers (from AuthenticatedApp legacy flow)
     if (roomUsers.length > 0) {
-      return roomUsers.filter((u) => u.id !== currentUserId)
+      basePlayers = roomUsers.filter((u) => u.id !== currentUserId)
     }
-    
     // Priority 2: store inviteRoomUsers (from ChatHeader)
-    if (storeInviteRoomUsers.length > 0) {
-      return storeInviteRoomUsers.filter((u) => u.id !== currentUserId)
+    else if (storeInviteRoomUsers.length > 0) {
+      basePlayers = storeInviteRoomUsers.filter((u) => u.id !== currentUserId)
     }
-    
     // Priority 3: all friends from global store (opened from Pong page directly)
-    return [...friends]
-      .filter((id) => id !== currentUserId)
-      .map((id) => {
-        const cached = userCache.get(id)
-        return {
-          id,
-          username: cached?.username || `User ${id}`,
-          onlineStatus: onlineUsers.has(id) ? 1 : 0,
-        }
-      })
-  }, [roomUsers, storeInviteRoomUsers, currentUserId, onlineUsers, friends, userCache])
+    else {
+      basePlayers = [...friends]
+        .filter((id) => id !== currentUserId)
+        .map((id) => {
+          const cached = userCache.get(id)
+          return {
+            id,
+            username: cached?.username || `User ${id}`,
+            onlineStatus: onlineUsers.has(id) ? 1 : 0,
+          }
+        })
+    }
+
+    // Merge searched users (avoid duplicates)
+    const baseIds = new Set(basePlayers.map((u) => u.id))
+    const merged = [...basePlayers]
+    for (const u of searchedUsers) {
+      if (!baseIds.has(u.id) && u.id !== currentUserId) {
+        merged.push(u)
+      }
+    }
+    return merged
+  }, [roomUsers, storeInviteRoomUsers, currentUserId, onlineUsers, friends, userCache, searchedUsers])
 
   if (!isOpen) return null
 
@@ -327,6 +401,29 @@ export default function PongInviteModal({
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.autoSelected')}</div>
               </div>
+
+              {/* Search by username */}
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSearchError("") }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchUser() } }}
+                  placeholder={t('pong.searchByUsername') || "Search by username..."}
+                  maxLength={32}
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400"
+                />
+                <button
+                  onClick={handleSearchUser}
+                  disabled={searching || !searchQuery.trim()}
+                  className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  {searching ? "..." : "🔍"}
+                </button>
+              </div>
+              {searchError && (
+                <div className="text-xs text-red-500 mb-2">{searchError}</div>
+              )}
 
               {/* Other Players */}
               {availablePlayers.length > 0 ? (
