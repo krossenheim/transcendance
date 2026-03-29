@@ -795,51 +795,85 @@ void renderer_draw_game(game_state_t *game)
     int game_x = 1;
     int game_y = status_h;
     
-    /* Draw scores — show all players in multiplayer modes */
+    /* Draw player status HUD */
     {
+        bool is_los = (strcmp(game->game_mode, "lastOneStanding") == 0);
         int score_y = 0;
         int score_x = 2;
-        for (int i = 0; i < game->player_count; i++) {
-            int pid = game->players[i].id;
-            int sc  = game->players[i].score;
-            bool is_me = (pid == game->my_user_id);
-            int cpair = get_player_color(game, pid);
 
-            /* Check if eliminated (no paddle) in lastOneStanding */
-            bool eliminated = false;
-            if (strcmp(game->game_mode, "lastOneStanding") == 0) {
-                eliminated = true;
+        if (is_los) {
+            /* Last One Standing: show alive count + per-player alive/out status */
+            int alive = 0;
+            for (int i = 0; i < game->player_count; i++) {
+                bool has_paddle = false;
+                for (int pi = 0; pi < game->paddle_count; pi++) {
+                    if (game->paddles[pi].owner_id == game->players[i].id) {
+                        has_paddle = true;
+                        break;
+                    }
+                }
+                if (has_paddle) alive++;
+            }
+            wattron(win, COLOR_PAIR(COLOR_SCORE) | A_BOLD);
+            char hdr[40];
+            snprintf(hdr, sizeof(hdr), "Alive: %d/%d", alive, game->player_count);
+            mvwprintw(win, score_y, score_x, "%s", hdr);
+            wattroff(win, COLOR_PAIR(COLOR_SCORE) | A_BOLD);
+            score_x += (int)strlen(hdr) + 3;
+
+            for (int i = 0; i < game->player_count; i++) {
+                int pid = game->players[i].id;
+                bool is_me = (pid == game->my_user_id);
+                int cpair = get_player_color(game, pid);
+                bool eliminated = true;
                 for (int pi = 0; pi < game->paddle_count; pi++) {
                     if (game->paddles[pi].owner_id == pid) {
                         eliminated = false;
                         break;
                     }
                 }
-            }
 
-            wattron(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0)
-                                           | (eliminated ? A_DIM : 0));
-            char tag[80];
-            if (is_me)
-                snprintf(tag, sizeof(tag), "You:%d", sc);
-            else
-                snprintf(tag, sizeof(tag), "P%d:%d", pid, sc);
-            if (eliminated) {
-                /* Append X marker for eliminated players */
-                int tl = (int)strlen(tag);
-                if (tl + 2 < (int)sizeof(tag)) {
-                    tag[tl] = 'X'; tag[tl+1] = '\0';
+                char tag[80];
+                if (is_me)
+                    snprintf(tag, sizeof(tag), eliminated ? "[You]" : "You");
+                else
+                    snprintf(tag, sizeof(tag), eliminated ? "[P%d]" : "P%d", pid);
+
+                wattron(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0)
+                                               | (eliminated ? A_DIM : 0));
+                int tag_len = (int)strlen(tag);
+                if (score_x + tag_len + 1 >= width) {
+                    score_y++;
+                    score_x = 2;
                 }
+                mvwprintw(win, score_y, score_x, "%s", tag);
+                wattroff(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0)
+                                                | (eliminated ? A_DIM : 0));
+                score_x += tag_len + 2;
             }
-            int tag_len = (int)strlen(tag);
-            if (score_x + tag_len + 1 >= width) {
-                score_y++;
-                score_x = 2;
+        } else {
+            /* Normal modes: show scores */
+            for (int i = 0; i < game->player_count; i++) {
+                int pid = game->players[i].id;
+                int sc  = game->players[i].score;
+                bool is_me = (pid == game->my_user_id);
+                int cpair = get_player_color(game, pid);
+
+                wattron(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0));
+                char tag[80];
+                if (is_me)
+                    snprintf(tag, sizeof(tag), "You:%d", sc);
+                else
+                    snprintf(tag, sizeof(tag), "P%d:%d", pid, sc);
+                int tag_len = (int)strlen(tag);
+                if (score_x + tag_len + 1 >= width) {
+                    score_y++;
+                    score_x = 2;
+                }
+                mvwprintw(win, score_y, score_x, "%s", tag);
+                wattroff(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0));
+                score_x += tag_len + 2;
             }
-            mvwprintw(win, score_y, score_x, "%s", tag);
-            wattroff(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0)
-                                            | (eliminated ? A_DIM : 0));
-            score_x += tag_len + 2;
         }
     }
     
@@ -1093,38 +1127,98 @@ void renderer_draw_game_over(game_state_t *game)
     
     y += 2;
     
-    /* Show all player scores sorted descending */
-    draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
-    y++;
-    
-    /* Simple insertion sort by score descending */
-    int order[MAX_PLAYERS];
-    for (int i = 0; i < game->player_count; i++) order[i] = i;
-    for (int i = 1; i < game->player_count; i++) {
-        int key = order[i];
-        int j = i - 1;
-        while (j >= 0 && game->players[order[j]].score < game->players[key].score) {
-            order[j + 1] = order[j];
-            j--;
+    bool is_los = (strcmp(game->game_mode, "lastOneStanding") == 0);
+
+    if (is_los && game->eliminated_count > 0) {
+        /* Last One Standing: show elimination order (last standing = winner) */
+        draw_centered(win, y++, "Elimination Order:", COLOR_SCORE);
+        y++;
+
+        /* Winner comes first (the player not in eliminated list, or last
+           alive).  Then eliminated in reverse order (most recent out first). */
+        int shown = 0;
+
+        /* Find the winner (player not in eliminated list) */
+        for (int i = 0; i < game->player_count && y < height - 4; i++) {
+            int pid = game->players[i].id;
+            bool was_eliminated = false;
+            for (int e = 0; e < game->eliminated_count; e++) {
+                if (game->eliminated_players[e] == pid) {
+                    was_eliminated = true;
+                    break;
+                }
+            }
+            if (!was_eliminated) {
+                bool is_me = (pid == game->my_user_id);
+                int cpair = get_player_color(game, pid);
+                char line[80];
+                if (is_me)
+                    snprintf(line, sizeof(line), "** WINNER: You **");
+                else
+                    snprintf(line, sizeof(line), "** WINNER: Player %d **", pid);
+                wattron(win, COLOR_PAIR(cpair) | A_BOLD);
+                draw_centered(win, y++, line, 0);
+                wattroff(win, COLOR_PAIR(cpair) | A_BOLD);
+                shown++;
+            }
         }
-        order[j + 1] = key;
-    }
-    for (int rank = 0; rank < game->player_count && y < height - 4; rank++) {
-        int idx = order[rank];
-        int pid = game->players[idx].id;
-        int sc  = game->players[idx].score;
-        bool is_me = (pid == game->my_user_id);
-        int cpair = get_player_color(game, pid);
+
+        /* Eliminated players: last eliminated = placed 2nd, first = last place */
+        for (int e = game->eliminated_count - 1; e >= 0 && y < height - 4; e--) {
+            int pid = game->eliminated_players[e];
+            bool is_me = (pid == game->my_user_id);
+            int cpair = get_player_color(game, pid);
+            char line[80];
+            int place = shown + 1;
+            if (is_me)
+                snprintf(line, sizeof(line), "%d. You (eliminated)", place);
+            else
+                snprintf(line, sizeof(line), "%d. Player %d (eliminated)", place, pid);
+            wattron(win, COLOR_PAIR(cpair) | A_DIM);
+            draw_centered(win, y++, line, 0);
+            wattroff(win, COLOR_PAIR(cpair) | A_DIM);
+            shown++;
+        }
+    } else {
+        /* Normal modes: show scores sorted descending */
+        draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
+        y++;
         
-        char line[80];
-        if (is_me)
-            snprintf(line, sizeof(line), "%d. You: %d", rank + 1, sc);
-        else
-            snprintf(line, sizeof(line), "%d. Player %d: %d", rank + 1, pid, sc);
-        
-        wattron(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
-        draw_centered(win, y++, line, 0);
-        wattroff(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
+        /* Simple insertion sort by score descending, winner first on ties */
+        int order[MAX_PLAYERS];
+        for (int i = 0; i < game->player_count; i++) order[i] = i;
+        for (int i = 1; i < game->player_count; i++) {
+            int key = order[i];
+            int j = i - 1;
+            while (j >= 0) {
+                int sa = game->players[order[j]].score;
+                int sb = game->players[key].score;
+                /* Sort descending by score; on tie, winner ranks first */
+                bool swap = (sa < sb) ||
+                            (sa == sb && game->players[key].id == game->winner_id);
+                if (!swap) break;
+                order[j + 1] = order[j];
+                j--;
+            }
+            order[j + 1] = key;
+        }
+        for (int rank = 0; rank < game->player_count && y < height - 4; rank++) {
+            int idx = order[rank];
+            int pid = game->players[idx].id;
+            int sc  = game->players[idx].score;
+            bool is_me = (pid == game->my_user_id);
+            int cpair = get_player_color(game, pid);
+            
+            char line[80];
+            if (is_me)
+                snprintf(line, sizeof(line), "%d. You: %d", rank + 1, sc);
+            else
+                snprintf(line, sizeof(line), "%d. Player %d: %d", rank + 1, pid, sc);
+            
+            wattron(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
+            draw_centered(win, y++, line, 0);
+            wattroff(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
+        }
     }
     
     y += 2;

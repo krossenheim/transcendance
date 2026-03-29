@@ -75,6 +75,12 @@ export default function SocketComponent({
   const keepaliveTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const intentionalClose = useRef(false)
   
+  // Store auth in a ref so that connect() always reads the latest JWT
+  // without needing AuthResponseObject in its dependency array.
+  // This prevents the socket from being torn down on every token refresh.
+  const authRef = useRef<AuthResponseType | null>(null)
+  authRef.current = AuthResponseObject
+
   const subscribers = useRef<Map<string, Set<SocketCallbackSubscribtion<any>>>>(new Map())
 
   const subscribe = useCallback(<T extends WebSocketRouteDef>(route: T, callback: SocketCallback<T>) => {
@@ -163,7 +169,7 @@ export default function SocketComponent({
   }, [])
 
   const connect = useCallback(() => {
-    if (!AuthResponseObject || socket.current) return
+    if (!authRef.current || socket.current) return
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
     const wsUrl = protocol + "//" + window.location.host + "/ws"
@@ -177,7 +183,7 @@ export default function SocketComponent({
       setIsConnected(true)
       reconnectAttempts.current = 0
       ws.send(JSON.stringify({
-        authorization: AuthResponseObject!.tokens.jwt,
+        authorization: authRef.current!.tokens.jwt,
       }))
       // Flush message queue
       while (messageQueue.current.length > 0) {
@@ -231,10 +237,15 @@ export default function SocketComponent({
       console.error('[Socket] Error', err)
       ws.close()
     }
-  }, [AuthResponseObject, handleMessage])
+  }, [handleMessage])
 
+  // Only connect/disconnect when auth presence changes (login/logout),
+  // NOT when the auth token is refreshed (which creates a new object ref).
+  const hasAuth = !!AuthResponseObject
   useEffect(() => {
-    connect()
+    if (hasAuth) {
+      connect()
+    }
     return () => {
       intentionalClose.current = true
       if (reconnectTimer.current) {
@@ -246,9 +257,10 @@ export default function SocketComponent({
         keepaliveTimer.current = null
       }
       closeGlobalSocket()
+      socket.current = null
       intentionalClose.current = false
     }
-  }, [connect])
+  }, [hasAuth, connect])
 
   return (
     <SocketContext.Provider value={{ isConnected, sendMessage, subscribe }}>
