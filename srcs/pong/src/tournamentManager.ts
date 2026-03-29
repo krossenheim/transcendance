@@ -446,6 +446,27 @@ export class TournamentManager {
     return this.tournaments.get(tournamentId);
   }
 
+  /**
+   * Remove a completed tournament from memory.
+   * Should be called after the final results have been sent to all players.
+   */
+  removeTournament(tournamentId: number): void {
+    this.tournaments.delete(tournamentId);
+  }
+
+  /**
+   * Check if a player is currently participating in any active (non-completed) tournament.
+   */
+  getActiveTournamentForPlayer(userId: number): Tournament | undefined {
+    for (const tournament of this.tournaments.values()) {
+      if (tournament.status !== "completed" &&
+          tournament.players.some(p => p.userId === userId)) {
+        return tournament;
+      }
+    }
+    return undefined;
+  }
+
 }
 
 export default TournamentManager;

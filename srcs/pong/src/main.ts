@@ -115,6 +115,11 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
 
     // Auto-start AI vs AI matches
     await autoStartAiVsAiMatches(tournamentId);
+
+    // Clean up completed tournament from memory after a delay
+    if (isTournamentComplete) {
+      setTimeout(() => tournamentManager.removeTournament(tournamentId), 60_000);
+    }
     return;
   }
 
@@ -177,6 +182,11 @@ singletonPong.setTournamentMatchEndCallback(async (tournamentId, matchId, winner
 
   // Auto-start any AI vs AI matches that became ready after this match ended
   await autoStartAiVsAiMatches(tournamentId);
+
+  // Clean up completed tournament from memory after a delay
+  if (isTournamentComplete) {
+    setTimeout(() => tournamentManager.removeTournament(tournamentId), 60_000);
+  }
 });
 
 /**
@@ -407,6 +417,14 @@ socket.registerHandler(user_url.ws.pong.createLobby, async (body, response) => {
   let tournamentPayload = undefined;
   if (gameMode === "tournament") {
     try {
+      // Clean up any stale completed tournament the host is still associated with
+      const existingTournament = tournamentManager.getActiveTournamentForPlayer(user_id);
+      if (existingTournament) {
+        if (existingTournament.status === "completed") {
+          tournamentManager.removeTournament(existingTournament.tournamentId);
+        }
+      }
+
       const tournamentName = isLocalTournament ? "Local Tournament" : "Tournament";
 
       // Add AI players as full tournament participants

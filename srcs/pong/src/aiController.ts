@@ -487,10 +487,20 @@ export class AIController {
    */
   public update(): void {
 
-    // If paddle already reached target, stay still until next refresh gives a new target
+    // If paddle already reached target, drift toward sector center so the
+    // paddle isn't frozen at the last interception point for up to 1 second.
+    // This does NOT read game state — it only uses the fixed sector center.
     if (this.reachedTarget) {
-      this.currentKeys = [];
-      return;
+      const driftDiff = angDiff(this.sectorCenter, this.estimatedPaddleAngle);
+      const driftOffset = Math.abs(driftDiff) * this.paddleOrbitRadius;
+      // Only drift if we're far enough from center to matter
+      if (driftOffset > this.params.minDeadZonePx * 2) {
+        this.committedTargetAngle = this.sectorCenter;
+        this.reachedTarget = false;
+      } else {
+        this.currentKeys = [];
+        return;
+      }
     }
 
     const now = Date.now();

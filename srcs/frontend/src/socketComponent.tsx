@@ -204,24 +204,27 @@ export default function SocketComponent({
         clearInterval(keepaliveTimer.current)
         keepaliveTimer.current = null
       }
-      window.location.href = "/";
 
-      // if (intentionalClose.current || event.code === 1000) return
+      if (intentionalClose.current || event.code === 1000) {
+        window.location.href = "/";
+        return
+      }
 
-      // if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
-      //   console.error(`[Socket] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`)
-      //   return
-      // }
-      // const delay = Math.min(
-      //   INITIAL_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current),
-      //   MAX_RECONNECT_DELAY_MS
-      // )
-      // reconnectAttempts.current++
-      // console.log(`[Socket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})...`)
-      // reconnectTimer.current = setTimeout(() => {
-      //   reconnectTimer.current = null
-      //   connect()
-      // }, delay)
+      if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(`[Socket] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Redirecting.`)
+        window.location.href = "/";
+        return
+      }
+      const delay = Math.min(
+        INITIAL_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current),
+        MAX_RECONNECT_DELAY_MS
+      )
+      reconnectAttempts.current++
+      console.log(`[Socket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})...`)
+      reconnectTimer.current = setTimeout(() => {
+        reconnectTimer.current = null
+        connect()
+      }, delay)
     }
 
     ws.onerror = (err) => {
