@@ -1140,7 +1140,7 @@ static void handle_settings(app_context_t *ctx)
                     case 4:  /* AI Opponents */
                         ctx->ai_count += delta;
                         if (ctx->ai_count < 0) ctx->ai_count = 0;
-                        if (ctx->ai_count > 3) ctx->ai_count = 3;
+                        if (ctx->ai_count > 7) ctx->ai_count = 7;
                         break;
                 }
             }

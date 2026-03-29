@@ -26,6 +26,10 @@
 #define COLOR_PADDLE_OPP 10
 #define COLOR_MIDLINE   11
 
+/* Per-player color pairs (matching frontend USER_COLORS order) */
+#define COLOR_PLAYER_BASE 12
+#define MAX_PLAYER_COLORS 8
+
 /* Global terminal state */
 static pong_renderer_t g_renderer;
 static bool g_initialized = false;
@@ -108,6 +112,27 @@ int renderer_init(void)
         init_pair(COLOR_POWERUP, COLOR_MAGENTA, -1);
         init_pair(COLOR_PADDLE_OPP, COLOR_MAGENTA, -1);
         init_pair(COLOR_MIDLINE, COLOR_GREEN, -1);
+        
+        /* Per-player colors (matching frontend USER_COLORS order) */
+        if (COLORS >= 256) {
+            init_pair(COLOR_PLAYER_BASE + 0, 46, -1);   /* Green */
+            init_pair(COLOR_PLAYER_BASE + 1, 33, -1);   /* Blue */
+            init_pair(COLOR_PLAYER_BASE + 2, 208, -1);  /* Orange */
+            init_pair(COLOR_PLAYER_BASE + 3, 201, -1);  /* Magenta */
+            init_pair(COLOR_PLAYER_BASE + 4, 226, -1);  /* Yellow */
+            init_pair(COLOR_PLAYER_BASE + 5, 51, -1);   /* Cyan */
+            init_pair(COLOR_PLAYER_BASE + 6, 135, -1);  /* Purple */
+            init_pair(COLOR_PLAYER_BASE + 7, 197, -1);  /* Pink */
+        } else {
+            init_pair(COLOR_PLAYER_BASE + 0, COLOR_GREEN, -1);
+            init_pair(COLOR_PLAYER_BASE + 1, COLOR_BLUE, -1);
+            init_pair(COLOR_PLAYER_BASE + 2, COLOR_YELLOW, -1);
+            init_pair(COLOR_PLAYER_BASE + 3, COLOR_MAGENTA, -1);
+            init_pair(COLOR_PLAYER_BASE + 4, COLOR_YELLOW, -1);
+            init_pair(COLOR_PLAYER_BASE + 5, COLOR_CYAN, -1);
+            init_pair(COLOR_PLAYER_BASE + 6, COLOR_MAGENTA, -1);
+            init_pair(COLOR_PLAYER_BASE + 7, COLOR_RED, -1);
+        }
     }
     
     /* Get terminal dimensions */
@@ -746,6 +771,24 @@ static chtype line_char_for_slope(int x0, int y0, int x1, int y1)
     return '/';
 }
 
+/* Get the ncurses color pair for a player based on their position in the
+ * game's player list (mirrors the frontend USER_COLORS index assignment). */
+static int get_player_color(game_state_t *game, int player_id)
+{
+    for (int i = 0; i < game->player_count; i++) {
+        if (game->players[i].id == player_id)
+            return COLOR_PLAYER_BASE + (i % MAX_PLAYER_COLORS);
+    }
+    /* Fallback for players not yet in the score list */
+    if (player_id <= -1001) {
+        int ai_seq = (-player_id) - 1001;
+        return COLOR_PLAYER_BASE + ((MAX_PLAYER_COLORS - 1 - (ai_seq % MAX_PLAYER_COLORS)));
+    }
+    if (player_id >= 0)
+        return COLOR_PLAYER_BASE + (player_id % MAX_PLAYER_COLORS);
+    return COLOR_WALL;
+}
+
 /* Draw game state */
 void renderer_draw_game(game_state_t *game)
 {
@@ -848,24 +891,28 @@ void renderer_draw_game(game_state_t *game)
         game_to_screen(w->x2, w->y2, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx2, &sy2);
 
-        /* Player goal walls get different color */
-        if (w->player_id >= 0) {
-            bool is_my_wall = (w->player_id == game->my_user_id);
-            wattron(win, COLOR_PAIR(is_my_wall ? COLOR_PADDLE : COLOR_ERROR));
-        } else {
-            wattron(win, COLOR_PAIR(COLOR_WALL));
+        /* Walls are default blue. In lastOneStanding, when a player is
+         * eliminated their paddle is removed but the wall keeps the
+         * player_id — color it with that player's color. */
+        int wall_cpair = COLOR_WALL;
+        if (w->player_id != -1) {
+            bool has_paddle = false;
+            for (int pi = 0; pi < game->paddle_count; pi++) {
+                if (game->paddles[pi].owner_id == w->player_id) {
+                    has_paddle = true;
+                    break;
+                }
+            }
+            if (!has_paddle)
+                wall_cpair = get_player_color(game, w->player_id);
         }
+        wattron(win, COLOR_PAIR(wall_cpair));
 
         chtype wch = line_char_for_slope(sx1, sy1, sx2, sy2);
         draw_line(win, sx1, sy1, sx2, sy2,
                   game_x, game_y, game_x + game_w - 1, game_y + game_h - 1, wch);
 
-        if (w->player_id >= 0) {
-            bool is_my_wall = (w->player_id == game->my_user_id);
-            wattroff(win, COLOR_PAIR(is_my_wall ? COLOR_PADDLE : COLOR_ERROR));
-        } else {
-            wattroff(win, COLOR_PAIR(COLOR_WALL));
-        }
+        wattroff(win, COLOR_PAIR(wall_cpair));
     }
     
     /* Draw paddles — angle-aware line drawing */
@@ -890,7 +937,7 @@ void renderer_draw_game(game_state_t *game)
                        area_x, area_y, area_w, area_h, &sx2, &sy2);
         
         bool is_mine = (p->owner_id == game->my_user_id);
-        int paddle_color = is_mine ? COLOR_PADDLE : COLOR_PADDLE_OPP;
+        int paddle_color = get_player_color(game, p->owner_id);
         wattron(win, COLOR_PAIR(paddle_color) | A_BOLD | (is_mine ? A_REVERSE : 0));
         
         draw_line(win, sx1, sy1, sx2, sy2,
