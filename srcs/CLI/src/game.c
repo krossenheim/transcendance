@@ -40,6 +40,7 @@ static void on_lobby_update(const char *func_id, int code,
     if (code != 0) return;
     
     pthread_mutex_lock(&game->mutex);
+    bool was_in_lobby = game->in_lobby;
     game_update_lobby(game, payload);
     
     /* Check if we're the host or invited */
@@ -55,7 +56,7 @@ static void on_lobby_update(const char *func_id, int code,
     
     if (found_self) {
         game->is_host = is_host;
-        if (!is_host && !game->in_lobby) {
+        if (!is_host && !was_in_lobby) {
             /* We were invited to this lobby */
             game->invitation_pending = true;
         }

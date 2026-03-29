@@ -71,6 +71,7 @@ typedef enum {
     STATE_GAME_OVER,
     STATE_SETTINGS,
     STATE_INVITE,
+    STATE_INVITATION,  /* Received an invite from another player */
     STATE_QUIT,
 } app_state_t;
 

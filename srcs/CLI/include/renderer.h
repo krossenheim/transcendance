@@ -56,5 +56,6 @@ void                renderer_draw_settings(const char **settings, const char **v
 void                renderer_draw_invite(online_user_t *users, int user_count,
                                         int selected, int my_user_id,
                                         const char *search_query, bool searching);
+void                renderer_draw_invitation(lobby_t *lobby, int my_user_id);
 
 #endif /* RENDERER_H */

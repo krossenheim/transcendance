@@ -1418,3 +1418,66 @@ void renderer_draw_invite(online_user_t *users, int user_count,
     delwin(swin);
     renderer_refresh();
 }
+
+/* Draw incoming invitation screen */
+void renderer_draw_invitation(lobby_t *lobby, int my_user_id)
+{
+    renderer_clear();
+    draw_bg_starfield();
+    WINDOW *win = g_renderer.main_win;
+
+    int height, width;
+    getmaxyx(win, height, width);
+
+    int box_h = 14 + lobby->player_count;
+    if (box_h > height - 2) box_h = height - 2;
+    int box_w = 54;
+    if (box_w > width - 2) box_w = width - 2;
+    int start_y = (height - box_h) / 2;
+    int start_x = (width - box_w) / 2;
+
+    WINDOW *iwin = derwin(win, box_h, box_w, start_y, start_x);
+    werase(iwin);
+    draw_border(iwin, "Game Invitation");
+
+    int y = 2;
+
+    /* Find host name */
+    const char *host_name = "Unknown";
+    for (int i = 0; i < lobby->player_count; i++) {
+        if (lobby->players[i].is_host) {
+            host_name = lobby->players[i].username;
+            break;
+        }
+    }
+
+    wattron(iwin, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
+    mvwprintw(iwin, y++, 3, "You've been invited to play!");
+    wattroff(iwin, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
+    y++;
+
+    mvwprintw(iwin, y++, 3, "Host: %s", host_name);
+    mvwprintw(iwin, y++, 3, "Mode: %s", lobby->game_mode);
+    mvwprintw(iwin, y++, 3, "Balls: %d  Max Score: %d",
+              lobby->ball_count, lobby->max_score);
+    mvwprintw(iwin, y++, 3, "Powerups: %s  AI: %d",
+              lobby->allow_powerups ? "On" : "Off", lobby->ai_count);
+    y++;
+
+    /* Player list */
+    mvwprintw(iwin, y++, 3, "Players:");
+    for (int i = 0; i < lobby->player_count; i++) {
+        const char *tag = "";
+        if (lobby->players[i].is_host) tag = " (Host)";
+        else if (lobby->players[i].id == my_user_id) tag = " (You)";
+        mvwprintw(iwin, y++, 5, "- %s%s", lobby->players[i].username, tag);
+    }
+
+    y = box_h - 3;
+    wattron(iwin, COLOR_PAIR(COLOR_TITLE));
+    mvwprintw(iwin, y++, 3, "A: Accept   D: Decline");
+    wattroff(iwin, COLOR_PAIR(COLOR_TITLE));
+
+    delwin(iwin);
+    renderer_refresh();
+}

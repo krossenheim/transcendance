@@ -469,9 +469,8 @@ static void handle_menu(app_context_t *ctx)
         pthread_mutex_unlock(&ctx->game->mutex);
         
         if (invited) {
-            /* Auto-join the lobby we were invited to */
-            ctx->game->invitation_pending = false;
-            ctx->state = STATE_LOBBY;
+            /* Show invitation screen so user can accept or decline */
+            ctx->state = STATE_INVITATION;
             return;
         }
     }
@@ -904,6 +903,66 @@ static void handle_invite(app_context_t *ctx)
     }
 }
 
+/* Handle incoming game invitation */
+static void handle_invitation(app_context_t *ctx)
+{
+    if (!ctx->game || !ctx->ws) {
+        ctx->state = STATE_MENU;
+        return;
+    }
+
+    pthread_mutex_lock(&ctx->game->mutex);
+    lobby_t lobby_copy = ctx->game->lobby;
+    int my_id = ctx->game->my_user_id;
+    pthread_mutex_unlock(&ctx->game->mutex);
+
+    renderer_draw_invitation(&lobby_copy, my_id);
+
+    int ch = renderer_get_input();
+    if (ch == ERR) {
+        usleep(50000);
+        return;
+    }
+
+    switch (ch) {
+        case 'a':
+        case 'A':
+        case '\n':
+        case KEY_ENTER:
+            /* Accept: clear pending flag and go to lobby */
+            pthread_mutex_lock(&ctx->game->mutex);
+            ctx->game->invitation_pending = false;
+            pthread_mutex_unlock(&ctx->game->mutex);
+            ctx->state = STATE_LOBBY;
+            break;
+
+        case 'd':
+        case 'D':
+        case 27: /* ESC */
+        case 'q':
+        case 'Q': {
+            /* Decline: send decline message and return to menu */
+            pthread_mutex_lock(&ctx->game->mutex);
+            int lobby_id = ctx->game->lobby.id;
+            ctx->game->invitation_pending = false;
+            ctx->game->in_lobby = false;
+            pthread_mutex_unlock(&ctx->game->mutex);
+
+            cJSON *payload = cJSON_CreateObject();
+            cJSON_AddNumberToObject(payload, "lobbyId", lobby_id);
+            char *json = cJSON_PrintUnformatted(payload);
+            cJSON_Delete(payload);
+            if (json) {
+                ws_send_message(ctx->ws, "pong",
+                                "decline_lobby_invitation", json);
+                free(json);
+            }
+            ctx->state = STATE_MENU;
+            break;
+        }
+    }
+}
+
 /* Handle matchmaking */
 static void handle_matchmaking(app_context_t *ctx)
 {
@@ -1196,6 +1255,10 @@ static void app_run(app_context_t *ctx)
                 
             case STATE_INVITE:
                 handle_invite(ctx);
+                break;
+
+            case STATE_INVITATION:
+                handle_invitation(ctx);
                 break;
                 
             default:
