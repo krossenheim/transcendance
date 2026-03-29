@@ -574,6 +574,15 @@ void game_update_state(game_state_t *game, const char *json_payload)
                     game->eliminated_players[game->eliminated_count++] = ep->valueint;
             }
         }
+        cJSON *all_p = cJSON_GetObjectItem(metadata, "allPlayers");
+        if (all_p && cJSON_IsArray(all_p)) {
+            game->all_player_count = 0;
+            cJSON *ap;
+            cJSON_ArrayForEach(ap, all_p) {
+                if (game->all_player_count < MAX_PLAYERS && cJSON_IsNumber(ap))
+                    game->all_player_ids[game->all_player_count++] = ap->valueint;
+            }
+        }
     }
 
     /* Mark game as active */

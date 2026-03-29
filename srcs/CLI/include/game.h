@@ -15,10 +15,10 @@
 
 /* Game state constants */
 #define MAX_BALLS       10
-#define MAX_PADDLES     8
+#define MAX_PADDLES     16
 #define MAX_WALLS       16
 #define MAX_POWERUPS    5
-#define MAX_PLAYERS     8
+#define MAX_PLAYERS     16
 #define MAX_ACTIVE_EFFECTS 10
 
 /* Powerup types (must match server enum order) */
@@ -144,6 +144,10 @@ typedef struct game_state {
     char            game_mode[32];
     int             eliminated_players[MAX_PLAYERS];
     int             eliminated_count;
+
+    /* Ordered list of all original player IDs (for consistent color assignment) */
+    int             all_player_ids[MAX_PLAYERS];
+    int             all_player_count;
     
     /* Input state */
     bool            key_up;

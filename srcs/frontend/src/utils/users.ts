@@ -10,6 +10,10 @@ const USER_COLORS = [
     { r: 0, g: 255, b: 255 },    // Cyan
     { r: 153, g: 51, b: 255 },   // Purple
     { r: 255, g: 51, b: 102 },   // Pink
+    { r: 255, g: 60, b: 60 },    // Red
+    { r: 0, g: 200, b: 150 },    // Teal
+    { r: 255, g: 160, b: 120 },  // Coral
+    { r: 128, g: 255, b: 0 },    // Lime
 ]
 
 /**

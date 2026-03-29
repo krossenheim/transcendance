@@ -28,7 +28,7 @@
 
 /* Per-player color pairs (matching frontend USER_COLORS order) */
 #define COLOR_PLAYER_BASE 12
-#define MAX_PLAYER_COLORS 8
+#define MAX_PLAYER_COLORS 12
 
 /* Global terminal state */
 static pong_renderer_t g_renderer;
@@ -123,6 +123,10 @@ int renderer_init(void)
             init_pair(COLOR_PLAYER_BASE + 5, 51, -1);   /* Cyan */
             init_pair(COLOR_PLAYER_BASE + 6, 135, -1);  /* Purple */
             init_pair(COLOR_PLAYER_BASE + 7, 197, -1);  /* Pink */
+            init_pair(COLOR_PLAYER_BASE + 8, 196, -1);  /* Red */
+            init_pair(COLOR_PLAYER_BASE + 9, 43, -1);   /* Teal */
+            init_pair(COLOR_PLAYER_BASE + 10, 209, -1); /* Coral */
+            init_pair(COLOR_PLAYER_BASE + 11, 118, -1); /* Lime */
         } else {
             init_pair(COLOR_PLAYER_BASE + 0, COLOR_GREEN, -1);
             init_pair(COLOR_PLAYER_BASE + 1, COLOR_BLUE, -1);
@@ -132,6 +136,10 @@ int renderer_init(void)
             init_pair(COLOR_PLAYER_BASE + 5, COLOR_CYAN, -1);
             init_pair(COLOR_PLAYER_BASE + 6, COLOR_MAGENTA, -1);
             init_pair(COLOR_PLAYER_BASE + 7, COLOR_RED, -1);
+            init_pair(COLOR_PLAYER_BASE + 8, COLOR_RED, -1);
+            init_pair(COLOR_PLAYER_BASE + 9, COLOR_CYAN, -1);
+            init_pair(COLOR_PLAYER_BASE + 10, COLOR_WHITE, -1);
+            init_pair(COLOR_PLAYER_BASE + 11, COLOR_GREEN, -1);
         }
     }
     
@@ -751,42 +759,21 @@ static void draw_line(WINDOW *win, int x0, int y0, int x1, int y1,
     }
 }
 
-/* Pick a character for a line segment based on its slope */
-static chtype line_char_for_slope(int x0, int y0, int x1, int y1)
-{
-    int dx = abs(x1 - x0);
-    int dy = abs(y1 - y0);
-
-    if (dx == 0) return '|';
-    if (dy == 0) return '-';
-
-    float slope = (float)dy / (float)dx;
-    if (slope > 2.0f) return '|';
-    if (slope < 0.5f) return '-';
-
-    /* Diagonal — determine direction */
-    int going_right = (x1 > x0);
-    int going_down  = (y1 > y0);
-    if (going_right == going_down)
-        return '\\';
-    return '/';
-}
-
 /* Get the ncurses color pair for a player based on their position in the
- * game's player list (mirrors the frontend USER_COLORS index assignment). */
+ * server's allPlayers list (mirrors the frontend setGamePlayerIds color
+ * assignment: first player → index 0, second → index 1, etc.). */
 static int get_player_color(game_state_t *game, int player_id)
 {
+    /* Use the ordered allPlayers list from server metadata (matches frontend) */
+    for (int i = 0; i < game->all_player_count; i++) {
+        if (game->all_player_ids[i] == player_id)
+            return COLOR_PLAYER_BASE + (i % MAX_PLAYER_COLORS);
+    }
+    /* Fallback: check the score-based player list */
     for (int i = 0; i < game->player_count; i++) {
         if (game->players[i].id == player_id)
             return COLOR_PLAYER_BASE + (i % MAX_PLAYER_COLORS);
     }
-    /* Fallback for players not yet in the score list */
-    if (player_id <= -1001) {
-        int ai_seq = (-player_id) - 1001;
-        return COLOR_PLAYER_BASE + ((MAX_PLAYER_COLORS - 1 - (ai_seq % MAX_PLAYER_COLORS)));
-    }
-    if (player_id >= 0)
-        return COLOR_PLAYER_BASE + (player_id % MAX_PLAYER_COLORS);
     return COLOR_WALL;
 }
 
@@ -808,18 +795,53 @@ void renderer_draw_game(game_state_t *game)
     int game_x = 1;
     int game_y = status_h;
     
-    /* Draw status bar */
-    wattron(win, COLOR_PAIR(COLOR_SCORE) | A_BOLD);
-    
-    /* Draw scores */
-    int score_y = 0;
-    int my_score = game_get_my_score(game);
-    int opp_score = game_get_opponent_score(game);
-    
-    mvwprintw(win, score_y, 5, "You: %d", my_score);
-    mvwprintw(win, score_y, width - 15, "Opponent: %d", opp_score);
-    
-    wattroff(win, COLOR_PAIR(COLOR_SCORE) | A_BOLD);
+    /* Draw scores — show all players in multiplayer modes */
+    {
+        int score_y = 0;
+        int score_x = 2;
+        for (int i = 0; i < game->player_count; i++) {
+            int pid = game->players[i].id;
+            int sc  = game->players[i].score;
+            bool is_me = (pid == game->my_user_id);
+            int cpair = get_player_color(game, pid);
+
+            /* Check if eliminated (no paddle) in lastOneStanding */
+            bool eliminated = false;
+            if (strcmp(game->game_mode, "lastOneStanding") == 0) {
+                eliminated = true;
+                for (int pi = 0; pi < game->paddle_count; pi++) {
+                    if (game->paddles[pi].owner_id == pid) {
+                        eliminated = false;
+                        break;
+                    }
+                }
+            }
+
+            wattron(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0)
+                                           | (eliminated ? A_DIM : 0));
+            char tag[80];
+            if (is_me)
+                snprintf(tag, sizeof(tag), "You:%d", sc);
+            else
+                snprintf(tag, sizeof(tag), "P%d:%d", pid, sc);
+            if (eliminated) {
+                /* Append X marker for eliminated players */
+                int tl = (int)strlen(tag);
+                if (tl + 2 < (int)sizeof(tag)) {
+                    tag[tl] = 'X'; tag[tl+1] = '\0';
+                }
+            }
+            int tag_len = (int)strlen(tag);
+            if (score_x + tag_len + 1 >= width) {
+                score_y++;
+                score_x = 2;
+            }
+            mvwprintw(win, score_y, score_x, "%s", tag);
+            wattroff(win, COLOR_PAIR(cpair) | A_BOLD | (is_me ? A_UNDERLINE : 0)
+                                            | (eliminated ? A_DIM : 0));
+            score_x += tag_len + 2;
+        }
+    }
     
     /* Draw active powerup effects row (centered) */
     {
@@ -893,25 +915,44 @@ void renderer_draw_game(game_state_t *game)
                        area_x, area_y, area_w, area_h, &sx2, &sy2);
 
         /* Walls are default blue. In lastOneStanding, eliminated players'
-         * walls change to that player's color (server keeps the wall but
-         * adds the player to eliminatedPlayers). */
+         * walls change to that player's color.  Match the frontend logic:
+         * a wall whose player_id has no active paddle is "eliminated". */
         int wall_cpair = COLOR_WALL;
         if (w->player_id != -1
             && strcmp(game->game_mode, "lastOneStanding") == 0) {
-            for (int ei = 0; ei < game->eliminated_count; ei++) {
-                if (game->eliminated_players[ei] == w->player_id) {
-                    wall_cpair = get_player_color(game, w->player_id);
+            bool has_paddle = false;
+            for (int pi = 0; pi < game->paddle_count; pi++) {
+                if (game->paddles[pi].owner_id == w->player_id) {
+                    has_paddle = true;
                     break;
                 }
             }
+            if (!has_paddle)
+                wall_cpair = get_player_color(game, w->player_id);
         }
-        wattron(win, COLOR_PAIR(wall_cpair));
+        wattron(win, COLOR_PAIR(wall_cpair) | A_BOLD);
 
-        chtype wch = line_char_for_slope(sx1, sy1, sx2, sy2);
+        /* Draw 3 parallel lines for thicker, more solid walls */
+        int wdx = sx2 - sx1;
+        int wdy = sy2 - sy1;
+        int ox, oy;
+        if (abs(wdx) > abs(wdy)) {
+            /* Mostly horizontal wall: offset vertically */
+            ox = 0; oy = 1;
+        } else {
+            /* Mostly vertical wall: offset horizontally */
+            ox = 1; oy = 0;
+        }
+
+        chtype wch = ACS_CKBOARD;
         draw_line(win, sx1, sy1, sx2, sy2,
                   game_x, game_y, game_x + game_w - 1, game_y + game_h - 1, wch);
+        draw_line(win, sx1 + ox, sy1 + oy, sx2 + ox, sy2 + oy,
+                  game_x, game_y, game_x + game_w - 1, game_y + game_h - 1, wch);
+        draw_line(win, sx1 - ox, sy1 - oy, sx2 - ox, sy2 - oy,
+                  game_x, game_y, game_x + game_w - 1, game_y + game_h - 1, wch);
 
-        wattroff(win, COLOR_PAIR(wall_cpair));
+        wattroff(win, COLOR_PAIR(wall_cpair) | A_BOLD);
     }
     
     /* Draw paddles — angle-aware line drawing */
@@ -1036,7 +1077,7 @@ void renderer_draw_game_over(game_state_t *game)
     getmaxyx(win, height, width);
     (void)width;
     
-    int y = height / 3;
+    int y = height / 4;
     
     bool i_won = (game->winner_id == game->my_user_id);
     
@@ -1052,12 +1093,41 @@ void renderer_draw_game_over(game_state_t *game)
     
     y += 2;
     
-    char score_line[64];
-    snprintf(score_line, sizeof(score_line), "Final Score: %d - %d", 
-             game_get_my_score(game), game_get_opponent_score(game));
-    draw_centered(win, y++, score_line, COLOR_SCORE);
+    /* Show all player scores sorted descending */
+    draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
+    y++;
     
-    y += 3;
+    /* Simple insertion sort by score descending */
+    int order[MAX_PLAYERS];
+    for (int i = 0; i < game->player_count; i++) order[i] = i;
+    for (int i = 1; i < game->player_count; i++) {
+        int key = order[i];
+        int j = i - 1;
+        while (j >= 0 && game->players[order[j]].score < game->players[key].score) {
+            order[j + 1] = order[j];
+            j--;
+        }
+        order[j + 1] = key;
+    }
+    for (int rank = 0; rank < game->player_count && y < height - 4; rank++) {
+        int idx = order[rank];
+        int pid = game->players[idx].id;
+        int sc  = game->players[idx].score;
+        bool is_me = (pid == game->my_user_id);
+        int cpair = get_player_color(game, pid);
+        
+        char line[80];
+        if (is_me)
+            snprintf(line, sizeof(line), "%d. You: %d", rank + 1, sc);
+        else
+            snprintf(line, sizeof(line), "%d. Player %d: %d", rank + 1, pid, sc);
+        
+        wattron(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
+        draw_centered(win, y++, line, 0);
+        wattroff(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
+    }
+    
+    y += 2;
     draw_centered(win, y++, "Press any key to continue...", COLOR_MENU);
     
     renderer_refresh();
