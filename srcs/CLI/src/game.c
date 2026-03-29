@@ -189,7 +189,7 @@ int game_create_lobby(game_state_t *game, const char *mode,
 }
 
 /* Join lobby */
-int game_join_lobby(game_state_t *game, int lobby_id)
+int game_join_lobby(const game_state_t *game, int lobby_id)
 {
     if (!game || !game->ws) return -1;
     
@@ -498,7 +498,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
         cJSON_ArrayForEach(eff, active_effects) {
             if (game->active_effect_count >= MAX_ACTIVE_EFFECTS) break;
             cJSON *etype = cJSON_GetObjectItem(eff, "type");
-            cJSON *remaining = cJSON_GetObjectItem(eff, "remainingSeconds");
+            const cJSON *remaining = cJSON_GetObjectItem(eff, "remainingSeconds");
             if (etype && cJSON_IsNumber(etype)) {
                 active_effect_t *ae = &game->active_effects[game->active_effect_count];
                 ae->type = etype->valueint;
@@ -620,7 +620,7 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
             if (game->lobby.player_count < MAX_PLAYERS) {
                 player_t *p = &game->lobby.players[game->lobby.player_count];
                 
-                cJSON *user_id = cJSON_GetObjectItem(player, "userId");
+                const cJSON *user_id = cJSON_GetObjectItem(player, "userId");
                 cJSON *username = cJSON_GetObjectItem(player, "username");
                 cJSON *is_ready = cJSON_GetObjectItem(player, "isReady");
                 cJSON *is_host = cJSON_GetObjectItem(player, "isHost");
@@ -638,7 +638,7 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
     }
     
     /* Parse other settings */
-    cJSON *ball_count = cJSON_GetObjectItem(root, "ballCount");
+    const cJSON *ball_count = cJSON_GetObjectItem(root, "ballCount");
     if (ball_count) game->lobby.ball_count = ball_count->valueint;
 
     cJSON *ai_count = cJSON_GetObjectItem(root, "aiCount");
@@ -648,7 +648,7 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
         game->lobby.ai_count = 0;
     }
     
-    cJSON *max_score = cJSON_GetObjectItem(root, "maxScore");
+    const cJSON *max_score = cJSON_GetObjectItem(root, "maxScore");
     if (max_score) game->lobby.max_score = max_score->valueint;
     
     cJSON *powerups = cJSON_GetObjectItem(root, "allowPowerups");

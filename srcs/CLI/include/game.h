@@ -177,7 +177,7 @@ int             game_create_lobby(game_state_t *game, const char *mode,
                                    int player_count,
                                    int ball_count, int max_score, bool powerups,
                                    int ai_count);
-int             game_join_lobby(game_state_t *game, int lobby_id);
+int             game_join_lobby(const game_state_t *game, int lobby_id);
 int             game_leave_lobby(game_state_t *game);
 int             game_toggle_ready(game_state_t *game);
 int             game_start_from_lobby(game_state_t *game);

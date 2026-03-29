@@ -497,7 +497,7 @@ void log_msg(log_level_t level, const char *fmt, ...)
     if (level < min_log_level) return;
     
     time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
+    const struct tm *tm_info = localtime(&now);
     char time_buf[32];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
     

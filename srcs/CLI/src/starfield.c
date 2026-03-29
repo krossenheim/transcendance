@@ -147,7 +147,7 @@ void starfield_draw(starfield_t *sf, WINDOW *win, int w, int h)
     float cy = (float)h  / 2.0f;
 
     for (int i = 0; i < sf->count; i++) {
-        star_t *s = &sf->stars[i];
+        const star_t *s = &sf->stars[i];
 
         /* Perspective projection — identical to original: f = 300 / z */
         float f  = sf->focal / s->z;

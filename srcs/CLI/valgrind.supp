@@ -1,0 +1,26 @@
+{
+   ncurses_tiparm_strdup
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:strdup
+   ...
+   fun:_nc_tiparm
+}
+{
+   ncurses_tiparm_tsearch
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:tsearch
+   ...
+   fun:_nc_tiparm
+}
+{
+   ncurses_tiparm_calloc
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:_nc_tiparm
+}

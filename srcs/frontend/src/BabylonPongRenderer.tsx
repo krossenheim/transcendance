@@ -856,6 +856,17 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
         paddlesRef.current.set(paddleId, mesh)
+      } else {
+        // Existing paddle: refresh colour when the game-aware colour map changes
+        // (e.g. setGamePlayerIds called from metadata.allPlayers after mesh creation)
+        const mat = mesh.material as StandardMaterial | null
+        if (mat) {
+          const freshColor = getUserColorBabylon(ownerId)
+          if (!mat.diffuseColor.equals(darkMode ? freshColor : freshColor.scale(0.6))) {
+            mat.diffuseColor = darkMode ? freshColor : freshColor.scale(0.6)
+            mat.emissiveColor = darkMode ? freshColor.scale(0.4) : freshColor.scale(0.2)
+          }
+        }
       }
 
       // Position - if x/y missing skip positioning and warn

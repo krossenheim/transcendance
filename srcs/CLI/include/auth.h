@@ -50,9 +50,9 @@ int             auth_refresh_token(auth_session_t *session);
 int             auth_logout(auth_session_t *session);
 
 /* State queries */
-bool            auth_is_authenticated(auth_session_t *session);
-const char      *auth_get_access_token(auth_session_t *session);
-int             auth_get_user_id(auth_session_t *session);
-const char      *auth_get_username(auth_session_t *session);
+bool            auth_is_authenticated(const auth_session_t *session);
+const char      *auth_get_access_token(const auth_session_t *session);
+int             auth_get_user_id(const auth_session_t *session);
+const char      *auth_get_username(const auth_session_t *session);
 
 #endif /* AUTH_H */

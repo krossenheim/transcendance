@@ -39,13 +39,12 @@ static void debug_log(const char *fmt, ...)
 
 static void crash_handler(int sig)
 {
-    void *array[20];
-    size_t size;
-    
     renderer_cleanup();
     
     FILE *f = fopen("/tmp/pong_cli_crash.log", "w");
     if (f) {
+        void *array[20];
+        size_t size;
         fprintf(f, "Crashed with signal %d\n", sig);
         size = backtrace(array, 20);
         backtrace_symbols_fd(array, size, fileno(f));
@@ -331,9 +330,11 @@ static void handle_login(app_context_t *ctx)
             
             if (session) {
                 if (session->needs_2fa) {
+                    if (ctx->session) auth_destroy_session(ctx->session);
                     ctx->session = session;
                     ctx->state = STATE_2FA;
                 } else {
+                    if (ctx->session) auth_destroy_session(ctx->session);
                     ctx->session = session;
                     auth_save_session(session);
                     ctx->state = STATE_MENU;
@@ -416,6 +417,8 @@ static void handle_2fa(app_context_t *ctx)
                 
                 if (app_connect_ws(ctx) != 0) {
                     strcpy(ctx->login_error, "Failed to connect");
+                    auth_destroy_session(ctx->session);
+                    ctx->session = NULL;
                     ctx->state = STATE_LOGIN;
                 }
             } else {

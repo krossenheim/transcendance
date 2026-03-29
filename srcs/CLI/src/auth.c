@@ -58,7 +58,7 @@ static char *get_config_dir(void)
 {
     const char *home = getenv("HOME");
     if (!home) {
-        struct passwd *pw = getpwuid(getuid());
+        const struct passwd *pw = getpwuid(getuid());
         if (pw) home = pw->pw_dir;
     }
     if (!home) return NULL;
@@ -408,14 +408,14 @@ auth_session_t *auth_load_session(void)
         return NULL;
     }
     
-    cJSON *user_id = cJSON_GetObjectItem(root, "user_id");
-    cJSON *username = cJSON_GetObjectItem(root, "username");
-    cJSON *email = cJSON_GetObjectItem(root, "email");
-    cJSON *access_token = cJSON_GetObjectItem(root, "access_token");
-    cJSON *refresh_token = cJSON_GetObjectItem(root, "refresh_token");
-    cJSON *token_expires = cJSON_GetObjectItem(root, "token_expires");
-    cJSON *host = cJSON_GetObjectItem(root, "host");
-    cJSON *port = cJSON_GetObjectItem(root, "port");
+    const cJSON *user_id = cJSON_GetObjectItem(root, "user_id");
+    const cJSON *username = cJSON_GetObjectItem(root, "username");
+    const cJSON *email = cJSON_GetObjectItem(root, "email");
+    const cJSON *access_token = cJSON_GetObjectItem(root, "access_token");
+    const cJSON *refresh_token = cJSON_GetObjectItem(root, "refresh_token");
+    const cJSON *token_expires = cJSON_GetObjectItem(root, "token_expires");
+    const cJSON *host = cJSON_GetObjectItem(root, "host");
+    const cJSON *port = cJSON_GetObjectItem(root, "port");
     
     if (user_id) session->user_id = user_id->valueint;
     if (username && cJSON_IsString(username)) {
@@ -635,27 +635,27 @@ int auth_logout(auth_session_t *session)
 }
 
 /* Check if authenticated */
-bool auth_is_authenticated(auth_session_t *session)
+bool auth_is_authenticated(const auth_session_t *session)
 {
     return session && session->authenticated;
 }
 
 /* Get access token */
-const char *auth_get_access_token(auth_session_t *session)
+const char *auth_get_access_token(const auth_session_t *session)
 {
     if (!session) return NULL;
     return session->access_token;
 }
 
 /* Get user ID */
-int auth_get_user_id(auth_session_t *session)
+int auth_get_user_id(const auth_session_t *session)
 {
     if (!session) return -1;
     return session->user_id;
 }
 
 /* Get username */
-const char *auth_get_username(auth_session_t *session)
+const char *auth_get_username(const auth_session_t *session)
 {
     if (!session) return NULL;
     return session->username;

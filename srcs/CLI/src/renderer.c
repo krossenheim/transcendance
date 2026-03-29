@@ -762,7 +762,7 @@ static void draw_line(WINDOW *win, int x0, int y0, int x1, int y1,
 /* Get the ncurses color pair for a player based on their position in the
  * server's allPlayers list (mirrors the frontend setGamePlayerIds color
  * assignment: first player → index 0, second → index 1, etc.). */
-static int get_player_color(game_state_t *game, int player_id)
+static int get_player_color(const game_state_t *game, int player_id)
 {
     /* Use the ordered allPlayers list from server metadata (matches frontend) */
     for (int i = 0; i < game->all_player_count; i++) {
@@ -893,7 +893,7 @@ void renderer_draw_game(game_state_t *game)
         if (effect_x < 1) effect_x = 1;
         
         for (int i = 0; i < game->active_effect_count; i++) {
-            active_effect_t *eff = &game->active_effects[i];
+            const active_effect_t *eff = &game->active_effects[i];
             const char *label = powerup_type_label(eff->type);
             int label_len = (int)strlen(label) + 2; /* "[label]" */
             
@@ -940,7 +940,7 @@ void renderer_draw_game(game_state_t *game)
 
     /* Draw walls using Bresenham line drawing */
     for (int i = 0; i < game->wall_count; i++) {
-        wall_t *w = &game->walls[i];
+        const wall_t *w = &game->walls[i];
         
         int sx1, sy1, sx2, sy2;
         game_to_screen(w->x1, w->y1, game->canvas_width, game->canvas_height,
@@ -991,7 +991,7 @@ void renderer_draw_game(game_state_t *game)
     
     /* Draw paddles — angle-aware line drawing */
     for (int i = 0; i < game->paddle_count; i++) {
-        paddle_t *p = &game->paddles[i];
+        const paddle_t *p = &game->paddles[i];
         
         /* The paddle angle is the normal direction (facing center).
            The paddle itself runs perpendicular: angle + PI/2. */
@@ -1023,7 +1023,7 @@ void renderer_draw_game(game_state_t *game)
     /* Draw powerups (only uncollected ones on the field) */
     wattron(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD | A_BLINK);
     for (int i = 0; i < game->powerup_count; i++) {
-        powerup_t *p = &game->powerups[i];
+        const powerup_t *p = &game->powerups[i];
         if (!p->active || p->activation_tick >= 0) continue;  /* Skip collected */
         
         int sx, sy;
@@ -1041,7 +1041,7 @@ void renderer_draw_game(game_state_t *game)
     wattron(win, COLOR_PAIR(COLOR_BALL) | A_BOLD);
 
     for (int i = 0; i < game->ball_count; i++) {
-        ball_t *b = &game->balls[i];
+        const ball_t *b = &game->balls[i];
         if (!b->active) continue;
         
         int sx, sy;
@@ -1127,98 +1127,44 @@ void renderer_draw_game_over(game_state_t *game)
     
     y += 2;
     
-    bool is_los = (strcmp(game->game_mode, "lastOneStanding") == 0);
-
-    if (is_los && game->eliminated_count > 0) {
-        /* Last One Standing: show elimination order (last standing = winner) */
-        draw_centered(win, y++, "Elimination Order:", COLOR_SCORE);
-        y++;
-
-        /* Winner comes first (the player not in eliminated list, or last
-           alive).  Then eliminated in reverse order (most recent out first). */
-        int shown = 0;
-
-        /* Find the winner (player not in eliminated list) */
-        for (int i = 0; i < game->player_count && y < height - 4; i++) {
-            int pid = game->players[i].id;
-            bool was_eliminated = false;
-            for (int e = 0; e < game->eliminated_count; e++) {
-                if (game->eliminated_players[e] == pid) {
-                    was_eliminated = true;
-                    break;
-                }
-            }
-            if (!was_eliminated) {
-                bool is_me = (pid == game->my_user_id);
-                int cpair = get_player_color(game, pid);
-                char line[80];
-                if (is_me)
-                    snprintf(line, sizeof(line), "** WINNER: You **");
-                else
-                    snprintf(line, sizeof(line), "** WINNER: Player %d **", pid);
-                wattron(win, COLOR_PAIR(cpair) | A_BOLD);
-                draw_centered(win, y++, line, 0);
-                wattroff(win, COLOR_PAIR(cpair) | A_BOLD);
-                shown++;
-            }
+    /* Show all player scores sorted descending */
+    draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
+    y++;
+    
+    /* Simple insertion sort by score descending, winner first on ties */
+    int order[MAX_PLAYERS];
+    for (int i = 0; i < game->player_count; i++) order[i] = i;
+    for (int i = 1; i < game->player_count; i++) {
+        int key = order[i];
+        int j = i - 1;
+        while (j >= 0) {
+            int sa = game->players[order[j]].score;
+            int sb = game->players[key].score;
+            /* Sort descending by score; on tie, winner ranks first */
+            bool swap = (sa < sb) ||
+                        (sa == sb && game->players[key].id == game->winner_id);
+            if (!swap) break;
+            order[j + 1] = order[j];
+            j--;
         }
-
-        /* Eliminated players: last eliminated = placed 2nd, first = last place */
-        for (int e = game->eliminated_count - 1; e >= 0 && y < height - 4; e--) {
-            int pid = game->eliminated_players[e];
-            bool is_me = (pid == game->my_user_id);
-            int cpair = get_player_color(game, pid);
-            char line[80];
-            int place = shown + 1;
-            if (is_me)
-                snprintf(line, sizeof(line), "%d. You (eliminated)", place);
-            else
-                snprintf(line, sizeof(line), "%d. Player %d (eliminated)", place, pid);
-            wattron(win, COLOR_PAIR(cpair) | A_DIM);
-            draw_centered(win, y++, line, 0);
-            wattroff(win, COLOR_PAIR(cpair) | A_DIM);
-            shown++;
-        }
-    } else {
-        /* Normal modes: show scores sorted descending */
-        draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
-        y++;
+        order[j + 1] = key;
+    }
+    for (int rank = 0; rank < game->player_count && y < height - 4; rank++) {
+        int idx = order[rank];
+        int pid = game->players[idx].id;
+        int sc  = game->players[idx].score;
+        bool is_me = (pid == game->my_user_id);
+        int cpair = get_player_color(game, pid);
         
-        /* Simple insertion sort by score descending, winner first on ties */
-        int order[MAX_PLAYERS];
-        for (int i = 0; i < game->player_count; i++) order[i] = i;
-        for (int i = 1; i < game->player_count; i++) {
-            int key = order[i];
-            int j = i - 1;
-            while (j >= 0) {
-                int sa = game->players[order[j]].score;
-                int sb = game->players[key].score;
-                /* Sort descending by score; on tie, winner ranks first */
-                bool swap = (sa < sb) ||
-                            (sa == sb && game->players[key].id == game->winner_id);
-                if (!swap) break;
-                order[j + 1] = order[j];
-                j--;
-            }
-            order[j + 1] = key;
-        }
-        for (int rank = 0; rank < game->player_count && y < height - 4; rank++) {
-            int idx = order[rank];
-            int pid = game->players[idx].id;
-            int sc  = game->players[idx].score;
-            bool is_me = (pid == game->my_user_id);
-            int cpair = get_player_color(game, pid);
-            
-            char line[80];
-            if (is_me)
-                snprintf(line, sizeof(line), "%d. You: %d", rank + 1, sc);
-            else
-                snprintf(line, sizeof(line), "%d. Player %d: %d", rank + 1, pid, sc);
-            
-            wattron(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
-            draw_centered(win, y++, line, 0);
-            wattroff(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
-        }
+        char line[80];
+        if (is_me)
+            snprintf(line, sizeof(line), "%d. You: %d", rank + 1, sc);
+        else
+            snprintf(line, sizeof(line), "%d. Player %d: %d", rank + 1, pid, sc);
+        
+        wattron(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
+        draw_centered(win, y++, line, 0);
+        wattroff(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
     }
     
     y += 2;

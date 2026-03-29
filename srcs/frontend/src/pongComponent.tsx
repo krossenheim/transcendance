@@ -1025,6 +1025,12 @@ export default function PongComponent({
           if (normalized) {
             setPlayerIDsHelper(normalized);
           }
+          // Sync color map from server's authoritative allPlayers list so
+          // web colours always match the CLI (which also uses metadata.allPlayers).
+          const metaAllPlayers = normalized?.metadata?.allPlayers;
+          if (Array.isArray(metaAllPlayers) && metaAllPlayers.length > 0) {
+            setGamePlayerIds(metaAllPlayers);
+          }
         }
         // If we received valid game state and we're not in game view, switch to it
         // But NOT if we're in the tournament bracket view — the user navigated there deliberately
