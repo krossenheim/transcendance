@@ -1,11 +1,3 @@
-/**
- * @file renderer.h
- * @brief Terminal rendering for Pong CLI
- * 
- * Uses ncurses to render the game state and UI elements
- * in the terminal.
- */
-
 #ifndef RENDERER_H
 #define RENDERER_H
 
@@ -14,7 +6,6 @@
 #include "pong_cli.h"
 #include "game.h"
 
-/* Renderer context - used internally */
 typedef struct terminal_renderer {
     WINDOW          *main_win;
     WINDOW          *game_win;
@@ -23,21 +14,17 @@ typedef struct terminal_renderer {
     int             term_height;
 } pong_renderer_t;
 
-/* Renderer lifecycle - uses global state for simplicity */
 int                 renderer_init(void);
 void                renderer_cleanup(void);
 
-/* Screen management */
 void                renderer_clear(void);
 void                renderer_refresh(void);
 int                 renderer_get_input(void);
 void                renderer_get_size(int *width, int *height);
-void                renderer_reset_input(void);  /* Reset input mode after state transitions */
+void                renderer_reset_input(void);
 
-/* Intro animation - starfield + scaling text */
 void                renderer_play_intro(void);
 
-/* Screen rendering functions */
 void                renderer_draw_title(void);
 void                renderer_draw_login(const char *username, const char *password,
                                          int cursor_field, const char *error_msg);

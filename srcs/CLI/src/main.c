@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <time.h>
 #include <execinfo.h>
-#include <stdarg.h>
 
 #include "pong_cli.h"
 #include "auth.h"
@@ -20,22 +19,6 @@
 #include "utils.h"
 #include "cJSON.h"
 #include <libwebsockets.h>
-
-/* Debug logging to file */
-static FILE *g_debug_log = NULL;
-
-static void debug_log(const char *fmt, ...)
-{
-    if (!g_debug_log) {
-        g_debug_log = fopen("/tmp/pong_cli_debug.log", "w");
-        if (!g_debug_log) return;
-    }
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(g_debug_log, fmt, args);
-    va_end(args);
-    fflush(g_debug_log);
-}
 
 static void crash_handler(int sig)
 {
@@ -55,64 +38,46 @@ static void crash_handler(int sig)
     raise(sig);
 }
 
-/* Default server configuration */
-#define DEFAULT_HOST "localhost"
-#define DEFAULT_PORT 443
-
-/* Input field limits */
 #define MAX_INPUT_LEN 128
 
-/* Application context */
 typedef struct {
     app_state_t state;
     auth_session_t *session;
     pong_websocket_t *ws;
     game_state_t *game;
     
-    /* Server config */
     char host[256];
     int port;
     bool use_ssl;
     
-    /* Login form */
     char username[MAX_INPUT_LEN];
     char password[MAX_INPUT_LEN];
     char totp_code[16];
-    int login_field;  /* 0 = username, 1 = password */
+    int login_field;
     char login_error[256];
     
-    /* Menu state */
     int menu_selection;
     
-    /* Game settings */
     int ball_count;
     int max_score;
     bool allow_powerups;
     int ai_count;
     
-    /* Matchmaking */
     char game_mode[32];
     time_t match_start_time;
     
-    /* Invite / online users */
     online_user_t online_users[MAX_ONLINE_USERS];
     int online_user_count;
     int invite_selection;
-    bool invite_fetching;       /* true while waiting for server response */
-    char invite_search[64];     /* username search field */
-    bool invite_search_mode;    /* true when typing in search field */
-    
-    /* Running flag */
+    bool invite_fetching;
+    char invite_search[64];
+    bool invite_search_mode;
+
     volatile bool running;
-    
-    /* Sound enabled flag (disabled by default due to SDL/terminal issues) */
-    bool enable_sound;
 } app_context_t;
 
-/* Global context for signal handler */
 static app_context_t *g_ctx = NULL;
 
-/* Forward declarations */
 static int app_connect_ws(app_context_t *ctx);
 static void app_subscribe_invite_handlers(app_context_t *ctx);
 
@@ -138,7 +103,6 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
     strcpy(ctx->game_mode, "1v1");
     ctx->use_ssl = true;
     
-    /* Parse command line args */
     strncpy(ctx->host, DEFAULT_HOST, sizeof(ctx->host) - 1);
     ctx->port = DEFAULT_PORT;
     
@@ -153,8 +117,6 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
             }
         } else if (strcmp(argv[i], "--no-ssl") == 0) {
             ctx->use_ssl = false;
-        } else if (strcmp(argv[i], "--sound") == 0) {
-            ctx->enable_sound = true;
         } else if (strcmp(argv[i], "--help") == 0) {
             printf("Pong CLI - Play Pong from the terminal\n\n");
             printf("Usage: %s [options]\n\n", argv[0]);
@@ -162,28 +124,23 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
             printf("  -h, --host HOST    Server hostname (default: %s)\n", DEFAULT_HOST);
             printf("  -p, --port PORT    Server port (default: %d)\n", DEFAULT_PORT);
             printf("  --no-ssl           Disable SSL/TLS\n");
-            printf("  --sound            Enable sound effects (experimental)\n");
             printf("  --help             Show this help message\n");
             return -1;
         }
     }
     
-    /* Suppress libwebsockets debug logging before ncurses init */
     lws_set_log_level(0, NULL);
+    log_init("/tmp/pong_cli_debug.log", LOG_DEBUG);
     
-    /* Initialize renderer FIRST */
     if (renderer_init() != 0) {
         fprintf(stderr, "Failed to initialize terminal renderer\n");
         return -1;
     }
 
-    /* Try to load saved session */
     ctx->session = auth_load_session();
     if (ctx->session && auth_validate_session(ctx->session)) {
         ctx->state = STATE_MENU;
-        /* Connect WebSocket for saved session */
         if (app_connect_ws(ctx) != 0) {
-            /* Connection failed - need to re-login */
             auth_destroy_session(ctx->session);
             ctx->session = NULL;
             ctx->state = STATE_LOGIN;
@@ -213,15 +170,15 @@ static void app_cleanup(app_context_t *ctx)
         ctx->session = NULL;
     }
 
+    log_close();
     renderer_cleanup();
 }
 
 /* Connect WebSocket */
 static int app_connect_ws(app_context_t *ctx)
 {
-    debug_log("app_connect_ws: starting\\n");
+    LOG_DEBUG("app_connect_ws: starting");
     
-    /* Ensure session has host/port for refresh */
     if (ctx->session) {
         if (strlen(ctx->session->host) == 0) {
             snprintf(ctx->session->host, sizeof(ctx->session->host), "%s", ctx->host);
@@ -230,62 +187,55 @@ static int app_connect_ws(app_context_t *ctx)
             ctx->session->port = ctx->port;
         }
         
-        /* Always refresh token before WebSocket connection */
-        debug_log("app_connect_ws: refreshing token\\n");
+        LOG_DEBUG("app_connect_ws: refreshing token");
         if (auth_refresh_token(ctx->session) != 0) {
-            debug_log("app_connect_ws: token refresh failed, continuing with current token\\n");
+            LOG_DEBUG("app_connect_ws: token refresh failed, continuing with current token");
         } else {
-            debug_log("app_connect_ws: token refreshed successfully\\n");
+            LOG_DEBUG("app_connect_ws: token refreshed successfully");
         }
     }
     
     if (ctx->ws) {
-        debug_log("app_connect_ws: destroying existing ws\\n");
+        LOG_DEBUG("app_connect_ws: destroying existing ws");
         ws_stop_service_thread(ctx->ws);
         ws_destroy(ctx->ws);
     }
     
-    debug_log("app_connect_ws: creating ws to %s:%d\\n", ctx->host, ctx->port);
+    LOG_DEBUG("app_connect_ws: creating ws to %s:%d", ctx->host, ctx->port);
     ctx->ws = ws_create(ctx->host, ctx->port, "/ws");
     if (!ctx->ws) {
-        debug_log("app_connect_ws: ws_create failed\\n");
+        LOG_DEBUG("app_connect_ws: ws_create failed");
         return -1;
     }
     
-    /* Set auth token */
     if (ctx->session) {
-        debug_log("app_connect_ws: setting auth token\\n");
+        LOG_DEBUG("app_connect_ws: setting auth token");
         ws_set_auth_token(ctx->ws, ctx->session->access_token);
     }
     
-    /* Connect */
-    debug_log("app_connect_ws: connecting\\n");
+    LOG_DEBUG("app_connect_ws: connecting");
     if (ws_connect(ctx->ws) != 0) {
-        debug_log("app_connect_ws: ws_connect failed\\n");
+        LOG_DEBUG("app_connect_ws: ws_connect failed");
         ws_destroy(ctx->ws);
         ctx->ws = NULL;
         return -1;
     }
-    debug_log("app_connect_ws: connected!\\n");
+    LOG_DEBUG("app_connect_ws: connected!");
     
-    /* Send authentication message */
     if (ctx->session && ctx->session->access_token[0]) {
         char auth_msg[2200];
         snprintf(auth_msg, sizeof(auth_msg), "{\"authorization\":\"%s\"}", ctx->session->access_token);
-        debug_log("app_connect_ws: sending auth message\\n");
+        LOG_DEBUG("app_connect_ws: sending auth message");
         ws_send_raw(ctx->ws, auth_msg, strlen(auth_msg));
     }
     
-    /* Start service thread */
     ws_start_service_thread(ctx->ws);
     
-    /* Create game state */
     if (ctx->game) {
         game_destroy(ctx->game);
     }
     ctx->game = game_create(ctx->ws, ctx->session->user_id);
     
-    /* Subscribe invite-related WS handlers */
     app_subscribe_invite_handlers(ctx);
     
     return 0;
@@ -299,7 +249,7 @@ static void handle_login(app_context_t *ctx)
     
     int ch = renderer_get_input();
     if (ch == ERR) {
-        usleep(16000);  /* ~60fps */
+        usleep(16000);
         return;
     }
     
@@ -309,13 +259,11 @@ static void handle_login(app_context_t *ctx)
             break;
             
         case '\t':
-            /* Switch field */
             ctx->login_field = (ctx->login_field + 1) % 2;
             break;
             
         case '\n':
         case KEY_ENTER:
-            /* Attempt login */
             ctx->login_error[0] = '\0';
             
             if (strlen(ctx->username) == 0 || strlen(ctx->password) == 0) {
@@ -339,7 +287,6 @@ static void handle_login(app_context_t *ctx)
                     auth_save_session(session);
                     ctx->state = STATE_MENU;
                     
-                    /* Connect WebSocket */
                     if (app_connect_ws(ctx) != 0) {
                         strcpy(ctx->login_error, "Failed to connect to server");
                         ctx->state = STATE_LOGIN;
@@ -353,7 +300,6 @@ static void handle_login(app_context_t *ctx)
         case KEY_BACKSPACE:
         case 127:
         case '\b':
-            /* Delete character */
             if (ctx->login_field == 0) {
                 int len = strlen(ctx->username);
                 if (len > 0) ctx->username[len - 1] = '\0';
@@ -364,7 +310,6 @@ static void handle_login(app_context_t *ctx)
             break;
             
         default:
-            /* Add character (printable ASCII) */
             if (ch >= 32 && ch <= 126) {
                 if (ctx->login_field == 0) {
                     int len = strlen(ctx->username);
@@ -462,14 +407,12 @@ static const int menu_option_count = 6;
 /* Handle main menu */
 static void handle_menu(app_context_t *ctx)
 {
-    /* Check for pending invitations */
     if (ctx->game) {
         pthread_mutex_lock(&ctx->game->mutex);
         bool invited = ctx->game->invitation_pending;
         pthread_mutex_unlock(&ctx->game->mutex);
         
         if (invited) {
-            /* Show invitation screen so user can accept or decline */
             ctx->state = STATE_INVITATION;
             return;
         }
@@ -504,30 +447,29 @@ static void handle_menu(app_context_t *ctx)
         case '\n':
         case KEY_ENTER:
             switch (ctx->menu_selection) {
-                case 0:  /* Play vs AI */
-                    debug_log("Play vs AI selected\\n");
-                    debug_log("ctx->game=%p ctx->ws=%p ctx->session=%p\\n", 
+                case 0:
+                    LOG_DEBUG("Play vs AI selected");
+                    LOG_DEBUG("ctx->game=%p ctx->ws=%p ctx->session=%p", 
                               (void*)ctx->game, (void*)ctx->ws, (void*)ctx->session);
                     if (!ctx->session) {
-                        debug_log("No session!\\n");
+                        LOG_DEBUG("No session!");
                         strcpy(ctx->login_error, "Not logged in");
                         break;
                     }
                     if (!ctx->game || !ctx->ws) {
-                        debug_log("No game/ws connection!\\n");
+                        LOG_DEBUG("No game/ws connection!");
                         strcpy(ctx->login_error, "Not connected to server");
                         break;
                     }
-                    /* Create a 1v1 lobby with AI opponents from settings */
                     {
                         int ai = ctx->ai_count > 0 ? ctx->ai_count : 1;
-                        debug_log("Creating AI lobby for user_id=%d ai=%d\\n", ctx->session->user_id, ai);
+                        LOG_DEBUG("Creating AI lobby for user_id=%d ai=%d", ctx->session->user_id, ai);
                         int player_ids[] = { ctx->session->user_id };
                         int result = game_create_lobby(ctx->game, "1v1",
                                               player_ids, NULL, 1,
                                               ctx->ball_count, ctx->max_score,
                                               ctx->allow_powerups, ai);
-                        debug_log("game_create_lobby returned %d\\n", result);
+                        LOG_DEBUG("game_create_lobby returned %d", result);
                         if (result == 0) {
                             ctx->state = STATE_LOBBY;
                         } else {
@@ -536,8 +478,8 @@ static void handle_menu(app_context_t *ctx)
                     }
                     break;
                     
-                case 1:  /* Create Lobby */
-                    debug_log("Create Lobby selected\\n");
+                case 1:
+                    LOG_DEBUG("Create Lobby selected");
                     if (!ctx->session) {
                         strcpy(ctx->login_error, "Not logged in");
                         break;
@@ -547,7 +489,7 @@ static void handle_menu(app_context_t *ctx)
                         break;
                     }
                     {
-                        debug_log("Creating lobby mode=%s user_id=%d ai=%d\\n", ctx->game_mode, ctx->session->user_id, ctx->ai_count);
+                        LOG_DEBUG("Creating lobby mode=%s user_id=%d ai=%d", ctx->game_mode, ctx->session->user_id, ctx->ai_count);
                         int player_ids[] = { ctx->session->user_id };
                         if (game_create_lobby(ctx->game, ctx->game_mode,
                                               player_ids, NULL, 1,
@@ -560,7 +502,7 @@ static void handle_menu(app_context_t *ctx)
                     }
                     break;
                     
-                case 2:  /* Invite Player */
+                case 2:
                     if (!ctx->session) {
                         strcpy(ctx->login_error, "Not logged in");
                         break;
@@ -569,7 +511,6 @@ static void handle_menu(app_context_t *ctx)
                         strcpy(ctx->login_error, "Not connected to server");
                         break;
                     }
-                    /* Reset invite state and request online users */
                     ctx->online_user_count = 0;
                     ctx->invite_selection = 0;
                     ctx->invite_search[0] = '\0';
@@ -577,18 +518,16 @@ static void handle_menu(app_context_t *ctx)
                     ctx->invite_fetching = true;
                     for (int i = 0; i < MAX_ONLINE_USERS; i++)
                         ctx->online_users[i].selected = false;
-                    /* Request online user IDs */
                     ws_send_message(ctx->ws, "users",
                                     "user_online_status_update", "null");
                     ctx->state = STATE_INVITE;
                     break;
                     
-                case 3:  /* Settings */
+                case 3:
                     ctx->state = STATE_SETTINGS;
                     break;
                     
-                case 4:  /* Logout */
-                    /* Cleanup WebSocket and game first */
+                case 4:
                     if (ctx->game) {
                         game_destroy(ctx->game);
                         ctx->game = NULL;
@@ -606,7 +545,7 @@ static void handle_menu(app_context_t *ctx)
                     ctx->password[0] = '\0';
                     break;
                     
-                case 5:  /* Quit */
+                case 5:
                     ctx->running = false;
                     break;
             }
@@ -619,9 +558,6 @@ static void handle_menu(app_context_t *ctx)
     }
 }
 
-/* ============================================================
- * Invite / Online-users helpers
- * ============================================================ */
 
 /* WS callback: user_online_status_update -> list of online user IDs */
 static void on_online_user_ids(const char *func_id, int code,
@@ -630,10 +566,9 @@ static void on_online_user_ids(const char *func_id, int code,
     (void)func_id;
     app_context_t *ctx = (app_context_t *)user_data;
     
-    /* code 0 = GetOnlineUsers (array of user IDs) */
     if (code != 0 || !payload) return;
     
-    debug_log("on_online_user_ids: payload=%s\\n", payload);
+    LOG_DEBUG("on_online_user_ids: payload=%s", payload);
     
     cJSON *root = cJSON_Parse(payload);
     if (!root || !cJSON_IsArray(root)) {
@@ -647,7 +582,6 @@ static void on_online_user_ids(const char *func_id, int code,
     cJSON_ArrayForEach(item, root) {
         if (cJSON_IsNumber(item) && ctx->online_user_count < MAX_ONLINE_USERS) {
             int uid = item->valueint;
-            /* Skip self */
             if (ctx->session && uid == ctx->session->user_id) continue;
             ctx->online_users[ctx->online_user_count].id = uid;
             ctx->online_users[ctx->online_user_count].username[0] = '\0';
@@ -657,7 +591,6 @@ static void on_online_user_ids(const char *func_id, int code,
     }
     cJSON_Delete(root);
     
-    /* Now request profile for each user to get usernames */
     for (int i = 0; i < ctx->online_user_count && ctx->ws; i++) {
         char id_str[32];
         snprintf(id_str, sizeof(id_str), "%d", ctx->online_users[i].id);
@@ -675,10 +608,9 @@ static void on_user_profile(const char *func_id, int code,
     (void)func_id;
     app_context_t *ctx = (app_context_t *)user_data;
     
-    /* code 0 = Success */
     if (code != 0 || !payload) return;
     
-    debug_log("on_user_profile: payload=%.200s\\n", payload);
+    LOG_DEBUG("on_user_profile: payload=%.200s", payload);
     
     cJSON *root = cJSON_Parse(payload);
     if (!root) return;
@@ -688,7 +620,6 @@ static void on_user_profile(const char *func_id, int code,
     
     if (uid_j && cJSON_IsNumber(uid_j) && uname_j && cJSON_IsString(uname_j)) {
         int uid = uid_j->valueint;
-        /* Skip self */
         if (ctx->session && uid == ctx->session->user_id) {
             cJSON_Delete(root);
             ctx->invite_fetching = false;
@@ -704,7 +635,6 @@ static void on_user_profile(const char *func_id, int code,
                 break;
             }
         }
-        /* If this user came from a username search, add to list */
         if (!found && ctx->online_user_count < MAX_ONLINE_USERS) {
             int idx = ctx->online_user_count++;
             ctx->online_users[idx].id = uid;
@@ -716,7 +646,6 @@ static void on_user_profile(const char *func_id, int code,
         }
     }
     
-    /* Check if we have all usernames — then stop the spinner */
     bool all_done = true;
     for (int i = 0; i < ctx->online_user_count; i++) {
         if (ctx->online_users[i].username[0] == '\0') {
@@ -748,7 +677,6 @@ static void handle_invite(app_context_t *ctx)
         return;
     }
     
-    /* Timeout after 5 seconds of fetching */
     static time_t fetch_start = 0;
     if (ctx->invite_fetching) {
         if (fetch_start == 0) fetch_start = time(NULL);
@@ -769,14 +697,11 @@ static void handle_invite(app_context_t *ctx)
         return;
     }
     
-    /* Search mode: typing a username */
     if (ctx->invite_search_mode) {
         switch (ch) {
             case '\n':
             case KEY_ENTER:
-                /* Send user_profile request by username to search */
                 if (strlen(ctx->invite_search) > 0) {
-                    /* Format as JSON string */
                     char search_payload[128];
                     snprintf(search_payload, sizeof(search_payload),
                              "\"%s\"", ctx->invite_search);
@@ -815,7 +740,6 @@ static void handle_invite(app_context_t *ctx)
         return;
     }
     
-    /* Normal navigation mode */
     switch (ch) {
         case KEY_UP:
         case 'w':
@@ -831,7 +755,7 @@ static void handle_invite(app_context_t *ctx)
                 ctx->invite_selection++;
             break;
             
-        case ' ':  /* Toggle selection */
+        case ' ':
             if (ctx->invite_selection >= 0 &&
                 ctx->invite_selection < ctx->online_user_count) {
                 ctx->online_users[ctx->invite_selection].selected =
@@ -839,14 +763,13 @@ static void handle_invite(app_context_t *ctx)
             }
             break;
             
-        case '/':  /* Enter search mode */
+        case '/':
             ctx->invite_search_mode = true;
             ctx->invite_search[0] = '\0';
             break;
             
         case 'r':
         case 'R':
-            /* Refresh: re-request online users */
             ctx->online_user_count = 0;
             ctx->invite_fetching = true;
             ws_send_message(ctx->ws, "users",
@@ -856,14 +779,12 @@ static void handle_invite(app_context_t *ctx)
         case '\n':
         case KEY_ENTER:
         {
-            /* Create lobby with selected players */
             int selected_count = 0;
             for (int i = 0; i < ctx->online_user_count; i++) {
                 if (ctx->online_users[i].selected)
                     selected_count++;
             }
             
-            /* Build player ID + username arrays (self + selected) */
             int total = 1 + selected_count;
             int player_ids[MAX_ONLINE_USERS + 1];
             const char *player_names[MAX_ONLINE_USERS + 1];
@@ -880,7 +801,7 @@ static void handle_invite(app_context_t *ctx)
                 }
             }
             
-            debug_log("Creating invite lobby: total=%d mode=%s\\n",
+            LOG_DEBUG("Creating invite lobby: total=%d mode=%s",
                       total, ctx->game_mode);
             
             if (game_create_lobby(ctx->game, ctx->game_mode,
@@ -929,7 +850,6 @@ static void handle_invitation(app_context_t *ctx)
         case 'A':
         case '\n':
         case KEY_ENTER:
-            /* Accept: clear pending flag and go to lobby */
             pthread_mutex_lock(&ctx->game->mutex);
             ctx->game->invitation_pending = false;
             pthread_mutex_unlock(&ctx->game->mutex);
@@ -938,10 +858,8 @@ static void handle_invitation(app_context_t *ctx)
 
         case 'd':
         case 'D':
-        case 27: /* ESC */
         case 'q':
         case 'Q': {
-            /* Decline: send decline message and return to menu */
             pthread_mutex_lock(&ctx->game->mutex);
             int lobby_id = ctx->game->lobby.id;
             ctx->game->invitation_pending = false;
@@ -971,16 +889,14 @@ static void handle_matchmaking(app_context_t *ctx)
     
     int ch = renderer_get_input();
     if (ch == ERR) {
-        usleep(100000);  /* 100ms for matchmaking screen */
+        usleep(100000);
         return;
     }
     
     if (ch == 'q' || ch == 'Q' || ch == KEY_ESCAPE) {
-        /* Cancel matchmaking */
         ctx->state = STATE_MENU;
     }
     
-    /* Check for match found */
     if (ctx->game && game_is_active(ctx->game)) {
         ctx->state = STATE_IN_GAME;
     }
@@ -996,10 +912,6 @@ static void handle_lobby(app_context_t *ctx)
     
     renderer_draw_lobby(&ctx->game->lobby, ctx->session->user_id);
     
-    /* AI auto-ready/start is handled in on_lobby_update callback
-       (game.c) so it fires with the correct lobby_id immediately
-       upon receiving the server response.  No polling needed here. */
-
     int ch = renderer_get_input();
     if (ch == ERR) {
         usleep(50000);
@@ -1023,7 +935,6 @@ static void handle_lobby(app_context_t *ctx)
         }
     }
     
-    /* Check if game started */
     if (game_is_active(ctx->game)) {
         ctx->state = STATE_IN_GAME;
     }
@@ -1045,8 +956,7 @@ static void handle_in_game(app_context_t *ctx)
         switch (ch) {
             case 'q':
             case 'Q':
-                renderer_reset_input();  /* Ensure input mode is correct */
-                /* Properly reset game state so a new lobby can be created */
+                renderer_reset_input();
                 pthread_mutex_lock(&ctx->game->mutex);
                 ctx->game->game_active = false;
                 ctx->game->game_over = false;
@@ -1083,17 +993,14 @@ static void handle_in_game(app_context_t *ctx)
                 break;
                 
             default:
-                /* Release keys */
                 game_set_key_up(ctx->game, false);
                 game_set_key_down(ctx->game, false);
                 break;
         }
     }
     
-    /* Send input to server every frame */
     game_send_input(ctx->game);
 
-    /* Check game over */
     pthread_mutex_lock(&ctx->game->mutex);
     bool game_over = ctx->game->game_over;
     pthread_mutex_unlock(&ctx->game->mutex);
@@ -1102,7 +1009,7 @@ static void handle_in_game(app_context_t *ctx)
         ctx->state = STATE_GAME_OVER;
     }
     
-    usleep(16000);  /* ~60fps */
+    usleep(16000);
 }
 
 /* Handle game over */
@@ -1133,7 +1040,6 @@ static const char *settings_names[] = {
 };
 static const int settings_count = 5;
 
-/* Handle settings */
 static void handle_settings(app_context_t *ctx)
 {
     static int setting_sel = 0;
@@ -1173,23 +1079,23 @@ static void handle_settings(app_context_t *ctx)
             {
                 int delta = (ch == KEY_LEFT) ? -1 : 1;
                 switch (setting_sel) {
-                    case 0:  /* Ball count */
+                    case 0:
                         ctx->ball_count += delta;
                         if (ctx->ball_count < 1) ctx->ball_count = 1;
                         if (ctx->ball_count > 5) ctx->ball_count = 5;
                         break;
                         
-                    case 1:  /* Max score */
+                    case 1:
                         ctx->max_score += delta;
                         if (ctx->max_score < 1) ctx->max_score = 1;
                         if (ctx->max_score > 21) ctx->max_score = 21;
                         break;
                         
-                    case 2:  /* Powerups */
+                    case 2:
                         ctx->allow_powerups = !ctx->allow_powerups;
                         break;
                         
-                    case 3:  /* Game mode */
+                    case 3:
                         if (strcmp(ctx->game_mode, "1v1") == 0) {
                             strcpy(ctx->game_mode, "multiplayer");
                         } else if (strcmp(ctx->game_mode, "multiplayer") == 0) {
@@ -1199,7 +1105,7 @@ static void handle_settings(app_context_t *ctx)
                         }
                         break;
                         
-                    case 4:  /* AI Opponents */
+                    case 4:
                         ctx->ai_count += delta;
                         if (ctx->ai_count < 0) ctx->ai_count = 0;
                         if (ctx->ai_count > 7) ctx->ai_count = 7;
@@ -1268,32 +1174,26 @@ static void app_run(app_context_t *ctx)
     }
 }
 
-/* Entry point */
 int main(int argc, char **argv)
 {
     app_context_t ctx;
     g_ctx = &ctx;
     
-    /* Set up signal handlers */
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGSEGV, crash_handler);
     signal(SIGABRT, crash_handler);
     
-    debug_log("Starting pong-cli\\n");
+    LOG_DEBUG("Starting pong-cli");
     
-    /* Initialize */
     if (app_init(&ctx, argc, argv) != 0) {
         return 1;
     }
     
-    /* Show intro animation with starfield */
     renderer_play_intro();
     
-    /* Run main loop */
     app_run(&ctx);
     
-    /* Cleanup */
     app_cleanup(&ctx);
     
     printf("Thanks for playing Pong CLI!\n");

@@ -1,8 +1,3 @@
-/**
- * @file auth.c
- * @brief Authentication module for Pong CLI
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,7 +70,6 @@ static char *get_session_path(void)
     char *config_dir = get_config_dir();
     if (!config_dir) return NULL;
     
-    /* Ensure directory exists */
     mkdir(config_dir, 0700);
     
     char *path = malloc(512);
@@ -105,7 +99,7 @@ static int http_post(const char *url, const char *json_body,
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_body);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);  /* Allow self-signed */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     
@@ -116,32 +110,6 @@ static int http_post(const char *url, const char *json_body,
     }
     
     curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
-    
-    return (res == CURLE_OK) ? 0 : -1;
-}
-
-/* Perform HTTP GET request */
-static int http_get(const char *url, response_buffer_t *response, long *http_code)
-{
-    CURL *curl = curl_easy_init();
-    if (!curl) return -1;
-    
-    init_response(response);
-    
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);  /* Allow self-signed */
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    
-    CURLcode res = curl_easy_perform(curl);
-    
-    if (res == CURLE_OK) {
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, http_code);
-    }
-    
     curl_easy_cleanup(curl);
     
     return (res == CURLE_OK) ? 0 : -1;
@@ -159,7 +127,6 @@ static int parse_login_response(const char *json, auth_session_t *session)
     cJSON *root = cJSON_Parse(json);
     if (!root) return -1;
     
-    /* Check for 2FA requirement */
     cJSON *requires_2fa = cJSON_GetObjectItem(root, "requires_twofa");
     if (requires_2fa && cJSON_IsBool(requires_2fa) && cJSON_IsTrue(requires_2fa)) {
         session->needs_2fa = true;
@@ -179,7 +146,6 @@ static int parse_login_response(const char *json, auth_session_t *session)
         return 0;
     }
     
-    /* Parse tokens */
     cJSON *tokens = cJSON_GetObjectItem(root, "tokens");
     if (tokens) {
         cJSON *jwt = cJSON_GetObjectItem(tokens, "jwt");
@@ -195,7 +161,6 @@ static int parse_login_response(const char *json, auth_session_t *session)
         }
     }
     
-    /* Parse user data */
     cJSON *user = cJSON_GetObjectItem(root, "user");
     if (user) {
         cJSON *id = cJSON_GetObjectItem(user, "id");
@@ -216,7 +181,7 @@ static int parse_login_response(const char *json, auth_session_t *session)
     }
     
     session->authenticated = (strlen(session->access_token) > 0);
-    session->token_expires = time(NULL) + 600;  /* 10 minutes (JWT expires in 15) */
+    session->token_expires = time(NULL) + 600;
     
     cJSON_Delete(root);
     return 0;
@@ -232,7 +197,6 @@ auth_session_t *auth_login(const char *host, int port,
     char url[512];
     build_url(url, sizeof(url), host, port, "/public_api/auth/login", true);
     
-    /* Create JSON body */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "username", username);
     cJSON_AddStringToObject(body, "password", password);
@@ -268,103 +232,9 @@ auth_session_t *auth_login(const char *host, int port,
         return NULL;
     }
     
-    /* Store host/port for refresh */
     strncpy(session->host, host, sizeof(session->host) - 1);
     session->port = port;
     
-    free_response(&response);
-    return session;
-}
-
-/* Register new user */
-auth_session_t *auth_register(const char *host, int port,
-                               const char *username, const char *email,
-                               const char *password)
-{
-    auth_session_t *session = calloc(1, sizeof(auth_session_t));
-    if (!session) return NULL;
-    
-    char url[512];
-    build_url(url, sizeof(url), host, port, "/public_api/auth/create/user", true);
-    
-    cJSON *body = cJSON_CreateObject();
-    cJSON_AddStringToObject(body, "username", username);
-    cJSON_AddStringToObject(body, "email", email);
-    cJSON_AddStringToObject(body, "password", password);
-    
-    char *json_body = cJSON_PrintUnformatted(body);
-    cJSON_Delete(body);
-    
-    if (!json_body) {
-        free(session);
-        return NULL;
-    }
-    
-    response_buffer_t response;
-    long http_code = 0;
-    
-    if (http_post(url, json_body, &response, &http_code) != 0) {
-        free(json_body);
-        free(session);
-        return NULL;
-    }
-    
-    free(json_body);
-    
-    if (http_code != 201 && http_code != 200) {
-        free_response(&response);
-        free(session);
-        return NULL;
-    }
-    
-    if (parse_login_response(response.data, session) != 0) {
-        free_response(&response);
-        free(session);
-        return NULL;
-    }
-    
-    /* Store host/port for refresh */
-    strncpy(session->host, host, sizeof(session->host) - 1);
-    session->port = port;
-    
-    free_response(&response);
-    return session;
-}
-
-/* Create guest session */
-auth_session_t *auth_create_guest(const char *host, int port)
-{
-    auth_session_t *session = calloc(1, sizeof(auth_session_t));
-    if (!session) return NULL;
-    
-    char url[512];
-    build_url(url, sizeof(url), host, port, "/public_api/auth/create/guest", true);
-    
-    response_buffer_t response;
-    long http_code = 0;
-    
-    if (http_get(url, &response, &http_code) != 0) {
-        free(session);
-        return NULL;
-    }
-    
-    if (http_code != 200 && http_code != 201) {
-        free_response(&response);
-        free(session);
-        return NULL;
-    }
-    
-    if (parse_login_response(response.data, session) != 0) {
-        free_response(&response);
-        free(session);
-        return NULL;
-    }
-    
-    /* Store host/port for refresh */
-    strncpy(session->host, host, sizeof(session->host) - 1);
-    session->port = port;
-    
-    session->is_guest = true;
     free_response(&response);
     return session;
 }
@@ -498,9 +368,7 @@ bool auth_validate_session(auth_session_t *session)
     if (!session->authenticated) return false;
     if (strlen(session->access_token) == 0) return false;
     
-    /* Check if token expired */
     if (session->token_expires > 0 && time(NULL) > session->token_expires) {
-        /* Try to refresh */
         if (auth_refresh_token(session) != 0) {
             return false;
         }
@@ -588,7 +456,6 @@ int auth_refresh_token(auth_session_t *session)
         return -1;
     }
     
-    /* Parse new tokens */
     cJSON *root = cJSON_Parse(response.data);
     free_response(&response);
     
@@ -609,7 +476,7 @@ int auth_refresh_token(auth_session_t *session)
         }
     }
     
-    session->token_expires = time(NULL) + 600;  /* 10 minutes (JWT expires in 15) */
+    session->token_expires = time(NULL) + 600;
     cJSON_Delete(root);
     return 0;
 }
@@ -619,44 +486,15 @@ int auth_logout(auth_session_t *session)
 {
     if (!session) return -1;
     
-    /* Clear session file */
     char *path = get_session_path();
     if (path) {
         remove(path);
         free(path);
     }
     
-    /* Clear session data */
     session->authenticated = false;
     session->access_token[0] = '\0';
     session->refresh_token[0] = '\0';
     
     return 0;
-}
-
-/* Check if authenticated */
-bool auth_is_authenticated(const auth_session_t *session)
-{
-    return session && session->authenticated;
-}
-
-/* Get access token */
-const char *auth_get_access_token(const auth_session_t *session)
-{
-    if (!session) return NULL;
-    return session->access_token;
-}
-
-/* Get user ID */
-int auth_get_user_id(const auth_session_t *session)
-{
-    if (!session) return -1;
-    return session->user_id;
-}
-
-/* Get username */
-const char *auth_get_username(const auth_session_t *session)
-{
-    if (!session) return NULL;
-    return session->username;
 }

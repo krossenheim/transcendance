@@ -1,8 +1,3 @@
-/**
- * @file game.c
- * @brief Game state and logic for Pong CLI
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +15,6 @@ static void on_game_state(const char *func_id, int code,
     game_state_t *game = (game_state_t *)user_data;
     (void)func_id;
     
-    /* Ignore error responses */
     if (code != 0) return;
     
     pthread_mutex_lock(&game->mutex);
@@ -36,14 +30,12 @@ static void on_lobby_update(const char *func_id, int code,
     game_state_t *game = (game_state_t *)user_data;
     (void)func_id;
     
-    /* Ignore error responses (e.g. "Lobby not found") */
     if (code != 0) return;
     
     pthread_mutex_lock(&game->mutex);
     bool was_in_lobby = game->in_lobby;
     game_update_lobby(game, payload);
     
-    /* Check if we're the host or invited */
     bool found_self = false;
     bool is_host = false;
     for (int i = 0; i < game->lobby.player_count; i++) {
@@ -57,7 +49,6 @@ static void on_lobby_update(const char *func_id, int code,
     if (found_self) {
         game->is_host = is_host;
         if (!is_host && !was_in_lobby) {
-            /* We were invited to this lobby */
             game->invitation_pending = true;
         }
         game->in_lobby = true;
@@ -73,7 +64,6 @@ static void on_game_start(const char *func_id, int code,
     game_state_t *game = (game_state_t *)user_data;
     (void)func_id;
     
-    /* Only transition to active game on success (code 0) */
     if (code != 0) return;
     
     pthread_mutex_lock(&game->mutex);
@@ -96,7 +86,6 @@ game_state_t *game_create(pong_websocket_t *ws, int user_id)
     
     pthread_mutex_init(&game->mutex, NULL);
     
-    /* Subscribe to game messages */
     ws_subscribe(ws, "get_game_state", on_game_state, game);
     ws_subscribe(ws, "handle_game_keys", on_game_state, game);
     ws_subscribe(ws, "create_pong_lobby", on_lobby_update, game);
@@ -140,7 +129,6 @@ int game_create_lobby(game_state_t *game, const char *mode,
     }
     cJSON_AddItemToObject(payload, "playerIds", ids);
     
-    /* Build playerUsernames map: { "<id>": "<name>", ... } */
     if (player_usernames) {
         cJSON *unames = cJSON_CreateObject();
         for (int i = 0; i < player_count; i++) {
@@ -168,10 +156,6 @@ int game_create_lobby(game_state_t *game, const char *mode,
     
     if (result == 0) {
         game->in_lobby = true;
-        /* Eagerly populate local lobby settings so auto-ready logic
-           doesn't have to wait for the server round-trip.
-           Reset lobby.id to 0 so auto-start won't fire with
-           a stale ID from a previous lobby. */
         pthread_mutex_lock(&game->mutex);
         game->lobby.id = 0;
         game->lobby.ai_count = ai_count;
@@ -187,24 +171,6 @@ int game_create_lobby(game_state_t *game, const char *mode,
     }
     
     return result;
-}
-
-/* Join lobby */
-int game_join_lobby(const game_state_t *game, int lobby_id)
-{
-    if (!game || !game->ws) return -1;
-    
-    cJSON *payload = cJSON_CreateObject();
-    cJSON_AddNumberToObject(payload, "lobbyId", lobby_id);
-    
-    char *json = cJSON_PrintUnformatted(payload);
-    cJSON_Delete(payload);
-    
-    if (!json) return -1;
-    
-    /* There's no explicit join - lobbies are created with player IDs */
-    free(json);
-    return 0;
 }
 
 /* Leave lobby */
@@ -268,25 +234,6 @@ int game_start_from_lobby(game_state_t *game)
     return result;
 }
 
-/* Request game state */
-int game_request_state(game_state_t *game)
-{
-    if (!game || !game->ws || game->game_id < 0) return -1;
-    
-    cJSON *payload = cJSON_CreateObject();
-    cJSON_AddNumberToObject(payload, "gameId", game->game_id);
-    
-    char *json = cJSON_PrintUnformatted(payload);
-    cJSON_Delete(payload);
-    
-    if (!json) return -1;
-    
-    int result = ws_send_message(game->ws, "pong", "get_game_state", json);
-    free(json);
-    
-    return result;
-}
-
 /* Send input to server */
 int game_send_input(game_state_t *game)
 {
@@ -304,7 +251,6 @@ int game_send_input(game_state_t *game)
     }
     cJSON_AddItemToObject(payload, "pressed_keys", keys);
     
-    /* Add client timestamp for lag compensation */
     cJSON_AddNumberToObject(payload, "clientTimestamp", (double)get_timestamp_ms());
     
     char *json = cJSON_PrintUnformatted(payload);
@@ -313,25 +259,6 @@ int game_send_input(game_state_t *game)
     if (!json) return -1;
     
     int result = ws_send_message(game->ws, "pong", "handle_game_keys", json);
-    free(json);
-    
-    return result;
-}
-
-/* Report ready for game */
-int game_report_ready(game_state_t *game)
-{
-    if (!game || !game->ws || game->game_id < 0) return -1;
-    
-    cJSON *payload = cJSON_CreateObject();
-    cJSON_AddNumberToObject(payload, "game_id", game->game_id);
-    
-    char *json = cJSON_PrintUnformatted(payload);
-    cJSON_Delete(payload);
-    
-    if (!json) return -1;
-    
-    int result = ws_send_message(game->ws, "pong", "report_ready_for_pong_game", json);
     free(json);
     
     return result;
@@ -401,13 +328,11 @@ void game_update_state(game_state_t *game, const char *json_payload)
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
     
-    /* Parse board_id */
     cJSON *board_id = cJSON_GetObjectItem(root, "board_id");
     if (board_id && cJSON_IsNumber(board_id)) {
         game->game_id = board_id->valueint;
     }
     
-    /* Parse balls */
     cJSON *balls = cJSON_GetObjectItem(root, "balls");
     if (balls && cJSON_IsArray(balls)) {
         game->ball_count = 0;
@@ -420,7 +345,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
     
-    /* Parse paddles */
     cJSON *paddles = cJSON_GetObjectItem(root, "paddles");
     if (paddles && cJSON_IsArray(paddles)) {
         game->paddle_count = 0;
@@ -429,7 +353,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
             if (game->paddle_count < MAX_PADDLES) {
                 parse_paddle(paddle, &game->paddles[game->paddle_count], game->paddle_count);
                 
-                /* Track my paddle */
                 if (game->paddles[game->paddle_count].owner_id == game->my_user_id) {
                     game->my_paddle_id = game->paddle_count;
                 }
@@ -438,7 +361,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
     
-    /* Parse walls */
     cJSON *walls = cJSON_GetObjectItem(root, "walls");
     if (walls && cJSON_IsArray(walls)) {
         game->wall_count = 0;
@@ -451,7 +373,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
     
-    /* Parse score */
     cJSON *score = cJSON_GetObjectItem(root, "score");
     if (score && cJSON_IsObject(score)) {
         game->player_count = 0;
@@ -465,9 +386,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
             }
         }
     }
-    
-    /* Parse powerups [x, y, vx, vy, radius, spawnTick, type, durationTicks, activationTick] */
-    /* NOTE: Server only sends uncollected powerups in this array */
+
     cJSON *powerups = cJSON_GetObjectItem(root, "powerups");
     if (powerups && cJSON_IsArray(powerups)) {
         game->powerup_count = 0;
@@ -490,8 +409,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
 
-    /* Parse activeEffects: collected time-based powerups currently in effect
-     * Each element: { type, typeName, remainingTicks, remainingSeconds } */
     game->active_effect_count = 0;
     cJSON *active_effects = cJSON_GetObjectItem(root, "activeEffects");
     if (active_effects && cJSON_IsArray(active_effects)) {
@@ -511,8 +428,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
 
-    /* Parse recentEvents: recently collected instant powerups (notifications)
-     * Each element: { type, typeName, ageSeconds } */
+
     cJSON *recent_events = cJSON_GetObjectItem(root, "recentEvents");
     if (recent_events && cJSON_IsArray(recent_events)) {
         cJSON *evt;
@@ -522,9 +438,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
             cJSON *age = cJSON_GetObjectItem(evt, "ageSeconds");
             if (etype && cJSON_IsNumber(etype)) {
                 float age_sec = (age && cJSON_IsNumber(age)) ? (float)age->valuedouble : 0;
-                /* Only show recent events (within 3 seconds) */
                 if (age_sec > 3.0f) continue;
-                /* Don't add if this type is already in active_effects (time-based) */
                 bool dup = false;
                 for (int j = 0; j < game->active_effect_count; j++) {
                     if (game->active_effects[j].type == etype->valueint) {
@@ -535,7 +449,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
                 if (dup) continue;
                 active_effect_t *ae = &game->active_effects[game->active_effect_count];
                 ae->type = etype->valueint;
-                ae->duration_ticks = 0;  /* instant */
+                ae->duration_ticks = 0;
                 ae->activation_tick = 0;
                 ae->expire_time = 0;
                 game->active_effect_count++;
@@ -543,7 +457,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
 
-    /* Parse game over state */
     cJSON *game_over = cJSON_GetObjectItem(root, "gameOver");
     if (game_over && cJSON_IsBool(game_over)) {
         game->game_over = cJSON_IsTrue(game_over);
@@ -554,7 +467,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         game->winner_id = winner->valueint;
     }
     
-    /* Parse metadata: gameMode + eliminatedPlayers */
     cJSON *metadata = cJSON_GetObjectItem(root, "metadata");
     if (metadata && cJSON_IsObject(metadata)) {
         cJSON *opts = cJSON_GetObjectItem(metadata, "gameOptions");
@@ -586,7 +498,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
 
-    /* Mark game as active */
     game->game_active = !game->game_over;
 
     cJSON_Delete(root);
@@ -600,19 +511,16 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
     
-    /* Parse lobby ID */
     cJSON *lobby_id = cJSON_GetObjectItem(root, "lobbyId");
     if (lobby_id && cJSON_IsNumber(lobby_id)) {
         game->lobby.id = lobby_id->valueint;
     }
     
-    /* Parse game mode */
     cJSON *mode = cJSON_GetObjectItem(root, "gameMode");
     if (mode && cJSON_IsString(mode)) {
         strncpy(game->lobby.game_mode, mode->valuestring, sizeof(game->lobby.game_mode) - 1);
     }
     
-    /* Parse players */
     cJSON *players = cJSON_GetObjectItem(root, "players");
     if (players && cJSON_IsArray(players)) {
         game->lobby.player_count = 0;
@@ -638,7 +546,6 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
         }
     }
     
-    /* Parse other settings */
     const cJSON *ball_count = cJSON_GetObjectItem(root, "ballCount");
     if (ball_count) game->lobby.ball_count = ball_count->valueint;
 
@@ -670,7 +577,6 @@ void game_handle_game_start(game_state_t *game, const char *json_payload)
 {
     if (!game || !json_payload) return;
     
-    /* Parse the game state from the payload */
     game_update_state(game, json_payload);
     
     game->in_lobby = false;
@@ -715,34 +621,6 @@ void game_set_key_down(game_state_t *game, bool pressed)
     pthread_mutex_unlock(&game->mutex);
 }
 
-/* Process input character */
-void game_process_input(game_state_t *game, int ch)
-{
-    if (!game) return;
-    
-    switch (ch) {
-        case 'w':
-        case 'W':
-        case KEY_UP:
-            game_set_key_up(game, true);
-            game_set_key_down(game, false);
-            break;
-            
-        case 's':
-        case 'S':
-        case KEY_DOWN:
-            game_set_key_up(game, false);
-            game_set_key_down(game, true);
-            break;
-            
-        default:
-            /* Release keys on any other input */
-            game_set_key_up(game, false);
-            game_set_key_down(game, false);
-            break;
-    }
-}
-
 /* Check if game is active */
 bool game_is_active(game_state_t *game)
 {
@@ -751,90 +629,4 @@ bool game_is_active(game_state_t *game)
     bool active = game->game_active;
     pthread_mutex_unlock(&game->mutex);
     return active;
-}
-
-/* Check if in lobby */
-bool game_is_in_lobby(game_state_t *game)
-{
-    if (!game) return false;
-    pthread_mutex_lock(&game->mutex);
-    bool in_lobby = game->in_lobby;
-    pthread_mutex_unlock(&game->mutex);
-    return in_lobby;
-}
-
-/* Get my score */
-int game_get_my_score(game_state_t *game)
-{
-    if (!game) return 0;
-    
-    pthread_mutex_lock(&game->mutex);
-    int score = 0;
-    for (int i = 0; i < game->player_count; i++) {
-        if (game->players[i].id == game->my_user_id) {
-            score = game->players[i].score;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&game->mutex);
-    
-    return score;
-}
-
-/* Get opponent score */
-int game_get_opponent_score(game_state_t *game)
-{
-    if (!game) return 0;
-    
-    pthread_mutex_lock(&game->mutex);
-    int score = 0;
-    for (int i = 0; i < game->player_count; i++) {
-        if (game->players[i].id != game->my_user_id) {
-            score = game->players[i].score;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&game->mutex);
-    
-    return score;
-}
-
-/* Get winner name */
-const char *game_get_winner_name(game_state_t *game)
-{
-    if (!game) return "Unknown";
-    
-    pthread_mutex_lock(&game->mutex);
-    const char *name = "Unknown";
-    for (int i = 0; i < game->player_count; i++) {
-        if (game->players[i].id == game->winner_id) {
-            name = game->players[i].username;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&game->mutex);
-    
-    return name;
-}
-
-/* Get my paddle */
-paddle_t *game_get_my_paddle(game_state_t *game)
-{
-    if (!game || game->my_paddle_id < 0 || game->my_paddle_id >= game->paddle_count) {
-        return NULL;
-    }
-    return &game->paddles[game->my_paddle_id];
-}
-
-/* Get paddle by owner */
-paddle_t *game_get_paddle_by_owner(game_state_t *game, int owner_id)
-{
-    if (!game) return NULL;
-    
-    for (int i = 0; i < game->paddle_count; i++) {
-        if (game->paddles[i].owner_id == owner_id) {
-            return &game->paddles[i];
-        }
-    }
-    return NULL;
 }

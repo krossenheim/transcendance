@@ -1,8 +1,3 @@
-/**
- * @file renderer.c
- * @brief ncurses terminal renderer for Pong CLI
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,34 +8,29 @@
 #include "game.h"
 #include "starfield.h"
 
-/* Color pairs */
-#define COLOR_BALL      1
-#define COLOR_PADDLE    2
-#define COLOR_WALL      3
-#define COLOR_SCORE     4
-#define COLOR_MENU      5
-#define COLOR_SELECTED  6
-#define COLOR_TITLE     7
-#define COLOR_ERROR     8
-#define COLOR_POWERUP   9
-#define COLOR_PADDLE_OPP 10
-#define COLOR_MIDLINE   11
+#define COLOR_BALL          1
+#define COLOR_PADDLE        2
+#define COLOR_WALL          3
+#define COLOR_SCORE         4
+#define COLOR_MENU          5
+#define COLOR_SELECTED      6
+#define COLOR_TITLE         7
+#define COLOR_ERROR         8
+#define COLOR_POWERUP       9
+#define COLOR_PADDLE_OPP    10
+#define COLOR_MIDLINE       11
 
-/* Per-player color pairs (matching frontend USER_COLORS order) */
 #define COLOR_PLAYER_BASE 12
 #define MAX_PLAYER_COLORS 12
 
-/* Global terminal state */
 static pong_renderer_t g_renderer;
 static bool g_initialized = false;
 
-/* Background starfield state */
 static starfield_t g_bg_starfield;
 static bool g_bg_starfield_active = false;
 static struct timespec g_bg_sf_prev;
 static bool g_bg_sf_timer_init = false;
 
-/* Return a short label for each powerup type */
 static const char *powerup_type_label(int type)
 {
     switch (type) {
@@ -75,26 +65,21 @@ int renderer_init(void)
 {
     if (g_initialized) return 0;
     
-    /* Enable UTF-8 */
     setlocale(LC_ALL, "");
     
-    /* Set escape delay to make ESC key responsive (default 1000ms) */
     set_escdelay(25);
     
-    /* Initialize ncurses */
     initscr();
     
-    /* Clear entire screen including scrollback */
     clear();
     refresh();
     
-    /* Configure terminal */
-    cbreak();               /* Disable line buffering */
-    noecho();               /* Don't echo keypresses */
-    keypad(stdscr, TRUE);   /* Enable function keys */
-    nodelay(stdscr, TRUE);  /* Non-blocking input */
-    curs_set(0);            /* Hide cursor */
-    scrollok(stdscr, FALSE); /* Disable scrolling */
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    nodelay(stdscr, TRUE);
+    curs_set(0);
+    scrollok(stdscr, FALSE);
     
     /* Initialize colors */
     if (has_colors()) {
@@ -113,7 +98,6 @@ int renderer_init(void)
         init_pair(COLOR_PADDLE_OPP, COLOR_MAGENTA, -1);
         init_pair(COLOR_MIDLINE, COLOR_GREEN, -1);
         
-        /* Per-player colors (matching frontend USER_COLORS order) */
         if (COLORS >= 256) {
             init_pair(COLOR_PLAYER_BASE + 0, 46, -1);   /* Green */
             init_pair(COLOR_PLAYER_BASE + 1, 33, -1);   /* Blue */
@@ -143,13 +127,11 @@ int renderer_init(void)
         }
     }
     
-    /* Get terminal dimensions */
     getmaxyx(stdscr, g_renderer.term_height, g_renderer.term_width);
     
-    /* Create windows */
     g_renderer.main_win = newwin(g_renderer.term_height, g_renderer.term_width, 0, 0);
-    keypad(g_renderer.main_win, TRUE);   /* Enable arrow keys on main window */
-    nodelay(g_renderer.main_win, TRUE);  /* Non-blocking input */
+    keypad(g_renderer.main_win, TRUE);
+    nodelay(g_renderer.main_win, TRUE);
     g_renderer.game_win = NULL;
     g_renderer.status_win = NULL;
     
@@ -185,7 +167,7 @@ void renderer_cleanup(void)
 /* Clear screen */
 void renderer_clear(void)
 {
-    clear();  /* Clear stdscr first */
+    clear();
     if (g_renderer.main_win) {
         werase(g_renderer.main_win);
         touchwin(g_renderer.main_win);
@@ -195,7 +177,6 @@ void renderer_clear(void)
 /* Reset input mode (call after state transitions) */
 void renderer_reset_input(void)
 {
-    /* Ensure keypad and nodelay are properly set */
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
     if (g_renderer.main_win) {
@@ -207,7 +188,6 @@ void renderer_reset_input(void)
 /* Refresh screen */
 void renderer_refresh(void)
 {
-    /* Touch and refresh standard screen first */
     touchwin(stdscr);
     wnoutrefresh(stdscr);
     
@@ -224,7 +204,6 @@ void renderer_refresh(void)
         wnoutrefresh(g_renderer.status_win);
     }
     
-    /* Do a single actual screen update */
     doupdate();
 }
 
@@ -290,7 +269,7 @@ static void draw_bg_starfield(void)
     if (g_bg_sf_timer_init) {
         dt = (float)(now.tv_sec - g_bg_sf_prev.tv_sec) +
              (float)(now.tv_nsec - g_bg_sf_prev.tv_nsec) / 1e9f;
-        if (dt > 0.1f) dt = 0.1f;  /* Cap to avoid jumps */
+        if (dt > 0.1f) dt = 0.1f;
     } else {
         dt = 0.016f;
         g_bg_sf_timer_init = true;
@@ -312,17 +291,14 @@ static void draw_text_reveal(WINDOW *win, const char **lines, int num_lines,
     if (progress <= 0.0f) return;
     if (progress > 1.0f) progress = 1.0f;
 
-    /* Ease-out cubic for smooth deceleration */
     float t = 1.0f - (1.0f - progress) * (1.0f - progress) * (1.0f - progress);
 
-    /* Determine max text width */
     int max_w = 0;
     for (int i = 0; i < num_lines; i++) {
         int len = (int)strlen(lines[i]);
         if (len > max_w) max_w = len;
     }
 
-    /* Compute reveal radius (distance from center of text block) */
     float half_w = (float)max_w / 2.0f;
     float half_h = (float)num_lines * 1.5f;
     float max_dist = sqrtf(half_w * half_w + half_h * half_h);
@@ -351,21 +327,16 @@ static void draw_text_reveal(WINDOW *win, const char **lines, int num_lines,
     wattroff(win, COLOR_PAIR(color_pair) | A_BOLD);
 }
 
-/* Play the full intro animation sequence.
- * Shows starfield background with PONG-CLI logo, subtitle, and
- * "press any key" text zooming in from the center one after another.
- * Returns when user presses a key. */
+
 void renderer_play_intro(void)
 {
     WINDOW *win = g_renderer.main_win;
     int width, height;
 
-    /* Initialize the global background starfield */
     starfield_init(&g_bg_starfield, 150, 4.0f);
     g_bg_starfield_active = true;
     g_bg_sf_timer_init = false;
 
-    /* ASCII art logo lines */
     const char *logo[] = {
         " ____   ___  _   _  ____        ____ _     ___ ",
         "|  _ \\ / _ \\| \\ | |/ ___|      / ___| |   |_ _|",
@@ -375,7 +346,6 @@ void renderer_play_intro(void)
     };
     const int logo_lines = 5;
 
-    /* Fallback small logo for narrow terminals */
     const char *logo_small[] = { "PONG-CLI" };
     const int logo_small_lines = 1;
 
@@ -385,7 +355,6 @@ void renderer_play_intro(void)
     const char *press[] = { "Press any key to continue..." };
     const int press_lines = 1;
 
-    /* Animation timing (seconds) */
     const float LOGO_START  = 1.0f;
     const float LOGO_DUR    = 0.7f;
     const float SUB_START   = 2.0f;
@@ -410,12 +379,10 @@ void renderer_play_intro(void)
 
         getmaxyx(win, height, width);
 
-        /* Clear and draw starfield */
         werase(win);
         starfield_update(&g_bg_starfield, width, height, dt);
         starfield_draw(&g_bg_starfield, win, width, height);
 
-        /* Choose logo size based on terminal width */
         const char **active_logo = logo;
         int active_logo_lines = logo_lines;
         if (width < 50) {
@@ -423,26 +390,22 @@ void renderer_play_intro(void)
             active_logo_lines = logo_small_lines;
         }
 
-        /* Layout positions */
         int logo_y = height / 4;
         int sub_y  = logo_y + active_logo_lines + 2;
         int press_y = height - 5;
 
-        /* Draw logo with reveal animation */
         if (elapsed >= LOGO_START) {
             float p = (elapsed - LOGO_START) / LOGO_DUR;
             draw_text_reveal(win, active_logo, active_logo_lines,
                              logo_y, width, p, COLOR_TITLE);
         }
 
-        /* Draw subtitle with reveal animation */
         if (elapsed >= SUB_START) {
             float p = (elapsed - SUB_START) / SUB_DUR;
             draw_text_reveal(win, subtitle, subtitle_lines,
                              sub_y, width, p, COLOR_SCORE);
         }
 
-        /* Draw "press any key" with reveal animation */
         if (elapsed >= PRESS_START) {
             float p = (elapsed - PRESS_START) / PRESS_DUR;
             draw_text_reveal(win, press, press_lines,
@@ -451,20 +414,18 @@ void renderer_play_intro(void)
 
         renderer_refresh();
 
-        /* Check for input */
         int ch = wgetch(win);
         if (ch != ERR) {
             if (elapsed >= ACCEPT_KEY) {
-                break;              /* All text shown, proceed */
+                break;
             } else if (ch == 27) {
-                break;              /* ESC skips intro */
+                break;
             }
         }
 
-        usleep(33000);  /* ~30fps */
+        usleep(33000);
     }
 
-    /* Store timing reference for background starfield continuity */
     clock_gettime(CLOCK_MONOTONIC, &g_bg_sf_prev);
     g_bg_sf_timer_init = true;
 }
@@ -509,7 +470,6 @@ void renderer_draw_login(const char *username, const char *password,
     int height, width;
     getmaxyx(win, height, width);
     
-    /* Create form window */
     int form_height = 12;
     int form_width = 50;
     int start_y = (height - form_height) / 2;
@@ -521,7 +481,6 @@ void renderer_draw_login(const char *username, const char *password,
     
     int y = 2;
     
-    /* Username field */
     if (cursor_field == 0) wattron(form, A_BOLD);
     mvwprintw(form, y, 3, "Username:");
     if (cursor_field == 0) wattroff(form, A_BOLD);
@@ -531,7 +490,6 @@ void renderer_draw_login(const char *username, const char *password,
     mvwprintw(form, y + 1, 4, "%-*s", form_width - 8, username ? username : "");
     y += 3;
     
-    /* Password field */
     if (cursor_field == 1) wattron(form, A_BOLD);
     mvwprintw(form, y, 3, "Password:");
     if (cursor_field == 1) wattroff(form, A_BOLD);
@@ -539,7 +497,6 @@ void renderer_draw_login(const char *username, const char *password,
     mvwprintw(form, y + 1, 3, "[");
     mvwprintw(form, y + 1, form_width - 4, "]");
     
-    /* Show asterisks for password */
     int pwd_len = password ? (int)strlen(password) : 0;
     char pwd_display[128] = {0};
     for (int i = 0; i < pwd_len && i < (int)sizeof(pwd_display) - 1; i++) {
@@ -548,14 +505,12 @@ void renderer_draw_login(const char *username, const char *password,
     mvwprintw(form, y + 1, 4, "%-*s", form_width - 8, pwd_display);
     y += 3;
     
-    /* Error message */
     if (error_msg && strlen(error_msg) > 0) {
         wattron(form, COLOR_PAIR(COLOR_ERROR));
         mvwprintw(form, y + 1, 3, "%.*s", form_width - 6, error_msg);
         wattroff(form, COLOR_PAIR(COLOR_ERROR));
     }
     
-    /* Instructions */
     mvwprintw(form, form_height - 2, 3, "TAB: Switch  ENTER: Submit  ESC: Quit");
     
     delwin(form);
@@ -585,14 +540,12 @@ void renderer_draw_2fa(const char *code, const char *error_msg)
     mvwprintw(form, y++, 3, "Enter your 2FA code:");
     y++;
     
-    /* Code field */
     int code_x = (form_width - 10) / 2;
     mvwprintw(form, y, code_x, "[");
     mvwprintw(form, y, code_x + 9, "]");
     mvwprintw(form, y, code_x + 1, "%-6s", code ? code : "");
     y += 2;
     
-    /* Error message */
     if (error_msg && strlen(error_msg) > 0) {
         wattron(form, COLOR_PAIR(COLOR_ERROR));
         draw_centered(form, y, error_msg, 0);
@@ -605,7 +558,6 @@ void renderer_draw_2fa(const char *code, const char *error_msg)
     renderer_refresh();
 }
 
-/* Draw main menu */
 void renderer_draw_menu(const char **options, int option_count, 
                         int selected, const char *title)
 {
@@ -666,7 +618,6 @@ void renderer_draw_lobby(lobby_t *lobby, int my_user_id)
     
     int y = 2;
     
-    /* Lobby info */
     mvwprintw(lwin, y++, 3, "Mode: %s", lobby->game_mode);
     mvwprintw(lwin, y++, 3, "Balls: %d  Max Score: %d", 
               lobby->ball_count, lobby->max_score);
@@ -675,7 +626,6 @@ void renderer_draw_lobby(lobby_t *lobby, int my_user_id)
     mvwprintw(lwin, y++, 3, "AI Players: %d", lobby->ai_count);
     y++;
     
-    /* Player list */
     wattron(lwin, A_UNDERLINE);
     mvwprintw(lwin, y++, 3, "Players:");
     wattroff(lwin, A_UNDERLINE);
@@ -734,7 +684,6 @@ static void game_to_screen(float gx, float gy, int canvas_w, int canvas_h,
                            int *sx, int *sy)
 {
     *sx = screen_x + (int)((gx / (float)canvas_w) * (float)screen_w);
-    /* Flip Y — server Y=0 is at screen bottom in the web 3D view */
     *sy = screen_y + (int)((((float)canvas_h - gy) / (float)canvas_h) * (float)screen_h);
 }
 
@@ -759,17 +708,12 @@ static void draw_line(WINDOW *win, int x0, int y0, int x1, int y1,
     }
 }
 
-/* Get the ncurses color pair for a player based on their position in the
- * server's allPlayers list (mirrors the frontend setGamePlayerIds color
- * assignment: first player → index 0, second → index 1, etc.). */
 static int get_player_color(const game_state_t *game, int player_id)
 {
-    /* Use the ordered allPlayers list from server metadata (matches frontend) */
     for (int i = 0; i < game->all_player_count; i++) {
         if (game->all_player_ids[i] == player_id)
             return COLOR_PLAYER_BASE + (i % MAX_PLAYER_COLORS);
     }
-    /* Fallback: check the score-based player list */
     for (int i = 0; i < game->player_count; i++) {
         if (game->players[i].id == player_id)
             return COLOR_PLAYER_BASE + (i % MAX_PLAYER_COLORS);
@@ -788,21 +732,18 @@ void renderer_draw_game(game_state_t *game)
     int height, width;
     getmaxyx(win, height, width);
     
-    /* Status bar at top (expanded for powerup display) */
     int status_h = 4;
     int game_h = height - status_h;
     int game_w = width - 2;
     int game_x = 1;
     int game_y = status_h;
     
-    /* Draw player status HUD */
     {
         bool is_los = (strcmp(game->game_mode, "lastOneStanding") == 0);
         int score_y = 0;
         int score_x = 2;
 
         if (is_los) {
-            /* Last One Standing: show alive count + per-player alive/out status */
             int alive = 0;
             for (int i = 0; i < game->player_count; i++) {
                 bool has_paddle = false;
@@ -852,7 +793,6 @@ void renderer_draw_game(game_state_t *game)
                 score_x += tag_len + 2;
             }
         } else {
-            /* Normal modes: show scores */
             for (int i = 0; i < game->player_count; i++) {
                 int pid = game->players[i].id;
                 int sc  = game->players[i].score;
@@ -877,17 +817,15 @@ void renderer_draw_game(game_state_t *game)
         }
     }
     
-    /* Draw active powerup effects row (centered) */
     {
         int effect_y = 2;
         
-        /* First pass: compute total width of all labels */
         int total_w = 0;
         for (int i = 0; i < game->active_effect_count; i++) {
             const char *label = powerup_type_label(game->active_effects[i].type);
-            total_w += (int)strlen(label) + 3; /* "[label] " */
+            total_w += (int)strlen(label) + 3;
         }
-        if (total_w > 0) total_w--; /* remove trailing space */
+        if (total_w > 0) total_w--;
         
         int effect_x = (width - total_w) / 2;
         if (effect_x < 1) effect_x = 1;
@@ -895,18 +833,17 @@ void renderer_draw_game(game_state_t *game)
         for (int i = 0; i < game->active_effect_count; i++) {
             const active_effect_t *eff = &game->active_effects[i];
             const char *label = powerup_type_label(eff->type);
-            int label_len = (int)strlen(label) + 2; /* "[label]" */
+            int label_len = (int)strlen(label) + 2;
             
             if (effect_x + label_len >= width - 1) break;
             
             wattron(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD);
             mvwprintw(win, effect_y, effect_x, "[%s]", label);
             wattroff(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD);
-            effect_x += label_len + 1; /* +1 for space */
+            effect_x += label_len + 1;
         }
     }
     
-    /* Draw game border */
     for (int x = game_x; x < game_x + game_w; x++) {
         mvwaddch(win, game_y, x, ACS_HLINE);
         mvwaddch(win, game_y + game_h - 1, x, ACS_HLINE);
@@ -927,7 +864,6 @@ void renderer_draw_game(game_state_t *game)
     int area_w = game_w - 2;
     int area_h = game_h - 2;
 
-    /* Draw center dashed line (inspired by favicon pong) */
     {
         int mid_x = game_x + game_w / 2;
         wattron(win, COLOR_PAIR(COLOR_MIDLINE) | A_DIM);
@@ -938,7 +874,6 @@ void renderer_draw_game(game_state_t *game)
         wattroff(win, COLOR_PAIR(COLOR_MIDLINE) | A_DIM);
     }
 
-    /* Draw walls using Bresenham line drawing */
     for (int i = 0; i < game->wall_count; i++) {
         const wall_t *w = &game->walls[i];
         
@@ -948,9 +883,6 @@ void renderer_draw_game(game_state_t *game)
         game_to_screen(w->x2, w->y2, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx2, &sy2);
 
-        /* Walls are default blue. In lastOneStanding, eliminated players'
-         * walls change to that player's color.  Match the frontend logic:
-         * a wall whose player_id has no active paddle is "eliminated". */
         int wall_cpair = COLOR_WALL;
         if (w->player_id != -1
             && strcmp(game->game_mode, "lastOneStanding") == 0) {
@@ -966,15 +898,12 @@ void renderer_draw_game(game_state_t *game)
         }
         wattron(win, COLOR_PAIR(wall_cpair) | A_BOLD);
 
-        /* Draw 3 parallel lines for thicker, more solid walls */
         int wdx = sx2 - sx1;
         int wdy = sy2 - sy1;
         int ox, oy;
         if (abs(wdx) > abs(wdy)) {
-            /* Mostly horizontal wall: offset vertically */
             ox = 0; oy = 1;
         } else {
-            /* Mostly vertical wall: offset horizontally */
             ox = 1; oy = 0;
         }
 
@@ -989,16 +918,11 @@ void renderer_draw_game(game_state_t *game)
         wattroff(win, COLOR_PAIR(wall_cpair) | A_BOLD);
     }
     
-    /* Draw paddles — angle-aware line drawing */
     for (int i = 0; i < game->paddle_count; i++) {
         const paddle_t *p = &game->paddles[i];
         
-        /* The paddle angle is the normal direction (facing center).
-           The paddle itself runs perpendicular: angle + PI/2. */
         float perp = p->angle + (float)M_PI / 2.0f;
-        float half_len = p->width / 2.0f;  /* width = extent along wall */
-
-        /* Compute game-coordinate endpoints of the paddle */
+        float half_len = p->width / 2.0f;
         float px1 = p->x - cosf(perp) * half_len;
         float py1 = p->y - sinf(perp) * half_len;
         float px2 = p->x + cosf(perp) * half_len;
@@ -1020,11 +944,10 @@ void renderer_draw_game(game_state_t *game)
         wattroff(win, COLOR_PAIR(paddle_color) | A_BOLD | (is_mine ? A_REVERSE : 0));
     }
     
-    /* Draw powerups (only uncollected ones on the field) */
     wattron(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD | A_BLINK);
     for (int i = 0; i < game->powerup_count; i++) {
         const powerup_t *p = &game->powerups[i];
-        if (!p->active || p->activation_tick >= 0) continue;  /* Skip collected */
+        if (!p->active || p->activation_tick >= 0) continue;
         
         int sx, sy;
         game_to_screen(p->x, p->y, game->canvas_width, game->canvas_height,
@@ -1037,7 +960,6 @@ void renderer_draw_game(game_state_t *game)
     }
     wattroff(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD | A_BLINK);
 
-    /* Draw balls — size-aware rendering */
     wattron(win, COLOR_PAIR(COLOR_BALL) | A_BOLD);
 
     for (int i = 0; i < game->ball_count; i++) {
@@ -1048,11 +970,8 @@ void renderer_draw_game(game_state_t *game)
         game_to_screen(b->x, b->y, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx, &sy);
         
-        /* Choose character and render footprint based on radius.
-         * Default radius is 10.  INCREASE_BALL_SIZE multiplies by 1.5 (→ 15).
-         * DECREASE_BALL_SIZE multiplies by 0.75 (→ 7.5). */
+
         if (b->radius > 25.0f) {
-            /* Very large ball: 3x3 cross pattern */
             if (sx > game_x + 1 && sx < game_x + game_w - 2 &&
                 sy > game_y + 1 && sy < game_y + game_h - 2) {
                 mvwaddch(win, sy, sx, '@');
@@ -1062,7 +981,6 @@ void renderer_draw_game(game_state_t *game)
                 mvwaddch(win, sy, sx + 1, 'O');
             }
         } else if (b->radius > 11.0f) {
-            /* Bigger-than-normal ball: show with '@' and side markers */
             if (sx > game_x + 1 && sx < game_x + game_w - 2 &&
                 sy > game_y && sy < game_y + game_h - 1) {
                 mvwaddch(win, sy, sx, '@');
@@ -1070,19 +988,16 @@ void renderer_draw_game(game_state_t *game)
                 mvwaddch(win, sy, sx + 1, ')');
             }
         } else if (b->radius < 6.0f) {
-            /* Tiny ball: dot */
             if (sx > game_x && sx < game_x + game_w - 1 &&
                 sy > game_y && sy < game_y + game_h - 1) {
                 mvwaddch(win, sy, sx, '.');
             }
         } else if (b->radius < 9.0f) {
-            /* Small ball: lowercase o */
             if (sx > game_x && sx < game_x + game_w - 1 &&
                 sy > game_y && sy < game_y + game_h - 1) {
                 mvwaddch(win, sy, sx, 'o');
             }
         } else {
-            /* Normal ball (radius ~10) */
             if (sx > game_x && sx < game_x + game_w - 1 &&
                 sy > game_y && sy < game_y + game_h - 1) {
                 mvwaddch(win, sy, sx, 'O');
@@ -1093,7 +1008,6 @@ void renderer_draw_game(game_state_t *game)
     
     pthread_mutex_unlock(&game->mutex);
     
-    /* Draw controls hint */
     mvwprintw(win, height - 1, 3, "A/LEFT: Left  D/RIGHT: Right  Q: Quit");
     
     renderer_refresh();
@@ -1127,11 +1041,9 @@ void renderer_draw_game_over(game_state_t *game)
     
     y += 2;
     
-    /* Show all player scores sorted descending */
     draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
     y++;
     
-    /* Simple insertion sort by score descending, winner first on ties */
     int order[MAX_PLAYERS];
     for (int i = 0; i < game->player_count; i++) order[i] = i;
     for (int i = 1; i < game->player_count; i++) {
@@ -1140,7 +1052,6 @@ void renderer_draw_game_over(game_state_t *game)
         while (j >= 0) {
             int sa = game->players[order[j]].score;
             int sb = game->players[key].score;
-            /* Sort descending by score; on tie, winner ranks first */
             bool swap = (sa < sb) ||
                         (sa == sb && game->players[key].id == game->winner_id);
             if (!swap) break;
@@ -1197,7 +1108,6 @@ void renderer_draw_error(const char *title, const char *message)
         int msg_len = (int)strlen(message);
         int msg_x = 3;
         
-        /* Wrap long messages */
         if (msg_len > box_width - 6) {
             int y = 2;
             int remaining = msg_len;
@@ -1232,7 +1142,6 @@ void renderer_draw_loading(const char *message)
     
     int y = height / 2;
     
-    /* Simple spinner */
     static int frame = 0;
     const char *spinner = "|/-\\";
     char spin_char = spinner[frame % 4];
@@ -1277,7 +1186,6 @@ void renderer_draw_matchmaking(const char *mode, int elapsed_seconds)
     snprintf(time_line, sizeof(time_line), "Time: %02d:%02d", mins, secs);
     draw_centered(win, y++, time_line, COLOR_MENU);
     
-    /* Animated dots */
     static int dots = 0;
     dots = (dots + 1) % 4;
     
@@ -1367,7 +1275,6 @@ void renderer_draw_invite(online_user_t *users, int user_count,
         mvwprintw(swin, y++, 3, "Press / to search by username.");
         wattroff(swin, A_DIM);
     } else {
-        /* Scrollable user list */
         int visible_rows = menu_height - 8;
         if (visible_rows < 1) visible_rows = 1;
         int scroll_offset = 0;
@@ -1400,7 +1307,6 @@ void renderer_draw_invite(online_user_t *users, int user_count,
         }
     }
     
-    /* Search bar */
     y = menu_height - 5;
     if (searching) {
         wattron(swin, COLOR_PAIR(COLOR_TITLE));
@@ -1410,7 +1316,6 @@ void renderer_draw_invite(online_user_t *users, int user_count,
         mvwprintw(swin, y, 3, "Search: %s", search_query);
     }
     
-    /* Instructions */
     y = menu_height - 3;
     mvwprintw(swin, y++, 3, "UP/DOWN: Move  SPACE: Select  /: Search");
     mvwprintw(swin, y,   3, "ENTER: Create Lobby  R: Refresh  ESC: Back");
@@ -1442,7 +1347,6 @@ void renderer_draw_invitation(lobby_t *lobby, int my_user_id)
 
     int y = 2;
 
-    /* Find host name */
     const char *host_name = "Unknown";
     for (int i = 0; i < lobby->player_count; i++) {
         if (lobby->players[i].is_host) {
@@ -1464,7 +1368,6 @@ void renderer_draw_invitation(lobby_t *lobby, int my_user_id)
               lobby->allow_powerups ? "On" : "Off", lobby->ai_count);
     y++;
 
-    /* Player list */
     mvwprintw(iwin, y++, 3, "Players:");
     for (int i = 0; i < lobby->player_count; i++) {
         const char *tag = "";

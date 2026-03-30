@@ -1,8 +1,3 @@
-/**
- * @file utils.c
- * @brief Utility functions for Pong CLI
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,14 +11,10 @@
 #include "utils.h"
 #include "cJSON.h"
 
-/* Logging state */
 static FILE *log_file = NULL;
 static log_level_t min_log_level = LOG_INFO;
 static const char *level_names[] = { "DEBUG", "INFO", "WARN", "ERROR" };
 
-/* ============================================================================
- * String utilities
- * ========================================================================== */
 
 char *str_dup(const char *s)
 {
@@ -61,12 +52,10 @@ char *str_trim(char *s)
 {
     if (!s) return NULL;
     
-    /* Trim leading whitespace */
     while (isspace((unsigned char)*s)) s++;
     
     if (*s == '\0') return s;
     
-    /* Trim trailing whitespace */
     char *end = s + strlen(s) - 1;
     while (end > s && isspace((unsigned char)*end)) end--;
     end[1] = '\0';
@@ -78,7 +67,6 @@ int str_split(const char *s, char delim, char ***parts, int *count)
 {
     if (!s || !parts || !count) return -1;
     
-    /* Count delimiters */
     int n = 1;
     const char *p = s;
     while (*p) {
@@ -122,10 +110,6 @@ void str_split_free(char **parts, int count)
     }
     free(parts);
 }
-
-/* ============================================================================
- * Path utilities
- * ========================================================================== */
 
 char *path_join(const char *dir, const char *file)
 {
@@ -197,10 +181,6 @@ int path_mkdir_p(const char *path, int mode)
     return (result == 0 || errno == EEXIST) ? 0 : -1;
 }
 
-/* ============================================================================
- * File utilities
- * ========================================================================== */
-
 char *file_read_all(const char *path)
 {
     if (!path) return NULL;
@@ -241,9 +221,6 @@ int file_write_all(const char *path, const char *content, int mode)
     return written == len ? 0 : -1;
 }
 
-/* ============================================================================
- * JSON utilities
- * ========================================================================== */
 
 char *json_get_string(const char *json, const char *key)
 {
@@ -456,10 +433,6 @@ int *json_array_to_ints(const char *array_json, int *count)
     return result;
 }
 
-/* ============================================================================
- * Time utilities
- * ========================================================================== */
-
 long get_timestamp_ms(void)
 {
     struct timeval tv;
@@ -472,9 +445,6 @@ void sleep_ms(int ms)
     usleep(ms * 1000);
 }
 
-/* ============================================================================
- * Logging
- * ========================================================================== */
 
 void log_init(const char *file_path, log_level_t level)
 {
@@ -514,9 +484,6 @@ void log_msg(log_level_t level, const char *fmt, ...)
     fflush(out);
 }
 
-/* ============================================================================
- * Memory utilities
- * ========================================================================== */
 
 void *safe_malloc(size_t size)
 {
@@ -543,9 +510,6 @@ void safe_free(void *ptr)
     free(ptr);
 }
 
-/* ============================================================================
- * URL encoding
- * ========================================================================== */
 
 static const char hex[] = "0123456789ABCDEF";
 

@@ -1,8 +1,3 @@
-/**
- * @file websocket.c
- * @brief WebSocket client for Pong CLI using libwebsockets
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +10,8 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
                          void *user, void *in, size_t len)
 {
     pong_websocket_t *ws = (pong_websocket_t *)lws_context_user(lws_get_context(wsi));
-    (void)user;  /* Unused */
+    (void)user;
     
-    /* Debug logging to file */
     static FILE *ws_log = NULL;
     if (!ws_log) ws_log = fopen("/tmp/pong_cli_ws.log", "w");
     if (ws_log) {
@@ -66,7 +60,6 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
         case LWS_CALLBACK_CLIENT_RECEIVE:
             if (ws->shutting_down) return -1;
             if (in && len > 0) {
-                /* Append to receive buffer */
                 pthread_mutex_lock(&ws->mutex);
                 if (ws->recv_len + len < WS_RECV_BUFFER_SIZE - 1) {
                     memcpy(ws->recv_buffer + ws->recv_len, in, len);
@@ -74,15 +67,12 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
                     ws->recv_buffer[ws->recv_len] = '\0';
                 }
                 
-                /* Log received data */
                 if (ws_log) { 
                     fprintf(ws_log, "RECEIVE: %.*s\\n", (int)len, (char*)in); 
                     fflush(ws_log); 
                 }
                 
-                /* Check if we have complete message */
                 if (lws_is_final_fragment(wsi)) {
-                    /* Parse and dispatch message */
                     char container[64] = {0};
                     char func_id[64] = {0};
                     int code = 0;
@@ -102,7 +92,6 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
                             fprintf(ws_log, "PARSED: container=%s func_id=%s code=%d\\n", container, func_id, code);
                             fflush(ws_log);
                         }
-                        /* Find matching subscription */
                         ws_subscription_t *sub = ws->subscriptions;
                         while (sub) {
                             if (strcmp(sub->func_id, func_id) == 0) {
@@ -137,7 +126,6 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
                 }
                 pthread_mutex_unlock(&ws->mutex);
                 
-                /* Send with LWS_PRE padding */
                 unsigned char *buf = malloc(LWS_PRE + msg->len);
                 if (buf) {
                     memcpy(buf + LWS_PRE, msg->data, msg->len);
@@ -186,7 +174,7 @@ pong_websocket_t *ws_create(const char *host, int port, const char *path)
     ws->host = strdup(host);
     ws->port = port;
     ws->path = strdup(path ? path : "/ws");
-    ws->use_ssl = true;  /* Default to SSL */
+    ws->use_ssl = true;
     ws->state = WS_STATE_DISCONNECTED;
     ws->max_reconnect_attempts = 5;
     
@@ -204,7 +192,6 @@ void ws_destroy(pong_websocket_t *ws)
     ws_disconnect(ws);
     ws_unsubscribe_all(ws);
     
-    /* Free send queue */
     while (ws->send_queue) {
         ws_message_t *msg = ws->send_queue;
         ws->send_queue = msg->next;
@@ -246,10 +233,8 @@ int ws_connect(pong_websocket_t *ws)
     ws->state = WS_STATE_CONNECTING;
     pthread_mutex_unlock(&ws->mutex);
     
-    /* Suppress libwebsockets debug logging - it interferes with ncurses */
     lws_set_log_level(0, NULL);
     
-    /* Create context */
     struct lws_context_creation_info ctx_info;
     memset(&ctx_info, 0, sizeof(ctx_info));
     
@@ -264,7 +249,6 @@ int ws_connect(pong_websocket_t *ws)
         return -1;
     }
     
-    /* Connect */
     struct lws_client_connect_info conn_info;
     memset(&conn_info, 0, sizeof(conn_info));
     
@@ -286,8 +270,7 @@ int ws_connect(pong_websocket_t *ws)
         return -1;
     }
     
-    /* Wait for connection to be established (run service loop until connected or error) */
-    int timeout_ms = 10000;  /* 10 second timeout */
+    int timeout_ms = 10000;
     int elapsed = 0;
     while (elapsed < timeout_ms) {
         lws_service(ws->context, 50);
@@ -308,7 +291,6 @@ int ws_connect(pong_websocket_t *ws)
         elapsed += 50;
     }
     
-    /* Timeout */
     ws->state = WS_STATE_ERROR;
     lws_context_destroy(ws->context);
     ws->context = NULL;
@@ -323,9 +305,6 @@ void ws_disconnect(pong_websocket_t *ws)
     
     pthread_mutex_lock(&ws->mutex);
     
-    /* Tell the lws callback to return -1 (force-close) so
-     * lws_context_destroy doesn't block on a TLS shutdown
-     * round-trip with the server. */
     ws->shutting_down = true;
     
     if (ws->context) {
@@ -334,7 +313,6 @@ void ws_disconnect(pong_websocket_t *ws)
     
     pthread_mutex_unlock(&ws->mutex);
     
-    /* Give the service loop one iteration to process the close. */
     usleep(100000);  /* 100 ms */
     
     pthread_mutex_lock(&ws->mutex);
@@ -398,10 +376,6 @@ static int queue_message(pong_websocket_t *ws, const char *data, size_t len)
     }
     ws->send_queue_tail = msg;
     
-    /* Wake the service thread to send the message.
-     * lws_callback_on_writable() is only safe from within the lws
-     * event-loop, so from other threads we use lws_cancel_service()
-     * and let the service thread call lws_callback_on_writable(). */
     if (ws->wsi && ws->state == WS_STATE_CONNECTED) {
         if (ws->thread_running && pthread_equal(pthread_self(), ws->service_thread)) {
             lws_callback_on_writable(ws->wsi);
@@ -420,7 +394,6 @@ int ws_send_message(pong_websocket_t *ws, const char *container,
 {
     if (!ws || !container || !func_id) return -1;
     
-    /* Check if connected */
     pthread_mutex_lock(&ws->mutex);
     bool connected = (ws->state == WS_STATE_CONNECTED && ws->wsi != NULL);
     pthread_mutex_unlock(&ws->mutex);
@@ -547,8 +520,6 @@ static void *service_thread_func(void *arg)
         if (!running) break;
         
         if (ws->context) {
-            /* Trigger writable callback when messages are queued.
-             * This is safe because we are inside the service thread. */
             if (has_pending && wsi) {
                 lws_callback_on_writable(wsi);
             }
@@ -594,8 +565,6 @@ void ws_stop_service_thread(pong_websocket_t *ws)
     }
     ws->thread_running = false;
     
-    /* Wake the service loop so it exits immediately instead of
-     * blocking for up to 50 ms in lws_service(). */
     if (ws->context) {
         lws_cancel_service(ws->context);
     }
@@ -638,7 +607,6 @@ int ws_parse_hub_message(const char *message,
     const char *p3 = strchr(p2 + 1, '%');
     if (!p3) return -1;
     
-    /* Extract container */
     size_t len = p1 - message;
     if (container && cont_len > 0) {
         len = (len < cont_len - 1) ? len : cont_len - 1;
@@ -646,7 +614,6 @@ int ws_parse_hub_message(const char *message,
         container[len] = '\0';
     }
     
-    /* Extract func_id */
     len = p2 - p1 - 1;
     if (func_id && func_len > 0) {
         len = (len < func_len - 1) ? len : func_len - 1;
@@ -654,12 +621,10 @@ int ws_parse_hub_message(const char *message,
         func_id[len] = '\0';
     }
     
-    /* Extract code */
     if (code) {
         *code = atoi(p2 + 1);
     }
     
-    /* Extract payload */
     if (payload && payload_len > 0) {
         strncpy(payload, p3 + 1, payload_len - 1);
         payload[payload_len - 1] = '\0';
