@@ -29,30 +29,10 @@ typedef struct {
     float   focal;      /* Focal length for projection */
 } starfield_t;
 
-/**
- * Initialize a starfield with the given number of stars and speed.
- * @param sf        Starfield to initialize
- * @param count     Number of stars (clamped to STARFIELD_MAX_STARS)
- * @param speed     Movement speed multiplier
- */
+/* Starfield lifecycle */
 void starfield_init(starfield_t *sf, int count, float speed);
 
-/**
- * Update star positions based on elapsed time.
- * @param sf        Starfield to update
- * @param width     Terminal width in columns
- * @param height    Terminal height in rows
- * @param dt        Delta time in seconds since last update
- */
 void starfield_update(starfield_t *sf, int width, int height, float dt);
-
-/**
- * Draw the starfield onto an ncurses window.
- * @param sf        Starfield to draw
- * @param win       ncurses window to draw on
- * @param width     Window width in columns
- * @param height    Window height in rows
- */
 void starfield_draw(starfield_t *sf, WINDOW *win, int width, int height);
 
 #endif /* STARFIELD_H */
