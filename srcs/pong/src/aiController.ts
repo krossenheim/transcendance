@@ -36,10 +36,10 @@ const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
     commitLockoutMs: 100,
     deadZoneMultiplier: 0.08,
     minDeadZonePx: 15,
-    predictionError: 0.18,
+    predictionError: 0.12,
     sectorMatchWidth: 1.8,
     ballGracePeriodMs: 3000,
-    speedMultiplier: 1.0,
+    speedMultiplier: 1.2,
   },
   [AIDifficulty.MEDIUM]: {
     refreshIntervalMs: 1000,
@@ -48,10 +48,10 @@ const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
     commitLockoutMs: 50,
     deadZoneMultiplier: 0.06,
     minDeadZonePx: 10,
-    predictionError: 0.08,
+    predictionError: 0.06,
     sectorMatchWidth: 1.5,
     ballGracePeriodMs: 3000,
-    speedMultiplier: 1.0,
+    speedMultiplier: 1.5,
   },
   [AIDifficulty.HARD]: {
     refreshIntervalMs: 1000,
@@ -63,7 +63,7 @@ const DIFFICULTY_PARAMS: Record<AIDifficulty, DifficultyParams> = {
     predictionError: 0,
     sectorMatchWidth: 1.2,
     ballGracePeriodMs: 3000,
-    speedMultiplier: 1.0,
+    speedMultiplier: 2.0,
   },
   [AIDifficulty.NIGHTMARE]: {
     refreshIntervalMs: 1000,
@@ -487,20 +487,11 @@ export class AIController {
    */
   public update(): void {
 
-    // If paddle already reached target, drift toward sector center so the
-    // paddle isn't frozen at the last interception point for up to 1 second.
-    // This does NOT read game state — it only uses the fixed sector center.
+    // If paddle already reached the predicted interception point, hold position
+    // and wait for the next refresh to provide an updated target.
     if (this.reachedTarget) {
-      const driftDiff = angDiff(this.sectorCenter, this.estimatedPaddleAngle);
-      const driftOffset = Math.abs(driftDiff) * this.paddleOrbitRadius;
-      // Only drift if we're far enough from center to matter
-      if (driftOffset > this.params.minDeadZonePx * 2) {
-        this.committedTargetAngle = this.sectorCenter;
-        this.reachedTarget = false;
-      } else {
-        this.currentKeys = [];
-        return;
-      }
+      this.currentKeys = [];
+      return;
     }
 
     const now = Date.now();
