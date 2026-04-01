@@ -127,17 +127,17 @@ static int parse_login_response(const char *json, auth_session_t *session)
     cJSON *root = cJSON_Parse(json);
     if (!root) return -1;
     
-    cJSON *requires_2fa = cJSON_GetObjectItem(root, "requires_twofa");
+    cJSON *requires_2fa = cJSON_GetObjectItem(root, "requires2FA");
     if (requires_2fa && cJSON_IsBool(requires_2fa) && cJSON_IsTrue(requires_2fa)) {
         session->needs_2fa = true;
         
-        cJSON *temp_token = cJSON_GetObjectItem(root, "temp_token");
+        cJSON *temp_token = cJSON_GetObjectItem(root, "tempToken");
         if (temp_token && cJSON_IsString(temp_token)) {
             strncpy(session->temp_2fa_token, temp_token->valuestring, 
                     sizeof(session->temp_2fa_token) - 1);
         }
         
-        cJSON *user_id = cJSON_GetObjectItem(root, "user_id");
+        cJSON *user_id = cJSON_GetObjectItem(root, "userId");
         if (user_id && cJSON_IsNumber(user_id)) {
             session->user_id = user_id->valueint;
         }
