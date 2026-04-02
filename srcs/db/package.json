@@ -4,7 +4,7 @@
     "dependencies": {
         "@app/shared": "file:../../shared",
         "fastify": "^5.6.2",
-        "axios": "^1.13.2",
+        "axios": "^1.13.5",
         "zod": "^4.3.6",
         "bcrypt": "^6.0.0",
         "@resvg/resvg-js": "^2.6.2",
