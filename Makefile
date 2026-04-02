@@ -150,9 +150,18 @@ check-system-deps:
 
 check-npm-deps:
 	@echo "Checking npm dependencies..."
-	@if ! command -v npm >/dev/null 2>&1; then \
-		echo "npm not found. Installing Node.js and npm..."; \
-		sudo apt update && sudo apt install -y nodejs npm; \
+	@if ! command -v node >/dev/null 2>&1; then \
+		echo "Node.js not found. Installing Node.js 20.x..."; \
+		curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && \
+		sudo apt-get install -y nodejs; \
+	elif [ $$(node -e 'console.log(parseInt(process.versions.node))') -lt 20 ]; then \
+		echo "Node.js $$(node --version) is too old (need >= 20). Upgrading..."; \
+		curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && \
+		sudo apt-get install -y nodejs; \
+	fi
+	@if [ ! -d "$(PROJECT_ROOT)node_modules" ]; then \
+		echo "Installing root npm dependencies..."; \
+		npm install --prefix "$(PROJECT_ROOT)"; \
 	fi
 	@if [ ! -d "$(BLOCKCHAIN_DIR)/node_modules" ]; then \
 		echo "Installing blockchain npm dependencies..."; \
@@ -178,8 +187,9 @@ clean: down
 fclean: clean
 	rm -rf "$(OUTPUT_FILES_DIR)"
 	rm -rf "$(PROJECT_ROOT)static/react_dist/assets"
-	# Remove VM-side node_modules installed by check-npm-deps / build_react
+	# Remove VM-side node_modules and lock files installed by check-npm-deps / build_react
 	find "$(PROJECT_ROOT)" -maxdepth 3 -name node_modules -type d -exec rm -rf {} +
+	find "$(PROJECT_ROOT)" -maxdepth 3 -name package-lock.json -not -path '*/blockchain/*' -delete
 	# Remove all service containers by name
 	for c in $(NGINX_NAME) $(HUB_NAME) $(CHATROOM_NAME) $(DATABASE_NAME) $(AUTH_NAME) $(PONG_NAME) $(USERS_NAME) hardhat blockchain-explorer; do \
 	    docker rm -f $$c 2>/dev/null || true; \
