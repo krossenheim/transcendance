@@ -166,6 +166,8 @@ check-npm-deps:
 	@if [ ! -d "$(BLOCKCHAIN_DIR)/node_modules" ]; then \
 		echo "Installing blockchain npm dependencies..."; \
 		npm install --prefix "$(BLOCKCHAIN_DIR)" --legacy-peer-deps; \
+		echo "Applying safe audit fixes for blockchain..."; \
+		cd "$(BLOCKCHAIN_DIR)" && npm audit fix --legacy-peer-deps 2>/dev/null || true; \
 	fi
 	@if [ ! -d "$(PROJECT_ROOT)shared/node_modules" ]; then \
 		echo "Installing shared npm dependencies..."; \
