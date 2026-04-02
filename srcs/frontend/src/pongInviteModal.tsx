@@ -487,11 +487,11 @@ export default function PongInviteModal({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('pong.maxScore')}: {maxScore}
+                  {t('pong.maxScore')}: {maxScore === 0 ? '∞' : maxScore}
                 </label>
                 <input
                   type="range"
-                  min="3"
+                  min="0"
                   max="21"
                   value={maxScore}
                   onChange={(e) => setMaxScore(Number(e.target.value))}
