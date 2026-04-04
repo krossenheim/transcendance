@@ -4,7 +4,7 @@ out/
 *.o
 *.d
 chatroom_exec
-srcs/CLI/pong-cli
+containers/CLI/pong-cli
 objs/
 check_global_envs.env
 node_modules/
@@ -16,10 +16,10 @@ package-lock.json
 *.tsbuildinfo
 !/**/reactproto/**/*.js
 build_frontend
-srcs/.env
-srcs/globals.env
-srcs/elk/elasticsearch/config/service_tokens
-srcs/vault/bootstrap_vault_dev.sh
+containers/.env
+containers/globals.env
+containers/elk/elasticsearch/config/service_tokens
+containers/vault/bootstrap_vault_dev.sh
 db_data/
 secrets.local.sh
 static/react_dist/

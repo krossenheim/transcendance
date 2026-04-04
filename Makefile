@@ -1,6 +1,6 @@
 PROJECT_ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OUTPUT_FILES_DIR := $(PROJECT_ROOT)out
-SOURCES_DIR := $(PROJECT_ROOT)srcs
+SOURCES_DIR := $(PROJECT_ROOT)containers
 VOLUMES_DIR := $(OUTPUT_FILES_DIR)/volumes/
 
 PATH_TO_COMPOSE_ENV_FILE := globals.env
@@ -52,7 +52,7 @@ ensure_network:
 	@docker network inspect transcendance_network >/dev/null 2>&1 || \
 		docker network create --driver bridge --subnet ${TR_NETWORK_SUBNET} \
 			--label com.docker.compose.network=transcendance_network \
-			--label com.docker.compose.project=srcs transcendance_network
+			--label com.docker.compose.project=transcendance transcendance_network
 
 up-all:
 	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans

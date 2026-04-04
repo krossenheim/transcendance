@@ -13,13 +13,13 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY shared ./
 RUN npm run build
 
-WORKDIR /app/srcs/${SERVICE_NAME}
+WORKDIR /app/containers/${SERVICE_NAME}
 
-COPY srcs/${SERVICE_NAME}/package.json srcs/${SERVICE_NAME}/tsconfig.json ./
+COPY containers/${SERVICE_NAME}/package.json containers/${SERVICE_NAME}/tsconfig.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm install
 
-COPY srcs/${SERVICE_NAME}/src ./src
+COPY containers/${SERVICE_NAME}/src ./src
 RUN npm run build
 
 
@@ -36,7 +36,7 @@ ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}
 ENV NODE_ENV=production
 
-RUN mkdir -p /app/shared /app/srcs/${SERVICE_NAME} && \
+RUN mkdir -p /app/shared /app/containers/${SERVICE_NAME} && \
     chown -R nodejs:nodejs /app
 
 WORKDIR /app/shared
@@ -48,13 +48,13 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY --chown=nodejs:nodejs --from=builder /app/shared/dist ./dist
 
-WORKDIR /app/srcs/${SERVICE_NAME}
-COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/package.json ./
+WORKDIR /app/containers/${SERVICE_NAME}
+COPY --chown=nodejs:nodejs --from=builder /app/containers/${SERVICE_NAME}/package.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm install --only=production --install-links
 
-COPY --chown=nodejs:nodejs --from=builder /app/srcs/${SERVICE_NAME}/dist/srcs/${SERVICE_NAME}/src ./dist
-COPY --chown=nodejs:nodejs srcs/${SERVICE_NAME}/entrypoint.sh ./entrypoint.sh
+COPY --chown=nodejs:nodejs --from=builder /app/containers/${SERVICE_NAME}/dist/containers/${SERVICE_NAME}/src ./dist
+COPY --chown=nodejs:nodejs containers/${SERVICE_NAME}/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]

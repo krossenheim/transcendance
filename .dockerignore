@@ -51,8 +51,8 @@
 # ------------------------------------------------------------------------------
 # UNNEEDED SERVICE DIRECTORIES (not used by root-context builds)
 # ------------------------------------------------------------------------------
-srcs/CLI
-srcs/blockchain
+containers/CLI
+containers/blockchain
 
 # ------------------------------------------------------------------------------
 # DOCUMENTATION & MISC

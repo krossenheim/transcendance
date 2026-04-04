@@ -7,10 +7,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${NGINX_NAME}/site.env
+      - ./containers/${NGINX_NAME}/site.env
     build:
       context: .
-      dockerfile: ./srcs/${NGINX_NAME}/Dockerfile
+      dockerfile: ./containers/${NGINX_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${NGINX_NAME}
     healthcheck:
@@ -32,10 +32,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${HUB_NAME}/service_env.env
+      - ./containers/${HUB_NAME}/service_env.env
     build:
       context: .
-      dockerfile: ./srcs/${HUB_NAME}/Dockerfile
+      dockerfile: ./containers/${HUB_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${HUB_NAME}
     restart: unless-stopped
@@ -49,10 +49,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${CHATROOM_NAME}/service_env.env
+      - ./containers/${CHATROOM_NAME}/service_env.env
     build:
       context: .
-      dockerfile: ./srcs/${CHATROOM_NAME}/Dockerfile
+      dockerfile: ./containers/${CHATROOM_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${CHATROOM_NAME}
     restart: unless-stopped
@@ -77,10 +77,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${DATABASE_NAME}/service_env.env
+      - ./containers/${DATABASE_NAME}/service_env.env
     build:
       context: .
-      dockerfile: ./srcs/${DATABASE_NAME}/Dockerfile
+      dockerfile: ./containers/${DATABASE_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${DATABASE_NAME}
     restart: unless-stopped
@@ -102,10 +102,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${AUTH_NAME}/service_env.env
+      - ./containers/${AUTH_NAME}/service_env.env
     build:
       context: .
-      dockerfile: ./srcs/${AUTH_NAME}/Dockerfile
+      dockerfile: ./containers/${AUTH_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${AUTH_NAME}
     restart: unless-stopped
@@ -130,10 +130,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${PONG_NAME}/service_env.env
+      - ./containers/${PONG_NAME}/service_env.env
     build:
       context: .
-      dockerfile: ./srcs/${PONG_NAME}/Dockerfile
+      dockerfile: ./containers/${PONG_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${PONG_NAME}
     restart: unless-stopped
@@ -160,10 +160,10 @@ services:
     env_file:
       - ./globals.env
       - ./secrets.env
-      - ./srcs/${USERS_NAME}/service_env.env
+      - ./containers/${USERS_NAME}/service_env.env
     build:
       context: .
-      dockerfile: ./srcs/${USERS_NAME}/Dockerfile
+      dockerfile: ./containers/${USERS_NAME}/Dockerfile
       args:
         - SERVICE_NAME=${USERS_NAME}
     restart: unless-stopped
@@ -186,7 +186,7 @@ services:
     container_name: hardhat
     image: hardhat:local
     build:
-      context: ./srcs/blockchain
+      context: ./containers/blockchain
       dockerfile: Dockerfile
     restart: always
     ports:
@@ -205,7 +205,7 @@ services:
     container_name: blockchain-explorer
     image: blockchain-explorer:local
     build:
-      context: ./srcs/blockchain/explorer
+      context: ./containers/blockchain/explorer
       dockerfile: Dockerfile
     restart: always
     environment:
