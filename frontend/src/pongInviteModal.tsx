@@ -314,9 +314,9 @@ export default function PongInviteModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="glass-dark-sm glass-border shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500">
+        <div className="px-6 py-4 border-b border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-white">🏓 {t('pong.createPongGame')}</h2>
             <button
@@ -332,74 +332,74 @@ export default function PongInviteModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Game Mode Selection */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">
               {t('pong.selectGameMode')}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button
                 onClick={() => setGameMode("1v1")}
                 className={`p-4 border-2 transition-all ${gameMode === "1v1"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
+                  ? "border-blue-500 bg-blue-900/20"
+                  : "border-gray-600 hover:border-blue-300"
                   }`}
               >
                 <div className="text-3xl mb-2">🎯</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.oneVsOne')}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.classicPong')}</div>
+                <div className="font-semibold text-gray-200">{t('pong.oneVsOne')}</div>
+                <div className="text-xs text-gray-400">{t('pong.classicPong')}</div>
               </button>
               <button
                 onClick={() => setGameMode("multiplayer")}
                 className={`p-4 border-2 transition-all ${gameMode === "multiplayer"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
+                  ? "border-blue-500 bg-blue-900/20"
+                  : "border-gray-600 hover:border-blue-300"
                   }`}
               >
                 <div className="text-3xl mb-2">👥</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.multiplayer')}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.freeForAll')}</div>
+                <div className="font-semibold text-gray-200">{t('pong.multiplayer')}</div>
+                <div className="text-xs text-gray-400">{t('pong.freeForAll')}</div>
               </button>
               <button
                 onClick={() => setGameMode("lastOneStanding")}
                 className={`p-4 border-2 transition-all ${gameMode === "lastOneStanding"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
+                  ? "border-blue-500 bg-blue-900/20"
+                  : "border-gray-600 hover:border-blue-300"
                   }`}
               >
                 <div className="text-3xl mb-2">👑</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.lastOneStanding')}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.upTo8Players')}</div>
+                <div className="font-semibold text-gray-200">{t('pong.lastOneStanding')}</div>
+                <div className="text-xs text-gray-400">{t('pong.upTo8Players')}</div>
               </button>
               <button
                 onClick={() => setGameMode("tournament")}
                 className={`p-4 border-2 transition-all ${gameMode === "tournament"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
+                  ? "border-blue-500 bg-blue-900/20"
+                  : "border-gray-600 hover:border-blue-300"
                   }`}
               >
                 <div className="text-3xl mb-2">🏆</div>
-                <div className="font-semibold text-gray-800 dark:text-gray-200">{t('pong.tournament')}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.bracketStyle')}</div>
+                <div className="font-semibold text-gray-200">{t('pong.tournament')}</div>
+                <div className="text-xs text-gray-400">{t('pong.bracketStyle')}</div>
               </button>
             </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{getGameModeDescription()}</p>
+            <p className="mt-2 text-sm text-gray-400">{getGameModeDescription()}</p>
           </div>
 
           {/* Player Selection - hidden for local tournaments */}
           {!isLocalTournament && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">
               {t('pong.selectPlayers')} ({t('pong.minPlayers')}: {getMinPlayers()})
             </h3>
-            <div className="bg-gray-50/40 dark:bg-gray-900/70 p-4 max-h-48 overflow-y-auto">
+            <div className="bg-gray-900/70 p-4 max-h-48 overflow-y-auto">
               {/* Current User - Always Selected */}
-              <div className="flex items-center justify-between p-2 bg-blue-100 dark:bg-blue-900/30 mb-2">
+              <div className="flex items-center justify-between p-2 bg-blue-900/30 mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  <span className="text-sm font-semibold text-gray-200">
                     {t('pong.youHost')}
                   </span>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{t('pong.autoSelected')}</div>
+                <div className="text-xs text-gray-400">{t('pong.autoSelected')}</div>
               </div>
 
               {/* Search by username */}
@@ -411,7 +411,7 @@ export default function PongInviteModal({
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchUser() } }}
                   placeholder={t('pong.searchByUsername') || "Search by username..."}
                   maxLength={32}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-600 rounded bg-gray-800 text-gray-200 placeholder-gray-400"
                 />
                 <button
                   onClick={handleSearchUser}
@@ -432,8 +432,8 @@ export default function PongInviteModal({
                     key={user.id}
                     onClick={() => togglePlayerSelection(user.id)}
                     className={`w-full flex items-center justify-between p-2 mb-1 transition-colors ${selectedPlayers.includes(user.id)
-                      ? "bg-blue-100 dark:bg-blue-900/30"
-                      : "hover:bg-gray-100/40 dark:hover:bg-gray-800"
+                      ? "bg-blue-900/30"
+                      : "hover:bg-gray-800"
                       }`}
                   >
                     <div className="flex items-center gap-2">
@@ -443,7 +443,7 @@ export default function PongInviteModal({
                       />
                       <span
                         className="text-sm font-semibold"
-                        style={{ color: getUserColorCSS(user.id, true) }}
+                        style={{ color: getUserColorCSS(user.id) }}
                       >
                         {user.username}
                       </span>
@@ -459,7 +459,7 @@ export default function PongInviteModal({
                 </div>
               )}
             </div>
-            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mt-2 text-sm text-gray-400">
               {t('pong.selectedPlayers')}: {selectedPlayers.length + 1 + aiCount} {t('pong.players')}
               {aiCount > 0 && <span className="ml-1">({aiCount} 🤖)</span>}
             </div>
@@ -468,12 +468,12 @@ export default function PongInviteModal({
 
           {/* Game Settings */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">
               {t('pong.gameSettings')}
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   {t('pong.numberOfBalls')}: {ballCount}
                 </label>
                 <input
@@ -486,7 +486,7 @@ export default function PongInviteModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   {t('pong.maxScore')}: {maxScore === 0 ? '∞' : maxScore}
                 </label>
                 <input
@@ -506,12 +506,12 @@ export default function PongInviteModal({
                   onChange={(e) => setAllowPowerups(e.target.checked)}
                   className="rounded"
                 />
-                <label htmlFor="powerups" className="text-sm text-gray-700 dark:text-gray-300">
+                <label htmlFor="powerups" className="text-sm text-gray-300">
                   {t('pong.enablePowerups')}
                 </label>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   🤖 {t('pong.aiPlayers')}: {aiCount}
                 </label>
                 <input
@@ -522,12 +522,12 @@ export default function PongInviteModal({
                   onChange={(e) => setAiCount(Number(e.target.value))}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-gray-400 mt-1">
                   {t('pong.aiDescription')}
                 </p>
                 {aiCount > 0 && (
                   <div className="mt-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs font-medium text-gray-300 mb-1">
                       {t('pong.aiDifficulty')}
                     </label>
                     <div className="flex gap-2">
@@ -544,7 +544,7 @@ export default function PongInviteModal({
                           className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-all ${
                             aiDifficulty === value
                               ? `${color} text-white shadow-md`
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                           }`}
                         >
                           {label}
@@ -568,21 +568,21 @@ export default function PongInviteModal({
                   onChange={(e) => setIsLocalTournament(e.target.checked)}
                   className="rounded"
                 />
-                <label htmlFor="localTournament" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <label htmlFor="localTournament" className="text-sm font-semibold text-gray-300">
                   🏠 Local Tournament (same keyboard)
                 </label>
               </div>
               {isLocalTournament && (
-                <div className="bg-gray-50/40 dark:bg-gray-900/70 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                <div className="bg-gray-900/70 p-4 rounded-lg border border-gray-700">
+                  <p className="text-xs text-gray-400 mb-3">
                     Add players who will take turns playing on this computer. Each match uses WASD vs Arrow Keys.
                     You (the host) are automatically included.
                   </p>
                   <div className="space-y-2">
                     {/* Host (fixed) */}
-                    <div className="flex items-center gap-2 p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+                    <div className="flex items-center gap-2 p-2 bg-blue-900/30 rounded">
                       <span className="text-xs text-gray-500 w-6">🏠</span>
-                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">You (Host)</span>
+                      <span className="text-sm font-semibold text-gray-200">You (Host)</span>
                     </div>
                     {/* Local players */}
                     {localPlayerNames.map((name, index) => (
@@ -594,7 +594,7 @@ export default function PongInviteModal({
                           onChange={(e) => updateLocalPlayerName(index, e.target.value)}
                           placeholder={`Player ${index + 2} name`}
                           maxLength={20}
-                          className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          className="flex-1 px-2 py-1 text-sm border border-gray-600 rounded bg-gray-800 text-gray-200"
                         />
                         {localPlayerNames.length > 1 && (
                           <button
@@ -626,10 +626,10 @@ export default function PongInviteModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/40 dark:bg-gray-900/70 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-700 bg-gray-900/70 flex justify-end gap-3">
           <button
             onClick={handleClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600/80 transition-colors"
+            className="px-4 py-2 bg-gray-700/80 text-gray-200 hover:bg-gray-600/80 transition-colors"
           >
             {t('common.cancel')}
           </button>

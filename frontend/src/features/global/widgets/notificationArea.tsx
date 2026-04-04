@@ -55,7 +55,7 @@ const NotificationArea: FC = () => {
       <button
         ref={buttonRef}
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="relative p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100/40 dark:hover:bg-gray-700 transition-colors"
+        className="relative p-2 rounded-md text-gray-300 hover:bg-gray-700 transition-colors"
         title="Notifications"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,10 +75,10 @@ const NotificationArea: FC = () => {
       {isDropdownOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-80 glass-light-sm dark:glass-dark-sm glass-border shadow-xl dark:shadow-dark-700 z-[9999]"
+          className="fixed w-80 glass-dark-sm glass-border shadow-dark-700 z-[9999]"
           style={{ top: `${dropdownPosition.top}px`, right: `${dropdownPosition.right}px` }}
         >
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-b border-gray-700">
             <h3 className="font-semibold text-gray-900">
               Notifications ({totalNotifications})
             </h3>
@@ -96,12 +96,12 @@ const NotificationArea: FC = () => {
                     {pendingFriendshipRequests.map((req) => (
                       <div
                         key={`friend_${req.id}`}
-                        className="flex items-center justify-between p-3 bg-gray-50/40 dark:bg-gray-700/80 rounded-lg hover:bg-gray-100/40 dark:hover:bg-gray-600/80 transition"
+                        className="flex items-center justify-between p-3 bg-gray-700/80 rounded-lg hover:bg-gray-600/80 transition"
                       >
                         <div className="flex-1 min-w-0 pr-3">
                           <p
                             className="text-sm font-bold truncate"
-                            style={{ color: getUserColorCSS(req.id, true) }}
+                            style={{ color: getUserColorCSS(req.id) }}
                           >
                             {req.username}
                           </p>
@@ -140,7 +140,7 @@ const NotificationArea: FC = () => {
                     {pendingRoomInvites.map((invite) => (
                       <div
                         key={`chat_${invite.roomId}`}
-                        className="flex items-center justify-between p-3 bg-blue-50/40 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100/40 dark:hover:bg-blue-800/40 transition"
+                        className="flex items-center justify-between p-3 bg-blue-900/30 rounded-lg hover:bg-blue-800/40 transition"
                       >
                         <div className="flex-1 min-w-0 pr-3">
                           <p className="text-sm font-bold text-gray-900 truncate">

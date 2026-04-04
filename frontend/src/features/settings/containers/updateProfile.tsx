@@ -57,11 +57,11 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 
 	return (
 		<div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
-			<h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Profile Settings</h1>
+			<h1 className="text-2xl font-bold text-white mb-6">Profile Settings</h1>
 			
 			{/* Avatar */}
-			<div className="flex items-center gap-6 p-4 bg-white/5 dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-slate-700">
-				<div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-200 dark:bg-slate-700 ring-4 ring-white dark:ring-slate-800 shadow-lg">
+			<div className="flex items-center gap-6 p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+				<div className="relative h-24 w-24 rounded-full overflow-hidden bg-slate-700 ring-4 ring-slate-800 shadow-lg">
 					{previewPfp ? (
 						<img src={previewPfp} alt="Avatar" className="h-full w-full object-cover" />
 					) : (
@@ -74,10 +74,10 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 					</div>
 				</div>
 				<div>
-					<h3 className="text-lg font-medium text-gray-900 dark:text-white">Profile Picture</h3>
-					<p className="text-sm text-gray-500 dark:text-gray-400 mb-3">JPG or PNG. Max 5MB.</p>
+					<h3 className="text-lg font-medium text-white">Profile Picture</h3>
+					<p className="text-sm text-gray-400 mb-3">JPG or PNG. Max 5MB.</p>
 					<input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePfpSelect} />
-					<button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 text-sm bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors">
+					<button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 text-sm bg-slate-700 border border-slate-600 rounded-md hover:bg-slate-600 transition-colors">
 						Upload New
 					</button>
 				</div>
@@ -86,38 +86,38 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 			{/* Fields */}
 			<div className="space-y-4">
 				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alias</label>
+					<label className="block text-sm font-medium text-gray-300 mb-1">Alias</label>
 					<input 
 						type="text" 
 						value={alias} 
 						onChange={(e) => setAlias(e.target.value)}
-						className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow"
+						className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow"
 					/>
 				</div>
 				
 				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
+					<label className="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
 					<input 
 						type="email" 
 						value={email} 
 						onChange={(e) => setEmail(e.target.value)}
-						className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow"
+						className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow"
 					/>
 				</div>
 
 				<div>
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bio</label>
+					<label className="block text-sm font-medium text-gray-300 mb-1">Bio</label>
 					<textarea 
 						value={bio} 
 						onChange={(e) => setBio(e.target.value)}
 						rows={4}
-						className="w-full px-4 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow resize-none"
+						className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow resize-none"
 					/>
 					<p className="text-xs text-gray-500 mt-1 text-right">{bio.length}/500</p>
 				</div>
 			</div>
 
-			<div className="pt-4 border-t border-gray-200 dark:border-slate-700 flex justify-end">
+			<div className="pt-4 border-t border-slate-700 flex justify-end">
 				<button 
 					onClick={handleSubmit}
 					disabled={isSaving}

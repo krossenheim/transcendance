@@ -116,8 +116,8 @@ export default function LoginComponent({
 
   return (
     <div className="flex items-start justify-center px-4 py-4">
-      <div className="w-full max-w-md shadow-lg p-4 md:p-6 mt-4 md:mt-6 glass-light-sm dark:glass-dark-sm glass-border">
-        <h1 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">{t('login.title')}</h1>
+      <div className="w-full max-w-md shadow-lg p-4 md:p-6 mt-4 md:mt-6 glass-dark-sm glass-border">
+        <h1 className="text-2xl font-bold text-center mb-4 text-white">{t('login.title')}</h1>
 
         {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
 
@@ -126,7 +126,7 @@ export default function LoginComponent({
           <div>
             <label
               htmlFor={`${id}-login-username`}
-              className="block mb-1 font-semibold text-gray-700 dark:text-gray-200"
+              className="block mb-1 font-semibold text-gray-200"
             >
               {t('login.username')}
             </label>
@@ -136,7 +136,7 @@ export default function LoginComponent({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-              className="w-full border px-3 py-2 border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+              className="w-full border px-3 py-2 border-gray-600 bg-gray-700/50 text-gray-100 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               disabled={isLoading}
               placeholder={t('login.usernamePlaceholder')}
             />
@@ -146,7 +146,7 @@ export default function LoginComponent({
           <div>
             <label
               htmlFor={`${id}-login-password`}
-              className="block mb-1 font-semibold text-gray-700 dark:text-gray-200"
+              className="block mb-1 font-semibold text-gray-200"
             >
               {t('login.password')}
             </label>
@@ -156,7 +156,7 @@ export default function LoginComponent({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => handleKeyPress(e, handleLogin)}
-              className="w-full border px-3 py-2 border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+              className="w-full border px-3 py-2 border-gray-600 bg-gray-700/50 text-gray-100 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               disabled={isLoading}
               placeholder={t('login.passwordPlaceholder')}
             />
@@ -165,7 +165,7 @@ export default function LoginComponent({
           {/* Submit Button */}
           <button
             onClick={handleLogin}
-            className="w-full bg-blue-500 dark:bg-blue-600 text-white py-2 px-4 hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+            className="w-full bg-blue-600 text-white py-2 px-4 hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? t('login.loggingIn') : t('login.loginButton')}
@@ -174,7 +174,7 @@ export default function LoginComponent({
           {/* GitHub OAuth Button */}
           <button
             onClick={() => window.location.href = '/public_api/auth/oauth/github/login'}
-            className="w-full mt-4 bg-gray-900 dark:bg-gray-700/80 text-white py-2 px-4 hover:bg-gray-800 dark:hover:bg-gray-600/80 transition-colors flex items-center justify-center gap-2"
+            className="w-full mt-4 bg-gray-700/80 text-white py-2 px-4 hover:bg-gray-600/80 transition-colors flex items-center justify-center gap-2"
             disabled={isLoading}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -186,7 +186,7 @@ export default function LoginComponent({
           {/* Continue as Guest Button */}
           <button
             onClick={handleGuestLogin}
-            className="w-full mt-4 bg-gray-500 dark:bg-gray-600 text-white py-2 px-4 hover:bg-gray-600 dark:hover:bg-gray-700 transition-colors"
+            className="w-full mt-4 bg-gray-600 text-white py-2 px-4 hover:bg-gray-700 transition-colors"
             disabled={isLoading || isGuestLoading}
           >
             {isGuestLoading ? t('login.continueAsGuestLoading') : t('login.continueAsGuest')}

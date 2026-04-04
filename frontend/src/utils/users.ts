@@ -71,13 +71,11 @@ function gameAwareColorIndex(userId: number): number {
 /**
  * Get a consistent CSS color for a user ID
  * @param userId - The user's ID
- * @param darkMode - Whether to use dark mode colors (brighter)
  * @returns CSS rgb string
  */
-export function getUserColorCSS(userId: number, darkMode = true): string {
+export function getUserColorCSS(userId: number): string {
     const color = USER_COLORS[gameAwareColorIndex(userId)]!;
-    const scale = darkMode ? 1 : 0.6;
-    return `rgb(${Math.round(color.r * scale)}, ${Math.round(color.g * scale)}, ${Math.round(color.b * scale)})`;
+    return `rgb(${color.r}, ${color.g}, ${color.b})`;
 }
 
 /**
@@ -93,15 +91,13 @@ export function getUserColorBabylon(userId: number): Color3 {
 /**
  * Get hex color for a user ID
  * @param userId - The user's ID
- * @param darkMode - Whether to use dark mode colors (brighter)
  * @returns Hex color string
  */
-export function getUserColorHex(userId: number, darkMode = true): string {
+export function getUserColorHex(userId: number): string {
     const color = USER_COLORS[gameAwareColorIndex(userId)]!
-    const scale = darkMode ? 1 : 0.6
-    const r = Math.round(color.r * scale).toString(16).padStart(2, '0')
-    const g = Math.round(color.g * scale).toString(16).padStart(2, '0')
-    const b = Math.round(color.b * scale).toString(16).padStart(2, '0')
+    const r = color.r.toString(16).padStart(2, '0')
+    const g = color.g.toString(16).padStart(2, '0')
+    const b = color.b.toString(16).padStart(2, '0')
     return `#${r}${g}${b}`
 }
 

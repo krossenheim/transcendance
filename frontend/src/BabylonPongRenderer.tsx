@@ -89,18 +89,17 @@ function createBeachBallTexture(scene: Scene): DynamicTexture {
 }
 
 // Export helper to get CSS color for a paddle ID (uses same colors as user colors)
-export function getPaddleColorCSS(paddleId: number, darkMode = true): string {
-  return getUserColorCSS(paddleId, darkMode)
+export function getPaddleColorCSS(paddleId: number): string {
+  return getUserColorCSS(paddleId)
 }
 
 interface BabylonPongRendererProps {
   gameState: TypeGameStateSchema | null
-  darkMode?: boolean
   gameMode?: string | null
 }
 
 const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
-  { gameState, darkMode = true, gameMode = null, paddleRotationOffset = PADDLE_ROTATION_OFFSET }: BabylonPongRendererProps & { paddleRotationOffset?: number },
+  { gameState, gameMode = null, paddleRotationOffset = PADDLE_ROTATION_OFFSET }: BabylonPongRendererProps & { paddleRotationOffset?: number },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -236,8 +235,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     })
 
     const scene = new Scene(engine)
-    // Dark mode: deep blue-ish background, Light mode: light gray-white
-    const bgColor = darkMode ? new Color3(0.05, 0.05, 0.1) : new Color3(0.9, 0.92, 0.95)
+    const bgColor = new Color3(0.05, 0.05, 0.1)
     scene.clearColor = bgColor.toColor4()
     sceneRef.current = scene
 
@@ -600,68 +598,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     }
   }, [])
 
-  // Update scene colors when dark mode changes
-  useEffect(() => {
-    if (!sceneRef.current) return
-    const scene = sceneRef.current
-
-    // Update background color
-    const bgColor = darkMode ? new Color3(0.05, 0.05, 0.1) : new Color3(0.9, 0.92, 0.95)
-    scene.clearColor = bgColor.toColor4()
-
-    // Update floor color if it exists
-    if (floorRef.current?.material) {
-      const floorMat = floorRef.current.material as StandardMaterial
-      floorMat.diffuseColor = darkMode ? new Color3(0.1, 0.1, 0.15) : new Color3(0.85, 0.9, 0.85)
-      floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
-    }
-
-    // Update wall colors (preserve player colors for eliminated players' walls in lastOneStanding mode)
-    const effectiveGameModeDark = gameMode ?? (gameStateRef.current?.metadata as any)?.gameOptions?.gameMode ?? null
-    edgesRef.current.forEach((wall) => {
-      if (wall.material) {
-        const wallMat = wall.material as StandardMaterial
-        const wallPlayerId = (wall as any).metadata?.wallPlayerId
-        // Preserve eliminated player wall colors in lastOneStanding mode
-        if (effectiveGameModeDark === 'lastOneStanding' && wallPlayerId != null && typeof wallPlayerId === 'number') {
-          const currentActivePaddleOwnerIds = gameStateRef.current
-            ? new Set(gameStateRef.current.paddles.map((p: any) => p.owner_id ?? p.ownerId ?? p.playerId))
-            : new Set()
-          if (!currentActivePaddleOwnerIds.has(wallPlayerId)) {
-            const playerColor = getUserColorBabylon(wallPlayerId)
-            wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
-            wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
-            return
-          }
-        }
-        // Default wall color - don't color based on playerId unless in lastOneStanding mode
-        wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
-        wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
-      }
-    })
-
-    // Update paddle colors - preserve owner-based colors, just adjust for dark/light mode
-    paddlesRef.current.forEach((paddle, paddleId) => {
-      if (paddle.material) {
-        const mat = paddle.material as StandardMaterial
-        // Get owner_id from paddle metadata (stored when paddle was created)
-        const ownerId = (paddle as any).metadata?.ownerId ?? paddleId
-        const baseColor = getUserColorBabylon(ownerId)
-        mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
-        mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
-      }
-    })
-
-    // Update ball colors
-    ballsRef.current.forEach((ball) => {
-      if (ball.material) {
-        const mat = ball.material as StandardMaterial
-        mat.diffuseColor = darkMode ? new Color3(1, 0, 0) : new Color3(0.8, 0.2, 0)
-        mat.emissiveColor = darkMode ? new Color3(0.5, 0, 0) : new Color3(0.3, 0.1, 0)
-      }
-    })
-  }, [darkMode])
-
   // NOTE: Position updates now happen directly in the render loop (reads gameStateRef)
   // No useEffect needed for fast position updates - this bypasses React entirely
 
@@ -703,9 +639,8 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         floor.position.y = -0.1
 
         const floorMat = new StandardMaterial("floorMat", scene)
-        // Dark mode: dark blue-gray, Light mode: light green/white
-        floorMat.diffuseColor = darkMode ? new Color3(0.1, 0.1, 0.15) : new Color3(0.85, 0.9, 0.85)
-        floorMat.specularColor = darkMode ? new Color3(0.1, 0.1, 0.1) : new Color3(0.3, 0.3, 0.3)
+        floorMat.diffuseColor = new Color3(0.1, 0.1, 0.15)
+        floorMat.specularColor = new Color3(0.1, 0.1, 0.1)
         floor.material = floorMat
         floor.receiveShadows = true
         floorRef.current = floor
@@ -760,16 +695,14 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           if (effectiveGameMode === 'lastOneStanding' && isEliminatedPlayerWall) {
             // Use the player's color for eliminated player's goal wall
             const playerColor = getUserColorBabylon(wallPlayerId)
-            wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
-            wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+            wallMat.diffuseColor = playerColor
+            wallMat.emissiveColor = playerColor.scale(0.4)
           } else {
-            // Default wall color: Dark mode: blue-purple, Light mode: light blue-gray
-            wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
-            wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+            wallMat.diffuseColor = new Color3(0.2, 0.2, 0.3)
+            wallMat.emissiveColor = new Color3(0.1, 0.1, 0.2)
           }
           wallMat.alpha = 0.5 // Semi-transparent walls
           wall.material = wallMat
-          // Store playerId in metadata for dark mode updates
           ;(wall as any).metadata = { ...(wall as any).metadata, wallPlayerId: wallPlayerId ?? null }
 
           edgesRef.current.push(wall)
@@ -797,13 +730,13 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             
             if (isEliminatedPlayerWall) {
               const playerColor = getUserColorBabylon(wallPlayerId)
-              wallMat.diffuseColor = darkMode ? playerColor : playerColor.scale(0.6)
-              wallMat.emissiveColor = darkMode ? playerColor.scale(0.4) : playerColor.scale(0.2)
+              wallMat.diffuseColor = playerColor
+              wallMat.emissiveColor = playerColor.scale(0.4)
               wallMat.alpha = 0.8 // Make eliminated walls more opaque/solid-looking
             } else {
               // Reset to default wall color (handles: active walls, non-lastOneStanding modes, new games)
-              wallMat.diffuseColor = darkMode ? new Color3(0.2, 0.2, 0.3) : new Color3(0.6, 0.65, 0.7)
-              wallMat.emissiveColor = darkMode ? new Color3(0.1, 0.1, 0.2) : new Color3(0.3, 0.35, 0.4)
+              wallMat.diffuseColor = new Color3(0.2, 0.2, 0.3)
+              wallMat.emissiveColor = new Color3(0.1, 0.1, 0.2)
               wallMat.alpha = 0.5 // Default wall transparency
             }
           }
@@ -849,12 +782,10 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const mat = new StandardMaterial("paddleMat", scene)
         // Assign color based on owner_id so it matches username color everywhere
         const baseColor = getUserColorBabylon(ownerId)
-        // Dark mode: full brightness, Light mode: darker version
-        mat.diffuseColor = darkMode ? baseColor : baseColor.scale(0.6)
-        mat.emissiveColor = darkMode ? baseColor.scale(0.4) : baseColor.scale(0.2)
+        mat.diffuseColor = baseColor
+        mat.emissiveColor = baseColor.scale(0.4)
         mesh.material = mat
         
-        // Store ownerId in metadata for dark mode updates
         ;(mesh as any).metadata = { ...(mesh as any).metadata, ownerId }
 
         if (shadowGenerator) shadowGenerator.addShadowCaster(mesh)
@@ -865,9 +796,9 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const mat = mesh.material as StandardMaterial | null
         if (mat) {
           const freshColor = getUserColorBabylon(ownerId)
-          if (!mat.diffuseColor.equals(darkMode ? freshColor : freshColor.scale(0.6))) {
-            mat.diffuseColor = darkMode ? freshColor : freshColor.scale(0.6)
-            mat.emissiveColor = darkMode ? freshColor.scale(0.4) : freshColor.scale(0.2)
+          if (!mat.diffuseColor.equals(freshColor)) {
+            mat.diffuseColor = freshColor
+            mat.emissiveColor = freshColor.scale(0.4)
           }
         }
       }
@@ -925,7 +856,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         // Apply beach ball texture
         mat.diffuseTexture = beachBallTextureRef.current
         // Add slight emissive glow to make it visible in darker scenes
-        mat.emissiveColor = darkMode ? new Color3(0.15, 0.15, 0.15) : new Color3(0.1, 0.1, 0.1)
+        mat.emissiveColor = new Color3(0.15, 0.15, 0.15)
         mat.specularColor = new Color3(0.3, 0.3, 0.3) // Slight shine like a real beach ball
         mesh.material = mat
 
@@ -1144,7 +1075,7 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityKey, darkMode, paddleRotationOffset])
+  }, [entityKey, paddleRotationOffset])
 
   // Expose imperative API to parent for screenshots
   useImperativeHandle(ref, () => ({

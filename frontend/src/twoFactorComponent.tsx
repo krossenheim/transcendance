@@ -64,17 +64,17 @@ export function TwoFactorVerify({
   };
 
   return (
-    <div className="flex items-start justify-center bg-gradient-to-br from-blue-50 dark:from-gray-900 via-white dark:via-gray-800 to-purple-50 dark:to-gray-900 px-4 py-4">
-      <div className="w-full max-w-md shadow-lg glass-light-sm dark:glass-dark-sm glass-border p-4 md:p-6 mt-4 md:mt-6">
-        <h1 className="text-2xl font-bold text-center mb-2 text-gray-900 dark:text-white">
+    <div className="flex items-start justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-4 py-4">
+      <div className="w-full max-w-md shadow-lg glass-dark-sm glass-border p-4 md:p-6 mt-4 md:mt-6">
+        <h1 className="text-2xl font-bold text-center mb-2 text-white">
           {t('twoFactor.title')}
         </h1>
-        <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-center text-gray-400 mb-6">
           {t('twoFactor.enterCode')}
         </p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-center">
+          <div className="mb-4 p-3 bg-red-900/20 text-red-400 text-center">
             {error}
           </div>
         )}
@@ -83,7 +83,7 @@ export function TwoFactorVerify({
           <div>
             <label
               htmlFor="2fa-code"
-              className="block mb-1 font-semibold text-gray-700 dark:text-gray-200"
+              className="block mb-1 font-semibold text-gray-200"
             >
               {t('twoFactor.authCode')}
             </label>
@@ -98,7 +98,7 @@ export function TwoFactorVerify({
               onKeyPress={handleKeyPress}
               disabled={isLoading}
               placeholder="000000"
-              className="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700/80 dark:text-white disabled:opacity-50"
+              className="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-600 focus:ring-2 focus:ring-blue-500 bg-gray-700/80 text-white disabled:opacity-50"
               autoFocus
             />
           </div>
@@ -114,7 +114,7 @@ export function TwoFactorVerify({
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 text-gray-800 dark:text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 bg-gray-700/80 hover:bg-gray-600/80 text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {t('common.cancel')}
           </button>
@@ -203,16 +203,16 @@ export function TwoFactorSetup({
 
   if (step === "generate") {
     return (
-      <div className="p-8 glass-light-sm dark:glass-dark-sm glass-border shadow-xl rounded-lg max-w-md mx-auto">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+      <div className="p-8 glass-dark-sm glass-border shadow-xl rounded-lg max-w-md mx-auto">
+        <h2 className="text-2xl font-bold mb-6 text-white">
           {t('twoFactor.enable2FATitle')}
         </h2>
-        <p className="mb-8 text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p className="mb-8 text-gray-300 leading-relaxed">
           {t('twoFactor.enable2FADescription')}
         </p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
+          <div className="mb-4 p-3 bg-red-900/20 text-red-400 rounded">
             {error}
           </div>
         )}
@@ -228,7 +228,7 @@ export function TwoFactorSetup({
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 text-gray-800 dark:text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+            className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 bg-gray-700/80 hover:bg-gray-600/80 text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
           >
             {t('common.cancel')}
           </button>
@@ -238,16 +238,16 @@ export function TwoFactorSetup({
   }
 
   return (
-    <div className="p-8 glass-light-sm dark:glass-dark-sm glass-border shadow-xl max-w-md mx-auto rounded-lg">
-      <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+    <div className="p-8 glass-dark-sm glass-border shadow-xl max-w-md mx-auto rounded-lg">
+      <h2 className="text-2xl font-bold mb-6 text-white">
         {t('twoFactor.scanQRCode')}
       </h2>
 
       <div className="mb-6 space-y-4">
-        <p className="text-gray-700 dark:text-gray-300">
+        <p className="text-gray-300">
           {t('twoFactor.step1')}
         </p>
-        <p className="text-gray-700 dark:text-gray-300">
+        <p className="text-gray-300">
           {t('twoFactor.step2')}
         </p>
         {qrCode && (
@@ -257,21 +257,21 @@ export function TwoFactorSetup({
         )}
 
         <details className="mb-4">
-          <summary className="cursor-pointer text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          <summary className="cursor-pointer text-sm text-blue-400 hover:underline">
             {t('twoFactor.cantScan')}
           </summary>
-          <div className="mt-2 p-3 bg-gray-100/40 dark:bg-gray-700/50 font-mono text-xs break-all rounded">
+          <div className="mt-2 p-3 bg-gray-700/50 font-mono text-xs break-all rounded">
             {secret}
           </div>
         </details>
 
-        <p className="text-gray-700 dark:text-gray-300">
+        <p className="text-gray-300">
           {t('twoFactor.step3')}
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
+        <div className="mb-4 p-3 bg-red-900/20 text-red-400 rounded">
           {error}
         </div>
       )}
@@ -286,7 +286,7 @@ export function TwoFactorSetup({
           onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
           disabled={isLoading}
           placeholder="000000"
-          className="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700/80 dark:text-white disabled:opacity-50 rounded"
+          className="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-600 focus:ring-2 focus:ring-blue-500 bg-gray-700/80 text-white disabled:opacity-50 rounded"
           autoFocus
         />
 
@@ -301,7 +301,7 @@ export function TwoFactorSetup({
         <button
           onClick={onCancel}
           disabled={isLoading}
-          className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 text-gray-800 dark:text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+          className="w-full py-3 px-4 bg-gray-200 hover:bg-gray-300 bg-gray-700/80 hover:bg-gray-600/80 text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
         >
           {t('common.cancel')}
         </button>
@@ -350,16 +350,16 @@ export function TwoFactorDisable({
   };
 
   return (
-    <div className="p-8 glass-light-sm dark:glass-dark-sm glass-border shadow-xl rounded-lg">
-      <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+    <div className="p-8 glass-dark-sm glass-border shadow-xl rounded-lg">
+      <h2 className="text-2xl font-bold mb-6 text-white">
         {t('twoFactor.disable2FATitle')}
       </h2>
-      <p className="mb-8 text-gray-600 dark:text-gray-400 leading-relaxed">
+      <p className="mb-8 text-gray-400 leading-relaxed">
         {t('twoFactor.disable2FAConfirm')}
       </p>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
+        <div className="mb-4 p-3 bg-red-900/20 text-red-400 rounded">
           {error}
         </div>
       )}
@@ -375,7 +375,7 @@ export function TwoFactorDisable({
         <button
           onClick={onCancel}
           disabled={isLoading}
-          className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 text-gray-800 dark:text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+          className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 bg-gray-700/80 hover:bg-gray-600/80 text-white font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
         >
           {t('common.cancel')}
         </button>

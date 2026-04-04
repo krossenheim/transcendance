@@ -76,11 +76,11 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-6">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-3xl">
+      <div className="bg-gray-900 rounded-lg shadow-lg w-full max-w-3xl">
         <div className="flex justify-between items-center p-4 border-b">
           <h3 className="font-bold">Tournament Stats — {data.name}</h3>
           <div>
-            <button onClick={onClose} className="px-3 py-1 bg-gray-200 dark:bg-gray-800 rounded">Close</button>
+            <button onClick={onClose} className="px-3 py-1 bg-gray-800 rounded">Close</button>
           </div>
         </div>
         <div className="p-4">
@@ -125,12 +125,12 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
             ) : (
               <ul className="list-none ml-0 space-y-2">
                 {txHashes.map((h) => (
-                  <li key={h} className="text-sm bg-gray-100 dark:bg-gray-800 rounded p-3">
+                  <li key={h} className="text-sm bg-gray-800 rounded p-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-green-600 dark:text-green-400">✓</span>
+                      <span className="text-green-400">✓</span>
                       <span className="font-semibold">Transaction Recorded</span>
                     </div>
-                    <div className="font-mono text-xs break-all mb-2 bg-gray-200 dark:bg-gray-700 p-2 rounded">
+                    <div className="font-mono text-xs break-all mb-2 bg-gray-700 p-2 rounded">
                       {h}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -160,7 +160,7 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
                         </a>
                       )}
                       {copiedHash === h && (
-                        <span className="text-green-600 dark:text-green-400 text-sm">Copied!</span>
+                        <span className="text-green-400 text-sm">Copied!</span>
                       )}
                     </div>
                     <div className="mt-2 text-xs text-gray-500">

@@ -42,9 +42,9 @@ export default function SettingsPage() {
 
         {activeTab === 'security' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Security</h1>
+            <h1 className="text-2xl font-bold text-white mb-6">Security</h1>
             
-            <div className="bg-white/5 dark:bg-slate-900/50 p-6 rounded-xl border border-gray-200 dark:border-slate-700">
+            <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700">
                {currentUserId && userData ? (
                   <TwoFactorSettings 
                     userId={currentUserId} 
@@ -60,7 +60,7 @@ export default function SettingsPage() {
 
         {activeTab === 'appearance' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Accessibility & Appearance</h1>
+            <h1 className="text-2xl font-bold text-white mb-6">Accessibility & Appearance</h1>
             
             <div className="space-y-4">
               <ToggleOption 
@@ -97,15 +97,15 @@ export default function SettingsPage() {
 
 function ToggleOption({ label, desc, checked, onChange }: { label: string, desc: string, checked: boolean, onChange: () => void }) {
   return (
-    <div className="flex items-center justify-between p-4 bg-white/5 dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-slate-700 hover:border-blue-500/50 transition-colors">
+    <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors">
       <div className="flex-1 pr-4">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{label}</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{desc}</p>
+        <h3 className="font-semibold text-white">{label}</h3>
+        <p className="text-sm text-gray-400 mt-1">{desc}</p>
       </div>
       <button
         onClick={onChange}
         className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-          checked ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'
+          checked ? 'bg-blue-600' : 'bg-slate-600'
         }`}
       >
         <span

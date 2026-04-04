@@ -79,7 +79,7 @@ export default function MiniPongCanvas({
             ctx.beginPath()
             ctx.moveTo(edge.x * scaleX, edge.y * scaleY)
             ctx.lineTo(nextEdge.x * scaleX, nextEdge.y * scaleY)
-            ctx.strokeStyle = getUserColorCSS(edge.playerId, true)
+            ctx.strokeStyle = getUserColorCSS(edge.playerId)
             ctx.lineWidth = 2
             ctx.stroke()
           }
@@ -98,7 +98,7 @@ export default function MiniPongCanvas({
         ctx.rotate(paddle.r)
 
         // Paddle color based on owner
-        ctx.fillStyle = getUserColorCSS(paddle.owner_id, true)
+        ctx.fillStyle = getUserColorCSS(paddle.owner_id)
         ctx.fillRect(-pLen, -pWidth, pLen * 2, pWidth * 2)
 
         ctx.restore()
@@ -142,7 +142,7 @@ export default function MiniPongCanvas({
         let y = 12
         for (const [playerId, score] of Object.entries(gs.score)) {
           const pid = Number(playerId)
-          ctx.fillStyle = getUserColorCSS(pid, true)
+          ctx.fillStyle = getUserColorCSS(pid)
           ctx.fillText(`${score}`, 4, y)
           y += 11
         }

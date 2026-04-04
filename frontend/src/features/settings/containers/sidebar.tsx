@@ -16,7 +16,7 @@ export const SideBar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
 	const { t } = useLanguage();
 
 	return (
-		<div className="w-full md:w-64 bg-gray-50/50 dark:bg-slate-800/50 border-r border-gray-200 dark:border-slate-700 p-4 space-y-2">
+		<div className="w-full md:w-64 bg-slate-800/50 border-r border-slate-700 p-4 space-y-2">
 			<h2 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 mt-2">Settings</h2>
 
 			<TabButton 

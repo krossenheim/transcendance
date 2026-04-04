@@ -40,7 +40,7 @@ export default function PongLeaderboard({ players, scores }: PongLeaderboardProp
         {t('pong.leaderboard')}
       </div>
       {sortedPlayers.map((player, index) => {
-        const bgColor = getUserColorCSS(player.id, true)
+        const bgColor = getUserColorCSS(player.id)
         
         return (
           <div

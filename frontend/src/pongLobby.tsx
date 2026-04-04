@@ -95,14 +95,14 @@ export default function PongLobby({
   }
 
   return (
-    <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-6">
+    <div className="glass-dark-sm glass-border shadow-lg p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+          <h2 className="text-2xl font-bold text-gray-200">
             🏓 {t('pong.gameLobby')}
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-400">
             {getGameModeLabel()} • {t('pong.lobby')} #{lobby.lobbyId}
           </p>
         </div>
@@ -115,33 +115,33 @@ export default function PongLobby({
       </div>
 
       {/* Game Settings */}
-      <div className="mb-6 p-4 bg-gray-50/40 dark:bg-gray-900/70">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+      <div className="mb-6 p-4 bg-gray-900/70">
+        <h3 className="text-sm font-semibold text-gray-300 mb-2">
           {t('pong.gameSettings')}
         </h3>
         <div className="grid grid-cols-4 gap-4 text-sm">
           <div>
-            <span className="text-gray-600 dark:text-gray-400">{t('pong.balls')}:</span>{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
+            <span className="text-gray-400">{t('pong.balls')}:</span>{" "}
+            <span className="font-semibold text-gray-200">
               {lobby.settings.ballCount}
             </span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">{t('pong.maxScore')}:</span>{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
+            <span className="text-gray-400">{t('pong.maxScore')}:</span>{" "}
+            <span className="font-semibold text-gray-200">
               {lobby.settings.maxScore}
             </span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">{t('pong.powerups')}:</span>{" "}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
+            <span className="text-gray-400">{t('pong.powerups')}:</span>{" "}
+            <span className="font-semibold text-gray-200">
               {lobby.settings.allowPowerups ? t('common.yes') : t('common.no')}
             </span>
           </div>
           {(lobby.settings.aiCount ?? 0) > 0 && (
             <div>
-              <span className="text-gray-600 dark:text-gray-400">🤖 {t('pong.ai')}:</span>{" "}
-              <span className="font-semibold text-gray-800 dark:text-gray-200">
+              <span className="text-gray-400">🤖 {t('pong.ai')}:</span>{" "}
+              <span className="font-semibold text-gray-200">
                 {lobby.settings.aiCount}
               </span>
             </div>
@@ -151,20 +151,20 @@ export default function PongLobby({
 
       {/* Players List */}
       <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">
           {t('pong.players')} ({allDisplayPlayers.length})
         </h3>
         <div className="space-y-2">
           {allDisplayPlayers.map((player) => {
             // Color by user id so it matches paddle owner mapping
-            const playerColor = getUserColorCSS(player.id, true)
+            const playerColor = getUserColorCSS(player.id)
 
             return (
               <div
                 key={player.id}
                 className={`flex items-center justify-between p-3 ${player.isReady
-                    ? "bg-green-50 dark:bg-green-900/20 border border-green-500"
-                    : "bg-gray-50/40 dark:bg-gray-900/70 border border-gray-300 dark:border-gray-700"
+                    ? "bg-green-900/20 border border-green-500"
+                    : "bg-gray-900/70 border border-gray-700"
                   }`}
               >
                 <div className="flex items-center gap-3">
@@ -185,15 +185,15 @@ export default function PongLobby({
                       </span>
                     )}
                     {player.id === currentUserId && (
-                      <span className="ml-2 text-xs text-gray-600 dark:text-gray-400">{t('pong.you')}</span>
+                      <span className="ml-2 text-xs text-gray-400">{t('pong.you')}</span>
                     )}
                   </span>
                 </div>
                 <div className="text-sm font-semibold">
                   {player.isReady ? (
-                    <span className="text-green-600 dark:text-green-400">✓ {t('pong.ready')}</span>
+                    <span className="text-green-400">✓ {t('pong.ready')}</span>
                   ) : (
-                    <span className="text-gray-500 dark:text-gray-400">{t('pong.waiting')}</span>
+                    <span className="text-gray-400">{t('pong.waiting')}</span>
                   )}
                 </div>
               </div>
@@ -204,16 +204,16 @@ export default function PongLobby({
 
       {/* Status Message */}
       {lobby.status === "starting" && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-500 text-center">
-          <p className="text-blue-700 dark:text-blue-300 font-semibold">
+        <div className="mb-4 p-4 bg-blue-900/20 border border-blue-500 text-center">
+          <p className="text-blue-300 font-semibold">
             🎮 {t('pong.gameStarting')}
           </p>
         </div>
       )}
 
       {!allReady && lobby.status === "waiting" && (
-        <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-500 text-center">
-          <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+        <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-500 text-center">
+          <p className="text-yellow-300 text-sm">
             ⏳ {t('pong.waitingAllReady')}
           </p>
         </div>
@@ -248,7 +248,7 @@ export default function PongLobby({
               disabled={!canStart}
               className={`flex-1 py-3 font-semibold transition-colors ${canStart
                   ? "bg-blue-500 text-white hover:bg-blue-600"
-                  : "bg-gray-300 dark:bg-gray-700/50 text-gray-500 dark:text-gray-500 cursor-not-allowed"
+                  : "bg-gray-700/50 text-gray-500 cursor-not-allowed"
                 }`}
             >
               {t('pong.startGame')}
@@ -258,7 +258,7 @@ export default function PongLobby({
       </div>
 
       {isHost && !canStart && (
-        <p className="mt-3 text-xs text-center text-gray-500 dark:text-gray-400">
+        <p className="mt-3 text-xs text-center text-gray-400">
           {!allReady
             ? t('pong.allReadyRequired')
             : t('pong.needMinPlayers')}

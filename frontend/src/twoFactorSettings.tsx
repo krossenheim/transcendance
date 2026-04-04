@@ -106,10 +106,10 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
 
   if (isLoading) {
     return (
-      <div className="p-4 bg-gray-50/40 dark:bg-gray-900/70">
+      <div className="p-4 bg-gray-900/70">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700/50 w-1/3 mb-2"></div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700/50 w-2/3"></div>
+          <div className="h-4 bg-gray-700/50 w-1/3 mb-2"></div>
+          <div className="h-3 bg-gray-700/50 w-2/3"></div>
         </div>
       </div>
     );
@@ -151,13 +151,13 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
   }
 
   return (
-    <div className="p-4 bg-gray-50/40 dark:bg-gray-900">
+    <div className="p-4 bg-gray-900">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+          <h4 className="text-sm font-semibold text-white">
             {t('twoFactor.title')}
           </h4>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-400 mt-1">
             {is2FAEnabled
               ? t('twoFactor.accountProtected')
               : t('twoFactor.addExtraLayer')}
@@ -165,7 +165,7 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
         </div>
         <div className="flex items-center">
           {is2FAEnabled ? (
-            <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+            <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-green-900 text-green-200">
               <svg
                 className="w-4 h-4 mr-1"
                 fill="currentColor"
@@ -180,7 +180,7 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
               {t('twoFactor.enabled')}
             </span>
           ) : (
-            <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-700/50 text-gray-800 dark:text-gray-300">
+            <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-gray-700/50 text-gray-300">
               {t('twoFactor.disabled')}
             </span>
           )}
@@ -189,7 +189,7 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
 
       <div className="mt-3">
         {isGuest ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+          <p className="text-xs text-gray-400 italic">
             {t('twoFactor.notAvailableGuest')}
           </p>
         ) : is2FAEnabled ? (

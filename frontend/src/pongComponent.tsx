@@ -28,7 +28,6 @@ import { setGamePlayerIds } from "@utils/users"
 // =========================
 export default function PongComponent({
   authResponse,
-  darkMode = true,
   showInviteModal = false,
   inviteRoomUsers = [],
   onCloseInviteModal,
@@ -39,7 +38,6 @@ export default function PongComponent({
   onNavigateToChat
 }: {
   authResponse: AuthResponseType | null
-  darkMode?: boolean
   pongInvitations: PongInvitation[]
   setPongInvitations: React.Dispatch<React.SetStateAction<PongInvitation[]>>
   showInviteModal?: boolean
@@ -1578,7 +1576,7 @@ export default function PongComponent({
   const { t } = useLanguage();
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100/80 dark:bg-dark-600 p-4 space-y-4">
+    <div className="flex flex-col items-center justify-center w-full h-full bg-dark-600 p-4 space-y-4">
       {/* Pong Invitation Notifications now rendered globally in AppRoot */}
 
       {/* Menu View */}
@@ -1719,7 +1717,6 @@ export default function PongComponent({
               <BabylonPongRenderer
                 ref={rendererRef}
                 gameState={predictedGameState || gameState}
-                darkMode={darkMode}
                 gameMode={lobby?.gameMode ?? (gameState.metadata as any)?.gameOptions?.gameMode ?? null}
                 paddleRotationOffset={paddleRotationOffset}
               />

@@ -10,7 +10,7 @@ interface ChatMessageProps {
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ user, message, isSelf, onProfileClick }) => {
-  const userColor = getUserColorCSS(message.userId, true);
+  const userColor = getUserColorCSS(message.userId);
   const visualUserName = getVisualUserName(user, message.userId);
   const messageDate = new Date(message.messageDate * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 

@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useToastStore, type ToastMessage, type ToastType } from './toastStore';
 
 const styles = {
-    success: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-800 dark:text-emerald-200',
-    error: 'bg-red-50 dark:bg-red-900/30 border-red-500 text-red-800 dark:text-red-200',
-    info: 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-800 dark:text-blue-200',
+    success: 'bg-emerald-900/30 border-emerald-500 text-emerald-200',
+    error: 'bg-red-900/30 border-red-500 text-red-200',
+    info: 'bg-blue-900/30 border-blue-500 text-blue-200',
 };
 
 const icons = {

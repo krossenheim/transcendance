@@ -81,13 +81,13 @@ export default function TournamentBracket({
   }
 
   return (
-    <div className="glass-light-sm dark:glass-dark-sm glass-border shadow-lg p-6">
+    <div className="glass-dark-sm glass-border shadow-lg p-6">
       {/* Header */}
-      <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="mb-6 pb-4 border-b border-gray-700">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">🏆 {tournament.name}</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <h2 className="text-2xl font-bold text-gray-200">🏆 {tournament.name}</h2>
+            <p className="text-sm text-gray-400">
               Tournament
               {" • "}Round {tournament.currentRound} of {tournament.totalRounds}
             </p>
@@ -97,7 +97,7 @@ export default function TournamentBracket({
               <div className="text-xs text-gray-500">Winner</div>
               <div
                 className="text-xl font-bold"
-                style={{ color: getUserColorCSS(tournament.winner.id, true) }}
+                style={{ color: getUserColorCSS(tournament.winner.id) }}
               >
                 👑 {tournament.winner.alias || tournament.winner.username}
               </div>
@@ -108,13 +108,13 @@ export default function TournamentBracket({
 
       {/* Blockchain Transaction Display */}
       {tournament.status === "completed" && tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0 && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-500 rounded-lg">
-          <h3 className="font-semibold text-green-700 dark:text-green-300 mb-2">⛓️ Recorded on Blockchain</h3>
+        <div className="mb-6 p-4 bg-green-900/20 border border-green-500 rounded-lg">
+          <h3 className="font-semibold text-green-300 mb-2">⛓️ Recorded on Blockchain</h3>
           <div className="space-y-2">
             {tournament.onchainTxHashes.map((hash, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">TX {idx + 1}:</span>
-                <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono break-all">
+                <code className="text-xs bg-gray-800 px-2 py-1 rounded font-mono break-all">
                   {hash}
                 </code>
                 <a
@@ -128,7 +128,7 @@ export default function TournamentBracket({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-xs text-gray-400">
             Tournament results permanently recorded on the blockchain
           </p>
         </div>
@@ -138,18 +138,18 @@ export default function TournamentBracket({
 
       {/* Players List */}
       <div className="mb-6">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">
           Participants ({tournament.players.length})
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {tournament.players.map((player) => (
             <div
               key={player.id}
-              className="p-2 bg-gray-50/40 dark:bg-gray-900/70 rounded-lg border border-gray-200 dark:border-gray-700 text-center"
+              className="p-2 bg-gray-900/70 rounded-lg border border-gray-700 text-center"
             >
               <div
                 className="text-sm font-medium"
-                style={{ color: getUserColorCSS(player.id, true) }}
+                style={{ color: getUserColorCSS(player.id) }}
               >
                 {player.alias || player.username}
               </div>
@@ -172,35 +172,35 @@ export default function TournamentBracket({
               })
               return (
                 <div key={round} className="flex flex-col justify-around min-w-[250px]">
-                  <h3 className="text-center font-bold text-gray-700 dark:text-gray-300 mb-4">
+                  <h3 className="text-center font-bold text-gray-300 mb-4">
                     {getRoundName(round)}
                   </h3>
                   <div className="space-y-8">
                     {matches.map((match) => (
                       <div
                         key={match.matchId}
-                        className={`bg-gray-50/40 dark:bg-gray-900/70 rounded-lg p-3 border-2 ${match.status === "in_progress"
+                        className={`bg-gray-50/40 bg-gray-900/70 rounded-lg p-3 border-2 ${match.status === "in_progress"
                           ? "border-blue-500"
                           : match.status === "completed"
                             ? "border-green-500"
-                            : "border-gray-300 dark:border-gray-700"
+                            : "border-gray-700"
                           }`}
                       >
-                        <div className="text-xs text-center text-gray-500 dark:text-gray-400 mb-2">
+                        <div className="text-xs text-center text-gray-400 mb-2">
                           Match #{match.matchId}
                         </div>
 
                         {/* Player 1 */}
                         <div
                           className={`p-2 mb-1 rounded ${match.winner === match.player1?.id
-                            ? "bg-green-100 dark:bg-green-900/30 font-bold"
-                            : "bg-white/50 dark:bg-gray-800/80"
+                            ? "bg-green-900/30 font-bold"
+                            : "bg-gray-800/80"
                             }`}
                         >
                           <div className="text-sm flex items-center justify-between">
                             {match.player1 ? (
                               <>
-                                <span style={{ color: getUserColorCSS(match.player1.id, true) }}>
+                                <span style={{ color: getUserColorCSS(match.player1.id) }}>
                                   {match.player1.alias || match.player1.username}
                                   {match.winner === match.player1.id && " 👑"}
                                 </span>
@@ -219,14 +219,14 @@ export default function TournamentBracket({
                         {/* Player 2 */}
                         <div
                           className={`p-2 rounded ${match.winner === match.player2?.id
-                            ? "bg-green-100 dark:bg-green-900/30 font-bold"
-                            : "bg-white/50 dark:bg-gray-800/80"
+                            ? "bg-green-900/30 font-bold"
+                            : "bg-gray-800/80"
                             }`}
                         >
                           <div className="text-sm flex items-center justify-between">
                             {match.player2 ? (
                               <>
-                                <span style={{ color: getUserColorCSS(match.player2.id, true) }}>
+                                <span style={{ color: getUserColorCSS(match.player2.id) }}>
                                   {match.player2.alias || match.player2.username}
                                   {match.winner === match.player2.id && " 👑"}
                                 </span>

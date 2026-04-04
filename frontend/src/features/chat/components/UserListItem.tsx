@@ -15,7 +15,7 @@ export const UserListItem: React.FC<{
   isFriend: boolean;
   onClick: (userId: number) => void;
 }> = ({ userId, username, isOnline, isFriend, onClick }) => {
-  const userColor = getUserColorCSS(userId, true)
+  const userColor = getUserColorCSS(userId)
 
   return (
     <div

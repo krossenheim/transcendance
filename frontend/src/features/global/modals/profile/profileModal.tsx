@@ -15,8 +15,8 @@ function UserStatusPill({ isOnline }: { isOnline: boolean }) {
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${isOnline
-        ? "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800"
-        : "bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600"
+        ? "bg-green-900/40 text-green-200 border border-green-800"
+        : "bg-gray-700/50 text-gray-400 border border-gray-600"
         }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
@@ -29,7 +29,7 @@ function UserAccountTypePill({ accountType }: { accountType: UserAccountType }) 
   switch (accountType) {
     case UserAccountType.Guest:
       return (
-        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-800">
+        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-orange-900/40 text-orange-200 border border-orange-800">
           Guest
         </span>
       );
@@ -136,30 +136,30 @@ export default function ProfileComponent() {
 
   // Shared card classes to keep the Bio and Stats visual style perfectly aligned
   const cardClasses = isFriend 
-    ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' 
-    : 'bg-gray-50/50 dark:bg-black/20 border-gray-100 dark:border-gray-700';
+    ? 'bg-blue-900/10 border-blue-900/30' 
+    : 'bg-black/20 border-gray-700';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeProfileModal}>
       <div
-        className={`bg-white/90 dark:bg-dark-800/90 shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-md rounded-xl transition-all ${
-          isFriend ? 'ring-2 ring-blue-500/40 shadow-blue-500/10' : 'border border-gray-200 dark:border-dark-700'
+        className={`bg-white/90 bg-dark-800/90 shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-md rounded-xl transition-all ${
+          isFriend ? 'ring-2 ring-blue-500/40 shadow-blue-500/10' : 'border border-dark-700'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {!profile ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="ml-3 text-gray-600 dark:text-gray-400">{t('profile.loadingProfile')}</p>
+            <p className="ml-3 text-gray-400">{t('profile.loadingProfile')}</p>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className={`px-6 py-4 border-b flex justify-between items-center ${isFriend ? 'border-blue-500/20 bg-blue-50/50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-dark-700'}`}>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('profile.userProfile')}</h2>
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${isFriend ? 'border-blue-500/20 bg-blue-900/10' : 'border-dark-700'}`}>
+              <h2 className="text-xl font-semibold text-white">{t('profile.userProfile')}</h2>
               <button
                 onClick={closeProfileModal}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none"
+                className="text-gray-500 hover:text-gray-300 transition-colors text-2xl leading-none"
               >
                 ×
               </button>
@@ -169,8 +169,8 @@ export default function ProfileComponent() {
 
               <div className="flex items-start space-x-4">
                 {/* Avatar */}
-                <div className={`relative h-20 w-20 flex-shrink-0 rounded-full overflow-hidden bg-gray-200 dark:bg-dark-700 border-4 shadow-sm transition-colors ${
-                  isFriend ? 'border-blue-400 dark:border-blue-500' : 'border-white dark:border-gray-600'
+                <div className={`relative h-20 w-20 flex-shrink-0 rounded-full overflow-hidden bg-dark-700 border-4 shadow-sm transition-colors ${
+                  isFriend ? 'border-blue-500' : 'border-gray-600'
                 }`}>
                   {avatarBlobUrl ? (
                     <img
@@ -188,7 +188,7 @@ export default function ProfileComponent() {
                 <div className="flex-1 min-w-0 pt-1">
                   <h3 
                     className="text-2xl font-bold leading-tight truncate flex items-center gap-2" 
-                    style={{ color: getUserColorCSS(profile.id, true) }}
+                    style={{ color: getUserColorCSS(profile.id) }}
                   >
                     {displayName}
                     {isFriend && (
@@ -198,7 +198,7 @@ export default function ProfileComponent() {
                     )}
                   </h3>
 
-                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                  <div className="text-sm text-gray-400 font-medium">
                     @{profile.username}
                   </div>
 
@@ -208,7 +208,7 @@ export default function ProfileComponent() {
                     <UserAccountTypePill accountType={profile.accountType} />
 
                     {isFriend && (
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-900/40 text-blue-300 border border-blue-800">
                         Friend
                       </span>
                     )}
@@ -218,9 +218,9 @@ export default function ProfileComponent() {
 
               {/* Bio Section */}
               <div>
-                <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.bio') || 'Bio'}</h4>
+                <h4 className="text-sm font-semibold mb-2 text-white">{t('profile.bio') || 'Bio'}</h4>
                 <div className={`p-3 rounded-lg border ${cardClasses}`}>
-                   <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
+                   <p className="text-sm text-gray-300 whitespace-pre-wrap break-words">
                      {profile.bio || <span className="italic opacity-70">{t('profile.noBioYet') || 'No bio yet.'}</span>}
                    </p>
                 </div>
@@ -229,31 +229,31 @@ export default function ProfileComponent() {
               {/* Game Stats Section */}
               {profile.gameResults && profile.accountType !== UserAccountType.System && (
                 <div>
-                  <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">{t('profile.statistics') || 'Game Stats'}</h4>
+                  <h4 className="text-sm font-semibold mb-2 text-white">{t('profile.statistics') || 'Game Stats'}</h4>
                   <div className="grid grid-cols-3 gap-3">
                     <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
-                      <span className="text-xl font-bold text-gray-900 dark:text-white leading-none">
+                      <span className="text-xl font-bold text-white leading-none">
                         {profile.gameResults.total_games_played ?? 0}
                       </span>
-                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1.5 uppercase tracking-wider">
+                      <span className="text-[10px] font-semibold text-gray-400 mt-1.5 uppercase tracking-wider">
                         {t('profile.gamesPlayed')}
                       </span>
                     </div>
                     
                     <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
-                      <span className="text-xl font-bold text-green-600 dark:text-green-400 leading-none">
+                      <span className="text-xl font-bold text-green-400 leading-none">
                         {profile.gameResults.wins ?? 0}
                       </span>
-                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1.5 uppercase tracking-wider">
+                      <span className="text-[10px] font-semibold text-gray-400 mt-1.5 uppercase tracking-wider">
                         {t('profile.wins')}
                       </span>
                     </div>
 
                     <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
-                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none">
+                      <span className="text-xl font-bold text-blue-400 leading-none">
                         {formatWinPercentage(profile.gameResults.win_rate)}
                       </span>
-                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-1.5 uppercase tracking-wider">
+                      <span className="text-[10px] font-semibold text-gray-400 mt-1.5 uppercase tracking-wider">
                         {t('profile.winRate')}
                       </span>
                     </div>
@@ -264,7 +264,7 @@ export default function ProfileComponent() {
               {/* Match History Section */}
               {profile.accountType !== UserAccountType.System && (
                 <div>
-                  <h4 className="text-sm font-semibold mb-2 text-gray-900 dark:text-white">
+                  <h4 className="text-sm font-semibold mb-2 text-white">
                     {t('profile.matchHistory') || 'Match History'}
                   </h4>
                   {matchHistoryLoading ? (
@@ -273,7 +273,7 @@ export default function ProfileComponent() {
                     </div>
                   ) : matchHistory.length === 0 ? (
                     <div className={`p-4 rounded-lg border text-center ${cardClasses}`}>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                      <p className="text-sm text-gray-400 italic">
                         {t('profile.recentMatches') ? 'No matches yet' : 'No matches yet'}
                       </p>
                     </div>
@@ -292,12 +292,12 @@ export default function ProfileComponent() {
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                               <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase rounded ${
                                 isWin
-                                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                                  : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                                  ? 'bg-green-900/40 text-green-300'
+                                  : 'bg-red-900/40 text-red-300'
                               }`}>
                                 {isWin ? (t('profile.win') || 'Win') : (t('profile.loss') || 'Loss')}
                               </span>
-                              <div className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                              <div className="text-sm text-gray-300 truncate">
                                 {match.opponents.length === 0
                                   ? <span className="font-medium italic">AI</span>
                                   : match.opponents.map((opp, i) => (
@@ -310,18 +310,18 @@ export default function ProfileComponent() {
                               </div>
                             </div>
                             <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                              <span className="text-sm font-bold text-white">
                                 {match.score}
                                 {match.opponents.length > 0 && (
                                   <>
-                                    <span className="text-gray-400 dark:text-gray-500 font-normal mx-0.5">-</span>
+                                    <span className="text-gray-500 font-normal mx-0.5">-</span>
                                     {match.opponents.length === 1
                                       ? match.opponents[0]!.score
                                       : match.opponents.map(o => o.score).join('/')}
                                   </>
                                 )}
                               </span>
-                              <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                              <span className="text-[10px] text-gray-500 whitespace-nowrap">
                                 {dateStr}
                               </span>
                             </div>
@@ -344,7 +344,7 @@ export default function ProfileComponent() {
                   </button>
                   <button
                     onClick={handleStartDM}
-                    className="flex-1 px-4 py-2 bg-white/50 dark:bg-dark-700 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50/40 dark:hover:bg-dark-600 transition-colors font-medium"
+                    className="flex-1 px-4 py-2 bg-dark-700 border border-dark-600 text-gray-200 rounded-md hover:bg-dark-600 transition-colors font-medium"
                   >
                     {t('profile.sendMessage')}
                   </button>
