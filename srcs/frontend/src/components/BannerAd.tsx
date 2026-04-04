@@ -18,7 +18,7 @@ const BANNER_ADS = [
   "wyndupboy_man.png",
 ];
 
-const BASE_PATH = "/static/react_dist/bannerads/";
+const BASE_PATH = "/react_dist/bannerads/";
 
 export default function BannerAd() {
   const [index, setIndex] = useState(() => Math.floor(Math.random() * BANNER_ADS.length));
