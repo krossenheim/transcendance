@@ -4,7 +4,7 @@ out/
 *.o
 *.d
 chatroom_exec
-containers/CLI/pong-cli
+cli/pong-cli
 objs/
 check_global_envs.env
 node_modules/

@@ -84,7 +84,7 @@ build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_
 
 build-cli:
 	@echo "Building pong-cli..."
-	$(MAKE) -C $(SOURCES_DIR)/CLI
+	$(MAKE) -C $(PROJECT_ROOT)cli
 
 build_hardhat_if_needed:
 	@if ! docker image inspect $(HARDHAT_IMAGE_TAG) >/dev/null 2>&1; then \

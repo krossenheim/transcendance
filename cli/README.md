@@ -103,7 +103,7 @@ make re
 ## Architecture
 
 ```
-containers/CLI/
+cli/
 ├── Makefile           # Build system
 ├── README.md          # This file
 ├── include/           # Header files

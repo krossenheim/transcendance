@@ -9,18 +9,18 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY shared ./
 RUN npm run build
 
-WORKDIR /app/containers/frontend
+WORKDIR /app/frontend
 
-COPY containers/frontend/package.json containers/frontend/tsconfig.json ./
+COPY frontend/package.json frontend/tsconfig.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm install
 
-COPY containers/frontend/src ./src
-COPY containers/frontend/postcss.config.js ./
-COPY containers/frontend/tailwind.config.js ./
-COPY containers/frontend/vite.config.mts ./
-COPY containers/frontend/index.html ./
-COPY containers/frontend/public ./public
+COPY frontend/src ./src
+COPY frontend/postcss.config.js ./
+COPY frontend/tailwind.config.js ./
+COPY frontend/vite.config.mts ./
+COPY frontend/index.html ./
+COPY frontend/public ./public
 RUN npm run build
 
 
@@ -47,7 +47,7 @@ RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/ || true
 
 RUN mkdir -p /var/www/html/react_dist/
-COPY --from=react_builder /app/containers/frontend/dist /var/www/html/react_dist
+COPY --from=react_builder /app/frontend/dist /var/www/html/react_dist
 
 ENTRYPOINT ["/etc/nginx_entryp.sh"]
 CMD ["nginx", "-g", "daemon off;"]

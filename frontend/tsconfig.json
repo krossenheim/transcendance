@@ -30,13 +30,13 @@
         "skipLibCheck": true,
         "removeComments": true,
         "outDir": "./dist",
-        "rootDir": "../..",
+        "rootDir": "..",
         "paths": {
             "@app/shared/*": [
-                "../../shared/src/*"
+                "../shared/src/*"
             ],
             "@shared/*": [
-                "../../shared/src/*"
+                "../shared/src/*"
             ],
             "@stores/*": [
                 "./src/stores/*"
