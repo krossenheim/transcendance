@@ -164,6 +164,10 @@ check-npm-deps:
 		echo "Installing shared npm dependencies..."; \
 		npm install --prefix "$(PROJECT_ROOT)shared"; \
 	fi
+	@if [ ! -d "$(PROJECT_ROOT)frontend/node_modules" ]; then \
+		echo "Installing frontend npm dependencies..."; \
+		npm install --prefix "$(PROJECT_ROOT)frontend"; \
+	fi
 
 print_config: create_shared_volume_folder
 	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" config
