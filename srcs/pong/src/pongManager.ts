@@ -81,7 +81,12 @@ export class PongManager {
         continue;
       }
 
-      const deltaTime = (now - gameData.last_frame_time) / 1000.0;
+      // Cap deltaTime to prevent death spiral: if a frame took too long
+      // (e.g. due to collision loops or GC pauses), don't try to simulate
+      // the entire missed time — just drop the excess. This prevents
+      // cascading lag where each frame gets a bigger deltaTime.
+      const rawDelta = (now - gameData.last_frame_time) / 1000.0;
+      const deltaTime = Math.min(rawDelta, 0.1); // Cap at 100ms (≈6 frames)
       
       // Process AI inputs before simulation
       if (gameData.aiManager.count > 0) {
@@ -114,7 +119,8 @@ export class PongManager {
       } else {
         gameData.game.playSimulation(deltaTime);
       }
-      gameData.last_frame_time = now;
+      // Use fresh timestamp so the next frame doesn't re-simulate time spent in playSimulation
+      gameData.last_frame_time = Date.now();
       
       // Fetch game state and add server timestamp for client-side lag compensation
       const gameState = gameData.game.fetchBoardJSON();

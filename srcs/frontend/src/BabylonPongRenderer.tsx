@@ -255,8 +255,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const dirLight = new DirectionalLight("dir", new Vector3(-1, -2, -1), scene)
     dirLight.position = new Vector3(20, 40, 20)
     dirLight.intensity = 0.8
+    dirLight.autoCalcShadowZBounds = true
+    dirLight.shadowMinZ = 1
+    dirLight.shadowMaxZ = 100
 
-    const shadowGenerator = new ShadowGenerator(1024, dirLight)
+    const shadowGenerator = new ShadowGenerator(2048, dirLight)
     shadowGenerator.useBlurExponentialShadowMap = true
     shadowGenerator.blurKernel = 32
     shadowGeneratorRef.current = shadowGenerator

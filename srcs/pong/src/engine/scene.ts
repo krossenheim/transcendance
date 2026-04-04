@@ -137,7 +137,8 @@ export class Scene {
             }
 
             // If too many zero-time collisions in a row, the ball is stuck between surfaces.
-            // Force-eject the ball toward the arena center to break the loop.
+            // Force-teleport the ball to the arena center and break out of the simulation
+            // for this frame. The next tick will handle it from a clean position.
             if (zeroTimeCollisionCount >= MAX_ZERO_TIME_COLLISIONS) {
                 let stuckBall: CircleObject | null = null;
                 if (collision.objectA instanceof CircleObject && collision.objectA.inverseMass > 0) {
@@ -146,25 +147,20 @@ export class Scene {
                     stuckBall = collision.objectB;
                 }
                 if (stuckBall) {
-                    // Push ball toward arena center
-                    const toCenterX = this.arenaCenterX - stuckBall.center.x;
-                    const toCenterY = this.arenaCenterY - stuckBall.center.y;
-                    const toCenterLen = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
-                    if (toCenterLen > EPS) {
-                        const pushDist = stuckBall.radius * 3;
-                        stuckBall.center.x += (toCenterX / toCenterLen) * pushDist;
-                        stuckBall.center.y += (toCenterY / toCenterLen) * pushDist;
-                    }
-                    // Give it a velocity toward center so it doesn't immediately re-collide
+                    console.warn(`[Scene] Ball stuck in collision loop - teleporting to center from (${stuckBall.center.x.toFixed(1)}, ${stuckBall.center.y.toFixed(1)})`);
+                    // Teleport ball directly to the arena center so it is clear of all surfaces
+                    stuckBall.center.x = this.arenaCenterX;
+                    stuckBall.center.y = this.arenaCenterY;
+                    // Preserve speed but redirect so it doesn't fly back into the same corner
                     const speed = stuckBall.velocity.len();
-                    if (speed > EPS && toCenterLen > EPS) {
-                        stuckBall.velocity.x = (toCenterX / toCenterLen) * speed;
-                        stuckBall.velocity.y = (toCenterY / toCenterLen) * speed;
+                    if (speed > EPS) {
+                        const randomAngle = Math.random() * Math.PI * 2;
+                        stuckBall.velocity.x = Math.cos(randomAngle) * speed;
+                        stuckBall.velocity.y = Math.sin(randomAngle) * speed;
                     }
-                    console.warn(`[Scene] Ball stuck in collision loop - ejected toward center from (${stuckBall.center.x.toFixed(1)}, ${stuckBall.center.y.toFixed(1)})`);
                 }
-                zeroTimeCollisionCount = 0;
-                continue;
+                // Break out entirely — let the next tick simulate from the clean state
+                break;
             }
 
             this.moveSceneObjects(earliestHit);

@@ -29,16 +29,8 @@ envsubst '${TR_NETWORK_SUBNET}' < /etc/nginx/un_expanded/nginx.conf.to_expand > 
 mkdir -p /etc/nginx/ssl
 cd /etc/nginx/ssl 
 
-# Check if mkcert certificates are mounted and available
-if [ -f "/etc/nginx/mkcert/${SERVER_NAME}.crt" ] && [ -f "/etc/nginx/mkcert/${SERVER_NAME}.key" ]; then
-  echo "Using mkcert certificates from /etc/nginx/mkcert/"
-  cp "/etc/nginx/mkcert/${SERVER_NAME}.crt" "/etc/nginx/ssl/${SERVER_NAME}.crt"
-  cp "/etc/nginx/mkcert/${SERVER_NAME}.key" "/etc/nginx/ssl/${SERVER_NAME}.key"
-  chmod 644 "/etc/nginx/ssl/${SERVER_NAME}.crt"
-  chmod 600 "/etc/nginx/ssl/${SERVER_NAME}.key"
-elif [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.key" ] || [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.crt" ]; then
+if [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.key" ] || [ ! -f "/etc/nginx/ssl/${SERVER_NAME}.crt" ]; then
   echo "SSL certificate or key not found, generating self-signed certificate and key for ${SERVER_NAME}"
-  echo "TIP: Run ./setup_mkcert.sh on the host to generate trusted certificates and avoid browser warnings"
 
   echo "Signing certificate with server name ${SUBJECT}";
   openssl req -x509 -newkey rsa:4086 -keyout ${SERVER_NAME}.key -out ${SERVER_NAME}.crt -days 666 -nodes -subj "$SUBJECT"
