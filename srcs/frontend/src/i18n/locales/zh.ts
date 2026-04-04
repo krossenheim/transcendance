@@ -383,11 +383,4 @@ export const zh: TranslationKeys = {
     sessionExpired: '您的会话已过期，请重新登录。',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: '本网站使用 Cookie 以提升您的体验。',
-    accept: '接受',
-    decline: '拒绝',
-    learnMore: '了解更多',
-  },
 };

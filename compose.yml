@@ -14,7 +14,7 @@ services:
       args:
         - SERVICE_NAME=${NGINX_NAME}
     healthcheck:
-      test: ["CMD-SHELL", "nginx -t"]
+      test: ["CMD-SHELL", "curl -kf https://localhost:443/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -226,9 +226,6 @@ volumes:
       type: none
       o: bind
       device: ${VOLUMES_DIR}/database
-  esdata:
-    driver: local
-
 networks:
   transcendance_network:
     name: transcendance_network

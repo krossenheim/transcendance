@@ -376,11 +376,4 @@ export const sjn: TranslationKeys = {
     sessionExpired: "I ned lín lant. Minno erui.",
   },
 
-  // Cookie Banner
-  cookies: {
-    message: "I gwedhi si lo'a qawHaq na agarfa i ned lín.",
-    accept: "Garo",
-    decline: "Avo",
-    learnMore: "Isto Sui",
-  },
 };

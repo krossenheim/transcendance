@@ -381,11 +381,4 @@ export const es = {
     sessionExpired: 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'Este sitio web utiliza cookies para mejorar tu experiencia.',
-    accept: 'Aceptar',
-    decline: 'Rechazar',
-    learnMore: 'Más información',
-  },
 };

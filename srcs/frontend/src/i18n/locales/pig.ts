@@ -383,11 +383,4 @@ export const pig: TranslationKeys = {
     sessionExpired: 'Ouryay essionsay ashay expiredway. Easeplay oglay inway againway.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'Isthay ebsiteway usesway ookiescay otay enhanceway ouryay experienceway.',
-    accept: 'Acceptway',
-    decline: 'Eclineday',
-    learnMore: 'Earnlay Oremay',
-  },
 };

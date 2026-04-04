@@ -13,11 +13,6 @@ server {
 		allow 172.18.0.0/16;
 		deny all;
 	}
-
-	location /static 
-	{
-		alias /var/www/html/;
-	}
 }
 
 server {
@@ -56,7 +51,12 @@ server {
 	location = /
 	{
 		alias /var/www/html;
+		add_header Cache-Control "no-store, no-cache, must-revalidate" always;
 		try_files /react_dist/index.html =404;
+	}
+
+	location /react_dist/ {
+		alias /var/www/html/react_dist/;
 	}
 
 
@@ -134,16 +134,8 @@ location /blockchain-explorer/ {
 		proxy_set_header X-Forwarded-Proto $scheme;
 	}
 
-location /static 
-	{
-		add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
-    	add_header Pragma "no-cache" always;
-    	add_header Expires 0 always;
-		alias /var/www/html/;
-	}
-
 	location /favicon.ico {
-		alias /var/www/html;
+		alias /var/www/html/react_dist;
 		try_files /fish.jpg =404;
     }
 	

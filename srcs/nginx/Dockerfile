@@ -26,7 +26,7 @@ RUN npm run build
 
 FROM nginx:1.29.0
 
-RUN apt-get update && apt-get install -y gettext openssl procps \
+RUN apt-get update && apt-get install -y gettext openssl procps curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/nginx/un_expanded/
@@ -45,7 +45,6 @@ RUN chmod 755 /etc/nginx_entryp.sh
 
 RUN mkdir -p /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/ || true
-COPY static/ /var/www/html/
 
 RUN mkdir -p /var/www/html/react_dist/
 COPY --from=react_builder /app/srcs/frontend/dist /var/www/html/react_dist

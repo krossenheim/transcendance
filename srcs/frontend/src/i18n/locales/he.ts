@@ -383,11 +383,4 @@ export const he: TranslationKeys = {
     sessionExpired: 'ההפעלה שלך פגה. אנא התחבר שוב.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'אתר זה משתמש בעוגיות כדי לשפר את החוויה שלך.',
-    accept: 'קבל',
-    decline: 'דחה',
-    learnMore: 'למד עוד',
-  },
 };

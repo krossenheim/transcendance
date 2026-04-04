@@ -376,11 +376,4 @@ export const nl = {
     sessionExpired: 'Uw sessie is verlopen. Log opnieuw in.',
   },
 
-  // Cookies
-  cookies: {
-    message: 'Deze website gebruikt cookies om uw ervaring te verbeteren.',
-    accept: 'Accepteren',
-    decline: 'Weigeren',
-    learnMore: 'Meer informatie',
-  },
 };

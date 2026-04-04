@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   root: "./",
+  base: "/react_dist/",
   build: {
     outDir: "dist",
     minify: "esbuild",
@@ -51,5 +52,4 @@ export default defineConfig({
       },
     },
   },
-  base: "/static/react_dist/",
 });

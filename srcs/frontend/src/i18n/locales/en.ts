@@ -381,13 +381,6 @@ export const en = {
     sessionExpired: 'Your session has expired. Please log in again.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'This website uses cookies to enhance your experience.',
-    accept: 'Accept',
-    decline: 'Decline',
-    learnMore: 'Learn More',
-  },
 };
 
 export type TranslationKeys = typeof en;

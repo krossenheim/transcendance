@@ -3,7 +3,6 @@ import SocketComponent, { closeGlobalSocket } from "./socketComponent";
 import LoginComponent from "@features/auth/loginComponent";
 import RegisterComponent from "@features/auth/registerComponent";
 import { useState, useEffect } from "react";
-import CookieBanner from "./CookieBanner";
 import StarfieldBackground from "./StarfieldBackground";
 import { useLanguage } from "./i18n";
 import LanguageSwitcher from "./components/LanguageSwitcher";
@@ -192,16 +191,14 @@ export default function AppRoot() {
       className="min-h-screen bg-cover bg-center bg-fixed"
       style={{ backgroundColor: 'transparent' }}
     >
-      <StarfieldBackground starCount={500} speed={4} backgroundImage="/static/react_dist/bg_dark.png" />
+      <StarfieldBackground starCount={500} speed={4} backgroundImage="/react_dist/bg_dark.png" />
       <ToastContainer />
 
       <div className="relative">
-        <CookieBanner />
 
         {authResponse ? (
           <SocketComponent AuthResponseObject={authResponse}>
             <StarfieldBackground starCount={300} />
-            <CookieBanner />
             <GlobalSocketListeners />
 
             <AuthenticatedApp

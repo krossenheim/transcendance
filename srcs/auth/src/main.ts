@@ -30,16 +30,6 @@ setInterval(() => {
 
 const fastify: FastifyInstance = createFastify({ logger: true } as any);
 
-// Attach cookie consent to each request: true when cookie_consent === 'accepted'
-fastify.addHook('preHandler', async (request, reply) => {
-	// `request.cookies` is provided by @fastify/cookie (registered in createFastify)
-	const consentCookie = (request as any).cookies?.cookie_consent;
-	const headerConsent = (request.headers['x-cookie-consent'] as string | undefined) || null;
-	(request as any).cookieConsent = (consentCookie === 'accepted') || (headerConsent === 'accepted');
-
-
-});
-
 const GITHUB_OAUTH2_REDIRECT_URL = process.env.GITHUB_OAUTH2_REDIRECT_URL || 'https://localhost';
 
 // OAuth state management

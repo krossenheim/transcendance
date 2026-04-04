@@ -1,26 +1,19 @@
-# Base directories
 PROJECT_ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 OUTPUT_FILES_DIR := $(PROJECT_ROOT)out
 SOURCES_DIR := $(PROJECT_ROOT)srcs
 VOLUMES_DIR := $(OUTPUT_FILES_DIR)/volumes/
 
-# Docker compose & env
 PATH_TO_COMPOSE_ENV_FILE := globals.env
 PATH_TO_COMPOSE_SECRETS_FILE := secrets.env
 PATH_TO_COMPOSE := compose.yml
 COMPOSE_PROGRESS ?= auto
 
-# Network
 TR_NETWORK_SUBNET = 172.18.0.0/16
 
-# Auto-detect frontend URL from VM IP (override with: make GITHUB_OAUTH2_REDIRECT_URL=https://1.2.3.4:8443)
 
-# Common env overrides passed to docker compose
 DC_ENV := VOLUMES_DIR=${VOLUMES_DIR}
 
-# React build directory for npm arguments
 REACT_DIR := $(SOURCES_DIR)/nginx/react_source
-# Node.js memory tuning (override with: make NODE_MAX_OLD_SPACE=6144 build)
 NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
@@ -55,7 +48,6 @@ down:
 	@# Clean up the network if it exists and is unused
 	@docker network rm transcendance_network 2>/dev/null || true
 
-# Ensure the shared external network exists before bringing services up
 ensure_network:
 	@docker network inspect transcendance_network >/dev/null 2>&1 || \
 		docker network create --driver bridge --subnet ${TR_NETWORK_SUBNET} \
@@ -70,7 +62,7 @@ down-all:
 
 RED := \033[0;31m
 YELLOW := \033[1;33m
-NC := \033[0m  # No Color (reset)
+NC := \033[0m
 
 debug:
 	@echo -e "=============================="
@@ -80,7 +72,6 @@ debug:
 	rm -rf $(VOLUMES_DIR)database/users.db
 	rm -rf $(VOLUMES_DIR)database/pfps
 
-# Hardhat image - only rebuild if not exists or forced with 'make build-hardhat'
 HARDHAT_IMAGE_TAG := hardhat:local
 EXPLORER_IMAGE_TAG := blockchain-explorer:local
 BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain

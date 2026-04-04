@@ -378,11 +378,4 @@ export const tlh: TranslationKeys = {
     sessionExpired: "pong poH Qup. yI'elqa'.",
   },
 
-  // Cookie Banner
-  cookies: {
-    message: "De'vam Daqmey nIvbogh qawHaq lo'.",
-    accept: "laj",
-    decline: "lajQo'",
-    learnMore: "latlh yIHaD",
-  },
 };

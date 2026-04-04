@@ -383,11 +383,4 @@ export const dot: TranslationKeys = {
     sessionExpired: 'Yeri tosak disse. Elat akka.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'Jin vichomer asti cookies ki yeri zhavorsa.',
-    accept: 'Azhat',
-    decline: 'Vos',
-    learnMore: 'Asta Ma',
-  },
 };

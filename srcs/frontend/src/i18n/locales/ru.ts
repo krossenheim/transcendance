@@ -383,11 +383,4 @@ export const ru: TranslationKeys = {
     sessionExpired: 'Ваша сессия истекла. Пожалуйста, войдите снова.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'Этот сайт использует файлы cookie для улучшения вашего опыта.',
-    accept: 'Принять',
-    decline: 'Отклонить',
-    learnMore: 'Узнать больше',
-  },
 };

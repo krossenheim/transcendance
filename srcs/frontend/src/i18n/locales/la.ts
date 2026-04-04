@@ -383,11 +383,4 @@ export const la: TranslationKeys = {
     sessionExpired: 'Sessio tua exspiravit. Quaeso iterum intra.',
   },
 
-  // Cookie Banner
-  cookies: {
-    message: 'Haec pagina crustula ad experientiam tuam meliorem utitur.',
-    accept: 'Acceptare',
-    decline: 'Declinare',
-    learnMore: 'Plus Discere',
-  },
 };

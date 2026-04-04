@@ -376,11 +376,4 @@ export const fy = {
     sessionExpired: 'Jo sesje is ferrûn. Meld jo opnij oan.',
   },
 
-  // Cookies
-  cookies: {
-    message: 'Dizze webside brûkt cookies om jo ûnderfining te ferbetterjen.',
-    accept: 'Akseptearje',
-    decline: 'Wegerje',
-    learnMore: 'Mear leare',
-  },
 };

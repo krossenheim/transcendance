@@ -376,11 +376,4 @@ export const cy = {
     sessionExpired: 'Mae eich sesiwn wedi dod i ben. Mewngofnodwch eto.',
   },
 
-  // Cookies
-  cookies: {
-    message: 'Mae\'r wefan hon yn defnyddio cwcis i wella eich profiad.',
-    accept: 'Derbyn',
-    decline: 'Gwrthod',
-    learnMore: 'Dysgu mwy',
-  },
 };
