@@ -30,7 +30,6 @@
     "removeComments": true,
     "outDir": "./dist",
     "rootDir": "../..",
-    "baseUrl": ".",
     "paths": {
       "@app/shared": [
         "../../shared/src/index.ts"

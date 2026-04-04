@@ -3,7 +3,7 @@
         "target": "ESNext",
         "module": "ESNext",
         "jsx": "react-jsx",
-        "moduleResolution": "Node",
+        "moduleResolution": "bundler",
         "composite": false,
         "types": [
             "node"
@@ -31,7 +31,6 @@
         "removeComments": true,
         "outDir": "./dist",
         "rootDir": "../..",
-        "baseUrl": ".",
         "paths": {
             "@app/shared/*": [
                 "../../shared/src/*"
