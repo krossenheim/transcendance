@@ -23,7 +23,6 @@ export interface GameSettings {
   maxScore: number
   allowPowerups: boolean
   aiCount: number
-  aiDifficulty: number
   localPlayerNames?: string[]
 }
 
@@ -41,7 +40,6 @@ export default function PongInviteModal({
   const [maxScore, setMaxScore] = useState(5)
   const [allowPowerups, setAllowPowerups] = useState(true)
   const [aiCount, setAiCount] = useState(0)
-  const [aiDifficulty, setAiDifficulty] = useState(3)
   const [isLocalTournament, setIsLocalTournament] = useState(false)
   const [localPlayerNames, setLocalPlayerNames] = useState<string[]>(["", "", ""])
 
@@ -204,7 +202,6 @@ export default function PongInviteModal({
         maxScore,
         allowPowerups,
         aiCount,
-        aiDifficulty,
         localPlayerNames: validNames,
       }
 
@@ -245,7 +242,6 @@ export default function PongInviteModal({
       maxScore,
       allowPowerups,
       aiCount,
-      aiDifficulty,
     }
 
     const playerUsernameMap: { [key: number]: string } = {}
@@ -497,34 +493,6 @@ export default function PongInviteModal({
                 <p className="text-xs text-gray-400 mt-1">
                   {t('pong.aiDescription')}
                 </p>
-                {aiCount > 0 && (
-                  <div className="mt-2">
-                    <label className="block text-xs font-medium text-gray-300 mb-1">
-                      {t('pong.aiDifficulty')}
-                    </label>
-                    <div className="flex gap-2">
-                      {[
-                        { value: 1, label: t('pong.aiEasy'), color: 'bg-green-500' },
-                        { value: 2, label: t('pong.aiMedium'), color: 'bg-yellow-500' },
-                        { value: 3, label: t('pong.aiHard'), color: 'bg-red-500' },
-                        { value: 4, label: t('pong.aiNightmare'), color: 'bg-purple-600' },
-                      ].map(({ value, label, color }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setAiDifficulty(value)}
-                          className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-all ${
-                            aiDifficulty === value
-                              ? `${color} text-white shadow-md`
-                              : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>

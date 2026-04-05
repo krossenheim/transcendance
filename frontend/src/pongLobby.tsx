@@ -20,7 +20,6 @@ export interface PongLobbyData {
     maxScore: number
     allowPowerups: boolean
     aiCount?: number
-    aiDifficulty?: number
   }
   status: "waiting" | "starting" | "in_progress"
 }

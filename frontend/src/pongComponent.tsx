@@ -1222,7 +1222,6 @@ export default function PongComponent({
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
           aiCount: settings.aiCount,
-          aiDifficulty: settings.aiDifficulty,
         },
         status: "waiting",
       }
@@ -1244,7 +1243,7 @@ export default function PongComponent({
           maxScore: settings.maxScore,
           allowPowerups: settings.allowPowerups,
           aiCount: settings.aiCount,
-          aiDifficulty: settings.aiDifficulty,
+          aiDifficulty: 3,
           ...(settings.localPlayerNames ? { localPlayerNames: settings.localPlayerNames } : {}),
         },
         target_container: "pong",
