@@ -124,7 +124,7 @@ export default function UserMenu({ onLogout, isLoggingOut }: UserMenuProps) {
               {t('userMenu.manageFriends')}
             </button>
 
-            <button 
+            <button
               onClick={() => {
                 setIsDropdownOpen(false);
                 navigate("/settings");
@@ -162,3 +162,4 @@ export default function UserMenu({ onLogout, isLoggingOut }: UserMenuProps) {
     </div>
   );
 }
+

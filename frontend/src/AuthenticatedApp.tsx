@@ -2,11 +2,10 @@ import React, { useState, useEffect, use } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useLanguage } from "./i18n";
 
-// Components
 import PongComponent from "./pongComponent";
 import PongInvitationHandler from "./pongInvitationHandler";
 import PongInviteNotifications, { PongInvitation } from "./pongInviteNotifications";
-import SettingsPage from "./pages/settings"; // Imported the new page
+import SettingsPage from "./pages/settings";
 import { useWebSocket } from "./socketComponent";
 import { user_url } from "@app/shared/api/service/common/endpoints";
 
@@ -38,13 +37,10 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
   const [acceptedLobbyId, setAcceptedLobbyId] = useState<number | null>(null);
 
   const handleAcceptInvitation = (inviteId: number) => {
-    // Find the invitation
     const invitation = pongInvitations.find(inv => inv.inviteId === inviteId);
     if (invitation) {
-      // Store lobby data in window for PongComponent to pick up
       (window as any).__acceptedLobbyData = invitation.lobbyData;
       setAcceptedLobbyId(invitation.lobbyId);
-      // Remove the invitation from list
       setPongInvitations(prev => prev.filter(i => i.inviteId !== inviteId));
     }
     navigate('/pong');
@@ -52,14 +48,14 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
 
   return (
     <div className={`flex flex-col h-screen overflow-hidden bg-transparent text-gray-100 font-sans ${isRTL ? 'rtl' : 'ltr'}`}>
-      
-      {/* Global Logic Controllers */}
+
+      {}
       <PongInvitationHandler authResponse={authResponse} setPongInvitations={setPongInvitations} />
-      
-      {/* Global UI Overlays */}
-      <PongInviteNotifications 
-         invitations={pongInvitations} 
-         onAccept={handleAcceptInvitation} 
+
+      {}
+      <PongInviteNotifications
+         invitations={pongInvitations}
+         onAccept={handleAcceptInvitation}
          onDecline={(id) => {
            const invitation = pongInvitations.find(inv => inv.inviteId === id);
            if (invitation) {
@@ -69,17 +65,17 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
          }}
       />
 
-      {/* Modals */}
+      {}
       <ProfileModal />
       <UserConnectionsModal />
 
-      {/* Main Layout Header */}
+      {}
       <TopHeaderBar
         onLogout={onLogout}
         isLoggingOut={false}
       />
 
-      {/* Routes */}
+      {}
       <main className="flex-1 overflow-hidden relative">
         <div className="absolute inset-0 p-4 overflow-auto">
            <div className="max-w-7xl mx-auto h-full flex flex-col">
@@ -112,3 +108,4 @@ export default function AuthenticatedApp({ authResponse, onLogout }: Authenticat
     </div>
   );
 }
+

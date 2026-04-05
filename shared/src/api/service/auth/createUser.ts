@@ -11,3 +11,4 @@ export type CreateUserType = z.infer<typeof CreateUser>;
 export default {
 	CreateUser,
 };
+

@@ -1,8 +1,6 @@
-// Hebrew translations (RTL language)
 import { TranslationKeys } from './en';
 
 export const he: TranslationKeys = {
-  // Common
   common: {
     loading: 'טוען...',
     error: 'שגיאה',
@@ -24,14 +22,12 @@ export const he: TranslationKeys = {
     hide: 'הסתר',
   },
 
-  // Navigation
   nav: {
     chat: "צ'אט",
     pong: 'פונג',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: 'התעלות',
     welcome: 'ברוכים הבאים להתעלות',
@@ -42,7 +38,6 @@ export const he: TranslationKeys = {
     guestLoginFailed: 'כניסת אורח נכשלה',
   },
 
-  // Login
   login: {
     title: 'התחברות',
     username: 'שם משתמש',
@@ -61,7 +56,6 @@ export const he: TranslationKeys = {
     loginFailed: 'ההתחברות נכשלה',
   },
 
-  // Register
   register: {
     title: 'יצירת חשבון',
     subtitle: 'מלא את הפרטים שלך להרשמה',
@@ -91,7 +85,6 @@ export const he: TranslationKeys = {
     registrationFailed: 'ההרשמה נכשלה',
   },
 
-  // User Menu
   userMenu: {
     userId: 'מזהה משתמש',
     viewProfile: 'צפה בפרופיל שלי',
@@ -101,7 +94,6 @@ export const he: TranslationKeys = {
     loggingOut: 'מתנתק...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'הגדרות נגישות',
     subtitle: 'התאם את הממשק לצרכי הנגישות שלך',
@@ -121,7 +113,6 @@ export const he: TranslationKeys = {
     openSettings: 'פתח הגדרות נגישות',
   },
 
-  // Language
   language: {
     title: 'שפה',
     select: 'בחר שפה',
@@ -140,7 +131,6 @@ export const he: TranslationKeys = {
     dot: 'דותראקי',
   },
 
-  // Friends
   friends: {
     title: 'חברים',
     manageFriends: 'ניהול חברים',
@@ -166,7 +156,6 @@ export const he: TranslationKeys = {
     deny: 'דחה',
   },
 
-  // Chat
   chat: {
     title: "צ'אט",
     sendMessage: 'שלח הודעה',
@@ -194,7 +183,6 @@ export const he: TranslationKeys = {
     dmWithUser: 'הודעה פרטית עם משתמש',
   },
 
-  // Pong
   pong: {
     title: 'פונג',
     subtitle: 'שחק פונג קלאסי נגד שחקנים אחרים במצבי משחק שונים',
@@ -208,12 +196,10 @@ export const he: TranslationKeys = {
     invite: 'הזמן למשחק',
     acceptInvite: 'קבל הזמנה',
     declineInvite: 'דחה הזמנה',
-    // Menu buttons
     createGameButton: '🎮 צור משחק',
     menuDescription: 'צור משחק מקומי, הזמן חברים, או שחק נגד AI.',
     quickPlay: '🤖 משחק מהיר (סולו)',
     debugMode: '🎯 ניפוי: 8 שחקנים (3 כדורים)',
-    // Pong Invite Modal
     createPongGame: 'צור משחק פונג',
     selectGameMode: 'בחר מצב משחק',
     oneVsOne: '1 נגד 1',
@@ -247,7 +233,6 @@ export const he: TranslationKeys = {
     aiNightmare: 'סיוט',
     ai: 'AI',
     createGame: 'צור משחק',
-    // Pong Lobby
     gameLobby: 'לובי משחק',
     lobby: 'לובי',
     leave: 'עזוב',
@@ -263,14 +248,12 @@ export const he: TranslationKeys = {
     imReady: 'אני מוכן!',
     allReadyRequired: 'כל השחקנים חייבים להיות מוכנים לפני ההתחלה',
     needMinPlayers: 'צריך לפחות 2 שחקנים להתחיל',
-    // Game mode descriptions
     desc1v1: 'פונג קלאסי 1 נגד 1 - שני שחקנים מתחרים ישירות',
     descMultiplayer: 'פונג רב-משתתפים - מספר שחקנים מתחרים בחופשיות',
     descTournament1v1: 'טורניר 1 נגד 1 - שחקנים מתחרים במשחקי נוקאאוט',
     descTournamentMulti: 'טורניר רב-משתתפים - קבוצות מתחרות במשחקי נוקאאוט',
     descTournament: 'טורניר - 4 שחקנים מתחרים במשחקי 1 נגד 1 (חצי גמר + גמר)',
     descLastOneStanding: 'אחרון על רגליו - 2-8 שחקנים נלחמים בזירה שמשתנה אוטומטית. האחרון שנשאר מנצח!',
-    // Validation alerts
     alert1v1Players: 'מצב 1 נגד 1 דורש בדיוק 2 שחקנים (כולל אותך)',
     alertTournament1v1Players: 'טורניר 1 נגד 1 דורש לפחות 4 שחקנים',
     alertTournamentMultiPlayers: 'טורניר רב-משתתפים דורש לפחות 4 שחקנים',
@@ -278,12 +261,10 @@ export const he: TranslationKeys = {
     alertMultiplayerPlayers: 'מצב רב-משתתפים דורש לפחות 2 שחקנים',
     alertLastOneStandingMin: 'אחרון על רגליו דורש לפחות 2 שחקנים',
     alertLastOneStandingMax: 'אחרון על רגליו מאפשר מקסימום 8 שחקנים',
-    // Game UI
     leaderboard: 'טבלת הישגים',
     backToMenu: 'חזרה לתפריט',
     player: 'שחקן',
     gameOverText: 'המשחק נגמר!',
-    // Tournament UI
     tournamentWinner: 'אלוף הטורניר!',
     tournamentComplete: 'הטורניר הושלם',
     congratulations: 'מזל טוב! ניצחת בטורניר!',
@@ -297,7 +278,6 @@ export const he: TranslationKeys = {
     yourMatchIsReady: 'המשחק הבא שלך מוכן!',
     anotherMatchCompleted: 'משחק נוסף הושלם',
     matchComplete: 'משחק הושלם',
-    // Powerups
     powerupBallAdded: 'כדור נוסף',
     powerupFastPaddles: 'מחבטים מהירים',
     powerupSlowPaddles: 'מחבטים איטיים',
@@ -308,7 +288,6 @@ export const he: TranslationKeys = {
     powerupUnknown: 'לא ידוע',
   },
 
-  // 2FA
   twoFactor: {
     title: 'אימות דו-שלבי',
     enterCode: 'הזן את הקוד בן 6 הספרות מאפליקציית האימות שלך',
@@ -340,7 +319,6 @@ export const he: TranslationKeys = {
     notAvailableGuest: 'אימות דו-שלבי אינו זמין לחשבונות אורחים.',
   },
 
-  // Profile
   profile: {
     title: 'פרופיל',
     userProfile: 'פרופיל משתמש',
@@ -375,7 +353,6 @@ export const he: TranslationKeys = {
     inGame: 'במשחק',
   },
 
-  // Errors
   errors: {
     networkError: 'שגיאת רשת. אנא נסה שוב.',
     serverError: 'שגיאת שרת. אנא נסה שוב מאוחר יותר.',
@@ -384,3 +361,4 @@ export const he: TranslationKeys = {
   },
 
 };
+

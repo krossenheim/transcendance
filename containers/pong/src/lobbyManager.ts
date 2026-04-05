@@ -2,51 +2,14 @@ import type { Result } from "@app/shared/api/service/common/result";
 import { Result as ResultClass } from "@app/shared/api/service/common/result";
 import type { ErrorResponseType } from "@app/shared/api/service/common/error";
 import { LobbyDataSchema } from "@app/shared/api/service/pong/pong_interfaces";
-// import type { LobbyDataType } from "@app/shared/api/service/pong/pong_interfaces";
 
-// class Lobby {
-//   private lobbyData: LobbyDataType;
-
-//   constructor(lobbyData: LobbyDataType) {
-//     this.lobbyData = lobbyData;
-//   }
-
-//   static async buildNewLobby(hostUserId: number): Promise<Result<Lobby, string>> {
-    
-
-    
-//   }
-
-
-// }
-
-
-// export interface LobbyPlayer {
-//   userId: number;
-//   username: string;
-//   isReady: boolean;
-//   isHost: boolean;
-// }
 import { z } from "zod";
 
-// export interface Lobby {
-//   lobbyId: number;
-//   gameMode: "1v1" | "multiplayer" | "tournament" | "lastOneStanding";
-//   players: LobbyPlayer[];
-//   ballCount: number;
-//   maxScore: number;
-//   allowPowerups: boolean;
-//   aiCount: number;
-//   aiDifficulty: number;
-//   status: "waiting" | "starting" | "in_progress";
-//   gameId?: number;
-//   tournamentId?: number;
-// }
 export type Lobby = z.infer<typeof LobbyDataSchema>;
 
 export class LobbyManager {
   private lobbies: Map<number, Lobby>;
-  private playerToLobby: Map<number, number>; // userId -> lobbyId
+  private playerToLobby: Map<number, number>;
   private nextLobbyId: number;
 
   constructor() {
@@ -69,7 +32,6 @@ export class LobbyManager {
       return ResultClass.Err({ message: "Lobby requires at least 1 player" });
     }
 
-    // Auto-remove players from existing lobbies before creating the new one
     for (const playerId of playerIds) {
       const existingLobbyId = this.playerToLobby.get(playerId);
       if (existingLobbyId !== undefined) {
@@ -90,7 +52,7 @@ export class LobbyManager {
       ballCount,
       maxScore,
       allowPowerups,
-      aiCount: Math.min(7, Math.max(0, aiCount)), // Clamp between 0-7
+      aiCount: Math.min(7, Math.max(0, aiCount)),
       aiDifficulty: Math.min(3, Math.max(1, aiDifficulty)),
       status: "waiting",
     };
@@ -129,9 +91,7 @@ export class LobbyManager {
     }
 
     const allReady = lobby.players.every((p) => p.isReady);
-    // 1v1 local mode allows just 1 player (second is local guest on same keyboard)
     const minPlayers = lobby.gameMode === "1v1" ? 1 : 2;
-    // Total players includes humans + AI
     const totalPlayers = lobby.players.length + (lobby.aiCount || 0);
 
     return ResultClass.Ok(allReady && totalPlayers >= minPlayers);
@@ -190,7 +150,6 @@ export class LobbyManager {
   removeLobby(lobbyId: number): void {
     const lobby = this.lobbies.get(lobbyId);
     if (lobby) {
-      // Remove player mappings
       lobby.players.forEach((p) => {
         this.playerToLobby.delete(p.userId);
       });
@@ -207,13 +166,11 @@ export class LobbyManager {
     lobby.players = lobby.players.filter((p) => p.userId !== userId);
     this.playerToLobby.delete(userId);
 
-    // If lobby is empty, delete it
     if (lobby.players.length === 0) {
       this.lobbies.delete(lobbyId);
       return ResultClass.Ok(null);
     }
 
-    // If host left, assign new host
     if (!lobby.players.some((p) => p.isHost) && lobby.players.length > 0) {
       const firstPlayer = lobby.players[0];
       if (firstPlayer) {
@@ -226,3 +183,4 @@ export class LobbyManager {
 }
 
 export default LobbyManager;
+

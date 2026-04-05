@@ -53,3 +53,4 @@ export async function lobbyRoutes(fastify: any) {
 };
 
 export default lobbyRoutes;
+

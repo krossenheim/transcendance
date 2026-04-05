@@ -58,7 +58,6 @@ export async function requestUserFriendship(
   return { result: FriendshipCreationResult.Success };
 }
 
-// {"funcId":"request_friendship","payload":2,"target_container":"users"}
 export function wsRequestFriendshipHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.requestFriendship,
@@ -98,3 +97,4 @@ export function wsRequestFriendshipHandlers(socket: OurSocket) {
     }
   );
 }
+

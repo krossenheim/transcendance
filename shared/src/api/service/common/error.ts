@@ -9,3 +9,4 @@ export type ErrorResponseType = z.infer<typeof ErrorResponse>;
 export default {
 	ErrorResponse,
 };
+

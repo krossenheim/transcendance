@@ -5,7 +5,6 @@ import type { TournamentData, TournamentMatch } from '../tournamentBracket';
 
 export type PongView = "menu" | "lobby" | "game" | "tournament";
 
-// Tournament match result received after a match ends
 export interface TournamentMatchResultInfo {
     tournamentId: number;
     matchId: number;
@@ -16,65 +15,52 @@ export interface TournamentMatchResultInfo {
 }
 
 interface PongState {
-    // Core game state
     gameState: TypeGameStateSchema | null;
     playerOnePaddleID: number;
     playerTwoPaddleID: number;
     lastCreatedBoardId: number | null;
     pressedKeys: string[];
 
-    // View and UI state
     currentView: PongView;
 
-    // Lobby state
     lobby: PongLobbyData | null;
 
-    // Debug players (for debug mode when no lobby exists)
     debugPlayers: Array<{ id: number; username: string }> | null;
 
-    // Tournament state
     tournament: TournamentData | null;
     activeTournamentId: number | null;
     showTournamentStats: boolean;
     tournamentMatchResult: TournamentMatchResultInfo | null;
 
-    // Modals
     showInviteModalLocal: boolean;
     inviteRoomUsers: Array<{ id: number; username: string; onlineStatus?: number }>;
 
-    // Actions - Game state
     setGameState: (state: TypeGameStateSchema | null) => void;
     setPlayerOnePaddleID: (id: number) => void;
     setPlayerTwoPaddleID: (id: number) => void;
     setLastCreatedBoardId: (id: number | null) => void;
     setPressedKeys: (keys: string[]) => void;
 
-    // Actions - View
     setCurrentView: (view: PongView) => void;
 
-    // Actions - Lobby
     setLobby: (lobby: PongLobbyData | null) => void;
     updateLobbyFromPayload: (payload: any, authUserId?: number) => void;
     setDebugPlayers: (players: Array<{ id: number; username: string }> | null) => void;
 
-    // Actions - Tournament
     setTournament: (tournament: TournamentData | null) => void;
     setActiveTournamentId: (id: number | null) => void;
     setShowTournamentStats: (show: boolean) => void;
     updateTournamentPlayerAlias: (userId: number, alias: string) => void;
     setTournamentMatchResult: (result: TournamentMatchResultInfo | null) => void;
 
-    // Actions - Modals
     setShowInviteModalLocal: (show: boolean) => void;
     setInviteRoomUsers: (users: Array<{ id: number; username: string; onlineStatus?: number }>) => void;
 
-    // Actions - Compound
     resetGameState: () => void;
     handleGameOver: () => void;
 }
 
 export const usePongStore = create<PongState>((set, get) => ({
-    // Initial state
     gameState: null,
     playerOnePaddleID: -1,
     playerTwoPaddleID: -2,
@@ -90,11 +76,9 @@ export const usePongStore = create<PongState>((set, get) => ({
     inviteRoomUsers: [],
     debugPlayers: null,
 
-    // Actions - Game state
     setGameState: (gameState) => {
         set({ gameState });
-        // Expose to window for debugging
-        try { (window as any).__lastNormalizedPongState = gameState } catch (e) { /* ignore */ }
+        try { (window as any).__lastNormalizedPongState = gameState } catch (e) {  }
     },
 
     setPlayerOnePaddleID: (playerOnePaddleID) => set({ playerOnePaddleID }),
@@ -102,20 +86,17 @@ export const usePongStore = create<PongState>((set, get) => ({
     setLastCreatedBoardId: (lastCreatedBoardId) => set({ lastCreatedBoardId }),
     setPressedKeys: (pressedKeys) => set({ pressedKeys }),
 
-    // Actions - View
     setCurrentView: (currentView) => {
         console.log("[PongStore] VIEW CHANGE:", get().currentView, "->", currentView);
         set({ currentView });
     },
 
-    // Actions - Lobby
     setLobby: (lobby) => set({ lobby }),
     setDebugPlayers: (debugPlayers) => set({ debugPlayers }),
 
     updateLobbyFromPayload: (payload, authUserId) => {
         const lobbyData = payload;
 
-        // Check if user is in this lobby
         const isInLobby = !authUserId || lobbyData.players.some((p: any) =>
             p.userId === authUserId || p.id === authUserId
         );
@@ -141,13 +122,11 @@ export const usePongStore = create<PongState>((set, get) => ({
 
         set({ lobby: newLobby });
 
-        // If we're in menu view and receive lobby update, switch to lobby
         if (get().currentView === "menu") {
             set({ currentView: "lobby" });
         }
     },
 
-    // Actions - Tournament
     setTournament: (tournament) => set({ tournament }),
     setActiveTournamentId: (activeTournamentId) => set({ activeTournamentId }),
     setShowTournamentStats: (showTournamentStats) => set({ showTournamentStats }),
@@ -171,11 +150,9 @@ export const usePongStore = create<PongState>((set, get) => ({
         set({ tournamentMatchResult });
     },
 
-    // Actions - Modals
     setShowInviteModalLocal: (showInviteModalLocal) => set({ showInviteModalLocal }),
     setInviteRoomUsers: (inviteRoomUsers) => set({ inviteRoomUsers }),
 
-    // Actions - Compound
     resetGameState: () => set({
         gameState: null,
         lobby: null,
@@ -191,7 +168,7 @@ export const usePongStore = create<PongState>((set, get) => ({
     }),
 
     handleGameOver: () => {
-        // Called when game ends - can be used to transition back
         console.log("[PongStore] Game over handled");
     },
 }));
+

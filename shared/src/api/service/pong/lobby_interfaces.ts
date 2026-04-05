@@ -48,3 +48,4 @@ export const LobbyDataSchema = z.object({
 }).strict();
 
 export type LobbyDataType = z.infer<typeof LobbyDataSchema>;
+

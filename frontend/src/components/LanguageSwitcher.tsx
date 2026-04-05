@@ -3,7 +3,6 @@ import { useLanguage, languageNames, languageFlags } from '../i18n';
 
 type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn' | 'la' | 'pig' | 'dot';
 
-// Languages that use image flags instead of emoji
 const imageFlags: Partial<Record<SupportedLanguage, string>> = {
   fy: '/static/react_dist/flags/fy.png',
   tlh: '/static/react_dist/flags/tlh.svg',
@@ -27,7 +26,6 @@ export default function LanguageSwitcher() {
 
   const languages: SupportedLanguage[] = ['en', 'ru', 'zh', 'he', 'es', 'nl', 'fy', 'cy', 'tlh', 'sjn', 'la', 'pig', 'dot'];
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -69,7 +67,7 @@ export default function LanguageSwitcher() {
       </button>
 
       {isOpen && (
-        <div 
+        <div
           className="absolute right-0 mt-2 w-48 glass-dark-sm glass-border shadow-dark-700 py-2 z-[10000]"
           role="listbox"
           aria-label={t('language.select')}
@@ -106,3 +104,4 @@ export default function LanguageSwitcher() {
     </div>
   );
 }
+

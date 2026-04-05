@@ -24,7 +24,7 @@ const ChatBox: React.FC = () => {
         <ChatUserSidebar />
       </div>
 
-      <ChatInput 
+      <ChatInput
         roomData={roomData}
       />
     </div>
@@ -32,3 +32,4 @@ const ChatBox: React.FC = () => {
 }
 
 export default ChatBox
+

@@ -383,7 +383,6 @@ class ChatRooms {
     });
   }
 
-  // {"funcId":"/api/chat/join_room","payload":{"roomId":1},"target_container":"chat"}
   async userJoinRoom(
     roomIdReq: number,
     user_id: number,
@@ -392,7 +391,6 @@ class ChatRooms {
     WSHandlerReturnValue<typeof user_url.ws.chat.joinRoom.schema.output>,
     ErrorResponseType
   >> {
-    // Use fetchRoom to load the room from DB if not in memory
     const roomResult = await this.fetchRoom(roomIdReq);
     if (roomResult.isErr()) {
       return Result.Ok({
@@ -405,7 +403,6 @@ class ChatRooms {
     }
     const room = roomResult.unwrap();
 
-    // Check if user is already in the room
     if (room.users.find((id) => id === user_id)) {
       return Result.Ok({
         recipients: [user_id],
@@ -493,7 +490,6 @@ class ChatRooms {
       });
     }
 
-    // Check if user is actually in the room
     const userIndex = room.users.findIndex((id) => id === user_id);
     if (userIndex === -1) {
       return Result.Ok({
@@ -520,14 +516,12 @@ class ChatRooms {
       });
     }
 
-    // Remove user from in-memory arrays
     room.users.splice(userIndex, 1);
     const allowedIndex = room.allowedUsers.findIndex((id) => id === user_id);
     if (allowedIndex !== -1) {
       room.allowedUsers.splice(allowedIndex, 1);
     }
 
-    // Notify remaining users that user left
     return Result.Ok({
       recipients: [...room.users, user_id],
       funcId: user_url.ws.chat.leaveRoom.funcId,
@@ -541,3 +535,4 @@ class ChatRooms {
 }
 
 export default ChatRooms;
+

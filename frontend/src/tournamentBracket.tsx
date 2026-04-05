@@ -12,8 +12,8 @@ export interface TournamentMatch {
   player2: { id: number; username: string; alias?: string } | null
   winner: number | null
   status: "pending" | "in_progress" | "completed"
-  readyPlayers?: number[] // Players who clicked "Join Match"
-  gameId?: number // Associated pong game ID when match is in progress
+  readyPlayers?: number[]
+  gameId?: number
 }
 
 export interface TournamentData {
@@ -35,9 +35,7 @@ interface TournamentBracketProps {
   currentUserId: number
   onJoinMatch: (matchId: number) => void
   onSpectate: (matchId: number) => void
-  /** Stable callback to get the latest game state for a watched game */
   getWatchedGameState?: (gameId: number) => TypeGameStateSchema | null
-  /** Version counter that triggers re-render when watched states update */
   watchedStatesVersion?: number
 }
 
@@ -51,7 +49,6 @@ export default function TournamentBracket({
 }: TournamentBracketProps) {
   const [waitingForMatch, setWaitingForMatch] = React.useState<number | null>(null)
 
-  // Reset waiting state when match status changes
   React.useEffect(() => {
     if (waitingForMatch !== null) {
       const match = tournament.matches.find(m => m.matchId === waitingForMatch);
@@ -66,7 +63,6 @@ export default function TournamentBracket({
     onJoinMatch(matchId);
   };
 
-  // Group matches by round
   const matchesByRound: Record<number, TournamentMatch[]> = {}
   tournament.matches.forEach((match) => {
     if (!matchesByRound[match.round]) matchesByRound[match.round] = []
@@ -82,7 +78,7 @@ export default function TournamentBracket({
 
   return (
     <div className="glass-dark-sm glass-border shadow-lg p-6">
-      {/* Header */}
+      {}
       <div className="mb-6 pb-4 border-b border-gray-700">
         <div className="flex justify-between items-center">
           <div>
@@ -106,7 +102,7 @@ export default function TournamentBracket({
         </div>
       </div>
 
-      {/* Blockchain Transaction Display */}
+      {}
       {tournament.status === "completed" && tournament.onchainTxHashes && tournament.onchainTxHashes.length > 0 && (
         <div className="mb-6 p-4 bg-green-900/20 border border-green-500 rounded-lg">
           <h3 className="font-semibold text-green-300 mb-2">⛓️ Recorded on Blockchain</h3>
@@ -134,9 +130,7 @@ export default function TournamentBracket({
         </div>
       )}
 
-
-
-      {/* Players List */}
+      {}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">
           Participants ({tournament.players.length})
@@ -159,14 +153,13 @@ export default function TournamentBracket({
         </div>
       </div>
 
-      {/* Tournament Bracket */}
+      {}
       {tournament.matches.length > 0 && (
         <div className="overflow-x-auto">
           <div className="flex gap-8 min-w-max pb-4">
             {Array.from({ length: tournament.totalRounds }, (_, roundIndex) => {
               const round = roundIndex + 1
               const matches = (matchesByRound[round] || []).filter(m => {
-                // Hide completed bye matches (one player slot empty)
                 if (m.status === "completed" && (!m.player1 || !m.player2)) return false;
                 return true;
               })
@@ -190,7 +183,7 @@ export default function TournamentBracket({
                           Match #{match.matchId}
                         </div>
 
-                        {/* Player 1 */}
+                        {}
                         <div
                           className={`p-2 mb-1 rounded ${match.winner === match.player1?.id
                             ? "bg-green-900/30 font-bold"
@@ -216,7 +209,7 @@ export default function TournamentBracket({
 
                         <div className="text-center text-xs text-gray-400 my-1">vs</div>
 
-                        {/* Player 2 */}
+                        {}
                         <div
                           className={`p-2 rounded ${match.winner === match.player2?.id
                             ? "bg-green-900/30 font-bold"
@@ -240,7 +233,7 @@ export default function TournamentBracket({
                           </div>
                         </div>
 
-                        {/* Match Actions */}
+                        {}
                         {match.status === "pending" &&
                           match.player1 &&
                           match.player2 &&
@@ -268,7 +261,7 @@ export default function TournamentBracket({
                           const hasLivePreview = !isInMatch && match.gameId != null && getWatchedGameState;
                           return (
                             <div className="mt-2">
-                              {/* Live mini-preview of the ongoing game */}
+                              {}
                               {hasLivePreview && (
                                 <div className="mb-2">
                                   <MiniPongCanvas
@@ -303,7 +296,6 @@ export default function TournamentBracket({
           </div>
         </div>
       )}
-
 
     </div>
   )

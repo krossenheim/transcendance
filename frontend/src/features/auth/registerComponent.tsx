@@ -127,7 +127,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
         )}
 
         <div className="space-y-4">
-          {/* Username */}
+          {}
           <div>
             <label htmlFor="register-username" className="block font-semibold text-gray-200">
               {t('register.username')}
@@ -147,7 +147,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
             )}
           </div>
 
-          {/* Email */}
+          {}
           <div>
             <label htmlFor="register-email" className="block font-semibold text-gray-200">
               {t('register.email')}
@@ -167,7 +167,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
             )}
           </div>
 
-          {/* Password */}
+          {}
           <div>
             <label htmlFor="register-password" className="block font-semibold text-gray-200">
               {t('register.password')}
@@ -194,7 +194,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
             )}
           </div>
 
-          {/* Confirm Password */}
+          {}
           <div>
             <label htmlFor="register-confirm-password" className="block font-semibold text-gray-200">
               {t('register.confirmPassword')}
@@ -221,7 +221,7 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
             )}
           </div>
 
-          {/* Submit */}
+          {}
           <button
             onClick={handleRegister}
             className="w-full bg-blue-600 text-white py-2 hover:bg-blue-700 transition-colors"
@@ -234,3 +234,4 @@ export default function RegisterComponent({ whenCompletedSuccesfully }: Register
     </div>
   )
 }
+

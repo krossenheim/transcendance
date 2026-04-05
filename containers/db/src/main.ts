@@ -5,31 +5,21 @@ import { LobbyService } from "./database/lobbyService";
 import { UserService } from "./database/userService";
 import Database from "./database/database";
 
-// Setup database
 const db = new Database("/etc/database_data/users.db");
 const tokenService = new TokenService(db);
 const lobbyService = new LobbyService(db);
 const chatService = new ChatService(db);
 const userService = new UserService(db, chatService);
-// debug!!
-// debug!!
-// debug!!
-// debug!!
-// debug!!
 import { makedebugusers } from "./debug_users";
 makedebugusers(userService).catch((err) => {
   console.error("Error creating debug users:", err);
 });
-// debug!!
-// debug!!
-
 
 import { TwoFactorService } from "./database/twoFactorService.js";
 const twoFactorService = new TwoFactorService(db);
 
-// Cast to any to avoid FastifyInstance type mismatch with route plugins
 const fastify: any = createFastify({
-  bodyLimit: 10 * 1024 * 1024, // 10MB for base64-encoded profile images
+  bodyLimit: 10 * 1024 * 1024,
   logger: {
     level: "info",
     transport: {
@@ -43,7 +33,6 @@ const fastify: any = createFastify({
   },
 });
 
-// Register routes
 import userRoutes from "./routes/users.js";
 fastify.register(userRoutes);
 
@@ -59,7 +48,6 @@ fastify.register(twoFactorRoutes);
 import lobbyRoutes from "./routes/lobby.js";
 fastify.register(lobbyRoutes);
 
-// Run the server
 const port = parseInt(
   process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000",
   10
@@ -75,3 +63,4 @@ fastify.listen({ port, host }, (err: any, address: any) => {
 });
 
 export { db, userService, tokenService, chatService, twoFactorService, lobbyService };
+

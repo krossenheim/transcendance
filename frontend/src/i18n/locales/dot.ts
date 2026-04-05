@@ -1,8 +1,6 @@
-// Dothraki translations
 import type { TranslationKeys } from './en';
 
 export const dot: TranslationKeys = {
-  // Common
   common: {
     loading: 'Ayyeyaan...',
     error: 'Vos allayafi',
@@ -24,14 +22,12 @@ export const dot: TranslationKeys = {
     hide: 'Aqafat',
   },
 
-  // Navigation
   nav: {
     chat: 'Astat',
     pong: 'Pong',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: 'Transcendence',
     welcome: 'M\'athchomaroon, Transcendence',
@@ -42,7 +38,6 @@ export const dot: TranslationKeys = {
     guestLoginFailed: 'Ifesinosi vos elat',
   },
 
-  // Login
   login: {
     title: 'Elat',
     username: 'Hake',
@@ -61,7 +56,6 @@ export const dot: TranslationKeys = {
     loginFailed: 'Elat vos allayafi',
   },
 
-  // Register
   register: {
     title: 'Thira Akka',
     subtitle: 'Ashafa yeri vi jin thira',
@@ -91,7 +85,6 @@ export const dot: TranslationKeys = {
     registrationFailed: 'Thira vos allayafi',
   },
 
-  // User Menu
   userMenu: {
     userId: 'ID Lajaki',
     viewProfile: 'Tihilat profili anni',
@@ -101,7 +94,6 @@ export const dot: TranslationKeys = {
     loggingOut: 'Disse ajjin...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Azhi Elat Kishi',
     subtitle: 'Ayyalanolat jin vichomer ki yeri she azhi elat',
@@ -121,7 +113,6 @@ export const dot: TranslationKeys = {
     openSettings: 'Okkat azhi elat kishi',
   },
 
-  // Language
   language: {
     title: 'Lekh',
     select: 'Azhat lekh',
@@ -140,7 +131,6 @@ export const dot: TranslationKeys = {
     dot: 'Lekh Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Lajasaroon',
     manageFriends: 'Oqolat Lajasaroon',
@@ -166,7 +156,6 @@ export const dot: TranslationKeys = {
     deny: 'Vos azhat',
   },
 
-  // Chat
   chat: {
     title: 'Astat',
     sendMessage: 'Asavvea ast',
@@ -194,7 +183,6 @@ export const dot: TranslationKeys = {
     dmWithUser: 'Ast ma Lajak',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Lajat Pong she lajaki she vorsa lajat',
@@ -208,12 +196,10 @@ export const dot: TranslationKeys = {
     invite: 'Ast she Lajat',
     acceptInvite: 'Azhat Ast',
     declineInvite: 'Vos Ast',
-    // Menu buttons
     createGameButton: '🎮 Thira Lajat',
     menuDescription: 'Thira lajat anna, ast she yalli, hash AI tihat.',
     quickPlay: '🤖 Lajat Sandi (Kishi)',
     debugMode: '🎯 Debug: 8 Lajaki (3 hrazef)',
-    // Pong Invite Modal
     createPongGame: 'Thira Pong Lajat',
     selectGameMode: 'Azhat Lajat Vorsa',
     oneVsOne: '1 ki 1',
@@ -247,7 +233,6 @@ export const dot: TranslationKeys = {
     aiNightmare: 'Athdrivar',
     ai: 'AI',
     createGame: 'Thira Lajat',
-    // Pong Lobby
     gameLobby: 'Kherikh Lajat',
     lobby: 'Kherikh',
     leave: 'Disse',
@@ -263,14 +248,12 @@ export const dot: TranslationKeys = {
     imReady: 'Anha eth!',
     allReadyRequired: 'Vorsqoy lajaki hash eth she astalat',
     needMinPlayers: 'Zhilak akat lajaki ki astalat',
-    // Game mode descriptions
     desc1v1: '1 ki 1 Pong - Lajat hrazef she at claviatur (WASD ki Sagittas)',
     descMultiplayer: 'Layafaan Pong - Lajaki lajat she vorsqoy ki vorsqoy',
     descTournament1v1: '1v1 Vikeesi - Lajaki lajat she vorsa tabelli',
     descTournamentMulti: 'Layafaan Vikeesi - Khalasar lajat she vorsa tabelli',
     descTournament: 'Vikeesi - 4 lajaki lajat she 1v1 tabelli (sash finali ma finali)',
     descLastOneStanding: 'Vigat Atthirar - 2-8 lajaki lajat. Vigat at vichomer!',
-    // Validation alerts
     alert1v1Players: '1v1 zhilak akat lajaki (ma yer)',
     alertTournament1v1Players: 'Vikeesi 1v1 zhilak dalen lajaki',
     alertTournamentMultiPlayers: 'Layafaan vikeesi zhilak dalen lajaki',
@@ -278,12 +261,10 @@ export const dot: TranslationKeys = {
     alertMultiplayerPlayers: 'Layafaan zhilak akat lajaki',
     alertLastOneStandingMin: 'Vigat Atthirar zhilak akat lajaki',
     alertLastOneStandingMax: 'Vigat Atthirar zhey zhey lajaki',
-    // Game UI
     leaderboard: 'Torga Lajaki',
     backToMenu: 'Irge she Menu',
     player: 'Lajak',
     gameOverText: 'LAJAT DISSE!',
-    // Tournament UI
     tournamentWinner: 'KHAL VIKEESI!',
     tournamentComplete: 'Vikeesi Disse',
     congratulations: 'Hajas! Yer ray vichomerat vikeesi!',
@@ -297,7 +278,6 @@ export const dot: TranslationKeys = {
     yourMatchIsReady: 'Yeri lajat eth!',
     anotherMatchCompleted: 'Atvezhat lajat disse',
     matchComplete: 'Lajat disse',
-    // Powerups
     powerupBallAdded: 'Hrazef Azhat',
     powerupFastPaddles: 'Sandi Padellath',
     powerupSlowPaddles: 'Zhilli Padellath',
@@ -308,7 +288,6 @@ export const dot: TranslationKeys = {
     powerupUnknown: 'Vosecchi',
   },
 
-  // 2FA
   twoFactor: {
     title: 'Akat Ido Azhat',
     enterCode: 'Astolat 6 numerikoon ki yeri app',
@@ -340,7 +319,6 @@ export const dot: TranslationKeys = {
     notAvailableGuest: 'Akat ido vos ki ifesinosi thira.',
   },
 
-  // Profile
   profile: {
     title: 'Profili',
     userProfile: 'Profili Lajaki',
@@ -375,7 +353,6 @@ export const dot: TranslationKeys = {
     inGame: 'she lajat',
   },
 
-  // Errors
   errors: {
     networkError: 'Vos allayafi ataki. Ast akka.',
     serverError: 'Vos allayafi server. Ast she ajjin.',
@@ -384,3 +361,4 @@ export const dot: TranslationKeys = {
   },
 
 };
+

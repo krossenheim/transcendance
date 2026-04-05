@@ -50,3 +50,4 @@ export const createMessagesSlice: StateCreator<ChatStoreState, [["zustand/immer"
         },
     },
 });
+

@@ -1,8 +1,5 @@
 export const EPS = 1e-9;
-// FAT_EPS: Small time delta to advance after collision resolution
-// This prevents objects from immediately re-colliding on the same frame
-// Must be small enough to not cause visible jumps (velocity * FAT_EPS should be tiny)
-export const FAT_EPS = 1e-3;  // 1ms worth of movement
+export const FAT_EPS = 1e-3;
 
 export function isNearly(x: number, n: number): boolean {
     return Math.abs(x - n) < EPS;
@@ -132,3 +129,4 @@ export function solveQuadratic(a: number, b: number, c: number, out: Float64Arra
     out[1] = (-b + sqrtDisc) / (2 * a);
     return 2;
 }
+

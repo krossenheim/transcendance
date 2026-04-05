@@ -27,7 +27,7 @@ export function verifyJWT(token: string): Result<JWTData, string> {
 		const parseResult = zodParse(JWTPayloadSchema, decoded);
 		if (parseResult.isErr())
 			return Result.Err('Token data schema validation failed');
-	
+
 		if (parseResult.unwrap().exp < Math.floor(Date.now() / 1000))
 			return Result.Err('Token has expired');
 
@@ -36,3 +36,4 @@ export function verifyJWT(token: string): Result<JWTData, string> {
 		return Result.Err('Invalid token');
 	}
 }
+

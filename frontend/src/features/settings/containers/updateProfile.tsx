@@ -58,8 +58,8 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 	return (
 		<div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
 			<h1 className="text-2xl font-bold text-white mb-6">Profile Settings</h1>
-			
-			{/* Avatar */}
+
+			{}
 			<div className="flex items-center gap-6 p-4 bg-slate-900/50 rounded-xl border border-slate-700">
 				<div className="relative h-24 w-24 rounded-full overflow-hidden bg-slate-700 ring-4 ring-slate-800 shadow-lg">
 					{previewPfp ? (
@@ -83,23 +83,23 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 				</div>
 			</div>
 
-			{/* Fields */}
+			{}
 			<div className="space-y-4">
 				<div>
 					<label className="block text-sm font-medium text-gray-300 mb-1">Alias</label>
-					<input 
-						type="text" 
-						value={alias} 
+					<input
+						type="text"
+						value={alias}
 						onChange={(e) => setAlias(e.target.value)}
 						className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow"
 					/>
 				</div>
-				
+
 				<div>
 					<label className="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
-					<input 
-						type="email" 
-						value={email} 
+					<input
+						type="email"
+						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 						className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow"
 					/>
@@ -107,8 +107,8 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 
 				<div>
 					<label className="block text-sm font-medium text-gray-300 mb-1">Bio</label>
-					<textarea 
-						value={bio} 
+					<textarea
+						value={bio}
 						onChange={(e) => setBio(e.target.value)}
 						rows={4}
 						className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow resize-none"
@@ -118,7 +118,7 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 			</div>
 
 			<div className="pt-4 border-t border-slate-700 flex justify-end">
-				<button 
+				<button
 					onClick={handleSubmit}
 					disabled={isSaving}
 					className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-900/20"
@@ -129,3 +129,4 @@ export const UpdateProfileComponent: React.FC<UpdateProfileProps> = () => {
 		</div>
 	)
 }
+

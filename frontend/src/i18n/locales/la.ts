@@ -1,8 +1,6 @@
-// Latin translations
 import type { TranslationKeys } from './en';
 
 export const la: TranslationKeys = {
-  // Common
   common: {
     loading: 'Onerandum...',
     error: 'Error',
@@ -24,14 +22,12 @@ export const la: TranslationKeys = {
     hide: 'Celare',
   },
 
-  // Navigation
   nav: {
     chat: 'Colloquium',
     pong: 'Pong',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: 'Transcendentia',
     welcome: 'Salve, Transcendentia',
@@ -42,7 +38,6 @@ export const la: TranslationKeys = {
     guestLoginFailed: 'Introitus hospitis defecit',
   },
 
-  // Login
   login: {
     title: 'Introitus',
     username: 'Nomen usoris',
@@ -61,7 +56,6 @@ export const la: TranslationKeys = {
     loginFailed: 'Introitus defecit',
   },
 
-  // Register
   register: {
     title: 'Rationem Creare',
     subtitle: 'Complere data tua ut te inscribas',
@@ -91,7 +85,6 @@ export const la: TranslationKeys = {
     registrationFailed: 'Inscriptio defecit',
   },
 
-  // User Menu
   userMenu: {
     userId: 'ID usoris',
     viewProfile: 'Profilum meum videre',
@@ -101,7 +94,6 @@ export const la: TranslationKeys = {
     loggingOut: 'Disceditur...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Optiones Accessibilitatis',
     subtitle: 'Interfaciem ad necessitates tuas accommodare',
@@ -121,7 +113,6 @@ export const la: TranslationKeys = {
     openSettings: 'Optiones accessibilitatis aperire',
   },
 
-  // Language
   language: {
     title: 'Lingua',
     select: 'Linguam eligere',
@@ -140,7 +131,6 @@ export const la: TranslationKeys = {
     dot: 'Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Amici',
     manageFriends: 'Amicos Administrare',
@@ -166,7 +156,6 @@ export const la: TranslationKeys = {
     deny: 'Denegare',
   },
 
-  // Chat
   chat: {
     title: 'Colloquium',
     sendMessage: 'Nuntium mittere',
@@ -194,7 +183,6 @@ export const la: TranslationKeys = {
     dmWithUser: 'Nuntius cum Usore',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Pong classicum contra alios lusores in variis modis lude',
@@ -208,12 +196,10 @@ export const la: TranslationKeys = {
     invite: 'Ad Ludum Invitare',
     acceptInvite: 'Invitationem Acceptare',
     declineInvite: 'Invitationem Declinare',
-    // Menu buttons
     createGameButton: '🎮 Ludum Creare',
     menuDescription: 'Ludum localem crea, amicos invita, vel contra AI lude.',
     quickPlay: '🤖 Ludus Celer (Solus)',
     debugMode: '🎯 Debug: VIII Lusores (III pilae)',
-    // Pong Invite Modal
     createPongGame: 'Ludum Pong Creare',
     selectGameMode: 'Modum Ludi Eligere',
     oneVsOne: 'I contra I',
@@ -247,7 +233,6 @@ export const la: TranslationKeys = {
     aiNightmare: 'Somnium',
     ai: 'AI',
     createGame: 'Ludum Creare',
-    // Pong Lobby
     gameLobby: 'Vestiarium Ludi',
     lobby: 'Vestiarium',
     leave: 'Discedere',
@@ -263,14 +248,12 @@ export const la: TranslationKeys = {
     imReady: 'Paratus sum!',
     allReadyRequired: 'Omnes lusores parati esse debent ante initium',
     needMinPlayers: 'Minimum II lusores ad incipiendum requiruntur',
-    // Game mode descriptions
     desc1v1: 'Classicum I contra I Pong - Ludus localis in eodem claviario (WASD contra Sagittas)',
     descMultiplayer: 'Multilusor Pong - Plures lusores in certamine omnium contra omnes ludunt',
     descTournament1v1: 'Certamen I contra I - Lusores in certaminibus tabellae ludunt',
     descTournamentMulti: 'Certamen Multi - Turmae in certaminibus tabellae ludunt',
     descTournament: 'Certamen - IV lusores in I contra I tabellis ludunt (semifinales + finalis)',
     descLastOneStanding: 'Ultimus Stans - II-VIII lusores pugnant. Ultimus stans vincit!',
-    // Validation alerts
     alert1v1Players: 'Modus I contra I exacte II lusores requirit (te incluso)',
     alertTournament1v1Players: 'Certamen I contra I minimum IV lusores requirit',
     alertTournamentMultiPlayers: 'Certamen multilusor minimum IV lusores requirit',
@@ -278,12 +261,10 @@ export const la: TranslationKeys = {
     alertMultiplayerPlayers: 'Modus multilusor minimum II lusores requirit',
     alertLastOneStandingMin: 'Ultimus Stans minimum II lusores requirit',
     alertLastOneStandingMax: 'Ultimus Stans maximum VIII lusores permittit',
-    // Game UI
     leaderboard: 'Tabula Ordinum',
     backToMenu: 'Retro ad Menu',
     player: 'Lusor',
     gameOverText: 'LUDUS FINITUS!',
-    // Tournament UI
     tournamentWinner: 'VICTOR CERTAMINIS!',
     tournamentComplete: 'Certamen Completum',
     congratulations: 'Gratulor! Certamen vicisti!',
@@ -297,7 +278,6 @@ export const la: TranslationKeys = {
     yourMatchIsReady: 'Certamen tuum paratum est!',
     anotherMatchCompleted: 'Aliud certamen completum',
     matchComplete: 'Certamen completum',
-    // Powerups
     powerupBallAdded: 'Pila Addita',
     powerupFastPaddles: 'Palmulae Celeres',
     powerupSlowPaddles: 'Palmulae Lentae',
@@ -308,7 +288,6 @@ export const la: TranslationKeys = {
     powerupUnknown: 'Ignotum',
   },
 
-  // 2FA
   twoFactor: {
     title: 'Authenticatio Duorum Factorum',
     enterCode: 'Codicem VI digitorum ex applicatione authenticatoris inscribe',
@@ -340,7 +319,6 @@ export const la: TranslationKeys = {
     notAvailableGuest: 'Authenticatio duorum factorum pro rationibus hospitum non praesto est.',
   },
 
-  // Profile
   profile: {
     title: 'Profilum',
     userProfile: 'Profilum Usoris',
@@ -375,7 +353,6 @@ export const la: TranslationKeys = {
     inGame: 'in ludo',
   },
 
-  // Errors
   errors: {
     networkError: 'Error retis. Quaeso iterum tempta.',
     serverError: 'Error serveris. Quaeso postea iterum tempta.',
@@ -384,3 +361,4 @@ export const la: TranslationKeys = {
   },
 
 };
+

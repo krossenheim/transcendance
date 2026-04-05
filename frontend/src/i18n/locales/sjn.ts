@@ -1,8 +1,6 @@
-// Sindarin (Elvish) translations
 import type { TranslationKeys } from './en';
 
 export const sjn: TranslationKeys = {
-  // Common
   common: {
     loading: "Dartho...",
     error: "Mist",
@@ -24,14 +22,12 @@ export const sjn: TranslationKeys = {
     hide: "Daur",
   },
 
-  // Navigation
   nav: {
     chat: "Pedo",
     pong: "Teilien",
     gdpr: "Sennui i-dîr",
   },
 
-  // App
   app: {
     title: "I Dhúath Eraid",
     welcome: "Mae govannen, I Dhúath Eraid",
@@ -42,7 +38,6 @@ export const sjn: TranslationKeys = {
     guestLoginFailed: "Taur minno awarth",
   },
 
-  // Login
   login: {
     title: "Minno",
     username: "Eneth",
@@ -61,7 +56,6 @@ export const sjn: TranslationKeys = {
     loginFailed: "Minno awarth",
   },
 
-  // Register
   register: {
     title: "Panna eneth",
     subtitle: "Teithio i dîr lín",
@@ -91,7 +85,6 @@ export const sjn: TranslationKeys = {
     registrationFailed: "Panna awarth",
   },
 
-  // User Menu
   userMenu: {
     userId: "Rim eneth",
     viewProfile: "Tiro i lûth nín",
@@ -101,7 +94,6 @@ export const sjn: TranslationKeys = {
     loggingOut: "Mado...",
   },
 
-  // Accessibility
   accessibility: {
     title: "Seriad cîl",
     subtitle: "Prestanno i benneth na i boer lín",
@@ -121,7 +113,6 @@ export const sjn: TranslationKeys = {
     openSettings: "Edro seriad cîl",
   },
 
-  // Language
   language: {
     title: "Lammas",
     select: "Cilio lammas",
@@ -140,7 +131,6 @@ export const sjn: TranslationKeys = {
     dot: "Lam Dothraki",
   },
 
-  // Friends
   friends: {
     title: "Mellyn",
     manageFriends: "Serio mellyn",
@@ -166,7 +156,6 @@ export const sjn: TranslationKeys = {
     deny: "Avo",
   },
 
-  // Chat
   chat: {
     title: "Pedo",
     sendMessage: "Anno gweth",
@@ -194,7 +183,6 @@ export const sjn: TranslationKeys = {
     dmWithUser: "DM ah Eneth",
   },
 
-  // Pong
   pong: {
     title: "Teilien",
     subtitle: "Teilio i iaur teilien veleg. Maetho mellyn egor yrch!",
@@ -273,11 +261,10 @@ export const sjn: TranslationKeys = {
     alertMultiplayerPlayers: "Rim bui tad teilienrim",
     alertLastOneStandingMin: "I Vedhui na Dartha bui tad teilienrim",
     alertLastOneStandingMax: "I Vedhui na Dartha toloth teilienrim bui",
-    // Game UI
     leaderboard: "Parf teilienrim",
     backToMenu: "Gwanno na wuv",
     player: "Teilien",
-    gameOverText: "TEILIEN AWARTHAN!",    // Tournament UI
+    gameOverText: "TEILIEN AWARTHAN!",
     tournamentWinner: 'ARAN EN-DAGOR!',
     tournamentComplete: 'Dagor awarthannen',
     congratulations: 'Alae! Le tuiannen i dagor!',
@@ -290,7 +277,7 @@ export const sjn: TranslationKeys = {
     viewTournament: 'Tiro i dagor pân',
     yourMatchIsReady: 'I ned-vaeth lîn maer!',
     anotherMatchCompleted: 'Vaeth erain awarthannen',
-    matchComplete: 'Vaeth awarthannen',    // Powerups
+    matchComplete: 'Vaeth awarthannen',
     powerupBallAdded: "Corn pannen",
     powerupFastPaddles: "Lin padellath",
     powerupSlowPaddles: "Him padellath",
@@ -301,7 +288,6 @@ export const sjn: TranslationKeys = {
     powerupUnknown: "Úgostannen",
   },
 
-  // 2FA
   twoFactor: {
     title: "Tad Angor Tangado",
     enterCode: "Teithio i eneg nothrim ned i chwest lín",
@@ -333,7 +319,6 @@ export const sjn: TranslationKeys = {
     notAvailableGuest: "Tad angor tangado law chuion na taur eneth.",
   },
 
-  // Profile
   profile: {
     title: "Lûth",
     userProfile: "Eneth Lûth",
@@ -368,7 +353,6 @@ export const sjn: TranslationKeys = {
     inGame: "ned teilien",
   },
 
-  // Errors
   errors: {
     networkError: "Gwedhi mist. Athrado erui.",
     serverError: "Arnad mist. Athrado an-uir.",
@@ -377,3 +361,4 @@ export const sjn: TranslationKeys = {
   },
 
 };
+

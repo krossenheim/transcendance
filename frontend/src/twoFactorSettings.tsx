@@ -28,7 +28,6 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
     }
   }, [startWithSetup]);
 
-  // Close modal on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -48,7 +47,6 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
 
   const checkTwoFactorStatus = async () => {
     try {
-      // Try to get from localStorage user data first
       const storedUser = localStorage.getItem('userData');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
@@ -59,18 +57,15 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
         }
       }
 
-      // Fallback: make API call (this endpoint needs to be added or use internal data)
       const response = await fetch(`/public_api/auth/2fa/status/${userId}`);
       if (response.ok) {
         const data = await response.json();
         setIs2FAEnabled(data.enabled);
       } else {
-        // If endpoint doesn't exist, use initialEnabled prop
         setIs2FAEnabled(initialEnabled ?? false);
       }
     } catch (error) {
       console.error("Failed to check 2FA status:", error);
-      // Fallback to initialEnabled prop
       setIs2FAEnabled(initialEnabled ?? false);
     } finally {
       setIsLoading(false);
@@ -217,3 +212,4 @@ export function TwoFactorSettings({ userId, username, initialEnabled, isGuest, o
     </div>
   );
 }
+

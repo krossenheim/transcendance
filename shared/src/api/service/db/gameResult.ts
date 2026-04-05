@@ -16,7 +16,6 @@ export const GameResultsWidget = z.object({
   win_rate: z.number(),
 }).strict();
 
-// Match history types — includes opponent info for each game
 export const MatchHistoryOpponent = z.object({
   userId: z.number(),
   username: z.string(),
@@ -34,8 +33,6 @@ export const MatchHistoryEntry = z.object({
   opponents: z.array(MatchHistoryOpponent),
 });
 
-// Internal row schema for the self-join SQL query (not exported to clients)
-// Opponent fields are nullable because LEFT JOIN returns NULLs for AI-only games
 export const MatchHistoryRow = z.object({
   gameId: gameIdValue,
   score: z.number(),
@@ -60,3 +57,4 @@ export default {
   MatchHistoryEntry,
   MatchHistoryOpponent,
 };
+

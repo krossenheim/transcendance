@@ -40,7 +40,6 @@ export async function fetchAllowedOnlineStatusViewers(userId: number): Promise<A
   return Array.from(allowedViewers);
 }
 
-// {"funcId":"user_online_status_update","payload":null,"target_container":"users"}
 export function wsUserOnlineStatusHandler(socket: OurSocket, onlineUsers: Set<number>) {
   socket.registerHandler(
     user_url.ws.users.userOnlineStatusUpdate,
@@ -52,3 +51,4 @@ export function wsUserOnlineStatusHandler(socket: OurSocket, onlineUsers: Set<nu
     }
   );
 }
+

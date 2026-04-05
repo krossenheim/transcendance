@@ -1,8 +1,6 @@
-// Pig Latin translations
 import type { TranslationKeys } from './en';
 
 export const pig: TranslationKeys = {
-  // Common
   common: {
     loading: 'Oadinglay...',
     error: 'Errorway',
@@ -24,14 +22,12 @@ export const pig: TranslationKeys = {
     hide: 'Idehay',
   },
 
-  // Navigation
   nav: {
     chat: 'Atchay',
     pong: 'Ongpay',
     gdpr: 'GDPR-way',
   },
 
-  // App
   app: {
     title: 'Anscendencetray',
     welcome: 'Elcomeway otay Anscendencetray',
@@ -42,7 +38,6 @@ export const pig: TranslationKeys = {
     guestLoginFailed: 'Uestgay oginlay ailedfay',
   },
 
-  // Login
   login: {
     title: 'Oginlay',
     username: 'Usernameay',
@@ -61,7 +56,6 @@ export const pig: TranslationKeys = {
     loginFailed: 'Oginlay ailedfay',
   },
 
-  // Register
   register: {
     title: 'Eatecray Accountway',
     subtitle: 'Illfay inway ouryay etailsday otay egisterray',
@@ -91,7 +85,6 @@ export const pig: TranslationKeys = {
     registrationFailed: 'Egistrationray ailedfay',
   },
 
-  // User Menu
   userMenu: {
     userId: 'Userway ID-way',
     viewProfile: 'Iewvay ymay ofilepray',
@@ -101,7 +94,6 @@ export const pig: TranslationKeys = {
     loggingOut: 'Ogginglay outway...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Accessibilityway Ettingssay',
     subtitle: 'Ustomizecay ethay interfaceway otay eetmay ouryay accessibilityway eedsnay',
@@ -121,7 +113,6 @@ export const pig: TranslationKeys = {
     openSettings: 'Openway accessibilityway ettingssay',
   },
 
-  // Language
   language: {
     title: 'Anguagelay',
     select: 'Electsay anguagelay',
@@ -140,7 +131,6 @@ export const pig: TranslationKeys = {
     dot: 'Othrakiday',
   },
 
-  // Friends
   friends: {
     title: 'Iendsfray',
     manageFriends: 'Anagemay Iendsfray',
@@ -166,7 +156,6 @@ export const pig: TranslationKeys = {
     deny: 'Enyday',
   },
 
-  // Chat
   chat: {
     title: 'Atchay',
     sendMessage: 'Endsay essagemay',
@@ -194,7 +183,6 @@ export const pig: TranslationKeys = {
     dmWithUser: 'DM-way ithway Userway',
   },
 
-  // Pong
   pong: {
     title: 'Ongpay',
     subtitle: 'Ayplay assicclay Ongpay againstway otherway ayersplay inway ariousvay amegay odesmay',
@@ -208,12 +196,10 @@ export const pig: TranslationKeys = {
     invite: 'Inviteway otay Amegay',
     acceptInvite: 'Acceptway Invitationway',
     declineInvite: 'Eclineday Invitationway',
-    // Menu buttons
     createGameButton: '🎮 Eatecray Amegay',
     menuDescription: 'Eatecray a ocallay amegay, inviteway iendsfray, orway ayplay againstway AI.',
     quickPlay: '🤖 Ickquay Ayplay (Olosay)',
     debugMode: '🎯 Ebugday: 8 Ayersplay (3 allsbay)',
-    // Pong Invite Modal
     createPongGame: 'Eatecray Ongpay Amegay',
     selectGameMode: 'Electsay Amegay Odemay',
     oneVsOne: '1 svay 1',
@@ -247,7 +233,6 @@ export const pig: TranslationKeys = {
     aiNightmare: 'Ightmarenay',
     ai: 'AI-way',
     createGame: 'Eatecray Amegay',
-    // Pong Lobby
     gameLobby: 'Amegay Obbylay',
     lobby: 'Obbylay',
     leave: 'Eavelay',
@@ -263,14 +248,12 @@ export const pig: TranslationKeys = {
     imReady: "I'mway Eadyray!",
     allReadyRequired: 'Allway ayersplay ustmay ebay eadyray eforebay artingsay',
     needMinPlayers: 'Eednay atlay eastlay 2 ayersplay otay artsay',
-    // Game mode descriptions
     desc1v1: 'Assicclay 1 svay 1 Ongpay - Ocallay ayplay onsay amesay eyboardkay (WASD svay Arrowsway)',
     descMultiplayer: 'Ultiplayermay Ongpay - Ultiplemay ayersplay ompetecay inway away eefray-orfay-allway atchmay',
     descTournament1v1: '1v1 Ournamenttay - Ayersplay ompetecay inway acketbray-ylesay atchesmay',
     descTournamentMulti: 'Ultiplayermay Ournamenttay - Eamstay ompetecay inway acketbray-ylesay atchesmay',
     descTournament: 'Ournamenttay - 4 ayersplay ompetecay inway 1v1 acketbray atchesmay (emisay-inalsfay + inalfay)',
     descLastOneStanding: 'Astlay Oneway Andingsay - 2-8 ayersplay attlebay. Astlay oneway andingsay insway!',
-    // Validation alerts
     alert1v1Players: '1v1 odemay equiresray exactlyway 2 ayersplay (includingway ourselfyay)',
     alertTournament1v1Players: 'Ournamenttay 1v1 equiresray atlay eastlay 4 ayersplay',
     alertTournamentMultiPlayers: 'Ultiplayermay ournamenttay equiresray atlay eastlay 4 ayersplay',
@@ -278,12 +261,10 @@ export const pig: TranslationKeys = {
     alertMultiplayerPlayers: 'Ultiplayermay odemay equiresray atlay eastlay 2 ayersplay',
     alertLastOneStandingMin: 'Astlay Oneway Andingsay equiresray atlay eastlay 2 ayersplay',
     alertLastOneStandingMax: 'Astlay Oneway Andingsay allowsway away aximummay ofway 8 ayersplay',
-    // Game UI
     leaderboard: 'Eaderboardlay',
     backToMenu: 'Ackbay otay Enumay',
     player: 'Ayerplay',
     gameOverText: 'AMEGAY OVERWAY!',
-    // Tournament UI
     tournamentWinner: 'OURNAMENTTAY AMPIONCHAY!',
     tournamentComplete: 'Ournamenttay Ompletecay',
     congratulations: 'Ongratulationscay! Ouyay onway ethay ournamenttay!',
@@ -297,7 +278,6 @@ export const pig: TranslationKeys = {
     yourMatchIsReady: 'Ouryay extnay atchmay isway eadyray!',
     anotherMatchCompleted: 'Anotherway atchmay ompletedcay',
     matchComplete: 'Atchmay ompletecay',
-    // Powerups
     powerupBallAdded: 'Allbay Addedway',
     powerupFastPaddles: 'Astfay Addlespay',
     powerupSlowPaddles: 'Owslay Addlespay',
@@ -308,7 +288,6 @@ export const pig: TranslationKeys = {
     powerupUnknown: 'Unknownway',
   },
 
-  // 2FA
   twoFactor: {
     title: 'Otway-Actorfay Authenticationway',
     enterCode: 'Enterway ethay 6-igitday odecay omfray ouryay authenticatorway appway',
@@ -340,7 +319,6 @@ export const pig: TranslationKeys = {
     notAvailableGuest: 'Otway-actorfay authenticationway isway otnay availableway orfay uestgay accountsway.',
   },
 
-  // Profile
   profile: {
     title: 'Ofilepray',
     userProfile: 'Userway Ofilepray',
@@ -375,7 +353,6 @@ export const pig: TranslationKeys = {
     inGame: 'inway-amegay',
   },
 
-  // Errors
   errors: {
     networkError: 'Etworknay errorway. Easeplay ytray againway.',
     serverError: 'Erversay errorway. Easeplay ytray againway aterlay.',
@@ -384,3 +361,4 @@ export const pig: TranslationKeys = {
   },
 
 };
+

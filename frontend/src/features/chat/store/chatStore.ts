@@ -8,3 +8,4 @@ export const useChatStore = create<ChatStoreState>()(immer((...a) => ({
     ...createRoomsSlice(...a),
     ...createMessagesSlice(...a),
 })));
+

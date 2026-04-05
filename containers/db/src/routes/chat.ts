@@ -3,7 +3,6 @@ import { registerRoute } from "@app/shared/api/service/common/fastify";
 import { int_url } from "@app/shared/api/service/common/endpoints";
 import { chatService } from "../main.js";
 
-// Use 'any' to avoid FastifyInstance type mismatch between shared and local fastify versions
 export async function chatRoutes(fastify: any) {
     registerRoute(fastify, int_url.http.db.createChatRoom, async (request, reply) => {
         const createRoomResult = chatService.createNewChatRoom(request.body.roomName, request.body.owner);
@@ -76,3 +75,4 @@ export async function chatRoutes(fastify: any) {
 }
 
 export default chatRoutes;
+

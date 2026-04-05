@@ -31,16 +31,11 @@ export const ChatHeader: React.FC = () => {
   const roomData = currentRoomId ? userChatRooms.get(currentRoomId) : undefined;
 
   const handleInviteToPong = () => {
-    // Clear any stale game state from previous games
     resetGameState();
-    
-    // Build room users list from current room connections
-    // userState can be numeric (0/1), string ("INVITED"/"JOINED"), or enum value
-    // JOINED = 1, INVITED = 0 - so we filter for "not invited"
+
     const roomUsers = currentRoomUserConnections
       .filter(conn => {
         const state = conn.userState;
-        // Accept JOINED in any of its possible representations
         return state === 1 || state === "JOINED" || state === ChatRoomUserAccessType.JOINED ||
                (state !== 0 && state !== "INVITED" && state !== ChatRoomUserAccessType.INVITED);
       })
@@ -64,7 +59,7 @@ export const ChatHeader: React.FC = () => {
         {roomData ? `#${roomData.roomName}` : t('chat.selectRoom')}
       </h2>
       {roomData && (
-        <button 
+        <button
           onClick={handleInviteToPong}
           className="px-3 py-1 text-sm bg-pink-500 text-white hover:bg-pink-600 transition-all shadow-md rounded-md"
         >
@@ -74,3 +69,4 @@ export const ChatHeader: React.FC = () => {
     </div>
   )
 }
+

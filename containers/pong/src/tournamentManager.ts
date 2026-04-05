@@ -4,43 +4,10 @@ import type { ErrorResponseType } from "@app/shared/api/service/common/error";
 import { TournamentPlayerSchema, TournamentMatchSchema, TournamentDataSchema } from "@app/shared/api/service/pong/pong_interfaces";
 import { z } from "zod";
 
-// export interface TournamentPlayer {
-//   userId: number;
-//   username: string;
-//   alias?: string;
-// }
 export type TournamentPlayer = z.infer<typeof TournamentPlayerSchema>;
 
-// export interface TournamentMatch {
-//   matchId: number;
-//   round: number;
-//   player1Id: number | null;
-//   player2Id: number | null;
-//   winnerId: number | null;
-//   status: "pending" | "in_progress" | "completed";
-//   gameId?: number;
-//   readyPlayers: number[];
-// }
 export type TournamentMatch = z.infer<typeof TournamentMatchSchema>;
 
-// export interface Tournament {
-//   tournamentId: number;
-//   name: string;
-//   mode: "tournament";
-//   players: TournamentPlayer[];
-//   matches: TournamentMatch[];
-//   currentRound: number;
-//   totalRounds: number;
-//   status: "registration" | "in_progress" | "completed";
-//   winnerId: number | null;
-//   ballCount: number;
-//   maxScore: number;
-//   allowPowerups: boolean;
-//   aiDifficulty: number;
-//   onchainTxHashes?: string[];
-//   isLocal?: boolean;
-//   hostUserId?: number;
-// }
 export type Tournament = z.infer<typeof TournamentDataSchema>;
 
 export class TournamentManager {
@@ -71,8 +38,6 @@ export class TournamentManager {
       });
     }
 
-    // For proper bracket, ideally should be power of 2
-    // But we'll handle odd numbers by giving byes
     const totalRounds = Math.ceil(Math.log2(playerIds.length));
 
     const tournament: Tournament = {
@@ -98,17 +63,12 @@ export class TournamentManager {
       ...(hostUserId !== undefined ? { hostUserId } : {}),
     };
 
-    // Generate bracket immediately — no registration phase
     this.generateBracket(tournament);
 
     this.tournaments.set(tournament.tournamentId, tournament);
     return ResultClass.Ok(tournament);
   }
 
-  /**
-   * Ensure tournament bracket is generated and status is in_progress.
-   * Called when first match is about to start.
-   */
   ensureBracketGenerated(tournamentId: number): Result<Tournament, ErrorResponseType> {
     const tournament = this.tournaments.get(tournamentId);
     if (!tournament) {
@@ -123,9 +83,6 @@ export class TournamentManager {
     return ResultClass.Ok(tournament);
   }
 
-  /**
-   * Get all pending matches that are ready to start (both players set)
-   */
   getAllReadyMatches(tournamentId: number): TournamentMatch[] {
     const tournament = this.tournaments.get(tournamentId);
     if (!tournament) return [];
@@ -137,9 +94,6 @@ export class TournamentManager {
     );
   }
 
-  /**
-   * Get the next pending match for a given player
-   */
   getNextPendingMatchForPlayer(tournamentId: number, userId: number): TournamentMatch | null {
     const tournament = this.tournaments.get(tournamentId);
     if (!tournament) return null;
@@ -152,10 +106,6 @@ export class TournamentManager {
     ) || null;
   }
 
-  /**
-   * Mark a player as ready for a tournament match.
-   * Returns: { match, bothReady } where bothReady indicates if both players are now ready.
-   */
   markPlayerReady(
     tournamentId: number,
     matchId: number,
@@ -171,31 +121,24 @@ export class TournamentManager {
       return ResultClass.Err({ message: "Match not found" });
     }
 
-    // Verify player is in this match
     if (match.player1Id !== userId && match.player2Id !== userId) {
       return ResultClass.Err({ message: "Player not in this match" });
     }
 
-    // Check if match is ready to start
     if (match.status !== "pending" || match.player1Id === null || match.player2Id === null) {
       return ResultClass.Err({ message: "Match not ready" });
     }
 
-    // Add player to ready list if not already
     if (!match.readyPlayers.includes(userId)) {
       match.readyPlayers.push(userId);
     }
 
-    // Check if both players are ready
-    const bothReady = match.readyPlayers.includes(match.player1Id) && 
+    const bothReady = match.readyPlayers.includes(match.player1Id) &&
                       match.readyPlayers.includes(match.player2Id);
 
     return ResultClass.Ok({ match, bothReady });
   }
 
-  /**
-   * Clear ready status for a match (e.g., when needing to reset)
-   */
   clearMatchReadyStatus(tournamentId: number, matchId: number): void {
     const tournament = this.tournaments.get(tournamentId);
     if (!tournament) return;
@@ -208,8 +151,7 @@ export class TournamentManager {
 
   private generateBracket(tournament: Tournament): void {
     const players = [...tournament.players];
-    
-    // Shuffle players for random seeding
+
     for (let i = players.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       const temp = players[i];
@@ -220,12 +162,9 @@ export class TournamentManager {
       }
     }
 
-    // Pad to next power of 2 for a balanced bracket
     const bracketSize = Math.pow(2, tournament.totalRounds);
     const numByes = bracketSize - players.length;
 
-    // Create slot array, placing byes at every other position from the end
-    // so each bye pairs with a real player (never two byes in the same match)
     const slots: (TournamentPlayer | null)[] = new Array(bracketSize).fill(null);
     const byePositions = new Set<number>();
     for (let b = 0; b < numByes; b++) {
@@ -240,7 +179,6 @@ export class TournamentManager {
       }
     }
 
-    // Round 1: pair adjacent slots
     const round1Matches: TournamentMatch[] = [];
     for (let i = 0; i < bracketSize; i += 2) {
       const p1 = slots[i];
@@ -256,7 +194,6 @@ export class TournamentManager {
         readyPlayers: [],
       };
 
-      // Handle byes: one player present, other null
       if (p1 && !p2) {
         match.winnerId = p1.userId;
         match.status = "completed";
@@ -270,7 +207,6 @@ export class TournamentManager {
 
     tournament.matches = round1Matches;
 
-    // Generate empty matches for subsequent rounds (exact halving)
     let previousRoundSize = round1Matches.length;
     for (let round = 2; round <= tournament.totalRounds; round++) {
       const currentRoundSize = previousRoundSize / 2;
@@ -288,7 +224,6 @@ export class TournamentManager {
       previousRoundSize = currentRoundSize;
     }
 
-    // Propagate bye winners to subsequent rounds
     for (const match of round1Matches) {
       if (match.status === "completed" && match.winnerId !== null) {
         this.advanceWinner(tournament, match);
@@ -312,7 +247,6 @@ export class TournamentManager {
       return ResultClass.Err({ message: "Match not found" });
     }
 
-    // For local tournaments, allow the host to start any match
     if (!tournament.isLocal && match.player1Id !== userId && match.player2Id !== userId) {
       return ResultClass.Err({ message: "You are not in this match" });
     }
@@ -353,22 +287,15 @@ export class TournamentManager {
     match.winnerId = winnerId;
     match.status = "completed";
 
-    // Advance winner to next round
     this.advanceWinner(tournament, match);
 
-    // Check if tournament is complete
     if (this.isTournamentComplete(tournament)) {
       tournament.status = "completed";
       tournament.winnerId = winnerId;
     }
 
-    // If tournament completed, attempt to record on-chain (best-effort)
     if (tournament.status === "completed") {
       try {
-        // Instead of importing the blockchain service directly, call the
-        // internal HTTP endpoint so the recording is done via the same API
-        // surface used by other services. This keeps behavior consistent and
-        // makes auditing easier.
         const internalSecret = process.env.INTERNAL_API_SECRET || "";
         const url = `http://localhost:${process.env.COMMON_PORT_ALL_DOCKER_CONTAINERS || "3000"}/api/pong/blockchain/record_score`;
         try {
@@ -405,10 +332,9 @@ export class TournamentManager {
   private advanceWinner(tournament: Tournament, completedMatch: TournamentMatch): void {
     const nextRound = completedMatch.round + 1;
     if (nextRound > tournament.totalRounds) {
-      return; // Tournament complete
+      return;
     }
 
-    // Find which slot in the next round this winner goes to
     const matchesInPrevRound = tournament.matches.filter(
       (m) => m.round === completedMatch.round
     );
@@ -422,14 +348,12 @@ export class TournamentManager {
 
     if (!nextMatch) return;
 
-    // Fill the first empty player slot
     if (nextMatch.player1Id === null) {
       nextMatch.player1Id = completedMatch.winnerId;
     } else if (nextMatch.player2Id === null) {
       nextMatch.player2Id = completedMatch.winnerId;
     }
 
-    // If both players are now filled, mark as ready
     if (nextMatch.player1Id !== null && nextMatch.player2Id !== null) {
       nextMatch.status = "pending";
     }
@@ -446,17 +370,10 @@ export class TournamentManager {
     return this.tournaments.get(tournamentId);
   }
 
-  /**
-   * Remove a completed tournament from memory.
-   * Should be called after the final results have been sent to all players.
-   */
   removeTournament(tournamentId: number): void {
     this.tournaments.delete(tournamentId);
   }
 
-  /**
-   * Check if a player is currently participating in any active (non-completed) tournament.
-   */
   getActiveTournamentForPlayer(userId: number): Tournament | undefined {
     for (const tournament of this.tournaments.values()) {
       if (tournament.status !== "completed" &&
@@ -470,3 +387,4 @@ export class TournamentManager {
 }
 
 export default TournamentManager;
+

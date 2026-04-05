@@ -6,7 +6,6 @@ import containers from "@app/shared/internal_api";
 
 import type { FullUserType } from "@app/shared/api/service/db/user";
 
-// {"funcId":"update_profile","payload":{"bio":"Lazy af"},"target_container":"users"}
 export function updateProfile(socket: OurSocket) {
 	socket.registerHandler(
 		user_url.ws.users.updateProfile,
@@ -29,3 +28,4 @@ export function updateProfile(socket: OurSocket) {
 		}
 	);
 }
+

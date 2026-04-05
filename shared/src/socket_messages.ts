@@ -12,7 +12,6 @@ function splitHeaderData(raw_string: string): string[] {
     return raw_string.split(SEPARATOR);
 }
 
-// targetContainer%funcId%payload
 export class ClientToHubMessage {
     private targetContainer: string;
     private funcId: string;
@@ -102,7 +101,6 @@ export class HubToServiceHandlerMessageScheme<T extends WebSocketRouteDef> {
     }
 }
 
-// messageType%funcId%userId%payload
 export class HubToServiceHandlerMessage extends HubToServiceMessage {
     private funcId: string;
     private userId: string;
@@ -147,7 +145,6 @@ export class HubToServiceReceiverMessageScheme<T extends WebSocketRouteDef> {
     }
 }
 
-// messageType%source_container%funcId%code%payload
 export class HubToServiceReceiverMessage extends HubToServiceMessage {
     private sourceContainer: string;
     private code: number;
@@ -247,7 +244,6 @@ export abstract class ServiceToHubMessage {
     abstract toString(): string;
 }
 
-// messageType%funcId%recipient1,recipient2%code%payload
 export class ServiceToHubClientMessage extends ServiceToHubMessage {
     private rawRecipientUserIds: string;
     private sourceContainer: string;
@@ -286,7 +282,6 @@ export class ServiceToHubClientMessage extends ServiceToHubMessage {
     }
 }
 
-// messageType%targetContainer%funcId%recipient1,recipient2%payload
 export class ServiceToHubBroadcastMessage extends ServiceToHubMessage {
     private rawRecipientUserIds: string;
     private targetContainer: string;
@@ -336,7 +331,6 @@ export type HubToClientMessageScheme<T extends WebSocketRouteDef> = {
     };
 }[keyof T["schema"]["output"]];
 
-// sourceContainer%funcId%payload
 export class HubToClientMessage {
     private sourceContainer: string;
     private funcId: string;
@@ -391,3 +385,4 @@ export class HubToClientMessage {
         });
     }
 }
+

@@ -38,3 +38,4 @@ export function wsFetchUserMatchHistoryHandlers(socket: OurSocket) {
 }
 
 export default wsFetchUserMatchHistoryHandlers;
+

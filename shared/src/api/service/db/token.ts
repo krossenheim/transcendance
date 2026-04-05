@@ -17,3 +17,4 @@ export default {
   VerifyTokenPayload,
   StoreTokenPayload
 };
+

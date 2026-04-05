@@ -1,8 +1,6 @@
-// Russian translations
 import { TranslationKeys } from './en';
 
 export const ru: TranslationKeys = {
-  // Common
   common: {
     loading: 'Загрузка...',
     error: 'Ошибка',
@@ -24,14 +22,12 @@ export const ru: TranslationKeys = {
     hide: 'Скрыть',
   },
 
-  // Navigation
   nav: {
     chat: 'Чат',
     pong: 'Понг',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: 'Трансцендентность',
     welcome: 'Добро пожаловать в Трансцендентность',
@@ -42,7 +38,6 @@ export const ru: TranslationKeys = {
     guestLoginFailed: 'Не удалось войти как гость',
   },
 
-  // Login
   login: {
     title: 'Вход',
     username: 'Имя пользователя',
@@ -61,7 +56,6 @@ export const ru: TranslationKeys = {
     loginFailed: 'Ошибка входа',
   },
 
-  // Register
   register: {
     title: 'Создать аккаунт',
     subtitle: 'Заполните данные для регистрации',
@@ -91,7 +85,6 @@ export const ru: TranslationKeys = {
     registrationFailed: 'Ошибка регистрации',
   },
 
-  // User Menu
   userMenu: {
     userId: 'ID пользователя',
     viewProfile: 'Посмотреть профиль',
@@ -101,7 +94,6 @@ export const ru: TranslationKeys = {
     loggingOut: 'Выход...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Настройки доступности',
     subtitle: 'Настройте интерфейс в соответствии с вашими потребностями',
@@ -121,7 +113,6 @@ export const ru: TranslationKeys = {
     openSettings: 'Открыть настройки доступности',
   },
 
-  // Language
   language: {
     title: 'Язык',
     select: 'Выберите язык',
@@ -140,7 +131,6 @@ export const ru: TranslationKeys = {
     dot: 'Дотракийский',
   },
 
-  // Friends
   friends: {
     title: 'Друзья',
     manageFriends: 'Управление друзьями',
@@ -166,7 +156,6 @@ export const ru: TranslationKeys = {
     deny: 'Отклонить',
   },
 
-  // Chat
   chat: {
     title: 'Чат',
     sendMessage: 'Отправить сообщение',
@@ -194,7 +183,6 @@ export const ru: TranslationKeys = {
     dmWithUser: 'ЛС с пользователем',
   },
 
-  // Pong
   pong: {
     title: 'Понг',
     subtitle: 'Играйте в классический Понг против других игроков в различных режимах',
@@ -208,12 +196,10 @@ export const ru: TranslationKeys = {
     invite: 'Пригласить в игру',
     acceptInvite: 'Принять приглашение',
     declineInvite: 'Отклонить приглашение',
-    // Menu buttons
     createGameButton: '🎮 Создать игру',
     menuDescription: 'Создайте локальную игру, пригласите друзей или играйте против ИИ.',
     quickPlay: '🤖 Быстрая игра (Соло)',
     debugMode: '🎯 Отладка: 8 игроков (3 мяча)',
-    // Pong Invite Modal
     createPongGame: 'Создать игру Понг',
     selectGameMode: 'Выберите режим игры',
     oneVsOne: '1 на 1',
@@ -247,7 +233,6 @@ export const ru: TranslationKeys = {
     aiNightmare: 'Кошмар',
     ai: 'ИИ',
     createGame: 'Создать игру',
-    // Pong Lobby
     gameLobby: 'Игровое лобби',
     lobby: 'Лобби',
     leave: 'Выйти',
@@ -263,14 +248,12 @@ export const ru: TranslationKeys = {
     imReady: 'Я готов!',
     allReadyRequired: 'Все игроки должны быть готовы для начала',
     needMinPlayers: 'Нужно минимум 2 игрока для начала',
-    // Game mode descriptions
     desc1v1: 'Классический Понг 1 на 1 - Два игрока соревнуются напрямую',
     descMultiplayer: 'Мультиплеер Понг - Несколько игроков соревнуются в свободном матче',
     descTournament1v1: 'Турнир 1 на 1 - Игроки соревнуются по турнирной сетке',
     descTournamentMulti: 'Мульти-турнир - Команды соревнуются по турнирной сетке',
     descTournament: 'Турнир - 4 игрока соревнуются в матчах 1 на 1 (полуфиналы + финал)',
     descLastOneStanding: 'Последний выживший - 2-8 игроков сражаются на арене с автоматическим масштабированием. Побеждает последний выживший!',
-    // Validation alerts
     alert1v1Players: 'Режим 1 на 1 требует ровно 2 игрока (включая вас)',
     alertTournament1v1Players: 'Турнир 1 на 1 требует минимум 4 игрока',
     alertTournamentMultiPlayers: 'Мульти-турнир требует минимум 4 игрока',
@@ -278,12 +261,10 @@ export const ru: TranslationKeys = {
     alertMultiplayerPlayers: 'Режим мультиплеера требует минимум 2 игрока',
     alertLastOneStandingMin: 'Режим Последний выживший требует минимум 2 игрока',
     alertLastOneStandingMax: 'Режим Последний выживший допускает максимум 8 игроков',
-    // Game UI
     leaderboard: 'Таблица лидеров',
     backToMenu: 'Назад в меню',
     player: 'Игрок',
     gameOverText: 'КОНЕЦ ИГРЫ!',
-    // Tournament UI
     tournamentWinner: 'ЧЕМПИОН ТУРНИРА!',
     tournamentComplete: 'Турнир завершён',
     congratulations: 'Поздравляем! Вы выиграли турнир!',
@@ -297,7 +278,6 @@ export const ru: TranslationKeys = {
     yourMatchIsReady: 'Ваш следующий матч готов!',
     anotherMatchCompleted: 'Ещё один матч завершён',
     matchComplete: 'Матч завершён',
-    // Powerups
     powerupBallAdded: 'Мяч добавлен',
     powerupFastPaddles: 'Быстрые ракетки',
     powerupSlowPaddles: 'Медленные ракетки',
@@ -308,7 +288,6 @@ export const ru: TranslationKeys = {
     powerupUnknown: 'Неизвестно',
   },
 
-  // 2FA
   twoFactor: {
     title: 'Двухфакторная аутентификация',
     enterCode: 'Введите 6-значный код из вашего приложения аутентификации',
@@ -340,7 +319,6 @@ export const ru: TranslationKeys = {
     notAvailableGuest: 'Двухфакторная аутентификация недоступна для гостевых аккаунтов.',
   },
 
-  // Profile
   profile: {
     title: 'Профиль',
     userProfile: 'Профиль пользователя',
@@ -375,7 +353,6 @@ export const ru: TranslationKeys = {
     inGame: 'в игре',
   },
 
-  // Errors
   errors: {
     networkError: 'Ошибка сети. Пожалуйста, попробуйте снова.',
     serverError: 'Ошибка сервера. Попробуйте позже.',
@@ -384,3 +361,4 @@ export const ru: TranslationKeys = {
   },
 
 };
+

@@ -1,6 +1,5 @@
 import { TypeStoredMessageSchema } from "@src/types/chat-models";
 
-
 export interface MessageData {
     messagesPerRoom: Map<number, TypeStoredMessageSchema[]>;
 }
@@ -21,3 +20,4 @@ export interface MessageSlice {
         state: MessageStates;
     },
 };
+

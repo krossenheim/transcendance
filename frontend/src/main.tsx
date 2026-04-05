@@ -4,7 +4,6 @@ import ReactDOM from "react-dom/client";
 import AppRoot from "./AppRoot";
 import React from "react";
 
-// @ts-ignore: allow importing CSS without type declarations
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -16,3 +15,4 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </LanguageProvider>
   </React.StrictMode>
 );
+

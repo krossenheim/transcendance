@@ -1,6 +1,4 @@
-// Dutch translations
 export const nl = {
-  // Common
   common: {
     loading: 'Laden...',
     error: 'Fout',
@@ -22,14 +20,12 @@ export const nl = {
     hide: 'Verbergen',
   },
 
-  // Navigation
   nav: {
     chat: 'Chat',
     pong: 'Pong',
     gdpr: 'AVG',
   },
 
-  // App
   app: {
     title: 'Transcendence',
     welcome: 'Welkom bij Transcendence',
@@ -40,7 +36,6 @@ export const nl = {
     guestLoginFailed: 'Gast inloggen mislukt',
   },
 
-  // Login
   login: {
     title: 'Inloggen',
     username: 'Gebruikersnaam',
@@ -59,7 +54,6 @@ export const nl = {
     loginFailed: 'Inloggen mislukt',
   },
 
-  // Register
   register: {
     title: 'Account aanmaken',
     subtitle: 'Vul uw gegevens in om te registreren',
@@ -89,7 +83,6 @@ export const nl = {
     registrationFailed: 'Registratie mislukt',
   },
 
-  // User Menu
   userMenu: {
     userId: 'Gebruikers-ID',
     viewProfile: 'Bekijk mijn profiel',
@@ -99,7 +92,6 @@ export const nl = {
     loggingOut: 'Bezig met uitloggen...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Toegankelijkheidsinstellingen',
     subtitle: 'Pas de interface aan uw toegankelijkheidsbehoeften aan',
@@ -119,7 +111,6 @@ export const nl = {
     openSettings: 'Open toegankelijkheidsinstellingen',
   },
 
-  // Language
   language: {
     title: 'Taal',
     select: 'Selecteer taal',
@@ -138,7 +129,6 @@ export const nl = {
     dot: 'Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Vrienden',
     manageFriends: 'Vrienden beheren',
@@ -164,7 +154,6 @@ export const nl = {
     deny: 'Weigeren',
   },
 
-  // Chat
   chat: {
     title: 'Chat',
     sendMessage: 'Bericht verzenden',
@@ -192,7 +181,6 @@ export const nl = {
     dmWithUser: 'DM met gebruiker',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Speel klassiek Pong tegen andere spelers in verschillende spelmodi',
@@ -271,12 +259,10 @@ export const nl = {
     alertMultiplayerPlayers: 'Multiplayer modus vereist minimaal 2 spelers',
     alertLastOneStandingMin: 'Laatste Man Staande vereist minimaal 2 spelers',
     alertLastOneStandingMax: 'Laatste Man Staande staat maximaal 8 spelers toe',
-    // Game UI
     leaderboard: 'Ranglijst',
     backToMenu: 'Terug naar menu',
     player: 'Speler',
     gameOverText: 'SPEL VOORBIJ!',
-    // Tournament UI
     tournamentWinner: 'TOERNOOIKAMPIOEN!',
     tournamentComplete: 'Toernooi voltooid',
     congratulations: 'Gefeliciteerd! Je hebt het toernooi gewonnen!',
@@ -290,7 +276,6 @@ export const nl = {
     yourMatchIsReady: 'Je volgende wedstrijd is klaar!',
     anotherMatchCompleted: 'Nog een wedstrijd voltooid',
     matchComplete: 'Wedstrijd voltooid',
-    // Powerups
     powerupBallAdded: 'Bal toegevoegd',
     powerupFastPaddles: 'Snelle paddles',
     powerupSlowPaddles: 'Langzame paddles',
@@ -301,7 +286,6 @@ export const nl = {
     powerupUnknown: 'Onbekend',
   },
 
-  // Two Factor Authentication
   twoFactor: {
     title: 'Twee-factor authenticatie',
     enterCode: 'Voer de 6-cijferige code in van uw authenticator app',
@@ -333,7 +317,6 @@ export const nl = {
     notAvailableGuest: 'Twee-factor authenticatie is niet beschikbaar voor gastaccounts.',
   },
 
-  // Profile
   profile: {
     title: 'Profiel',
     userProfile: 'Gebruikersprofiel',
@@ -368,7 +351,6 @@ export const nl = {
     inGame: 'in spel',
   },
 
-  // Errors
   errors: {
     networkError: 'Netwerkfout. Probeer het opnieuw.',
     serverError: 'Serverfout. Probeer het later opnieuw.',
@@ -377,3 +359,4 @@ export const nl = {
   },
 
 };
+

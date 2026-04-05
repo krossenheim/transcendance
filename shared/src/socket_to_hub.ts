@@ -12,7 +12,6 @@ import {
 import WebSocket from "ws";
 import { z, ZodType } from "zod";
 
-
 type InferWSHandler<T extends WebSocketRouteDef> = (
   body: HubToServiceHandlerMessageScheme<T>,
   response: ResponseBuilder<T>,
@@ -35,7 +34,6 @@ type InferWSReceiver<T extends WebSocketRouteDef> = (
   schema: T["schema"]
 ) => Promise<Result<null, string>>;
 
-// Type definitions for handler storage
 interface HandlerCallable {
   metadata: WebSocketRouteDef;
   handler: InferWSHandler<WebSocketRouteDef>;
@@ -46,7 +44,6 @@ interface ReceiverCallable {
   handler: InferWSReceiver<WebSocketRouteDef>;
 }
 
-// Configuration constants
 const MAX_MESSAGE_QUEUE_SIZE = 100;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const INITIAL_RECONNECT_DELAY_MS = 1000;
@@ -136,7 +133,7 @@ export class OurSocket {
 
     this.handlerCallables[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
-      handler: handler as any, // Any can be used here due to the generic constraint. Before calling the handler this class will ensure the type safety of the arguments.
+      handler: handler as any,
     };
   }
 
@@ -152,7 +149,7 @@ export class OurSocket {
 
     (this.receiverCallables[handlerEndpoint.funcId] = {
       metadata: handlerEndpoint,
-      handler: handler as any, // Any can be used here due to the generic constraint. Before calling the handler this class will ensure the type safety of the arguments.
+      handler: handler as any,
     });
   }
 
@@ -376,7 +373,6 @@ export class OurSocket {
   private _sendMessageToHub(data: ServiceToHubMessage): void {
     const messageString = data.toString();
     if (this.socket.readyState === WebSocket.OPEN) {
-      // console.log("Sending WS message to hub:", messageString);
       try {
         this.socket.send(messageString);
       } catch (error) {
@@ -389,7 +385,6 @@ export class OurSocket {
   }
 
   private _queueMessage(messageString: string): void {
-    // Enforce message queue size limit to prevent memory issues
     if (this.messageStack.length >= MAX_MESSAGE_QUEUE_SIZE) {
       console.warn(`Message queue full (${MAX_MESSAGE_QUEUE_SIZE}), dropping oldest message`);
       this.messageStack.shift();
@@ -458,3 +453,4 @@ export class OurSocket {
     func(this);
   }
 }
+

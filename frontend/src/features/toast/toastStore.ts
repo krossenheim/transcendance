@@ -39,3 +39,4 @@ export const toast = {
     error: (message: string, durationMs?: number) => useToastStore.getState().showToast(message, 'error', durationMs),
     info: (message: string, durationMs?: number) => useToastStore.getState().showToast(message, 'info', durationMs),
 };
+

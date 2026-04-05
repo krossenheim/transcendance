@@ -26,7 +26,7 @@ export class HubCTX {
         connected ? int_url.ws.hub.userConnected.funcId : int_url.ws.hub.userDisconnected.funcId,
         0,
         `{"userId":${user_id}}`
-      ) 
+      )
       if (socket.readyState > 1)
         console.error("Socket to container not open, cannot send.");
       else {
@@ -270,7 +270,6 @@ export class UserSocket {
   }
 
   public async handleMessage(ctx: HubCTX, message: string): Promise<Result<null, string>> {
-    // Ignore application-level keepalive pings from the frontend
     if (message === 'ping') return Result.Ok(null);
 
     if (this.isAuthenticating) {
@@ -285,3 +284,4 @@ export class UserSocket {
     }
   }
 }
+

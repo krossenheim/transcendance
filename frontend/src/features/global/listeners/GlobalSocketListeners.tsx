@@ -88,7 +88,6 @@ const BaseSocketListeners = () => {
                     const currentNotifications = useGlobalStore.getState().users.data.notifications;
                     const newNotifications = payload.payload;
 
-                    // Check for new friend requests
                     const currentFriendRequestIds = new Set(
                         currentNotifications.pendingFriendRequests.map(r => r.friendId)
                     );
@@ -100,7 +99,6 @@ const BaseSocketListeners = () => {
                         toast.info(`${username} sent you a friend request`);
                     }
 
-                    // Check for new room invites
                     const currentRoomInviteIds = new Set(
                         currentNotifications.pendingRoomInvites.map(r => r.roomId)
                     );
@@ -143,3 +141,4 @@ export const GlobalSocketListeners = () => {
         </>
     );
 }
+

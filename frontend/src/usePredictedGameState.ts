@@ -1,12 +1,3 @@
-/**
- * usePredictedGameState - Hook that provides game state for smooth rendering
- * 
- * SIMPLIFIED: Just passes through server state with velocity info.
- * BabylonRenderer handles all smoothing via lerp.
- * 
- * The 60Hz server updates + Babylon's smooth lerp = butter-smooth ball movement
- * without the complexity of client-side physics prediction.
- */
 
 import { useMemo } from 'react';
 
@@ -46,17 +37,13 @@ export function usePredictedGameState(
     myUserId: number,
     pressedKeys: string[]
 ): PredictedGameState | null {
-    // Convert server state synchronously using useMemo
-    // This ensures ball radius changes are reflected immediately
     return useMemo(() => {
         if (!serverGameState || !serverGameState.board_id) {
             return null;
         }
-        
-        // Parse balls from server format
+
         const balls: PredictedBall[] = (serverGameState.balls || []).map((b: any, idx: number) => {
             if (Array.isArray(b)) {
-                // Backend sends: [x, y, dx, dy, radius, inverseMass, id]
                 const ballId = Number.isFinite(Number(b[6])) ? Number(b[6]) : idx
                 return {
                     id: ballId,
@@ -76,8 +63,7 @@ export function usePredictedGameState(
                 radius: b.radius ?? 10,
             };
         });
-        
-        // Parse paddles from server format
+
         const paddles: PredictedPaddle[] = (serverGameState.paddles || []).map((p: any, idx: number) => {
             if (Array.isArray(p)) {
                 return {
@@ -100,7 +86,7 @@ export function usePredictedGameState(
                 l: p.l ?? 50,
             };
         });
-        
+
         return {
             board_id: serverGameState.board_id,
             balls,
@@ -114,3 +100,4 @@ export function usePredictedGameState(
         };
     }, [serverGameState]);
 }
+

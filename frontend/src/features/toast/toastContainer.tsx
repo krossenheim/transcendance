@@ -31,7 +31,7 @@ const ToastItem = ({ id, type, message, endTime }: ToastMessage) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsExiting(true); 
+      setIsExiting(true);
     }, endTime - Date.now());
     return () => clearTimeout(timer);
   }, [endTime]);
@@ -40,7 +40,7 @@ const ToastItem = ({ id, type, message, endTime }: ToastMessage) => {
     if (isExiting) {
       const timer = setTimeout(() => {
         removeToast(id);
-      }, 300); 
+      }, 300);
       return () => clearTimeout(timer);
     }
     return () => {};
@@ -72,9 +72,8 @@ export const ToastContainer = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end pointer-events-none">
-      {/* pointer-events-none ensures the container doesn't block clicks on the page,
-        but we re-enable pointer-events on the toast items themselves.
-      */}
+      {
+}
       <div className="pointer-events-auto">
         {toasts.map((toast) => (
           <ToastItem key={toast.id} {...toast} />
@@ -83,3 +82,4 @@ export const ToastContainer = () => {
     </div>
   );
 };
+

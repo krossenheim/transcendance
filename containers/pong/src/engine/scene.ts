@@ -10,10 +10,8 @@ interface Collision {
 
 const scratchRelativeVelocity = new Vec2(0, 0);
 
-// Maximum distance an object should move per nudge (prevents high-speed tunneling)
 const MAX_NUDGE_DISTANCE = 0.5;
 
-// Target ball speed (will be set by game when constructing scene)
 let targetBallSpeed: number = 450;
 
 export class Scene {
@@ -62,8 +60,7 @@ export class Scene {
             for (let j = 0; j < this.objects.length; j++) {
                 const parentB = this.objects[j]!;
                 if (parentA === parentB) continue;
-                
-                // Skip if objects have no relative velocity
+
                 const relVelSq = scratchRelativeVelocity.copy(parentA.velocity).sub(parentB.velocity).lenSq();
                 if (relVelSq < EPS) continue;
 
@@ -115,7 +112,6 @@ export class Scene {
         let shouldContinue = true;
         let timeout = 1000;
 
-        // Track zero-time collisions to detect stuck loops (ball trapped between wall and paddle)
         let zeroTimeCollisionCount = 0;
         const MAX_ZERO_TIME_COLLISIONS = 8;
 
@@ -129,16 +125,12 @@ export class Scene {
 
             const earliestHit = collision.time;
 
-            // Track zero-time (or near-zero) collisions
             if (earliestHit < FAT_EPS) {
                 zeroTimeCollisionCount++;
             } else {
                 zeroTimeCollisionCount = 0;
             }
 
-            // If too many zero-time collisions in a row, the ball is stuck between surfaces.
-            // Force-teleport the ball to the arena center and break out of the simulation
-            // for this frame. The next tick will handle it from a clean position.
             if (zeroTimeCollisionCount >= MAX_ZERO_TIME_COLLISIONS) {
                 let stuckBall: CircleObject | null = null;
                 if (collision.objectA instanceof CircleObject && collision.objectA.inverseMass > 0) {
@@ -148,10 +140,8 @@ export class Scene {
                 }
                 if (stuckBall) {
                     console.warn(`[Scene] Ball stuck in collision loop - teleporting to center from (${stuckBall.center.x.toFixed(1)}, ${stuckBall.center.y.toFixed(1)})`);
-                    // Teleport ball directly to the arena center so it is clear of all surfaces
                     stuckBall.center.x = this.arenaCenterX;
                     stuckBall.center.y = this.arenaCenterY;
-                    // Preserve speed but redirect so it doesn't fly back into the same corner
                     const speed = stuckBall.velocity.len();
                     if (speed > EPS) {
                         const randomAngle = Math.random() * Math.PI * 2;
@@ -159,7 +149,6 @@ export class Scene {
                         stuckBall.velocity.y = Math.sin(randomAngle) * speed;
                     }
                 }
-                // Break out entirely — let the next tick simulate from the clean state
                 break;
             }
 
@@ -174,61 +163,46 @@ export class Scene {
             const handleMethod = Math.max(aTask, bTask);
             switch (handleMethod) {
                 case CollisionResponse.IGNORE:
-                    // Nudge AFTER handling to prevent objects from tunneling
                     this.safeNudge(collision.objectA);
                     this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.RESET:
-                    // Nudge the surviving object to prevent getting stuck at collision point
                     if (aTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentA);
                     }
                     if (bTask === CollisionResponse.RESET) {
                         this.objects = this.objects.filter(obj => obj !== parentB);
                     }
-                    // Nudge surviving objects after removal
                     if (aTask !== CollisionResponse.RESET) this.safeNudge(collision.objectA);
                     if (bTask !== CollisionResponse.RESET) this.safeNudge(collision.objectB);
                     break;
                 case CollisionResponse.BOUNCE:
-                    // Resolve collision FIRST, then nudge to prevent tunneling
                     if (collision.objectA instanceof CircleObject && collision.objectB instanceof CircleObject) {
                         resolveBallCollision(collision.objectA, collision.objectB);
-                        // Normalize both balls to target speed after collision
                         this.normalizeBallSpeed(collision.objectA);
                         this.normalizeBallSpeed(collision.objectB);
                     } else if (collision.objectA instanceof CircleObject && collision.objectB instanceof LineObject) {
                         resolveCircleLineCollision(collision.objectA, collision.objectB);
-                        // Normalize ball speed after bouncing off wall/paddle
                         this.normalizeBallSpeed(collision.objectA);
                     } else if (collision.objectA instanceof LineObject && collision.objectB instanceof CircleObject) {
                         resolveCircleLineCollision(collision.objectB, collision.objectA);
-                        // Normalize ball speed after bouncing off wall/paddle
                         this.normalizeBallSpeed(collision.objectB);
                     } else {
                         console.warn(`Collision resolution not implemented for ${collision.objectA.constructor.name} and ${collision.objectB.constructor.name}`);
                     }
-                    // Nudge AFTER resolving collision to prevent re-collision on same frame
                     this.safeNudge(collision.objectA);
                     this.safeNudge(collision.objectB);
                     break;
             }
         }
-        // Note: Ball bounds checking is handled by game.ts checkBallBounds() - the simple bulletproof solution
     }
 
-    /**
-     * Safely nudge an object forward by FAT_EPS, but limit the actual distance
-     * traveled to prevent high-speed objects from tunneling through walls.
-     */
     private safeNudge(obj: BaseObject): void {
         const speed = obj.velocity.len();
         if (speed < EPS) return;
-        
-        // Calculate how far the object would move in FAT_EPS time
+
         const nudgeDistance = speed * FAT_EPS;
-        
-        // If that distance is too large, reduce the time step proportionally
+
         if (nudgeDistance > MAX_NUDGE_DISTANCE) {
             const safeDeltaTime = MAX_NUDGE_DISTANCE / speed;
             obj.moveByDelta(safeDeltaTime);
@@ -237,17 +211,13 @@ export class Scene {
         }
     }
 
-    /**
-     * Normalize a circle object's velocity to the target ball speed.
-     * This ensures constant ball speed regardless of collision dynamics.
-     */
     private normalizeBallSpeed(obj: CircleObject): void {
         const speed = obj.velocity.len();
         if (speed > EPS) {
-            // Scale velocity to maintain constant speed
             const scale = targetBallSpeed / speed;
             obj.velocity = obj.velocity.mul(scale);
         }
     }
 
 }
+

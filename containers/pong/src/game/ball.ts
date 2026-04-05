@@ -3,13 +3,13 @@ import { CollisionResponse } from "../engine/collision.js";
 import { Vec2 } from "../engine/math.js";
 
 export type PongBallJSON = [
-    number, // center.x
-    number, // center.y
-    number, // velocity.x
-    number, // velocity.y
-    number, // radius
-    number, // inverseMass
-    number, // id
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
 ];
 
 export class PongBall extends CircleObject {
@@ -38,3 +38,4 @@ export class PongBall extends CircleObject {
     }
 
 }
+

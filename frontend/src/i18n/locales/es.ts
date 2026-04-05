@@ -1,6 +1,4 @@
-// Spanish translations
 export const es = {
-  // Common
   common: {
     loading: 'Cargando...',
     error: 'Error',
@@ -22,14 +20,12 @@ export const es = {
     hide: 'Ocultar',
   },
 
-  // Navigation
   nav: {
     chat: 'Chat',
     pong: 'Pong',
     gdpr: 'RGPD',
   },
 
-  // App
   app: {
     title: 'Transcendence',
     welcome: 'Bienvenido a Transcendence',
@@ -40,7 +36,6 @@ export const es = {
     guestLoginFailed: 'Error al iniciar sesión como invitado',
   },
 
-  // Login
   login: {
     title: 'Iniciar sesión',
     username: 'Nombre de usuario',
@@ -59,7 +54,6 @@ export const es = {
     loginFailed: 'Error al iniciar sesión',
   },
 
-  // Register
   register: {
     title: 'Crear cuenta',
     subtitle: 'Completa tus datos para registrarte',
@@ -89,7 +83,6 @@ export const es = {
     registrationFailed: 'Error en el registro',
   },
 
-  // User Menu
   userMenu: {
     userId: 'ID de usuario',
     viewProfile: 'Ver mi perfil',
@@ -99,7 +92,6 @@ export const es = {
     loggingOut: 'Cerrando sesión...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Configuración de accesibilidad',
     subtitle: 'Personaliza la interfaz según tus necesidades de accesibilidad',
@@ -119,7 +111,6 @@ export const es = {
     openSettings: 'Abrir configuración de accesibilidad',
   },
 
-  // Language
   language: {
     title: 'Idioma',
     select: 'Seleccionar idioma',
@@ -138,7 +129,6 @@ export const es = {
     dot: 'Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Amigos',
     manageFriends: 'Gestionar amigos',
@@ -164,7 +154,6 @@ export const es = {
     deny: 'Rechazar',
   },
 
-  // Chat
   chat: {
     title: 'Chat',
     sendMessage: 'Enviar mensaje',
@@ -192,7 +181,6 @@ export const es = {
     dmWithUser: 'MD con usuario',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Juega al clásico Pong contra otros jugadores en varios modos de juego',
@@ -206,12 +194,10 @@ export const es = {
     invite: 'Invitar a partida',
     acceptInvite: 'Aceptar invitación',
     declineInvite: 'Rechazar invitación',
-    // Menu buttons
     createGameButton: '🎮 Crear partida',
     menuDescription: 'Crea una partida local, invita amigos o juega contra la IA.',
     quickPlay: '🤖 Partida rápida (Solo)',
     debugMode: '🎯 Depuración: 8 jugadores (3 bolas)',
-    // Pong Invite Modal
     createPongGame: 'Crear partida de Pong',
     selectGameMode: 'Seleccionar modo de juego',
     oneVsOne: '1 contra 1',
@@ -245,7 +231,6 @@ export const es = {
     aiNightmare: 'Pesadilla',
     ai: 'IA',
     createGame: 'Crear partida',
-    // Pong Lobby
     gameLobby: 'Sala de juego',
     lobby: 'Sala',
     leave: 'Salir',
@@ -261,14 +246,12 @@ export const es = {
     imReady: '¡Estoy listo!',
     allReadyRequired: 'Todos los jugadores deben estar listos antes de comenzar',
     needMinPlayers: 'Se necesitan al menos 2 jugadores para empezar',
-    // Game mode descriptions
     desc1v1: 'Pong clásico 1 contra 1 - Dos jugadores compiten directamente',
     descMultiplayer: 'Pong multijugador - Varios jugadores compiten en una partida libre',
     descTournament1v1: 'Torneo 1v1 - Los jugadores compiten en formato de eliminatorias',
     descTournamentMulti: 'Torneo multijugador - Los equipos compiten en formato de eliminatorias',
     descTournament: 'Torneo - 4 jugadores compiten en partidas de eliminatorias 1v1 (semifinales + final)',
     descLastOneStanding: 'Último en Pie - 2-8 jugadores luchan en una arena que se escala automáticamente. ¡El último en pie gana!',
-    // Validation alerts
     alert1v1Players: 'El modo 1v1 requiere exactamente 2 jugadores (incluyéndote)',
     alertTournament1v1Players: 'El torneo 1v1 requiere al menos 4 jugadores',
     alertTournamentMultiPlayers: 'El torneo multijugador requiere al menos 4 jugadores',
@@ -276,12 +259,10 @@ export const es = {
     alertMultiplayerPlayers: 'El modo multijugador requiere al menos 2 jugadores',
     alertLastOneStandingMin: 'Último en Pie requiere al menos 2 jugadores',
     alertLastOneStandingMax: 'Último en Pie permite un máximo de 8 jugadores',
-    // Game UI
     leaderboard: 'Clasificación',
     backToMenu: 'Volver al menú',
     player: 'Jugador',
     gameOverText: '¡FIN DEL JUEGO!',
-    // Tournament UI
     tournamentWinner: '¡CAMPEÓN DEL TORNEO!',
     tournamentComplete: 'Torneo completado',
     congratulations: '¡Felicidades! ¡Ganaste el torneo!',
@@ -295,7 +276,6 @@ export const es = {
     yourMatchIsReady: '¡Tu próximo partido está listo!',
     anotherMatchCompleted: 'Otro partido completado',
     matchComplete: 'Partido completado',
-    // Powerups
     powerupBallAdded: 'Bola añadida',
     powerupFastPaddles: 'Paletas rápidas',
     powerupSlowPaddles: 'Paletas lentas',
@@ -306,7 +286,6 @@ export const es = {
     powerupUnknown: 'Desconocido',
   },
 
-  // 2FA
   twoFactor: {
     title: 'Autenticación de dos factores',
     enterCode: 'Introduce el código de 6 dígitos de tu aplicación de autenticación',
@@ -338,7 +317,6 @@ export const es = {
     notAvailableGuest: 'La autenticación de dos factores no está disponible para cuentas de invitado.',
   },
 
-  // Profile
   profile: {
     title: 'Perfil',
     userProfile: 'Perfil de usuario',
@@ -373,7 +351,6 @@ export const es = {
     inGame: 'en partida',
   },
 
-  // Errors
   errors: {
     networkError: 'Error de red. Por favor, inténtalo de nuevo.',
     serverError: 'Error del servidor. Por favor, inténtalo más tarde.',
@@ -382,3 +359,4 @@ export const es = {
   },
 
 };
+

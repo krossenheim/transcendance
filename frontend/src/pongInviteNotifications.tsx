@@ -12,7 +12,7 @@ export interface PongInvitation {
   gameMode: GameMode
   playerCount: number
   timestamp: number
-  lobbyData?: any // Full lobby data for immediate setup
+  lobbyData?: any
 }
 
 interface PongInviteNotificationsProps {
@@ -87,3 +87,4 @@ export default function PongInviteNotifications({
     </div>
   )
 }
+

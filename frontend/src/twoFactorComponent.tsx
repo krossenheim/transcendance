@@ -40,7 +40,6 @@ export function TwoFactorVerify({
 
       const data = await response.json();
 
-      // Save tokens
       if (data?.tokens?.jwt) {
         localStorage.setItem("jwt", data.tokens.jwt);
       }
@@ -383,3 +382,4 @@ export function TwoFactorDisable({
     </div>
   );
 }
+

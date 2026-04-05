@@ -23,7 +23,7 @@ export interface GameSettings {
   maxScore: number
   allowPowerups: boolean
   aiCount: number
-  aiDifficulty: number // 1=Easy, 2=Medium, 3=Hard
+  aiDifficulty: number
   localPlayerNames?: string[]
 }
 
@@ -41,11 +41,10 @@ export default function PongInviteModal({
   const [maxScore, setMaxScore] = useState(5)
   const [allowPowerups, setAllowPowerups] = useState(true)
   const [aiCount, setAiCount] = useState(0)
-  const [aiDifficulty, setAiDifficulty] = useState(3) // 1=Easy, 2=Medium, 3=Hard
+  const [aiDifficulty, setAiDifficulty] = useState(3)
   const [isLocalTournament, setIsLocalTournament] = useState(false)
   const [localPlayerNames, setLocalPlayerNames] = useState<string[]>(["", "", ""])
 
-  // Update local player count helper
   const addLocalPlayer = () => {
     if (localPlayerNames.length < 7) {
       setLocalPlayerNames([...localPlayerNames, ""])
@@ -62,40 +61,33 @@ export default function PongInviteModal({
     setLocalPlayerNames(updated)
   }
 
-  // Username search state
   const [searchQuery, setSearchQuery] = useState("")
   const [searchedUsers, setSearchedUsers] = useState<Array<{ id: number; username: string; onlineStatus?: number }>>([])
   const [searchError, setSearchError] = useState("")
   const [searching, setSearching] = useState(false)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Get room users from pong store (set by ChatHeader)
   const storeInviteRoomUsers = usePongStore((state) => state.inviteRoomUsers)
   const setInviteRoomUsers = usePongStore((state) => state.setInviteRoomUsers)
 
-  // Get online friends from global store when roomUsers is empty (e.g. opened from Pong page directly)
   const onlineUsers = useGlobalStore((state) => state.users.data.onlineUsers)
   const friends = useGlobalStore((state) => state.users.data.friends)
   const userCache = useGlobalStore((state) => state.users.data.userCache)
   const fetchUserConnections = useGlobalStore((state) => state.users.actions.fetchUserConnections)
 
-  // Search for user by username using existing WS endpoint
   const handleSearchUser = useCallback(() => {
     const query = searchQuery.trim()
     if (!query) return
     setSearchError("")
     setSearching(true)
 
-    // Send WS request (accepts string username)
     getSocketSenderRef()(user_url.ws.users.requestUserProfileData, query)
 
-    // Poll userCache for the result (fire-and-forget WS pattern)
     let attempts = 0
     if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
     searchTimeoutRef.current = setInterval(() => {
       attempts++
       const cache = useGlobalStore.getState().users.data.userCache
-      // Check if any cached user matches the searched username
       const found = Array.from(cache.values()).find(
         (u) => u.username.toLowerCase() === query.toLowerCase()
       )
@@ -106,14 +98,12 @@ export default function PongInviteModal({
           setSearchError("That's you!")
           return
         }
-        // Avoid duplicates
         setSearchedUsers((prev) => {
           if (prev.some((u) => u.id === found.id)) return prev
           return [...prev, { id: found.id, username: found.username, onlineStatus: found.onlineStatus ?? 0 }]
         })
         setSearchQuery("")
       } else if (attempts > 20) {
-        // ~2 seconds timeout
         if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
         setSearching(false)
         setSearchError("User not found")
@@ -121,14 +111,12 @@ export default function PongInviteModal({
     }, 100)
   }, [searchQuery, currentUserId])
 
-  // Cleanup search interval on unmount
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) clearInterval(searchTimeoutRef.current)
     }
   }, [])
 
-  // Clear store inviteRoomUsers when modal closes
   const handleClose = () => {
     setInviteRoomUsers([])
     setSelectedPlayers([])
@@ -138,14 +126,12 @@ export default function PongInviteModal({
     onClose()
   }
 
-  // Fetch user connections when modal opens and no roomUsers are provided
   useEffect(() => {
     if (isOpen && roomUsers.length === 0 && storeInviteRoomUsers.length === 0) {
       fetchUserConnections()
     }
   }, [isOpen, roomUsers.length, storeInviteRoomUsers.length, fetchUserConnections])
 
-  // Close modal on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -156,20 +142,15 @@ export default function PongInviteModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Build available players list: use roomUsers prop, then store inviteRoomUsers, then friends
-  // Always merge in searchedUsers so users found by search are always visible
   const availablePlayers = useMemo(() => {
     let basePlayers: Array<{ id: number; username: string; onlineStatus?: number }> = []
 
-    // Priority 1: prop roomUsers (from AuthenticatedApp legacy flow)
     if (roomUsers.length > 0) {
       basePlayers = roomUsers.filter((u) => u.id !== currentUserId)
     }
-    // Priority 2: store inviteRoomUsers (from ChatHeader)
     else if (storeInviteRoomUsers.length > 0) {
       basePlayers = storeInviteRoomUsers.filter((u) => u.id !== currentUserId)
     }
-    // Priority 3: all friends from global store (opened from Pong page directly)
     else {
       basePlayers = [...friends]
         .filter((id) => id !== currentUserId)
@@ -183,7 +164,6 @@ export default function PongInviteModal({
         })
     }
 
-    // Merge searched users (avoid duplicates)
     const baseIds = new Set(basePlayers.map((u) => u.id))
     const merged = [...basePlayers]
     for (const u of searchedUsers) {
@@ -197,31 +177,28 @@ export default function PongInviteModal({
   if (!isOpen) return null
 
   const togglePlayerSelection = (userId: number) => {
-    if (userId === currentUserId) return // Can't deselect yourself
+    if (userId === currentUserId) return
     setSelectedPlayers((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
     )
   }
 
   const handleCreateGame = () => {
-    // Always include current user
     const players = [currentUserId, ...selectedPlayers]
-    
-    // For local tournaments, validate local player names
+
     if (gameMode === "tournament" && isLocalTournament) {
       const validNames = localPlayerNames.filter(n => n.trim().length > 0)
-      const totalPlayerCount = 1 + validNames.length + aiCount // host + local players + AI
+      const totalPlayerCount = 1 + validNames.length + aiCount
       if (totalPlayerCount < 4) {
         alert(t('pong.alertTournamentPlayers'))
         return
       }
-      // Check for duplicate names
       const nameSet = new Set(validNames.map(n => n.trim().toLowerCase()))
       if (nameSet.size !== validNames.length) {
         alert("Each local player must have a unique name")
         return
       }
-      
+
       const settings: GameSettings = {
         ballCount,
         maxScore,
@@ -232,7 +209,7 @@ export default function PongInviteModal({
       }
 
       const playerUsernameMap: { [key: number]: string } = {}
-      playerUsernameMap[currentUserId] = availablePlayers.find((u) => u.id === currentUserId)?.username 
+      playerUsernameMap[currentUserId] = availablePlayers.find((u) => u.id === currentUserId)?.username
         || roomUsers.find(u => u.id === currentUserId)?.username
         || "Host"
 
@@ -241,11 +218,7 @@ export default function PongInviteModal({
       return
     }
 
-    // Total player count includes human players + AI players
     const totalPlayerCount = players.length + aiCount
-
-    // Validate player count based on game mode
-    // 1v1 allows just the host (second player is local guest on same keyboard)
 
     if (gameMode === "tournament" && totalPlayerCount < 4) {
       alert(t('pong.alertTournamentPlayers'))
@@ -275,7 +248,6 @@ export default function PongInviteModal({
       aiDifficulty,
     }
 
-    // Build username map from available players so the callback has correct names
     const playerUsernameMap: { [key: number]: string } = {}
     for (const p of players) {
       const found = availablePlayers.find((u) => u.id === p)
@@ -315,7 +287,7 @@ export default function PongInviteModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="glass-dark-sm glass-border shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
+        {}
         <div className="px-6 py-4 border-b border-gray-700 bg-gradient-to-r from-blue-500 to-purple-500">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-white">🏓 {t('pong.createPongGame')}</h2>
@@ -328,9 +300,9 @@ export default function PongInviteModal({
           </div>
         </div>
 
-        {/* Content */}
+        {}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Game Mode Selection */}
+          {}
           <div>
             <h3 className="text-lg font-semibold text-gray-200 mb-3">
               {t('pong.selectGameMode')}
@@ -384,14 +356,14 @@ export default function PongInviteModal({
             <p className="mt-2 text-sm text-gray-400">{getGameModeDescription()}</p>
           </div>
 
-          {/* Player Selection - hidden for local tournaments */}
+          {}
           {!isLocalTournament && (
           <div>
             <h3 className="text-lg font-semibold text-gray-200 mb-3">
               {t('pong.selectPlayers')} ({t('pong.minPlayers')}: {getMinPlayers()})
             </h3>
             <div className="bg-gray-900/70 p-4 max-h-48 overflow-y-auto">
-              {/* Current User - Always Selected */}
+              {}
               <div className="flex items-center justify-between p-2 bg-blue-900/30 mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -402,7 +374,7 @@ export default function PongInviteModal({
                 <div className="text-xs text-gray-400">{t('pong.autoSelected')}</div>
               </div>
 
-              {/* Search by username */}
+              {}
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -425,7 +397,7 @@ export default function PongInviteModal({
                 <div className="text-xs text-red-500 mb-2">{searchError}</div>
               )}
 
-              {/* Other Players */}
+              {}
               {availablePlayers.length > 0 ? (
                 availablePlayers.map((user) => (
                   <button
@@ -466,7 +438,7 @@ export default function PongInviteModal({
           </div>
           )}
 
-          {/* Game Settings */}
+          {}
           <div>
             <h3 className="text-lg font-semibold text-gray-200 mb-3">
               {t('pong.gameSettings')}
@@ -557,7 +529,7 @@ export default function PongInviteModal({
             </div>
           </div>
 
-          {/* Local Tournament Section */}
+          {}
           {gameMode === "tournament" && (
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -579,12 +551,12 @@ export default function PongInviteModal({
                     You (the host) are automatically included.
                   </p>
                   <div className="space-y-2">
-                    {/* Host (fixed) */}
+                    {}
                     <div className="flex items-center gap-2 p-2 bg-blue-900/30 rounded">
                       <span className="text-xs text-gray-500 w-6">🏠</span>
                       <span className="text-sm font-semibold text-gray-200">You (Host)</span>
                     </div>
-                    {/* Local players */}
+                    {}
                     {localPlayerNames.map((name, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-6">P{index + 2}</span>
@@ -615,7 +587,7 @@ export default function PongInviteModal({
                   <div className="mt-2 text-xs text-gray-500">
                     Total: {1 + localPlayerNames.filter(n => n.trim().length > 0).length + aiCount} players
                     {aiCount > 0 && ` (${aiCount} 🤖)`}
-                    {(1 + localPlayerNames.filter(n => n.trim().length > 0).length + aiCount) < 4 && 
+                    {(1 + localPlayerNames.filter(n => n.trim().length > 0).length + aiCount) < 4 &&
                       <span className="text-red-500 ml-1">(need at least 4)</span>
                     }
                   </div>
@@ -625,7 +597,7 @@ export default function PongInviteModal({
           )}
         </div>
 
-        {/* Footer */}
+        {}
         <div className="px-6 py-4 border-t border-gray-700 bg-gray-900/70 flex justify-end gap-3">
           <button
             onClick={handleClose}
@@ -644,3 +616,4 @@ export default function PongInviteModal({
     </div>
   )
 }
+

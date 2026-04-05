@@ -4,15 +4,6 @@ import { Result } from '@app/shared/api/service/common/result';
 import { z } from 'zod';
 import { RunResult } from 'better-sqlite3';
 
-// const TwoFactorSecret = z.object({
-//   userId: z.number(),
-//   encryptedSecret: z.string(),
-//   isEnabled: z.coerce.boolean(),
-//   createdAt: z.number(),
-// });
-
-// type TwoFactorSecretType = z.infer<typeof TwoFactorSecret>;
-
 export class TwoFactorService {
   private db: Database;
   private totp: TOTP;
@@ -24,7 +15,6 @@ export class TwoFactorService {
     this.totp = new TOTP();
     this.encryption = new TOTPSecretEncryption();
 
-    // Get master password from environment
     if (!process.env.TOTP_MASTER_KEY) {
       throw new Error('TOTP_MASTER_KEY environment variable is required');
     }
@@ -48,8 +38,8 @@ export class TwoFactorService {
 
   private _dbInsertOrUpdateUser2FAData(userId: number, encryptedSecret: string, isEnabled: boolean): Result<RunResult, DatabaseError> {
     return this.db.run(
-      `INSERT INTO user_2fa_secrets (userId, encryptedSecret, isEnabled, createdAt) 
-       VALUES (?, ?, ?, strftime('%s', 'now')) 
+      `INSERT INTO user_2fa_secrets (userId, encryptedSecret, isEnabled, createdAt)
+       VALUES (?, ?, ?, strftime('%s', 'now'))
        ON CONFLICT(userId) DO UPDATE SET encryptedSecret = excluded.encryptedSecret, isEnabled = excluded.isEnabled, createdAt = excluded.createdAt`,
       [userId, encryptedSecret, isEnabled ? 1 : 0]
     );
@@ -83,21 +73,14 @@ export class TwoFactorService {
     ).map((result) => result.encryptedSecret);
   }
 
-  /**
-   * Check if user has 2FA enabled
-   */
   public isEnabled(userId: number): Result<boolean, DatabaseError> {
     return this._dbUserHas2FAEnabled(userId).flatMapErr((error) => {
       if (error.type === DatabaseErrorType.NOT_FOUND)
-        return Result.Ok(false); // No 2FA secret means 2FA is not enabled
+        return Result.Ok(false);
       return Result.Err(error);
     });
   }
-  
-  /**
-   * Generate a new 2FA secret for user (but don't enable it yet)
-   * Returns the QR code data URL and the secret (for manual entry)
-   */
+
   public async generateSecret(
     userId: number,
     username: string
@@ -112,9 +95,6 @@ export class TwoFactorService {
     });
   }
 
-  /**
-   * Enable 2FA after user has scanned QR and verified first code
-   */
   public async enable(userId: number, verificationCode: string): Promise<Result<null, DatabaseError>> {
     return await this.db.safeBlockAsync(async () => {
       const encryptedSecretResult = this._dbGetUserEncryptedSecret(userId)
@@ -126,16 +106,10 @@ export class TwoFactorService {
     });
   }
 
-  /**
-   * Disable 2FA (requires current password or admin action)
-   */
   public disable2FA(userId: number): Result<null, DatabaseError> {
     return this._dbUpdateUser2FAData(userId, { isEnabled: false }).map(() => null);
   }
 
-  /**
-   * Verify a TOTP code for a user
-   */
   public verify(userId: number, code: string): Result<boolean, DatabaseError> {
     if (this.isEnabled(userId).unwrapOr(false) === false )
       return Result.Err(DatabaseError.internal('2FA is not enabled for this user'));
@@ -143,7 +117,7 @@ export class TwoFactorService {
     return this._dbGetUserSecretForVerification(userId).flatMap((secret) => {
       return Result.safeTry(() => {
         const decryptedSecret = this.encryption.decrypt(secret, this.masterPassword);
-        return this.totp.verify(decryptedSecret, code, 1); // 1-step window tolerance
+        return this.totp.verify(decryptedSecret, code, 1);
       }, (e) => {
         console.error('Error decrypting secret or verifying code:', e);
         return DatabaseError.internal('Failed to verify 2FA code');
@@ -151,10 +125,8 @@ export class TwoFactorService {
     });
   }
 
-  /**
-   * Delete 2FA secret completely (for user deletion)
-   */
   public deleteSecret(userId: number): Result<null, DatabaseError> {
     return this._dbDeleteUser2FAData(userId).map(() => null);
   }
 }
+

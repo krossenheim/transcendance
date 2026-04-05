@@ -21,3 +21,4 @@ export const UserNotifications = z.object({
 })
 
 export type UserNotificationsType = z.infer<typeof UserNotifications>;
+

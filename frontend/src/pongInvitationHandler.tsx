@@ -17,14 +17,12 @@ export default function PongInvitationHandler({
 }: PongInvitationHandlerProps) {
   const { subscribe } = useWebSocket()
 
-  // Handle incoming pong lobby invitations globally
   useEffect(() => {
     if (!authResponse) return
 
     const unsubscribe = subscribe(user_url.ws.pong.createLobby, (message, schema) => {
       console.log("[PongInvitationHandler] Received create_pong_lobby:", message)
 
-      // Only process successful lobby creation (code 0)
       if (message.code !== schema.output.LobbyCreated.code) {
         return HandlerResult.Handled
       }
@@ -32,7 +30,6 @@ export default function PongInvitationHandler({
       const payload = message.payload as any
       console.log("[PongInvitationHandler] Processing lobby invitation:", payload)
 
-      // Check if we're the host (we created this)
       const isHost = payload.players?.some((p: any) =>
         (p.userId === authResponse.user.id || p.id === authResponse.user.id) && p.isHost
       )
@@ -40,7 +37,6 @@ export default function PongInvitationHandler({
       console.log("[PongInvitationHandler] isHost check: myId=", authResponse.user.id, "isHost=", isHost)
 
       if (!isHost) {
-        // We're an invited player - show notification
         console.log("[PongInvitationHandler] We're invited! Creating notification...")
         const hostPlayer = payload.players?.find((p: any) => p.isHost)
         const invitation: PongInvitation = {
@@ -51,7 +47,7 @@ export default function PongInvitationHandler({
           gameMode: payload.gameMode,
           playerCount: payload.players?.length || 0,
           timestamp: Date.now(),
-          lobbyData: payload, // Store full lobby data
+          lobbyData: payload,
         }
         console.log("[PongInvitationHandler] Adding invitation to state:", invitation)
         setPongInvitations((prev) => [...prev, invitation])
@@ -65,5 +61,6 @@ export default function PongInvitationHandler({
     }
   }, [authResponse, setPongInvitations, subscribe])
 
-  return null // This component doesn't render anything
+  return null
 }
+

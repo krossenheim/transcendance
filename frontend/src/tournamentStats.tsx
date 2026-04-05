@@ -29,18 +29,15 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
     fetch(`/public_api/pong/tournaments/${tournamentId}/stats`)
       .then(async (r) => {
         if (cancelled) return
-        // If server returned non-OK, try to parse JSON error body first
         if (!r.ok) {
           let errText = `${r.status} ${r.statusText}`
           try {
             const j = await r.json()
             if (j && j.message) errText = j.message
           } catch (e) {
-            // ignore JSON parse errors and keep errText
           }
           throw new Error(errText)
         }
-        // OK response — parse JSON
         return r.json()
       })
       .then((json) => {
@@ -59,7 +56,6 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>
   if (!data) return <div className="p-4">No data</div>
 
-  // Normalize fields coming from backend: players use `userId`, not `id`.
   const players: any[] = Array.isArray(data.players)
     ? data.players.map((p: any) => ({
       id: p.id ?? p.userId ?? p.user_id,
@@ -71,7 +67,6 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
   const matches: any[] = Array.isArray(data.matches) ? data.matches : []
 
   const txHashes: string[] = Array.isArray(data.onchainTxHashes) ? data.onchainTxHashes : []
-  // Vite env variable for explorer base (set VITE_EXPLORER_BASE=http://...)
   const explorerBase = (import.meta as any)?.env?.VITE_EXPLORER_BASE || "";
 
   return (
@@ -142,7 +137,6 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
                             setCopiedHash(h)
                             setTimeout(() => setCopiedHash((cur) => (cur === h ? null : cur)), 1800)
                           } catch (e) {
-                            // fallback: do nothing
                           }
                         }}
                         className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
@@ -176,3 +170,4 @@ export default function TournamentStats({ tournamentId, onClose }: Props) {
     </div>
   )
 }
+

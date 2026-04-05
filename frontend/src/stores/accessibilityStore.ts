@@ -6,7 +6,7 @@ interface AccessibilityState {
   largeText: boolean
   reducedMotion: boolean
   screenReaderMode: boolean
-  
+
   toggle: (key: keyof Omit<AccessibilityState, 'toggle' | 'set'>) => void
   set: (settings: Partial<Omit<AccessibilityState, 'toggle' | 'set'>>) => void
 }
@@ -27,3 +27,4 @@ export const useAccessibilityStore = create<AccessibilityState>()(
     }
   )
 )
+

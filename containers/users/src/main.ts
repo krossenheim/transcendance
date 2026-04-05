@@ -159,3 +159,4 @@ fastify.listen({ port, host }, (err, address) => {
 });
 
 export { fastify, socketToHub };
+

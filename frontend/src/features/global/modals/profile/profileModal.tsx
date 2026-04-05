@@ -134,9 +134,8 @@ export default function ProfileComponent() {
     return `${Math.round(percentage)}%`;
   }
 
-  // Shared card classes to keep the Bio and Stats visual style perfectly aligned
-  const cardClasses = isFriend 
-    ? 'bg-blue-900/10 border-blue-900/30' 
+  const cardClasses = isFriend
+    ? 'bg-blue-900/10 border-blue-900/30'
     : 'bg-black/20 border-gray-700';
 
   return (
@@ -154,7 +153,7 @@ export default function ProfileComponent() {
           </div>
         ) : (
           <>
-            {/* Header */}
+            {}
             <div className={`px-6 py-4 border-b flex justify-between items-center ${isFriend ? 'border-blue-500/20 bg-blue-900/10' : 'border-dark-700'}`}>
               <h2 className="text-xl font-semibold text-white">{t('profile.userProfile')}</h2>
               <button
@@ -168,7 +167,7 @@ export default function ProfileComponent() {
             <div className="p-6 space-y-6 overflow-y-auto">
 
               <div className="flex items-start space-x-4">
-                {/* Avatar */}
+                {}
                 <div className={`relative h-20 w-20 flex-shrink-0 rounded-full overflow-hidden bg-dark-700 border-4 shadow-sm transition-colors ${
                   isFriend ? 'border-blue-500' : 'border-gray-600'
                 }`}>
@@ -186,8 +185,8 @@ export default function ProfileComponent() {
                 </div>
 
                 <div className="flex-1 min-w-0 pt-1">
-                  <h3 
-                    className="text-2xl font-bold leading-tight truncate flex items-center gap-2" 
+                  <h3
+                    className="text-2xl font-bold leading-tight truncate flex items-center gap-2"
                     style={{ color: getUserColorCSS(profile.id) }}
                   >
                     {displayName}
@@ -202,7 +201,7 @@ export default function ProfileComponent() {
                     @{profile.username}
                   </div>
 
-                  {/* Status Pills */}
+                  {}
                   <div className="flex flex-wrap gap-2 mt-2">
                     <UserStatusPill isOnline={isUserOnline} />
                     <UserAccountTypePill accountType={profile.accountType} />
@@ -216,7 +215,7 @@ export default function ProfileComponent() {
                 </div>
               </div>
 
-              {/* Bio Section */}
+              {}
               <div>
                 <h4 className="text-sm font-semibold mb-2 text-white">{t('profile.bio') || 'Bio'}</h4>
                 <div className={`p-3 rounded-lg border ${cardClasses}`}>
@@ -226,7 +225,7 @@ export default function ProfileComponent() {
                 </div>
               </div>
 
-              {/* Game Stats Section */}
+              {}
               {profile.gameResults && profile.accountType !== UserAccountType.System && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-white">{t('profile.statistics') || 'Game Stats'}</h4>
@@ -239,7 +238,7 @@ export default function ProfileComponent() {
                         {t('profile.gamesPlayed')}
                       </span>
                     </div>
-                    
+
                     <div className={`p-3 rounded-lg border text-center flex flex-col justify-center ${cardClasses}`}>
                       <span className="text-xl font-bold text-green-400 leading-none">
                         {profile.gameResults.wins ?? 0}
@@ -261,7 +260,7 @@ export default function ProfileComponent() {
                 </div>
               )}
 
-              {/* Match History Section */}
+              {}
               {profile.accountType !== UserAccountType.System && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-white">
@@ -333,7 +332,7 @@ export default function ProfileComponent() {
                 </div>
               )}
 
-              {/* Actions */}
+              {}
               {!isOwnProfile && profile.accountType != UserAccountType.System && (
                 <div className="flex gap-2 pt-2">
                   <button
@@ -357,3 +356,4 @@ export default function ProfileComponent() {
     </div>
   )
 }
+

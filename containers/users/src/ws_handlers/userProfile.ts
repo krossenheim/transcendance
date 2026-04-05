@@ -5,7 +5,6 @@ import { OurSocket } from "@app/shared/socket_to_hub";
 
 import containers from "@app/shared/internal_api";
 
-// {"funcId":"user_profile","payload":2,"target_container":"users"}
 export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number>) {
 	socket.registerHandler(
 		user_url.ws.users.requestUserProfileData,
@@ -31,3 +30,4 @@ export function wsUserProfileHandlers(socket: OurSocket, onlineUsers: Set<number
 		}
 	);
 }
+

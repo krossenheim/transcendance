@@ -87,7 +87,6 @@ export type WebSocketRouteDef = {
   schema: WSSchemaType;
 };
 
-// Type safety wrapper
 export function defineRoutes<
   const TH extends Record<string, Record<string, HTTPRouteDef>>,
   const TW extends Record<string, Record<string, WebSocketRouteDef>>
@@ -95,7 +94,6 @@ export function defineRoutes<
   return routes;
 }
 
-/// /public_api/*
 export const pub_url = defineRoutes({
   http: {
     auth: {
@@ -105,9 +103,9 @@ export const pub_url = defineRoutes({
         schema: {
           body: SingleToken,
           response: {
-            200: userIdValue, // Token valid - return user ID
-            401: ErrorResponse, // Token invalid
-            500: ErrorResponse, // Internal server error
+            200: userIdValue,
+            401: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -131,9 +129,9 @@ export const pub_url = defineRoutes({
         schema: {
           body: LoginUser,
           response: {
-            200: z.union([AuthResponse, TwoFactorRequiredResponse]), // Login successful or 2FA required
-            401: ErrorResponse, // Username/Password don't match / don't exist
-            500: ErrorResponse, // Internal server error
+            200: z.union([AuthResponse, TwoFactorRequiredResponse]),
+            401: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -144,9 +142,9 @@ export const pub_url = defineRoutes({
         schema: {
           body: CreateUser,
           response: {
-            201: AuthResponse, // Created user
-            400: ErrorResponse, // Missing fields / User already exists
-            500: ErrorResponse, // Internal server error
+            201: AuthResponse,
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -162,7 +160,6 @@ export const pub_url = defineRoutes({
         },
       },
 
-      // 2FA endpoints
       setup2FA: {
         endpoint: "/public_api/auth/2fa/setup",
         method: "POST",
@@ -240,7 +237,6 @@ export const pub_url = defineRoutes({
         },
       },
 
-      // GDPR / Privacy endpoints (public-facing, require auth wrapper)
       fetchPersonalData: {
         endpoint: "/api/auth/gdpr/me",
         wrapper: GenericAuthClientRequest,
@@ -288,10 +284,6 @@ export const pub_url = defineRoutes({
   ws: {},
 });
 
-//  sendMessage would be assigned:
-// not refreshToken: "/public_api/auth/refresh",
-// but refreshToken: { some object. contains ""/public_api/auth/refresh""},
-
 export const user_url = defineRoutes({
   http: {
     users: {
@@ -302,7 +294,7 @@ export const user_url = defineRoutes({
         schema: {
           body: z.object({ file: z.string() }),
           response: {
-            200: z.any(), // Image buffer
+            200: z.any(),
             500: ErrorResponse,
           },
         },
@@ -979,7 +971,6 @@ export const user_url = defineRoutes({
         },
       },
 
-      // Spectate an ongoing tournament match
       spectateMatch: {
         funcId: "spectate_tournament_match",
         container: "pong",
@@ -1004,13 +995,12 @@ export const user_url = defineRoutes({
         },
       },
 
-      // Server-push notification when a tournament match ends
       tournamentMatchResult: {
         funcId: "tournament_match_result",
         container: "pong",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: z.object({}), // No args - this is a server push
+          args: z.object({}),
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             MatchResult: {
@@ -1021,7 +1011,6 @@ export const user_url = defineRoutes({
         },
       },
 
-      // Passively watch all in-progress tournament matches (adds user as spectator to all)
       watchTournamentMatches: {
         funcId: "watch_tournament_matches",
         container: "pong",
@@ -1289,16 +1278,15 @@ export const user_url = defineRoutes({
   },
 });
 
-/// /internal_api/*
 export const int_url = defineRoutes({
   ws: {
     hub: {
       userConnected: {
         funcId: "user_connected",
-        container: "hub", // Suspicious activity
+        container: "hub",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: EmptySchema, // not really meant to ever be called
+          args: EmptySchema,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             Success: {
@@ -1314,10 +1302,10 @@ export const int_url = defineRoutes({
       },
       userDisconnected: {
         funcId: "user_disconnected",
-        container: "hub", // Suspicious activity
+        container: "hub",
         schema: {
           args_wrapper: ForwardToContainerSchema,
-          args: EmptySchema, // not really meant to ever be called
+          args: EmptySchema,
           output_wrapper: PayloadHubToUsersSchema,
           output: {
             Success: {
@@ -1382,7 +1370,6 @@ export const int_url = defineRoutes({
       }
     },
     db: {
-      // Userdata endpoints
       fetchMultipleUsers: {
         endpoint: "/internal_api/db/users/list",
         method: "POST",
@@ -1401,8 +1388,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: FullUser, // Found user
-            404: ErrorResponse, // User not found
+            200: FullUser,
+            404: ErrorResponse,
           },
         },
       },
@@ -1413,8 +1400,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: UserNotifications, // Retrieved notifications
-            500: ErrorResponse, // Internal server error
+            200: UserNotifications,
+            500: ErrorResponse,
           },
         },
       },
@@ -1425,9 +1412,9 @@ export const int_url = defineRoutes({
         schema: {
           params: z.object({ username: z.string() }),
           response: {
-            200: FullUser, // Found user
-            404: ErrorResponse, // User not found
-            500: ErrorResponse, // Internal server error
+            200: FullUser,
+            404: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1438,8 +1425,8 @@ export const int_url = defineRoutes({
         schema: {
           body: CreateUser,
           response: {
-            201: FullUser, // Created user
-            400: ErrorResponse, // User already exists / Invalid data
+            201: FullUser,
+            400: ErrorResponse,
           },
         },
       },
@@ -1449,8 +1436,8 @@ export const int_url = defineRoutes({
         method: "GET",
         schema: {
           response: {
-            201: FullUser, // Created guest user
-            500: ErrorResponse, // Internal server error
+            201: FullUser,
+            500: ErrorResponse,
           },
         },
       },
@@ -1461,8 +1448,8 @@ export const int_url = defineRoutes({
         schema: {
           body: z.object({ file: z.string() }),
           response: {
-            200: z.any(), // Found avatar
-            404: ErrorResponse, // Avatar not found
+            200: z.any(),
+            404: ErrorResponse,
           },
         },
       },
@@ -1473,9 +1460,9 @@ export const int_url = defineRoutes({
         schema: {
           body: LoginUser,
           response: {
-            200: FullUser, // Successful login; return user data
-            401: ErrorResponse, // Invalid username or password
-            500: ErrorResponse, // Internal server error
+            200: FullUser,
+            401: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1486,8 +1473,8 @@ export const int_url = defineRoutes({
         schema: {
           body: z.object({ userId: userIdValue }),
           response: {
-            200: z.null(), // Logged out successfully
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            500: ErrorResponse,
           },
         },
       },
@@ -1498,9 +1485,9 @@ export const int_url = defineRoutes({
         schema: {
           body: z.array(UserConnectionStatusSchema),
           response: {
-            200: z.null(), // Updated successfully
-            400: ErrorResponse, // Invalid status transition
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1511,8 +1498,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: z.array(Friend), // Retrieved friendlist
-            500: ErrorResponse, // Internal server error
+            200: z.array(Friend),
+            500: ErrorResponse,
           },
         },
       },
@@ -1523,8 +1510,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: z.array(UserConnectionStatusSchema), // Retrieved contacts
-            500: ErrorResponse, // Internal server error
+            200: z.array(UserConnectionStatusSchema),
+            500: ErrorResponse,
           },
         },
       },
@@ -1535,9 +1522,9 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: z.array(GameResult), // Retrieved game results
-            404: ErrorResponse, // User not found
-            500: ErrorResponse, // Internal server error
+            200: z.array(GameResult),
+            404: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1561,14 +1548,13 @@ export const int_url = defineRoutes({
         schema: {
           body: UpdateUserData,
           response: {
-            200: FullUser, // Updated user profile
-            400: ErrorResponse, // Invalid data
-            500: ErrorResponse, // Internal server error
+            200: FullUser,
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
 
-      // GDPR internal endpoints
       anonymizeUser: {
         endpoint: "/internal_api/db/users/anonymize/:userId",
         method: "POST",
@@ -1595,16 +1581,15 @@ export const int_url = defineRoutes({
         },
       },
 
-      // Tokendata endpoints
       validateToken: {
         endpoint: "/internal_api/db/users/validate_token",
         method: "POST",
         schema: {
           body: VerifyTokenPayload,
           response: {
-            200: FullUser, // Valid token; return user data
-            401: ErrorResponse, // Invalid token; or token not found
-            500: ErrorResponse, // Internal server error
+            200: FullUser,
+            401: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1615,21 +1600,20 @@ export const int_url = defineRoutes({
         schema: {
           body: StoreTokenPayload,
           response: {
-            200: z.null(), // Token was stored successfully
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            500: ErrorResponse,
           },
         },
       },
 
-      // Chatdata endpoints
       createChatRoom: {
         endpoint: "/internal_api/chat/rooms/create",
         method: "POST",
         schema: {
           body: AddRoomPayloadSchema.extend({ owner: userIdValue, personB: userIdValue.optional() }),
           response: {
-            201: RoomSchema, // Created room
-            500: ErrorResponse, // Internal server error
+            201: RoomSchema,
+            500: ErrorResponse,
           },
         },
       },
@@ -1640,9 +1624,9 @@ export const int_url = defineRoutes({
         schema: {
           params: RequestRoomByIdSchema,
           response: {
-            200: FullRoomInfoSchema, // Retrieved room info
-            404: ErrorResponse, // Room not found
-            500: ErrorResponse, // Internal server error
+            200: FullRoomInfoSchema,
+            404: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1652,8 +1636,8 @@ export const int_url = defineRoutes({
         method: "GET",
         schema: {
           response: {
-            200: z.array(FullRoomInfoSchema), // Retrieved list of all rooms
-            500: ErrorResponse, // Internal server error
+            200: z.array(FullRoomInfoSchema),
+            500: ErrorResponse,
           },
         },
       },
@@ -1671,8 +1655,8 @@ export const int_url = defineRoutes({
               room: FullRoomInfoSchema,
               created: z.boolean(),
             }),
-            404: ErrorResponse, // DM room not found
-            500: ErrorResponse, // Internal server error
+            404: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1683,9 +1667,9 @@ export const int_url = defineRoutes({
         schema: {
           body: SendMessagePayloadSchema.extend({ userId: idValue }),
           response: {
-            200: StoredMessageSchema, // Message sent successfully
-            400: ErrorResponse, // Invalid message data
-            500: ErrorResponse, // Internal server error
+            200: StoredMessageSchema,
+            400: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1696,8 +1680,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: ListRoomsSchema, // Retrieved list of rooms
-            500: ErrorResponse, // Internal server error
+            200: ListRoomsSchema,
+            500: ErrorResponse,
           },
         },
       },
@@ -1708,8 +1692,8 @@ export const int_url = defineRoutes({
         schema: {
           body: AddToRoomPayloadSchema.extend({ type: z.number(), user_to_add: userIdValue }),
           response: {
-            200: z.null(), // User added successfully
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            500: ErrorResponse,
           },
         },
       },
@@ -1720,8 +1704,8 @@ export const int_url = defineRoutes({
         schema: {
           body: z.object({ roomId: room_id_rule, user_to_remove: userIdValue }),
           response: {
-            200: z.null(), // User removed successfully
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            500: ErrorResponse,
           },
         },
       },
@@ -1732,8 +1716,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: z.object({ enabled: z.boolean() }), // 2FA status
-            500: ErrorResponse, // Internal server error
+            200: z.object({ enabled: z.boolean() }),
+            500: ErrorResponse,
           },
         },
       },
@@ -1751,9 +1735,9 @@ export const int_url = defineRoutes({
               qrCode: z.string(),
               secret: z.string(),
               uri: z.string(),
-            }), // Generated QR code and secret
-            403: ErrorResponse, // Guest users cannot enable 2FA
-            500: ErrorResponse, // Internal server error
+            }),
+            403: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       },
@@ -1767,9 +1751,9 @@ export const int_url = defineRoutes({
             code: z.string(),
           }),
           response: {
-            200: z.object({ message: z.string() }), // 2FA enabled successfully
-            400: ErrorResponse, // Invalid code
-            403: ErrorResponse, // Guest users cannot enable 2FA
+            200: z.object({ message: z.string() }),
+            400: ErrorResponse,
+            403: ErrorResponse,
           },
         },
       },
@@ -1782,8 +1766,8 @@ export const int_url = defineRoutes({
             userId: userIdValue,
           }),
           response: {
-            200: z.object({ message: z.string() }), // 2FA disabled successfully
-            500: ErrorResponse, // Internal server error
+            200: z.object({ message: z.string() }),
+            500: ErrorResponse,
           },
         },
       },
@@ -1797,27 +1781,25 @@ export const int_url = defineRoutes({
             code: z.string(),
           }),
           response: {
-            200: z.object({ valid: z.boolean() }), // Code is valid
-            400: ErrorResponse, // Invalid code or 2FA not enabled
-            401: ErrorResponse, // Invalid code
+            200: z.object({ valid: z.boolean() }),
+            400: ErrorResponse,
+            401: ErrorResponse,
           },
         },
       },
 
-      // Pong endpoints
       storePongGameResults: {
         endpoint: "/internal_api/db/users/store_pong_game_result",
         method: "POST",
         schema: {
           body: z.array(GameResult),
           response: {
-            200: z.null(), // Game result stored successfully
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            500: ErrorResponse,
           },
         }
       },
 
-      // Lobby persistence endpoints
       createLobbyFull: {
         endpoint: "/internal_api/db/lobby/create",
         method: "POST",
@@ -1888,8 +1870,8 @@ export const int_url = defineRoutes({
         schema: {
           params: GetUser,
           response: {
-            200: z.array(userIdValue), // Retrieved contacts
-            500: ErrorResponse, // Internal server error
+            200: z.array(userIdValue),
+            500: ErrorResponse,
           },
         },
       },
@@ -1900,12 +1882,13 @@ export const int_url = defineRoutes({
         schema: {
           body: SendMessagePayloadSchema,
           response: {
-            200: z.null(), // System message sent successfully
-            404: ErrorResponse, // Room not found
-            500: ErrorResponse, // Internal server error
+            200: z.null(),
+            404: ErrorResponse,
+            500: ErrorResponse,
           },
         },
       }
     }
   },
 });
+

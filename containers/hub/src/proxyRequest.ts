@@ -36,9 +36,9 @@ export async function proxyRequest(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("Error proxying request:", errorMessage);
-    // Don't expose internal error details to clients
     return reply.code(500).send({ error: "Internal Server Error" });
   }
 }
 
 export default proxyRequest;
+

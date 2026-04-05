@@ -172,3 +172,4 @@ export const getPossibleSlashCommands = (prefix: string) => {
 export const getSlashCommandByName = (name: string) => {
     return allSlashCommands.find(cmd => cmd.name === name);
 }
+

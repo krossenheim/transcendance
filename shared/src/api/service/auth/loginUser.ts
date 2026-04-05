@@ -10,3 +10,4 @@ export type LoginUserType = z.infer<typeof LoginUser>;
 export default {
 	LoginUser,
 };
+

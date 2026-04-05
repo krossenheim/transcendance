@@ -15,7 +15,6 @@ import { ToastContainer } from "@features/toast/toastContainer";
 import { toast, useToastStore } from "@features/toast/toastStore";
 import { useAccessibilityStore } from "./stores/accessibilityStore";
 
-// Enable Map and Set support in Immer
 enableMapSet();
 
 export default function AppRoot() {
@@ -23,25 +22,22 @@ export default function AppRoot() {
   const [authResponse, setAuthResponse] = useState<AuthResponseType | null>(null);
   const showToast = useToastStore(state => state.showToast);
 
-  // Use the global store for accessibility settings
   const { highContrast, reducedMotion, screenReaderMode, largeText } = useAccessibilityStore();
 
   useEffect(() => {
     document.title = 'Transcendence 42';
   }, []);
 
-  // Apply accessibility settings globally
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('high-contrast', highContrast);
     root.classList.toggle('reduce-motion', reducedMotion);
     root.classList.toggle('screen-reader-mode', screenReaderMode);
     root.classList.toggle('large-text', largeText);
-    
-    // Apply font size change manually if needed, though CSS class is preferred
+
     if (largeText) root.style.fontSize = '18px';
     else root.style.fontSize = '';
-    
+
   }, [highContrast, reducedMotion, screenReaderMode, largeText]);
 
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState<boolean>(true);
@@ -61,7 +57,6 @@ export default function AppRoot() {
     setAuthResponse(null);
   }
 
-  // Attempt auto-login on app start
   useEffect(() => {
     async function tryAutoLogin() {
       if (authResponse) {
@@ -161,7 +156,6 @@ export default function AppRoot() {
     }
   }
 
-  // Handle token expiration and refresh logic globally
   useEffect(() => {
     if (!authResponse) return;
     const refreshInterval = setInterval(async () => {
@@ -181,7 +175,7 @@ export default function AppRoot() {
         toast.error("Session expired. Please log in again.");
         removeAuthResponse();
       }
-    }, 10 * 60 * 1000); 
+    }, 10 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
   }, [authResponse])
@@ -237,3 +231,4 @@ export default function AppRoot() {
     </div>
   );
 }
+

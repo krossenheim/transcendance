@@ -17,10 +17,9 @@ interface PongLeaderboardProps {
 
 export default function PongLeaderboard({ players, scores }: PongLeaderboardProps) {
   const { t } = useLanguage()
-  // Combine player info with scores and sort by score descending
   const sortedPlayers = useMemo<LeaderboardPlayer[]>(() => {
     if (!players || players.length === 0) return []
-    
+
     return players
       .map((player) => ({
         id: player.id,
@@ -41,7 +40,7 @@ export default function PongLeaderboard({ players, scores }: PongLeaderboardProp
       </div>
       {sortedPlayers.map((player, index) => {
         const bgColor = getUserColorCSS(player.id)
-        
+
         return (
           <div
             key={player.id}
@@ -69,3 +68,4 @@ export default function PongLeaderboard({ players, scores }: PongLeaderboardProp
     </div>
   )
 }
+

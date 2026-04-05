@@ -53,7 +53,6 @@ async function blockUser(
   return { result: BlockUserResult.Success, usersUpdated: updates.map(u => u.userId) };
 }
 
-// {"funcId":"block_user","payload":2,"target_container":"users"}
 export function wsBlockUserHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.blockUser,
@@ -97,3 +96,4 @@ export function wsBlockUserHandlers(socket: OurSocket) {
     }
   );
 }
+

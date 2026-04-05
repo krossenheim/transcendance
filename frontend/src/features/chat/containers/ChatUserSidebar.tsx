@@ -69,3 +69,4 @@ export const ChatUserSidebar: React.FC = () => {
     </div>
   )
 }
+

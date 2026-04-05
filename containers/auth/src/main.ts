@@ -15,14 +15,12 @@ import type { FullUserType } from '@app/shared/api/service/db/user';
 import { randomBytes } from 'crypto';
 import axios from 'axios';
 
-// Temporary storage for pending 2FA logins (in production, use Redis)
 const pending2FALogins = new Map<string, { userId: number; timestamp: number }>();
 
-// Clean up expired temp tokens every 5 minutes
 setInterval(() => {
 	const now = Date.now();
 	for (const [token, data] of pending2FALogins.entries()) {
-		if (now - data.timestamp > 5 * 60 * 1000) { // 5 minutes
+		if (now - data.timestamp > 5 * 60 * 1000) {
 			pending2FALogins.delete(token);
 		}
 	}
@@ -32,7 +30,6 @@ const fastify: FastifyInstance = createFastify({ logger: true } as any);
 
 const GITHUB_OAUTH2_REDIRECT_URL = process.env.GITHUB_OAUTH2_REDIRECT_URL || 'https://localhost';
 
-// OAuth state management
 const pendingOAuthStates = new Map<string, number>();
 setInterval(() => {
 	const now = Date.now();
@@ -84,16 +81,13 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 
 	const user: FullUserType = parse.data;
 
-	// Check if user has 2FA enabled
 	if (user.has2FA) {
-		// Generate temporary token for 2FA verification
 		const tempToken = randomBytes(32).toString('hex');
 		pending2FALogins.set(tempToken, {
 			userId: user.id,
 			timestamp: Date.now(),
 		});
 
-		// TypeScript narrowing - cast reply to any to send 2FA response
 		return (reply as any).status(200).send({
 			requires2FA: true,
 			userId: user.id,
@@ -101,7 +95,6 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 		});
 	}
 
-	// No 2FA required, proceed with normal login
 	const tokenResult = await generateToken(user.id);
 
 	if (tokenResult.isOk())
@@ -110,7 +103,6 @@ registerRoute(fastify, pub_url.http.auth.loginUser, async (request, reply) => {
 		return reply.status(500).send(tokenResult.unwrapErr());
 });
 
-// GitHub OAuth: Start login (redirect to GitHub)
 fastify.get('/public_api/auth/oauth/github/login', async (request, reply) => {
 	const clientId = process.env.GITHUB_CLIENT_ID;
 	const redirectUri = process.env.GITHUB_REDIRECT_URI;
@@ -132,7 +124,6 @@ fastify.get('/public_api/auth/oauth/github/login', async (request, reply) => {
 	return reply.redirect(authUrl.toString());
 });
 
-// GitHub OAuth: Callback handler
 fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => {
 	try {
 		const query = request.query as Record<string, string | string[]>;
@@ -157,7 +148,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			return reply.status(500).send({ message: 'GitHub OAuth is not configured' });
 		}
 
-		// Exchange code for access token
 		const tokenResp = await axios.post(
 			'https://github.com/login/oauth/access_token',
 			{
@@ -176,7 +166,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 
 		const accessToken = tokenResp.data.access_token as string;
 
-		// Fetch user profile
 		const userResp = await axios.get('https://api.github.com/user', {
 			headers: {
 				Authorization: `Bearer ${accessToken}`,
@@ -192,7 +181,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		const ghLogin = String(userResp.data.login);
 		const ghAvatar = String(userResp.data.avatar_url || '');
 
-		// Fetch primary email
 		let email: string | null = null;
 		try {
 			const emailsResp = await axios.get('https://api.github.com/user/emails', {
@@ -207,23 +195,19 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 				email = (primary?.email as string) || null;
 			}
 		} catch (_) {
-			// ignore; fallback below
 		}
 		if (!email) email = `${ghLogin}@users.noreply.github.com`;
 
-		// Find or create user in DB
 		const existingResult = await containers.db.fetchUserByUsername(ghLogin, true);
 		if (existingResult.isOk()) {
 			const user = existingResult.unwrap();
 			const tokens = await generateToken(user.id);
 			if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 			const tokenData = tokens.unwrap();
-			// Use URL fragment (hash) instead of query params to prevent tokens from being logged in server access logs
 			const redirectUrl = `${GITHUB_OAUTH2_REDIRECT_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 			return reply.redirect(redirectUrl);
 		}
 
-		// Create new user with random password
 		const randomPassword = randomBytes(24).toString('hex');
 		const createResp = await containers.db.post(int_url.http.db.createNormalUser, {
 			username: ghLogin,
@@ -240,9 +224,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 
 		const newUser = FullUser.parse(createResp.unwrap().data);
 
-		// Optionally set avatar/email via updateUserData
 		try {
-			// Fetch GitHub avatar and store as base64 pfp
 			if (ghAvatar) {
 				const avatarResp = await axios.get(ghAvatar, {
 					responseType: 'arraybuffer',
@@ -268,7 +250,6 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		const tokens = await generateToken(newUser.id);
 		if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 
-		// Use URL fragment (hash) instead of query params to prevent tokens from being logged
 		const tokenData = tokens.unwrap();
 		const redirectUrl = `${GITHUB_OAUTH2_REDIRECT_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 		return reply.redirect(redirectUrl);
@@ -381,7 +362,6 @@ registerRoute(fastify, user_url.http.auth.logoutUser, async (request, reply) => 
 	}
 });
 
-// 2FA Setup: Generate QR code
 registerRoute(fastify, pub_url.http.auth.setup2FA, async (request, reply) => {
 	const { userId, username } = request.body;
 
@@ -403,7 +383,6 @@ registerRoute(fastify, pub_url.http.auth.setup2FA, async (request, reply) => {
 	}
 });
 
-// 2FA Enable: Verify code and enable 2FA
 registerRoute(fastify, pub_url.http.auth.enable2FA, async (request, reply) => {
 	const { userId, code } = request.body;
 
@@ -426,7 +405,6 @@ registerRoute(fastify, pub_url.http.auth.enable2FA, async (request, reply) => {
 	}
 });
 
-// 2FA Disable
 registerRoute(fastify, pub_url.http.auth.disable2FA, async (request, reply) => {
 	const { userId } = request.body;
 
@@ -446,17 +424,14 @@ registerRoute(fastify, pub_url.http.auth.disable2FA, async (request, reply) => {
 	}
 });
 
-// 2FA Login: Verify code after username/password
 registerRoute(fastify, pub_url.http.auth.verify2FALogin, async (request, reply) => {
 	const { tempToken, code } = request.body;
 
-	// Check if temp token exists
 	const pendingLogin = pending2FALogins.get(tempToken);
 	if (!pendingLogin) {
 		return reply.status(401).send({ message: 'Invalid or expired temp token' });
 	}
 
-	// Verify the 2FA code
 	const responseResult = await containers.db.post(int_url.http.db.verify2FACode, {
 		userId: pendingLogin.userId,
 		code,
@@ -471,10 +446,8 @@ registerRoute(fastify, pub_url.http.auth.verify2FALogin, async (request, reply) 
 		return reply.status(401).send({ message: 'Invalid 2FA code' });
 	}
 
-	// Valid code - delete temp token and generate real tokens
 	pending2FALogins.delete(tempToken);
 
-	// Fetch user data
 	const userFetchResult = await containers.db.fetchUserData(pendingLogin.userId);
 
 	if (userFetchResult.isErr()) {
@@ -500,3 +473,4 @@ fastify.listen({ port, host }, (err, address) => {
 	}
 	fastify.log.info(`Server listening at ${address}`);
 });
+

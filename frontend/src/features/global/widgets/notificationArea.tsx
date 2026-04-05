@@ -51,7 +51,7 @@ const NotificationArea: FC = () => {
 
   return (
     <div className="relative">
-      {/* Bell icon button */}
+      {}
       <button
         ref={buttonRef}
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -71,7 +71,7 @@ const NotificationArea: FC = () => {
         )}
       </button>
 
-      {/* Dropdown panel */}
+      {}
       {isDropdownOpen && createPortal(
         <div
           ref={dropdownRef}
@@ -87,7 +87,7 @@ const NotificationArea: FC = () => {
           <div className="max-h-96 overflow-y-auto">
             {totalNotifications > 0 ? (
               <div className="space-y-2 p-2">
-                {/* Friend Requests Section */}
+                {}
                 {pendingFriendshipRequests.length > 0 && (
                   <>
                     <div className="px-2 py-1 text-xs font-semibold text-gray-900 uppercase tracking-wide">
@@ -131,7 +131,7 @@ const NotificationArea: FC = () => {
                   </>
                 )}
 
-                {/* Chat Room Invites Section */}
+                {}
                 {pendingRoomInvites.length > 0 && (
                   <>
                     <div className="px-2 py-1 text-xs font-semibold text-gray-900 uppercase tracking-wide mt-2">
@@ -186,3 +186,4 @@ const NotificationArea: FC = () => {
 }
 
 export default NotificationArea
+

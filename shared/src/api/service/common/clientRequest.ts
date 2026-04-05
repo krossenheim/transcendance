@@ -15,3 +15,4 @@ export function AuthClientRequest<T extends ZodType>(payloadSchema: T) {
 export type AuthClientRequestType<T extends ZodType> = z.infer<
   ReturnType<typeof AuthClientRequest<T>>
 >;
+

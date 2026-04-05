@@ -1,6 +1,4 @@
-// English translations
 export const en = {
-  // Common
   common: {
     loading: 'Loading...',
     error: 'Error',
@@ -22,14 +20,12 @@ export const en = {
     hide: 'Hide',
   },
 
-  // Navigation
   nav: {
     chat: 'Chat',
     pong: 'Pong',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: 'Transcendence',
     welcome: 'Welcome to Transcendence',
@@ -40,7 +36,6 @@ export const en = {
     guestLoginFailed: 'Guest login failed',
   },
 
-  // Login
   login: {
     title: 'Login',
     username: 'Username',
@@ -59,7 +54,6 @@ export const en = {
     loginFailed: 'Login failed',
   },
 
-  // Register
   register: {
     title: 'Create Account',
     subtitle: 'Fill in your details to register',
@@ -89,7 +83,6 @@ export const en = {
     registrationFailed: 'Registration failed',
   },
 
-  // User Menu
   userMenu: {
     userId: 'User ID',
     viewProfile: 'View my profile',
@@ -99,7 +92,6 @@ export const en = {
     loggingOut: 'Logging out...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Accessibility Settings',
     subtitle: 'Customize the interface to meet your accessibility needs',
@@ -119,7 +111,6 @@ export const en = {
     openSettings: 'Open accessibility settings',
   },
 
-  // Language
   language: {
     title: 'Language',
     select: 'Select language',
@@ -138,7 +129,6 @@ export const en = {
     dot: 'Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Friends',
     manageFriends: 'Manage Friends',
@@ -164,7 +154,6 @@ export const en = {
     deny: 'Deny',
   },
 
-  // Chat
   chat: {
     title: 'Chat',
     sendMessage: 'Send message',
@@ -192,7 +181,6 @@ export const en = {
     dmWithUser: 'DM with User',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Play classic Pong against other players in various game modes',
@@ -206,12 +194,10 @@ export const en = {
     invite: 'Invite to Game',
     acceptInvite: 'Accept Invitation',
     declineInvite: 'Decline Invitation',
-    // Menu buttons
     createGameButton: '🎮 Create Game',
     menuDescription: 'Create a local game, invite friends, or play against AI.',
     quickPlay: '🤖 Quick Play (Solo)',
     debugMode: '🎯 Debug: 8 Players (3 balls)',
-    // Pong Invite Modal
     createPongGame: 'Create Pong Game',
     selectGameMode: 'Select Game Mode',
     oneVsOne: '1 vs 1',
@@ -245,7 +231,6 @@ export const en = {
     aiNightmare: 'Nightmare',
     ai: 'AI',
     createGame: 'Create Game',
-    // Pong Lobby
     gameLobby: 'Game Lobby',
     lobby: 'Lobby',
     leave: 'Leave',
@@ -261,14 +246,12 @@ export const en = {
     imReady: "I'm Ready!",
     allReadyRequired: 'All players must be ready before starting',
     needMinPlayers: 'Need at least 2 players to start',
-    // Game mode descriptions
     desc1v1: 'Classic 1 vs 1 Pong - Local play on same keyboard (WASD vs Arrows)',
     descMultiplayer: 'Multiplayer Pong - Multiple players compete in a free-for-all match',
     descTournament1v1: '1v1 Tournament - Players compete in bracket-style matches',
     descTournamentMulti: 'Multiplayer Tournament - Teams compete in bracket-style matches',
     descTournament: 'Tournament - 4 players compete in 1v1 bracket matches (semi-finals + final)',
     descLastOneStanding: 'Last One Standing - 2-8 players battle. Last one standing wins!',
-    // Validation alerts
     alert1v1Players: '1v1 mode requires exactly 2 players (including yourself)',
     alertTournament1v1Players: 'Tournament 1v1 requires at least 4 players',
     alertTournamentMultiPlayers: 'Multiplayer tournament requires at least 4 players',
@@ -276,12 +259,10 @@ export const en = {
     alertMultiplayerPlayers: 'Multiplayer mode requires at least 2 players',
     alertLastOneStandingMin: 'Last One Standing requires at least 2 players',
     alertLastOneStandingMax: 'Last One Standing allows a maximum of 8 players',
-    // Game UI
     leaderboard: 'Leaderboard',
     backToMenu: 'Back to Menu',
     player: 'Player',
     gameOverText: 'GAME OVER!',
-    // Tournament UI
     tournamentWinner: 'TOURNAMENT CHAMPION!',
     tournamentComplete: 'Tournament Complete',
     congratulations: 'Congratulations! You won the tournament!',
@@ -295,7 +276,6 @@ export const en = {
     yourMatchIsReady: 'Your next match is ready!',
     anotherMatchCompleted: 'Another match completed',
     matchComplete: 'Match complete',
-    // Powerups
     powerupBallAdded: 'Ball Added',
     powerupFastPaddles: 'Fast Paddles',
     powerupSlowPaddles: 'Slow Paddles',
@@ -306,7 +286,6 @@ export const en = {
     powerupUnknown: 'Unknown',
   },
 
-  // 2FA
   twoFactor: {
     title: 'Two-Factor Authentication',
     enterCode: 'Enter the 6-digit code from your authenticator app',
@@ -338,7 +317,6 @@ export const en = {
     notAvailableGuest: 'Two-factor authentication is not available for guest accounts.',
   },
 
-  // Profile
   profile: {
     title: 'Profile',
     userProfile: 'User Profile',
@@ -373,7 +351,6 @@ export const en = {
     inGame: 'in-game',
   },
 
-  // Errors
   errors: {
     networkError: 'Network error. Please try again.',
     serverError: 'Server error. Please try again later.',
@@ -384,3 +361,4 @@ export const en = {
 };
 
 export type TranslationKeys = typeof en;
+

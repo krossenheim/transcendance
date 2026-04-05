@@ -16,7 +16,6 @@ const fastify: FastifyInstance = Fastify();
 
 const ctx = new HubCTX();
 
-// Whitelist of allowed container names for proxy requests
 const ALLOWED_CONTAINERS = new Set([
   process.env.CHATROOM_NAME,
   process.env.DATABASE_NAME,
@@ -33,7 +32,7 @@ function listInternalContainerConnection(socket: WebSocket, request: FastifyRequ
   const containerIp4 = request.ip.startsWith("::ffff:")
     ? request.ip.slice(7)
     : request.socket.remoteAddress;
-  
+
   const containerName = containersIpToName.get(containerIp4 || "");
   if (!containerName) {
     console.error("Unknown container connected with IP: " + containerIp4);
@@ -45,10 +44,7 @@ function listInternalContainerConnection(socket: WebSocket, request: FastifyRequ
   return containerName;
 }
 
-// Ping interval to keep WebSocket connections alive through nginx proxy_read_timeout.
-// Nginx closes idle connections after WEBSOCKET_TIMEOUT (default 300s). Periodic pings
-// ensure the connection is never considered idle during tournament bracket views, etc.
-const WS_PING_INTERVAL_MS = 30_000; // 30 seconds
+const WS_PING_INTERVAL_MS = 30_000;
 
 async function main() {
   await fastify.register(websocketPlugin);
@@ -60,9 +56,8 @@ async function main() {
       const connectionName = listInternalContainerConnection(socket, req);
       if (connectionName === null) return;
 
-      // Keepalive ping for internal container connections
       const pingInterval = setInterval(() => {
-        if (socket.readyState === 1 /* WebSocket.OPEN */) {
+        if (socket.readyState === 1 ) {
           socket.ping();
         }
       }, WS_PING_INTERVAL_MS);
@@ -95,9 +90,8 @@ async function main() {
     "/ws",
     { websocket: true },
     (socket: WebSocket, req: FastifyRequest) => {
-      // Keepalive ping for client connections through nginx
       const pingInterval = setInterval(() => {
-        if (socket.readyState === 1 /* WebSocket.OPEN */) {
+        if (socket.readyState === 1 ) {
           socket.ping();
         }
       }, WS_PING_INTERVAL_MS);
@@ -127,13 +121,12 @@ async function main() {
     if (authResult.isErr()) return reply.status(401).send(authResult.unwrapErr());
     const userId = authResult.unwrap();
     const { container } = req.params as { container: string };
-    
-    // Validate container name to prevent SSRF attacks
+
     if (!isValidContainer(container)) {
       console.error("SSRF attempt blocked - invalid container:", container);
       return reply.status(400).send({ error: "Invalid container name" });
     }
-    
+
     const body = AuthClientRequest(z.any()).parse({
       userId: Number(userId),
       payload: req.body,
@@ -149,13 +142,12 @@ async function main() {
 
   fastify.all("/public_api/:container/*", async (req, reply) => {
     const { container } = req.params as { container: string };
-    
-    // Validate container name to prevent SSRF attacks
+
     if (!isValidContainer(container)) {
       console.error("SSRF attempt blocked - invalid container:", container);
       return reply.status(400).send({ error: "Invalid container name" });
     }
-    
+
     await proxyRequest(
       req,
       reply,
@@ -180,3 +172,4 @@ async function main() {
 }
 
 main();
+

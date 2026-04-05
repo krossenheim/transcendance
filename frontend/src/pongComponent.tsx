@@ -21,11 +21,7 @@ import { usePredictedGameState } from "./usePredictedGameState"
 import { useLanguage } from "./i18n/LanguageContext"
 import { usePongStore } from "./stores/pongStore"
 import { setGamePlayerIds } from "@utils/users"
-// local: avoid importing server-side db helpers
 
-// =========================
-// Component
-// =========================
 export default function PongComponent({
   authResponse,
   showInviteModal = false,
@@ -47,8 +43,6 @@ export default function PongComponent({
   onLobbyJoined?: () => void
   onNavigateToChat?: () => void
 }) {
-  // Cache for delta compression: stores static state (walls, gameOptions) per game
-  // Keyed by board_id to support multiple simultaneous games (e.g., tournament mini-previews)
   const cachedStaticStatesRef = useRef<Map<number, {
     walls: any[];
     gameOptions: any;
@@ -56,26 +50,19 @@ export default function PongComponent({
     allPlayers: number[];
   }>>(new Map());
 
-  // Helper: normalize server GameState (tuples) to frontend-friendly objects
-  // Supports delta compression: merges delta updates with cached static state
   const normalizeGameState = (raw: any) => {
     if (!raw) return null
 
-    // Check if this is a delta update (missing walls = delta)
     const isDelta = raw.isDelta === true;
     const incomingBoardId = raw.board_id ?? raw.boardId;
-    
-    // Get cached static state for this specific game
+
     const cachedStatic = incomingBoardId != null ? cachedStaticStatesRef.current.get(incomingBoardId) : undefined;
-    
-    // If delta update, merge with cached static state
+
     let wallsSource = raw.walls;
     let metadataSource = raw.metadata;
-    
+
     if (isDelta && cachedStatic) {
-      // Use cached walls for delta updates
       wallsSource = cachedStatic.walls;
-      // Merge metadata: delta metadata + cached static fields
       metadataSource = {
         ...raw.metadata,
         gameOptions: cachedStatic.gameOptions,
@@ -84,15 +71,13 @@ export default function PongComponent({
         id: incomingBoardId,
       };
     } else if (!isDelta && raw.walls && incomingBoardId != null) {
-      // Full update: cache static state for this game
       cachedStaticStatesRef.current.set(incomingBoardId, {
         walls: raw.walls,
         gameOptions: raw.metadata?.gameOptions,
         seed: raw.metadata?.seed,
         allPlayers: raw.metadata?.allPlayers,
       });
-      
-      // Cleanup: limit cache size to prevent memory leaks (keep last 10 games)
+
       if (cachedStaticStatesRef.current.size > 10) {
         const firstKey = cachedStaticStatesRef.current.keys().next().value;
         if (firstKey !== undefined) {
@@ -101,10 +86,8 @@ export default function PongComponent({
       }
     }
 
-    // balls: tuple [x,y,dx,dy,radius,inverse_mass] -> { id, x, y, dx, dy }
     const balls = (raw.balls || []).filter((b: any) => b != null).map((b: any, idx: number) => {
       if (Array.isArray(b)) {
-        // New backend includes stable ball id at index 6. Fallback to index if missing.
         const stableId = Number.isFinite(Number(b[6])) ? Number(b[6]) : idx
         return {
           id: stableId,
@@ -115,7 +98,6 @@ export default function PongComponent({
           radius: Number(b[4]) || 10,
         }
       }
-      // already object-shaped (defensive access)
       return {
         id: b?.id ?? idx,
         x: b?.x ?? 0,
@@ -126,7 +108,6 @@ export default function PongComponent({
       }
     })
 
-    // paddles: tuple [x,y,angle,width,height,vx,vy,playerId] -> { x,y,r,w,l,owner_id,paddle_id }
     const paddles = (raw.paddles || []).filter((p: any) => p != null).map((p: any, idx: number) => {
       if (Array.isArray(p)) {
         const owner = Number(p[7]) ?? idx
@@ -151,10 +132,8 @@ export default function PongComponent({
       }
     })
 
-    // walls: tuple [ax,ay,bx,by,...] -> edges as polygon points using pointA of each wall
     const edges = (wallsSource || []).filter((w: any) => w != null).map((w: any) => {
       if (Array.isArray(w)) {
-        // w[6] is playerId (null for regular walls, number for eliminated player's goal)
         return { x: Number(w[0]) || 0, y: Number(w[1]) || 0, playerId: w[6] ?? null }
       }
       return { x: w?.x ?? 0, y: w?.y ?? 0, playerId: w?.playerId ?? null }
@@ -175,8 +154,7 @@ export default function PongComponent({
     }
   }
   const { isConnected, sendMessage, subscribe } = useWebSocket()
-  
-  // Get state from Zustand store
+
   const gameState = usePongStore((state) => state.gameState)
   const setGameState = usePongStore((state) => state.setGameState)
   const playerOnePaddleID = usePongStore((state) => state.playerOnePaddleID)
@@ -204,37 +182,23 @@ export default function PongComponent({
   const debugPlayers = usePongStore((state) => state.debugPlayers)
   const setDebugPlayers = usePongStore((state) => state.setDebugPlayers)
   const resetGameState = usePongStore((state) => state.resetGameState)
-  
+
   const gameStateRef = useRef(gameState)
   gameStateRef.current = gameState
   const gameStateReceivedRef = useRef<boolean>(false)
   const retryIntervalRef = useRef<number | null>(null)
 
-  // Watched game states for mini-previews in tournament bracket (keyed by gameId/board_id)
   const watchedGameStatesRef = useRef<Record<number, TypeGameStateSchema>>({})
-  // Set of gameIds we are currently watching (for routing getGameState updates)
   const watchedGameIdsRef = useRef<Set<number>>(new Set())
-  // Force bracket re-render counter (throttled)
   const [watchedStatesVersion, setWatchedStatesVersion] = useState(0)
   const watchedThrottleRef = useRef<number>(0)
-  // Renderer controls for tuning paddle rotation and screenshots
   const rendererRef = useRef<any>(null)
   const [paddleRotationOffset] = useState<number>(0)
-  
-  // Get user ID for prediction
-  const myUserId = authResponse?.user?.id ?? -1
-  
-  // Use client-side prediction for smooth rendering
-  const predictedGameState = usePredictedGameState(gameState, myUserId, pressedKeys)
-  
-  // Debug: Log all view changes (disabled for performance)
-  // useEffect(() => {
-  //   console.log("[Pong] VIEW IS NOW:", currentView);
-  // }, [currentView]);
-  
-  // pongInvitations and setPongInvitations are now passed as props from AppRoot
 
-  // Reset view when in stale game view (no game state) - navigate back to chat
+  const myUserId = authResponse?.user?.id ?? -1
+
+  const predictedGameState = usePredictedGameState(gameState, myUserId, pressedKeys)
+
   useEffect(() => {
     if (currentView === "game" && !gameState) {
       console.log("[Pong] Resetting stale game view (no gameState), navigating to chat")
@@ -243,9 +207,6 @@ export default function PongComponent({
     }
   }, [currentView, gameState, setCurrentView, onNavigateToChat])
 
-  // No longer auto-redirect from menu to chat — users can browse the pong menu directly
-
-  // Cleanup polling on unmount (in case any leftover intervals exist)
   useEffect(() => {
     return () => {
       if (retryIntervalRef.current) {
@@ -255,21 +216,17 @@ export default function PongComponent({
     }
   }, [])
 
-  // Cleanup: Leave lobby when component unmounts (user navigates away)
-  // Use ref to track current lobby without causing re-renders
   const lobbyRef = useRef(lobby)
   useEffect(() => {
     lobbyRef.current = lobby
   }, [lobby])
 
-  // Ref for onNavigateToChat to use in event handlers
   const onNavigateToChatRef = useRef(onNavigateToChat)
   useEffect(() => {
     onNavigateToChatRef.current = onNavigateToChat
   }, [onNavigateToChat])
 
   useEffect(() => {
-    // Only run cleanup on actual unmount
     return () => {
       if (lobbyRef.current) {
         console.log("[Pong] Component unmounting, leaving lobby:", lobbyRef.current.lobbyId)
@@ -278,16 +235,12 @@ export default function PongComponent({
     }
   }, [sendMessage])
 
-  // =========================
-  // Fetch game state on mount
-  // =========================
   useEffect(() => {
     if (!isConnected) {
       console.log("[Pong] Socket not ready yet");
       return;
     }
 
-    // Only request game state if socket is ready
     console.log("[Pong] Requesting game state...");
     console.log("[Pong] getGameState config:", {
       funcId: user_url.ws.pong.getGameState.funcId,
@@ -300,9 +253,6 @@ export default function PongComponent({
     console.log("[Pong] Game state request sent");
   }, [isConnected, lastCreatedBoardId, sendMessage]);
 
-  // =========================
-  // Resync lobby state after reconnect
-  // =========================
   const wasConnected = useRef(false)
   useEffect(() => {
     if (isConnected && !wasConnected.current && currentViewRef.current === "lobby") {
@@ -312,11 +262,6 @@ export default function PongComponent({
     wasConnected.current = isConnected;
   }, [isConnected, sendMessage]);
 
-  // =========================
-  // Subscribe to pong WebSocket events
-  // =========================
-  
-  // Helper function for setting player paddle IDs
   const setPlayerIDsHelper = useCallback(
     (game_data: TypeGameStateSchema) => {
       if (!game_data) {
@@ -350,43 +295,34 @@ export default function PongComponent({
     [authResponse, setPlayerOnePaddleID, setPlayerTwoPaddleID],
   )
 
-  // Ref for tournament to use in stable subscriptions
   const tournamentRef = useRef(tournament)
   useEffect(() => {
     tournamentRef.current = tournament
   }, [tournament])
 
-  // Ref for authResponse to use in stable subscriptions
   const authResponseRef = useRef(authResponse)
   useEffect(() => {
     authResponseRef.current = authResponse
   }, [authResponse])
 
-  // Ref for currentView to use in stable subscriptions
   const currentViewRef = useRef(currentView)
   useEffect(() => {
     currentViewRef.current = currentView
   }, [currentView])
 
-  // Ref for activeTournamentId to use in stable subscriptions
   const activeTournamentIdRef = useRef(activeTournamentId)
   useEffect(() => {
     activeTournamentIdRef.current = activeTournamentId
   }, [activeTournamentId])
 
-  // Set stable tournament-wide player colors so bracket doesn't flicker
   useEffect(() => {
     if (tournament?.players && tournament.players.length > 0) {
       setGamePlayerIds(tournament.players.map(p => p.id));
     }
   }, [tournament?.players])
 
-  // BULLETPROOF ref: stores tournament info from the moment the game starts.
-  // Cannot be cleared by Zustand state changes or React re-renders.
-  // Only cleared explicitly on "Back to Menu".
   const tournamentGameRef = useRef<{ tournamentId: number } | null>(null)
 
-  // Auto-restore activeTournamentId from ALL available sources
   useEffect(() => {
     const fallbackId = tournament?.tournamentId
       || tournamentMatchResult?.tournamentId
@@ -398,7 +334,6 @@ export default function PongComponent({
     }
   }, [tournament, tournamentMatchResult, gameState, activeTournamentId, setActiveTournamentId])
 
-  // STABLE subscription for getLobbyState (resync lobby after reconnect)
   useEffect(() => {
     if (!subscribe) return;
 
@@ -441,7 +376,6 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe, setLobby, setCurrentView]);
 
-  // STABLE subscription for declineLobbyInvitation (host receives updated lobby when someone declines)
   useEffect(() => {
     if (!subscribe) return;
 
@@ -485,17 +419,16 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe, setLobby]);
 
-  // STABLE subscription for togglePlayerReady (separate from main effect to avoid missing messages during resubscription)
   useEffect(() => {
     if (!subscribe) return;
-    
+
     const unsubscribe = subscribe(user_url.ws.pong.togglePlayerReady, (message, schema) => {
       console.log("[Pong-Stable] Received togglePlayerReady:", message.code);
-      
+
       if (message.code === schema.output.LobbyUpdate.code) {
         const lobbyData = message.payload;
         const currentAuth = authResponseRef.current;
-        if (currentAuth && lobbyData.players.some((p: any) => 
+        if (currentAuth && lobbyData.players.some((p: any) =>
           p.userId === currentAuth.user.id || p.id === currentAuth.user.id
         )) {
           setLobby({
@@ -515,21 +448,20 @@ export default function PongComponent({
             },
             status: lobbyData.status,
           });
-          
+
           if (currentViewRef.current === "menu") {
             setCurrentView("lobby");
           }
         }
         return HandlerResult.Handled;
       }
-      
+
       return HandlerResult.NotHandled;
     });
-    
+
     return () => unsubscribe();
   }, [subscribe, setLobby, setCurrentView]);
 
-  // STABLE subscription for leaveLobby — remaining players receive LobbyUpdate when someone leaves
   useEffect(() => {
     if (!subscribe) return;
 
@@ -569,7 +501,6 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe, setLobby]);
 
-  // STABLE subscription for createLobby (separate from main effect to avoid missing LobbyCreated during subscription churn)
   useEffect(() => {
     if (!subscribe) return;
 
@@ -578,7 +509,6 @@ export default function PongComponent({
 
       if (message.code === schema.output.LobbyCreated.code) {
         const currentAuth = authResponseRef.current;
-        // Check if we're the host
         const isHost = currentAuth && message.payload.players?.some((p: any) =>
           (p.userId === currentAuth.user.id || p.id === currentAuth.user.id) && p.isHost
         );
@@ -586,7 +516,6 @@ export default function PongComponent({
         console.log("[Pong-Stable] isHost check: myId=", currentAuth?.user?.id, "isHost=", isHost);
 
         if (isHost) {
-          // Update lobby with the real backend-assigned lobbyId
           setLobby({
             lobbyId: message.payload.lobbyId,
             gameMode: message.payload.gameMode,
@@ -605,12 +534,10 @@ export default function PongComponent({
             status: message.payload.status,
           });
 
-          // If this is a tournament lobby, capture the SERVER's tournament ID
           if (message.payload.tournament?.tournamentId) {
             const serverTournament = message.payload.tournament;
             console.log("[Pong-Stable] Tournament lobby created, setting activeTournamentId:", serverTournament.tournamentId);
             setActiveTournamentId(serverTournament.tournamentId);
-            // Store in bulletproof ref AND window
             tournamentGameRef.current = { tournamentId: serverTournament.tournamentId };
             (window as any).__pongTournamentId = serverTournament.tournamentId;
             console.log("[Pong-Stable] 🏆 Stored tournament ID in ref + window:", serverTournament.tournamentId);
@@ -644,7 +571,6 @@ export default function PongComponent({
               isLocal: serverTournament.isLocal || false,
             });
 
-            // For local tournaments, skip the lobby and go directly to bracket view
             if (serverTournament.isLocal) {
               console.log("[Pong-Stable] Local tournament - skipping lobby, going to bracket view");
               setLobby(null);
@@ -664,7 +590,6 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe, setLobby, setTournament, setActiveTournamentId, setCurrentView]);
 
-  // STABLE subscription for startFromLobby (separate from main effect to avoid missing GameStarted during subscription churn)
   useEffect(() => {
     if (!subscribe) return;
 
@@ -675,7 +600,6 @@ export default function PongComponent({
         console.log("[Pong-Stable] Game started from lobby! Processing game state");
         const gameStatePayload = message.payload;
 
-        // Preserve tournament ID before clearing lobby (use refs for stable access)
         const tournamentIdToPreserve = activeTournamentIdRef.current
           || tournamentRef.current?.tournamentId
           || (lobbyRef.current as any)?.tournament?.tournamentId
@@ -683,7 +607,6 @@ export default function PongComponent({
         if (tournamentIdToPreserve) {
           console.log("[Pong-Stable] Preserving tournament ID:", tournamentIdToPreserve);
           setActiveTournamentId(tournamentIdToPreserve);
-          // Store in bulletproof ref AND window
           tournamentGameRef.current = { tournamentId: tournamentIdToPreserve };
           (window as any).__pongTournamentId = tournamentIdToPreserve;
         }
@@ -694,7 +617,6 @@ export default function PongComponent({
           setPlayerIDsHelper(normalized);
           setGameState(normalized);
         }
-        // Preserve player data for leaderboard before clearing lobby
         const currentLobby = lobbyRef.current;
         if (currentLobby?.players) {
           if (currentLobby.gameMode === "1v1" && currentLobby.players.length === 1) {
@@ -728,13 +650,12 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe, setPlayerIDsHelper, setGameState, setLobby, setCurrentView, setDebugPlayers, setActiveTournamentId]);
 
-  // STABLE subscription for tournament state updates (separate from main effect to avoid resubscribing on view changes)
   useEffect(() => {
     if (!subscribe) return;
-    
+
     const unsubscribe = subscribe(user_url.ws.pong.tournamentMatchResult, (message, schema) => {
       console.log("[Pong-Stable] Received tournamentMatchResult:", message.code);
-      
+
       if (message.code === schema.output.MatchResult.code) {
         const result = message.payload;
         console.log("[Pong-Stable] Tournament update received:", {
@@ -744,8 +665,7 @@ export default function PongComponent({
           matchCount: result.tournament?.matches?.length,
           finalsPlayers: result.tournament?.matches?.find((m: any) => m.round === result.tournament?.totalRounds)
         });
-        
-        // Always update tournament state with latest data from server
+
         if (result.tournament) {
           const tournamentFromServer = result.tournament;
           const mapPlayer = (p: any) => ({
@@ -758,7 +678,7 @@ export default function PongComponent({
             const p = tournamentFromServer.players?.find((pl: any) => (pl.userId || pl.id) === playerId);
             return p ? mapPlayer(p) : null;
           };
-          
+
           const newTournament: TournamentData = {
             tournamentId: tournamentFromServer.tournamentId,
             name: tournamentFromServer.name || "Tournament",
@@ -781,42 +701,38 @@ export default function PongComponent({
             onchainTxHashes: tournamentFromServer.onchainTxHashes || [],
             isLocal: tournamentFromServer.isLocal || false,
           };
-          
-          console.log("[Pong-Stable] Setting tournament state with finals:", 
+
+          console.log("[Pong-Stable] Setting tournament state with finals:",
             newTournament.matches.find(m => m.round === newTournament.totalRounds));
-          
+
           setTournament(newTournament);
           setActiveTournamentId(tournamentFromServer.tournamentId);
         }
       }
       return HandlerResult.Handled;
     });
-    
+
     return () => unsubscribe();
   }, [subscribe, setTournament, setActiveTournamentId]);
 
-  // STABLE subscription for joinTournamentMatch (separate to avoid missing MatchStarted during subscription churn)
   useEffect(() => {
     if (!subscribe) return;
-    
+
     const unsubscribe = subscribe(user_url.ws.pong.joinTournamentMatch, (message, schema) => {
       console.log("[Pong-Stable] Received joinTournamentMatch response:", message.code);
-      
+
       if (message.code === schema.output.MatchStarted.code) {
         console.log("[Pong-Stable] Tournament match started! Transitioning to game view");
         const gameStatePayload = message.payload;
-        
-        // Set players from tournament data for score display (use ref)
+
         const currentTournament = tournamentRef.current;
         if (currentTournament?.players) {
           setDebugPlayers(currentTournament.players.map(p => ({ id: p.id, username: p.alias || p.username })));
         }
-        
+
         const normalized = normalizeGameState(gameStatePayload);
         if (normalized) {
           setPlayerIDsHelper(normalized);
-          // For local tournament matches, the host may not own any paddle.
-          // Force playerOnePaddleID to 0 so keyboard handlers are active.
           if (currentTournament?.isLocal) {
             console.log("[Pong-Stable] Local tournament match - forcing keyboard activation");
             setPlayerOnePaddleID(0);
@@ -827,15 +743,12 @@ export default function PongComponent({
         setCurrentView("game");
         return HandlerResult.Handled;
       }
-      
-      // Waiting for opponent - show feedback
+
       if (message.code === schema.output.WaitingForOpponent.code) {
         console.log("[Pong-Stable] Waiting for opponent to be ready");
-        // Could add toast notification here if desired
         return HandlerResult.Handled;
       }
-      
-      // Error cases - stay in tournament view
+
       if (message.code === schema.output.MatchNotReady.code) {
         console.warn("[Pong-Stable] Match not ready:", message.payload?.message);
         return HandlerResult.Handled;
@@ -844,49 +757,43 @@ export default function PongComponent({
         console.warn("[Pong-Stable] Not your match:", message.payload?.message);
         return HandlerResult.Handled;
       }
-      
+
       return HandlerResult.NotHandled;
     });
-    
+
     return () => unsubscribe();
   }, [subscribe, setPlayerIDsHelper, setGameState, setLobby, setCurrentView, setDebugPlayers]);
 
-  // STABLE subscription for spectateMatch
   useEffect(() => {
     if (!subscribe) return;
-    
+
     const unsubscribe = subscribe(user_url.ws.pong.spectateMatch, (message, schema) => {
       console.log("[Pong-Stable] Received spectateMatch response:", message.code);
-      
+
       if (message.code === schema.output.Spectating.code) {
         console.log("[Pong-Stable] Now spectating match!");
         const gameStatePayload = message.payload;
-        
-        // Set players from tournament data for score display
+
         const currentTournament = tournamentRef.current;
         if (currentTournament?.players) {
           setDebugPlayers(currentTournament.players.map(p => ({ id: p.id, username: p.alias || p.username })));
         }
-        
+
         const normalized = normalizeGameState(gameStatePayload);
         if (normalized) {
           setPlayerIDsHelper(normalized);
           setGameState(normalized);
-          // Update refs immediately so game state routing works before next render
           gameStateRef.current = normalized;
-          // Remove this game from watched set so updates go to main view, not mini-preview
           if (normalized.board_id != null) {
             watchedGameIdsRef.current.delete(normalized.board_id);
           }
         }
         setLobby(null);
         setCurrentView("game");
-        // Update view ref immediately so routing doesn't intercept updates
         currentViewRef.current = "game";
         return HandlerResult.Handled;
       }
-      
-      // Error cases - stay in tournament view
+
       if (message.code === schema.output.MatchNotInProgress.code) {
         console.warn("[Pong-Stable] Match not in progress:", message.payload?.message);
         return HandlerResult.Handled;
@@ -895,14 +802,13 @@ export default function PongComponent({
         console.warn("[Pong-Stable] Not in tournament:", message.payload?.message);
         return HandlerResult.Handled;
       }
-      
+
       return HandlerResult.NotHandled;
     });
-    
+
     return () => unsubscribe();
   }, [subscribe, setPlayerIDsHelper, setGameState, setLobby, setCurrentView, setDebugPlayers]);
 
-  // STABLE subscription for watchTournamentMatches (passive spectate for mini-previews)
   useEffect(() => {
     if (!subscribe) return;
 
@@ -912,13 +818,11 @@ export default function PongComponent({
       if (message.code === schema.output.Watching.code) {
         const { watching } = message.payload as { watching: Array<{ matchId: number; gameId: number }> };
         console.log("[Pong-Stable] Now watching", watching.length, "tournament matches:", watching);
-        // Populate the watched game IDs set
         const newIds = new Set<number>();
         for (const w of watching) {
           newIds.add(w.gameId);
         }
         watchedGameIdsRef.current = newIds;
-        // Clear stale game states
         const newStates: Record<number, TypeGameStateSchema> = {};
         for (const id of newIds) {
           if (watchedGameStatesRef.current[id]) {
@@ -941,10 +845,8 @@ export default function PongComponent({
     return () => unsubscribe();
   }, [subscribe]);
 
-  // Auto-watch tournament matches when in tournament view with in_progress matches
   useEffect(() => {
     if (currentView !== "tournament" || !tournament || !activeTournamentId || !isConnected) {
-      // Clear watched state when leaving tournament view
       watchedGameIdsRef.current = new Set();
       watchedGameStatesRef.current = {};
       return;
@@ -959,24 +861,18 @@ export default function PongComponent({
     });
   }, [currentView, tournament, activeTournamentId, isConnected, sendMessage]);
 
-  // Subscribe to game state updates
   useEffect(() => {
     const unsubscribers: (() => void)[] = [];
-    
-    // Subscribe to getGameState
+
     unsubscribers.push(subscribe(user_url.ws.pong.getGameState, (message, schema) => {
-      // Debug logging disabled for performance
-      // console.log("[Pong] Received getGameState:", message.code);
-      
+
       if (message.code === schema.output.GameUpdate.code) {
         const normalized = normalizeGameState(message.payload);
         const incomingBoardId = normalized?.board_id ?? message.payload?.board_id ?? message.payload?.boardId;
 
-        // Route to mini-preview if this is a watched tournament match and we're in tournament view
         if (incomingBoardId != null && watchedGameIdsRef.current.has(incomingBoardId) && currentViewRef.current === "tournament") {
           if (normalized) {
             watchedGameStatesRef.current[incomingBoardId] = normalized;
-            // Throttle bracket re-renders to ~10fps
             const now = Date.now();
             if (now - watchedThrottleRef.current > 100) {
               watchedThrottleRef.current = now;
@@ -986,21 +882,18 @@ export default function PongComponent({
           return HandlerResult.Handled;
         }
 
-        // Drop game updates when in tournament view but not actively playing
-        // (e.g. spectator returned to bracket — server still sends updates until unsubscribed)
         if (currentViewRef.current === "tournament" && gameStateRef.current === null) {
           return HandlerResult.Handled;
         }
 
         if (message.payload?.gameOver) {
-          console.log("[Pong] 🎮 GAME OVER RECEIVED!", { 
-            gameOver: message.payload.gameOver, 
+          console.log("[Pong] 🎮 GAME OVER RECEIVED!", {
+            gameOver: message.payload.gameOver,
             winner: message.payload.winner,
             score: message.payload.score,
             metadata: message.payload.metadata,
             tournamentGameRef: tournamentGameRef.current,
           });
-          // Restore tournament ID from game metadata or ref
           const metaTournamentId = message.payload.metadata?.tournamentId
             || (message.payload as any)?.tournamentId
             || tournamentGameRef.current?.tournamentId;
@@ -1009,8 +902,6 @@ export default function PongComponent({
             setActiveTournamentId(metaTournamentId);
           }
         }
-        // Ignore stale GameUpdates from old games: if we have a current game,
-        // only accept updates for that same board_id.
         const currentBoardId = gameStateRef.current?.board_id;
         if (currentBoardId != null && incomingBoardId != null && currentBoardId !== incomingBoardId) {
           console.log("[Pong] Ignoring stale GameUpdate for board", incomingBoardId, "(current:", currentBoardId, ")");
@@ -1018,33 +909,22 @@ export default function PongComponent({
         }
         setGameState(normalized);
         gameStateReceivedRef.current = true;
-        // Only set paddle IDs once when first receiving game state (not on every frame)
         if (!gameStateRef.current || gameStateRef.current.board_id !== normalized?.board_id) {
           if (normalized) {
             setPlayerIDsHelper(normalized);
           }
-          // Sync color map from server's authoritative allPlayers list so
-          // web colours always match the CLI (which also uses metadata.allPlayers).
           const metaAllPlayers = normalized?.metadata?.allPlayers;
           if (Array.isArray(metaAllPlayers) && metaAllPlayers.length > 0) {
             setGamePlayerIds(metaAllPlayers);
           }
         }
-        // If we received valid game state and we're not in game view, switch to it
-        // But NOT if we're in the tournament bracket view — the user navigated there deliberately
         if (currentViewRef.current !== 'game' && currentViewRef.current !== 'tournament' && message.payload?.board_id && normalized && !normalized.gameOver) {
           console.log("[Pong] Received game state while not in game view, transitioning to game");
-          // For local tournaments, the host doesn't own any paddle so
-          // setPlayerIDsHelper above won't activate the keyboard handler.
-          // Force it here so controls work even if this fires before the
-          // joinTournamentMatch response.
           if (tournamentRef.current?.isLocal) {
             setPlayerOnePaddleID(0);
           }
-          // Preserve player data for leaderboard before clearing lobby
           const currentLobby = lobbyRef.current;
           if (currentLobby?.players) {
-            // For local 1v1 mode with only 1 player, use WASD and Arrow as names
             if (currentLobby.gameMode === "1v1" && currentLobby.players.length === 1) {
               const hostPlayer = currentLobby.players[0];
               if (hostPlayer) {
@@ -1055,12 +935,10 @@ export default function PongComponent({
                 ]);
               }
             } else {
-              // Add human players
               const allPlayers = currentLobby.players.map(p => ({ id: p.id, username: p.username }));
-              // Add AI players if present
               const aiCount = currentLobby.settings?.aiCount || 0;
               for (let i = 0; i < aiCount; i++) {
-                const aiId = -1001 - i; // AI IDs are -1001, -1002, etc.
+                const aiId = -1001 - i;
                 allPlayers.push({ id: aiId, username: `AI ${i + 1}` });
               }
               setGamePlayerIds(allPlayers.map(p => p.id));
@@ -1075,19 +953,17 @@ export default function PongComponent({
         console.log("[Pong] User not in any game room - this is normal if no game exists");
         return HandlerResult.Handled;
       }
-      
+
       return HandlerResult.NotHandled;
     }));
-    
-    // Subscribe to startGame
+
     unsubscribers.push(subscribe(user_url.ws.pong.startGame, (message, schema) => {
       console.log("[Pong] Received startGame:", message.code);
-      
+
       if (message.code === schema.output.GameInstanceCreated.code) {
         console.log("[Pong] Game started, received game info:", message.payload);
         if (message.payload && typeof message.payload.board_id === 'number') {
           setLastCreatedBoardId(message.payload.board_id);
-          // Request game state after game creation
           if (isConnected) {
             sendMessage(user_url.ws.pong.getGameState, { gameId: message.payload.board_id });
             console.log("[Pong] Requested game state after game creation");
@@ -1095,43 +971,26 @@ export default function PongComponent({
         }
         return HandlerResult.Handled;
       }
-      
+
       return HandlerResult.NotHandled;
     }));
-    
-    // NOTE: createLobby subscription has been moved to a STABLE useEffect above
-    // to prevent missing LobbyCreated messages during subscription churn
-    
-    // NOTE: togglePlayerReady subscription has been moved to a STABLE useEffect above
-    // to prevent missing messages during subscription churn
-    
-    // NOTE: startFromLobby subscription has been moved to a STABLE useEffect above
-    // to prevent missing GameStarted messages during subscription churn
 
-    // NOTE: joinTournamentMatch subscription has been moved to a STABLE useEffect above
-    // to prevent missing MatchStarted messages during subscription churn
-
-    // Subscribe to tournament match results for game over UI (tournament state is handled by stable subscription above)
     unsubscribers.push(subscribe(user_url.ws.pong.tournamentMatchResult, (message, schema) => {
       if (message.code === schema.output.MatchResult.code) {
         const result = message.payload;
-        
-        // Note: Tournament state update is handled by the stable subscription above
-        // This handler only deals with game over UI state
-        
-        // Store match result info for game over UI
+
         const mapResultPlayer = (playerId: number | null): { id: number; username: string; alias?: string } | null => {
           if (playerId === null) return null;
           const p: any = result.tournament?.players?.find((player: any) => (player.userId || player.id) === playerId);
           if (!p) return null;
-          const mapped: { id: number; username: string; alias?: string } = { 
-            id: p.userId || p.id, 
-            username: p.username || `Player ${playerId}` 
+          const mapped: { id: number; username: string; alias?: string } = {
+            id: p.userId || p.id,
+            username: p.username || `Player ${playerId}`
           };
           if (p.alias) mapped.alias = p.alias;
           return mapped;
         };
-        
+
         const nextMatch: TournamentMatch | null = result.nextMatch ? {
           matchId: result.nextMatch.matchId,
           round: result.nextMatch.round,
@@ -1141,17 +1000,14 @@ export default function PongComponent({
           status: result.nextMatch.status,
           readyPlayers: result.nextMatch.readyPlayers || [],
         } : null;
-        
-        // If winnerId is 0, this is a "match started" notification for spectators
-        // They should go to tournament view (not game view since they're not playing)
+
         if (result.winnerId === 0 && currentViewRef.current !== 'game') {
           console.log("[Pong] Match started notification for non-participant, going to tournament view");
-          setLobby(null); // Clear any lobby state
+          setLobby(null);
           setCurrentView("tournament");
-          // Don't set match result for spectators
           return HandlerResult.Handled;
         }
-        
+
         setTournamentMatchResult({
           tournamentId: result.tournamentId,
           matchId: result.matchId,
@@ -1160,23 +1016,21 @@ export default function PongComponent({
           nextMatch,
           isTournamentComplete: result.isTournamentComplete,
         });
-        
+
         return HandlerResult.Handled;
       }
-      
+
       return HandlerResult.NotHandled;
     }));
-    
+
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
   }, [subscribe, isConnected, sendMessage, setGameState, setLobby, setCurrentView, setLastCreatedBoardId, setPlayerIDsHelper, setDebugPlayers, setTournamentMatchResult, setActiveTournamentId]);
 
-  // Handle accepted invitation from AppRoot
   useEffect(() => {
     if (!acceptedLobbyId) return
 
-    // Check if we have stored lobby data (from invitation via window)
     const storedLobbyData = (window as any).__acceptedLobbyData
     if (storedLobbyData && storedLobbyData.lobbyId === acceptedLobbyId) {
       console.log("[Pong] Setting up lobby from stored invitation data:", acceptedLobbyId)
@@ -1198,7 +1052,6 @@ export default function PongComponent({
         status: storedLobbyData.status,
       })
 
-      // Capture tournament ID if this is a tournament lobby
       if (storedLobbyData.tournament?.tournamentId) {
         console.log("[Pong] Accepted tournament lobby, setting activeTournamentId:", storedLobbyData.tournament.tournamentId)
         setActiveTournamentId(storedLobbyData.tournament.tournamentId)
@@ -1206,14 +1059,9 @@ export default function PongComponent({
 
       setCurrentView("lobby")
       if (onLobbyJoined) onLobbyJoined()
-      // Clear after use
       delete (window as any).__acceptedLobbyData
     }
   }, [acceptedLobbyId, onLobbyJoined, setLobby, setActiveTournamentId, setCurrentView])
-
-  // =========================
-  // WebSocket Send Helpers
-  // =========================
 
   const handleUserInput = useCallback(
     (wshandlerinfo: any, payload: any) => {
@@ -1222,9 +1070,6 @@ export default function PongComponent({
     [sendMessage],
   )
 
-  // =========================
-  // Keyboard input (W / S)
-  // =========================
   useEffect(() => {
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
@@ -1234,7 +1079,6 @@ export default function PongComponent({
       if (keysPressed.has(key)) return
       keysPressed.add(key)
 
-      // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed))
 
       if (gs.board_id === null) return
@@ -1242,8 +1086,6 @@ export default function PongComponent({
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug for debugging stuck keys
-      // console.debug('[Pong] KeyDown', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -1253,18 +1095,15 @@ export default function PongComponent({
       const key = e.key.toLowerCase()
       keysPressed.delete(key)
 
-      // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed))
 
       const payload = {
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug('[Pong] KeyUp', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
-    // Clear pressed keys when window loses focus (fixes stuck keys after alt-tab)
     function handleFocusLost() {
       if (keysPressed.size === 0) return
       keysPressed.clear()
@@ -1295,9 +1134,6 @@ export default function PongComponent({
     }
   }, [handleUserInput, playerOnePaddleID])
 
-  // =========================
-  // Keyboard input (O / L)
-  // =========================
   useEffect(() => {
     const keysPressed = new Set<string>()
     function handleKeyDown(e: KeyboardEvent) {
@@ -1307,7 +1143,6 @@ export default function PongComponent({
       if (keysPressed.has(key)) return
       keysPressed.add(key)
 
-      // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed))
 
       if (gs.board_id === null) return
@@ -1315,7 +1150,6 @@ export default function PongComponent({
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug('[Pong] KeyDown (player2)', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
@@ -1325,18 +1159,15 @@ export default function PongComponent({
       const key = e.key.toLowerCase()
       keysPressed.delete(key)
 
-      // Update pressed keys for client-side prediction
       setPressedKeys(Array.from(keysPressed))
 
       const payload = {
         board_id: gs.board_id,
         pressed_keys: Array.from(keysPressed),
       }
-      // console.debug('[Pong] KeyUp (player2)', key, payload.pressed_keys)
       handleUserInput(user_url.ws.pong.handleGameKeys, payload)
     }
 
-    // Clear pressed keys when window loses focus (fixes stuck keys after alt-tab)
     function handleFocusLost() {
       if (keysPressed.size === 0) return
       keysPressed.clear()
@@ -1367,28 +1198,18 @@ export default function PongComponent({
     }
   }, [handleUserInput, playerTwoPaddleID])
 
-  // =========================
-  // 3D Rendering is handled by BabylonPongRenderer component
-  // =========================
-  // NOTE: Debug powerup keys (1-7) are handled by the existing W/S and O/L handlers
-  // since they pass through ALL pressed keys to the server.
-
-
-  // Handler for creating a game from invite modal
   const handleCreateGame = useCallback(
     (mode: GameMode, selectedPlayers: number[], settings: GameSettings, modalPlayerUsernames?: { [key: number]: string }) => {
       console.log("[Pong] Creating game:", { mode, selectedPlayers, settings })
 
-      // Resolve username for a player ID using the best available source
       const resolveUsername = (id: number): string => {
         return modalPlayerUsernames?.[id]
           || inviteRoomUsers.find((u) => u.id === id)?.username
           || (id === authResponse?.user?.id ? authResponse.user.username : `User ${id}`)
       }
 
-      // Create a lobby for this game
       const newLobby: PongLobbyData = {
-        lobbyId: Date.now(), // Temporary ID until backend assigns one
+        lobbyId: Date.now(),
         gameMode: mode,
         players: selectedPlayers.map((id) => ({
           id,
@@ -1408,7 +1229,6 @@ export default function PongComponent({
 
       setLobby(newLobby)
 
-      // Send lobby creation to backend with username map
       const playerUsernames: { [key: number]: string } = {}
       selectedPlayers.forEach(id => {
         playerUsernames[id] = resolveUsername(id)
@@ -1435,14 +1255,8 @@ export default function PongComponent({
         console.log("[Pong] Sent lobby creation to backend:", payload)
       }
 
-      // For tournaments, store minimal tournament info for the lobby view.
-      // The full bracket data (with matches) will arrive from the server
-      // via the stable createLobby subscription — do NOT set matches here
-      // as it would overwrite the server data due to React state batching.
-      // Store game mode in window for debugging and as indestructible backup
       (window as any).__pongGameMode = mode;
       if (mode === "tournament") {
-        // Mark that we started a tournament — this survives everything except page refresh
         (window as any).__pongTournamentPending = true;
         console.log("[Pong] 🏆 Tournament game created, set window.__pongTournamentPending=true");
       }
@@ -1455,13 +1269,11 @@ export default function PongComponent({
     [authResponse, inviteRoomUsers, onCloseInviteModal, isConnected, sendMessage, setTournament, setCurrentView, setShowInviteModalLocal]
   )
 
-  // Handler for toggling ready state in lobby
   const handleToggleReady = useCallback(() => {
     if (!lobby || !authResponse) return
 
     console.log("[Pong] Toggling ready state for lobby:", lobby.lobbyId)
 
-    // Send toggle ready to backend
     const payload = {
       lobbyId: lobby.lobbyId,
     }
@@ -1474,13 +1286,11 @@ export default function PongComponent({
     }
   }, [lobby, authResponse, isConnected, sendMessage])
 
-  // Handler for starting game from lobby
   const handleStartGameFromLobby = useCallback(() => {
     if (!lobby || !authResponse) return
 
     console.log("[Pong] Starting game from lobby:", lobby.lobbyId)
 
-    // Preserve tournament ID before anything else
     const tournamentId = tournament?.tournamentId || (lobby as any)?.tournament?.tournamentId || (lobby as any)?.tournamentId || (window as any).__pongTournamentId
     if (tournamentId) {
       console.log("[Pong] Preserving tournament ID for game start:", tournamentId)
@@ -1489,7 +1299,6 @@ export default function PongComponent({
       (window as any).__pongTournamentId = tournamentId;
     }
 
-    // Send start game request to backend with lobby ID
     const payload = {
       lobbyId: lobby.lobbyId,
     }
@@ -1499,11 +1308,8 @@ export default function PongComponent({
       console.log("[Pong] Sent start game from lobby to backend")
       setLobby({ ...lobby, status: "starting" })
 
-      // Fallback: if we don't transition to game within 2 seconds, request game state
-      // This handles cases where the WebSocket message doesn't trigger the effect for the host
       setTimeout(() => {
         console.log("[Pong] Fallback check: currentView after start request")
-        // Request game state - if we're in a game, the response will trigger the transition
         if (isConnected) {
           sendMessage(user_url.ws.pong.getGameState, { gameId: 1 })
         }
@@ -1513,7 +1319,6 @@ export default function PongComponent({
     }
   }, [lobby, authResponse, isConnected, sendMessage, tournament, setActiveTournamentId, setLobby])
 
-  // Handler for leaving lobby
   const handleLeaveLobby = useCallback(() => {
     if (lobby && isConnected) {
       console.log("[Pong] Leaving lobby:", lobby.lobbyId)
@@ -1522,13 +1327,11 @@ export default function PongComponent({
     setLobby(null)
     setTournament(null)
     setCurrentView("menu")
-    // Navigate back to chat page
     if (onNavigateToChat) {
       onNavigateToChat()
     }
   }, [lobby, isConnected, sendMessage, onNavigateToChat, setLobby, setTournament, setCurrentView])
 
-  // Tournament handlers
   const handleJoinTournamentMatch = useCallback(
     (matchId: number) => {
       if (!activeTournamentId || !isConnected) {
@@ -1537,8 +1340,8 @@ export default function PongComponent({
       }
       const isLocal = tournamentRef.current?.isLocal;
       console.log("[Pong] Joining tournament match:", matchId, "in tournament:", activeTournamentId, isLocal ? "(local)" : "");
-      sendMessage(user_url.ws.pong.joinTournamentMatch, { 
-        tournamentId: activeTournamentId, 
+      sendMessage(user_url.ws.pong.joinTournamentMatch, {
+        tournamentId: activeTournamentId,
         matchId,
         ...(isLocal ? { asLocalHost: true } : {}),
       });
@@ -1553,15 +1356,14 @@ export default function PongComponent({
         return;
       }
       console.log("[Pong] Spectating tournament match:", matchId, "in tournament:", activeTournamentId);
-      sendMessage(user_url.ws.pong.spectateMatch, { 
-        tournamentId: activeTournamentId, 
-        matchId 
+      sendMessage(user_url.ws.pong.spectateMatch, {
+        tournamentId: activeTournamentId,
+        matchId
       });
     },
     [activeTournamentId, isConnected, sendMessage]
   )
 
-  // Stable callback for MiniPongCanvas to read watched game states without React re-renders
   const getWatchedGameState = useCallback(
     (gameId: number): TypeGameStateSchema | null => {
       return watchedGameStatesRef.current[gameId] ?? null;
@@ -1569,17 +1371,13 @@ export default function PongComponent({
     []
   )
 
-  // RENDER LOGIC
-  // Debug logging disabled for performance
-  // console.log("[Pong] RENDER called, currentView =", currentView);
-
   const { t } = useLanguage();
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full bg-dark-600 p-4 space-y-4">
-      {/* Pong Invitation Notifications now rendered globally in AppRoot */}
+      {}
 
-      {/* Menu View */}
+      {}
       {currentView === "menu" && (
         <div className="flex flex-col items-center justify-center w-full h-full gap-6">
           <h2 className="text-3xl font-bold text-white">🏓 Pong</h2>
@@ -1595,7 +1393,7 @@ export default function PongComponent({
         </div>
       )}
 
-      {/* Lobby View */}
+      {}
       {currentView === "lobby" && lobby && authResponse && (
         <div className="w-full max-w-2xl">
           <PongLobby
@@ -1605,7 +1403,7 @@ export default function PongComponent({
             onStartGame={handleStartGameFromLobby}
             onLeaveLobby={handleLeaveLobby}
           />
-          {/* If this lobby is associated with a tournament (or we have tournament state), allow viewing stats */}
+          {}
           {(tournament || (lobby as any).tournamentId) && (
             <div className="mt-4 flex gap-2">
               <button
@@ -1636,7 +1434,7 @@ export default function PongComponent({
         </div>
       )}
 
-      {/* Tournament View */}
+      {}
       {currentView === "tournament" && tournament && authResponse && (
         <div className="w-full max-w-6xl overflow-x-auto">
           <TournamentBracket
@@ -1670,24 +1468,21 @@ export default function PongComponent({
         </div>
       )}
 
-      {/* Game View */}
+      {}
       {currentView === "game" && (
         <div className="fixed inset-0 z-[2147483647] bg-[#1a1a2e] flex flex-col">
-          {/* Header */}
+          {}
           <div className="px-5 py-2.5 bg-black/50 flex justify-between items-center shrink-0">
             <span className="text-white text-lg">🏓 {t('pong.title')}</span>
             <button
               onClick={() => {
                 console.log("[Pong] Back button clicked during game");
-                // If in an active tournament, go back to bracket view instead of fully exiting
                 const tid = activeTournamentIdRef.current || tournamentRef.current?.tournamentId;
                 if (tid && tournamentRef.current) {
                   console.log("[Pong] Returning to tournament bracket view");
-                  // Save tournament data before reset (resetGameState clears everything)
                   const savedTournament = tournamentRef.current;
                   const savedTournamentId = tid;
                   resetGameState();
-                  // Restore tournament context so bracket view can render
                   setTournament(savedTournament);
                   setActiveTournamentId(savedTournamentId);
                   setCurrentView("tournament");
@@ -1711,7 +1506,7 @@ export default function PongComponent({
             </button>
           </div>
 
-          {/* Game Area */}
+          {}
           <div className="flex-1 relative overflow-hidden">
             {gameState && (
               <BabylonPongRenderer
@@ -1721,20 +1516,15 @@ export default function PongComponent({
                 paddleRotationOffset={paddleRotationOffset}
               />
             )}
-            {/* Leaderboard Overlay */}
+            {}
             {gameState && (lobby || debugPlayers || gameState.metadata) && (
               <PongLeaderboard
                 players={(() => {
-                  // Build complete player list from all available sources
-                  // 1. Use playerUsernames from metadata (server-authoritative, includes AI players)
                   const playerUsernames = (gameState.metadata as any)?.playerUsernames as Record<string, string> | undefined;
                   const allOriginalPlayerIds: number[] = (gameState.metadata as any)?.allPlayers ?? [];
-                  
-                  // Check if this is a local 1v1 game (debugPlayers has the -999 Arrow entry)
+
                   const isLocal1v1 = debugPlayers?.some(p => p.id === -999);
 
-                  // If metadata has playerUsernames, use it as the primary source (most reliable)
-                  // But for local 1v1, prefer debugPlayers names (WASD / Arrow)
                   if (playerUsernames && allOriginalPlayerIds.length > 0) {
                     return allOriginalPlayerIds.map(playerId => ({
                       id: playerId,
@@ -1746,12 +1536,10 @@ export default function PongComponent({
                         ?? `Player ${playerId}`,
                     }));
                   }
-                  
-                  // Fallback: Start with lobby players or debugPlayers
+
                   const lobbyPlayers = lobby ? lobby.players.map(p => ({ id: p.id, username: p.username })) : (debugPlayers || []);
                   const knownIds = new Set(lobbyPlayers.map(p => p.id));
-                  
-                  // Add any players from allPlayers that aren't in lobby (e.g. AI players)
+
                   const additionalPlayers: { id: number; username: string }[] = [];
                   for (const playerId of allOriginalPlayerIds) {
                     if (!knownIds.has(playerId)) {
@@ -1759,13 +1547,13 @@ export default function PongComponent({
                       additionalPlayers.push({ id: playerId, username });
                     }
                   }
-                  
+
                   return [...lobbyPlayers, ...additionalPlayers];
                 })()}
                 scores={gameState.score}
               />
             )}
-            {/* Powerup Display Overlay */}
+            {}
             {gameState && (() => {
               const effects = gameState.activeEffects ?? []
               const events = gameState.recentEvents ?? []
@@ -1778,11 +1566,11 @@ export default function PongComponent({
             })()}
           </div>
 
-          {/* Game Over Overlay */}
+          {}
           {gameState?.gameOver && (
             <div className="fixed inset-0 z-[2147483648] bg-black/85 flex flex-col items-center justify-center">
               <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-4 border-yellow-400 rounded-2xl p-12 text-center shadow-2xl max-w-lg">
-                {/* Tournament Winner - Show special celebration if tournament is complete */}
+                {}
                 {tournamentMatchResult?.isTournamentComplete && myUserId === tournamentMatchResult.winnerId ? (
                   <>
                     <h1 className="text-yellow-400 text-5xl mb-3 drop-shadow-lg">🏆 {t('pong.tournamentWinner')} 🏆</h1>
@@ -1825,8 +1613,8 @@ export default function PongComponent({
                     }</span></p>
                   </>
                 )}
-                
-                {/* Score display */}
+
+                {}
                 <p className="text-gray-400 text-2xl mb-8">
                   {gameState.score
                     ? Object.entries(gameState.score).map(([p, s]: [string, any]) => {
@@ -1840,19 +1628,18 @@ export default function PongComponent({
                     : ''}
                 </p>
 
-                {/* Tournament-specific messaging */}
-                {/* Compute effective tournament status from all available sources (defensive fallback) */}
+                {}
+                {}
                 {(activeTournamentId || tournament?.tournamentId || tournamentMatchResult?.tournamentId) && (() => {
-                  // Check if I won or lost my completed match
                   const myCompletedMatch = tournament?.matches.find(m =>
                     m.status === 'completed' &&
                     (m.player1?.id === myUserId || m.player2?.id === myUserId)
                   );
                   const iWon = myCompletedMatch && myCompletedMatch.winner === myUserId;
                   const iLost = myCompletedMatch && myCompletedMatch.winner !== myUserId;
-                  
+
                   const isTournamentComplete = tournament?.status === 'completed';
-                  
+
                   console.log('[GameOver] Tournament state debug:', {
                     myUserId,
                     tournamentStatus: tournament?.status,
@@ -1861,7 +1648,7 @@ export default function PongComponent({
                     iLost,
                     isTournamentComplete,
                   });
-                  
+
                   return (
                     <div className="mb-6">
                       {isTournamentComplete ? (
@@ -1880,22 +1667,20 @@ export default function PongComponent({
                   );
                 })()}
 
-                {/* Action Buttons */}
+                {}
                 <div className="flex flex-col gap-4">
-                  {/* Tournament: Show "Continue to Bracket" button */}
+                  {}
                   {(() => {
                     const effectiveTournamentId = activeTournamentId || tournament?.tournamentId || tournamentMatchResult?.tournamentId;
                     const isTournamentComplete = tournament?.status === 'completed';
                     const isLocal = tournament?.isLocal;
-                    
-                    // For local tournaments, always show continue (host controls the flow)
-                    // For remote tournaments, show continue only if the user won their match
+
                     const myCompletedMatch = tournament?.matches.find(m =>
                       m.status === 'completed' &&
                       m.winner === myUserId
                     );
                     const showContinue = effectiveTournamentId && !isTournamentComplete && (isLocal || myCompletedMatch);
-                    
+
                     if (showContinue) {
                       return (
                         <button
@@ -1916,10 +1701,9 @@ export default function PongComponent({
                     return null;
                   })()}
 
-                  {/* Tournament: Show "View Tournament" / "Watch Tournament" button to see bracket */}
-                  {/* Hidden for local tournaments since "Back to Bracket" already does this */}
+                  {}
+                  {}
                   {!tournament?.isLocal && (activeTournamentId || tournament?.tournamentId || tournamentMatchResult?.tournamentId) && tournament && (() => {
-                    // Check if eliminated (lost and tournament still going)
                     const iEliminated = tournament.status !== 'completed' && tournament.matches.some(m =>
                       m.status === 'completed' &&
                       (m.player1?.id === myUserId || m.player2?.id === myUserId) &&
@@ -1944,7 +1728,7 @@ export default function PongComponent({
                     );
                   })()}
 
-                  {/* Always show "Back to Menu" option */}
+                  {}
                   <button
                     onClick={() => {
                       console.log("[Pong] Game over back button clicked");
@@ -1971,7 +1755,7 @@ export default function PongComponent({
         </div>
       )}
 
-      {/* Invite Modal */}
+      {}
       <PongInviteModal
         isOpen={showInviteModal || showInviteModalLocal}
         onClose={() => {
@@ -1983,7 +1767,7 @@ export default function PongComponent({
         onCreateGame={handleCreateGame}
       />
 
-
     </div>
   )
 }
+

@@ -65,7 +65,7 @@ export const UpdateUserData = z.object({
 	email: z.string().optional(),
 	pfp: z.object({
 		filename: z.string(),
-		data: z.string(), // base64 encoded image data
+		data: z.string(),
 	}).optional(),
 }).strict();
 
@@ -147,3 +147,4 @@ export default {
 	UpdateUserData,
 	PublicUserData,
 };
+

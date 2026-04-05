@@ -44,7 +44,6 @@ async function unblockUser(
   return { result: UnblockUserResult.Success, usersUpdated: updates.map(u => u.userId) };
 }
 
-// {"funcId":"unblock_user","payload":2,"target_container":"users"}
 export function wsUnblockUserHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.unblockUser,
@@ -87,3 +86,4 @@ export function wsUnblockUserHandlers(socket: OurSocket) {
     }
   );
 }
+

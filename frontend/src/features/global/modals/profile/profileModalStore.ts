@@ -26,3 +26,4 @@ export const useProfileModalStore = create<ProfileModalState>((set) => ({
         }));
     },
 }));
+

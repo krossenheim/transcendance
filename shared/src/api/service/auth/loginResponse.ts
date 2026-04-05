@@ -12,3 +12,4 @@ export type AuthResponseType = z.infer<typeof AuthResponse>;
 export default {
 	AuthResponse,
 };
+

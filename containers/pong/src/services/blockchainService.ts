@@ -15,7 +15,6 @@ export default class BlockchainService {
     this.provider = new JsonRpcProvider(rpc);
     this.wallet = pk ? new Wallet(pk, this.provider) : null;
 
-    // minimal ABI for interactions we need
     const abi = [
       "function recordScore(uint256 tournamentId, address player, uint256 score) external",
       "event ScoreRecorded(uint256 indexed tournamentId, address indexed player, uint256 score, uint256 timestamp)"
@@ -38,6 +37,5 @@ export default class BlockchainService {
 
 }
 
-// singleton instance (convenience for services that want a shared client)
 export const blockchainServiceInstance = new BlockchainService();
 

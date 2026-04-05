@@ -23,7 +23,6 @@ export const PayloadToUsersSchema = z
     funcId: z.string(),
     payload: z.any(),
     code: z.number().int(),
-    // big? todo
   })
   .strict();
 
@@ -35,7 +34,7 @@ export const PayloadHubToUsersSchema = z
     payload: z.any(),
   })
   .strict();
-  
+
 export const ForwardToContainerSchema = z
   .object({
     user_id: z.number(),
@@ -58,3 +57,4 @@ export type TypePayloadHubToUsersSchema = z.infer<
 export type T_ForwardToContainer = z.infer<typeof ForwardToContainerSchema>;
 export type T_PayloadToUsers = z.infer<typeof PayloadToUsersSchema>;
 export type T_InvokeWSFunction = z.infer<typeof InvokeWSFunctionSchema>;
+

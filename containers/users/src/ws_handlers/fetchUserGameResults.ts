@@ -3,7 +3,6 @@ import { Result } from "@app/shared/api/service/common/result";
 import containers from "@app/shared/internal_api";
 import { OurSocket } from "@app/shared/socket_to_hub";
 
-// Handler for fetching a user's game results (match history)
 export function wsFetchUserGameResultsHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.fetchUserGameResults,
@@ -39,3 +38,4 @@ export function wsFetchUserGameResultsHandlers(socket: OurSocket) {
 }
 
 export default wsFetchUserGameResultsHandlers;
+

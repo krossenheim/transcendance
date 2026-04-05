@@ -42,26 +42,18 @@ if (!process.env.USERS_IPV4_ADDRESS)
 
 export const containersIpToName = new Map<string | undefined, string | undefined>();
 
-// hardcoded names here
-
-// containersIpToName.set(process.env.NGINX_IPV4_ADDRESS, process.env.NGINX_NAME);
 containersIpToName.set(process.env.CHATROOM_IPV4_ADDRESS, process.env.CHATROOM_NAME);
 containersIpToName.set(process.env.DATABASE_IPV4_ADDRESS, process.env.DATABASE_NAME);
 containersIpToName.set(process.env.AUTH_IPV4_ADDRESS, process.env.AUTH_NAME);
 containersIpToName.set(process.env.HUB_IPV4_ADDRESS, process.env.HUB_NAME);
 containersIpToName.set(process.env.PONG_IPV4_ADDRESS, process.env.PONG_NAME);
 containersIpToName.set(process.env.USERS_IPV4_ADDRESS, process.env.USERS_NAME);
-// 
 
 export const my_address = run_bash_command("getent hosts ${HOSTNAME} | awk '{print $1}'");
 if (!my_address)
 {
     throw new Error("'getent hosts ${HOSTNAME} | awk '{print $1}' did not return any output.")
 }
-
-// Find executing container listed_address in the hand coded list of ips above.
-// give myself the name listed above.
-// Any container failing to do this should throw.
 
 export const g_myContainerName = containersIpToName.get(my_address);
 
@@ -73,3 +65,4 @@ export default {
   g_myContainerName,
   containersIpToName,
 };
+

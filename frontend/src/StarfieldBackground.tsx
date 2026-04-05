@@ -43,7 +43,6 @@ export default function StarfieldBackground({ starCount = 500, speed = 4, backgr
     resize();
     window.addEventListener('resize', resize);
 
-    // Initialize stars
     starsRef.current = [];
     for (let i = 0; i < starCount; i++) {
       starsRef.current.push(
@@ -56,7 +55,6 @@ export default function StarfieldBackground({ starCount = 500, speed = 4, backgr
     }
 
     const update = () => {
-      // Clear canvas (transparent) - the CSS background image shows through
       ctx.clearRect(0, 0, W, H);
 
       for (const s of starsRef.current) {
@@ -119,3 +117,4 @@ export default function StarfieldBackground({ starCount = 500, speed = 4, backgr
     </div>
   );
 }
+

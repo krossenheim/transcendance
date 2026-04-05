@@ -62,3 +62,4 @@ export async function isWSAuthenticated(parsed: any): Promise<Result<number, str
   const token = userAuthAttempt.unwrap().authorization;
   return await validateJWTToken(token);
 }
+

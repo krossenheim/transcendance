@@ -1,4 +1,3 @@
-// Frontend chat model facades
 import {
   TypeStoredMessageSchema,
   TypeRoomSchema,
@@ -12,3 +11,4 @@ export interface TypeRoomMessagesSchema {
 }
 
 export type { TypeStoredMessageSchema, TypeRoomSchema, TypeFullRoomInfoSchema, TypeListRoomsSchema };
+

@@ -2,7 +2,6 @@ import { MultiObject, LineObject, CircleObject } from "../engine/baseObjects.js"
 import { getWallCollisionTime } from "../engine/collision.js";
 import { Vec2, EPS } from "../engine/math.js";
 
-// Toggle heavy paddle logging for debugging (set to `true` only when debugging).
 const ENABLE_PADDLE_LOGS = false;
 
 type PongPaddleKeyData = {
@@ -12,15 +11,15 @@ type PongPaddleKeyData = {
 }
 
 type PongPaddleJSON = [
-	number, // center.x
-	number, // center.y
-	number, // paddleAngle
-	number, // paddleWidth
-	number, // paddleHeight
-	number, // velocity.x
-	number, // velocity.y
-	number, // playerId
-	number, // boardPaddleSpeed
+	number,
+	number,
+	number,
+	number,
+	number,
+	number,
+	number,
+	number,
+	number,
 ];
 
 const scaledDesiredVelocity = new Vec2(0, 0);
@@ -81,8 +80,6 @@ export class PongPaddle extends MultiObject {
 			1.0,
 		)
 
-		// Corner radius should be small - just enough to round the corners
-		// Using a small fraction of halfHeight to avoid affecting bounces on the flat face
 		const cornerRadius = halfHeight * 0.3;
 
 		const topLeftCorner = new CircleObject(
@@ -123,8 +120,6 @@ export class PongPaddle extends MultiObject {
 		this.playerId = -1;
 
 		const paddleDirectionCopy = paddleDirection.clone();
-		// Use a tiny radius (EPS) for collision detection to get accurate wall distance
-		// Then subtract halfWidth so the paddle edge reaches the wall
 		const maxTravelDistance = Math.min(
 			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(-1)), walls[0]!) || Infinity,
 			getWallCollisionTime(new CircleObject(copyCenter.set(center.x, center.y).sub(paddelNormalized), EPS, paddleDirectionCopy.set(paddleDirection.x, paddleDirection.y).perp().normalize().mul(1)), walls[1]!) || Infinity,
@@ -177,7 +172,6 @@ export class PongPaddle extends MultiObject {
 		}
 	}
 
-	/// Update the paddle velocity based on the current key states and the given paddle speed. Return the amount of time this move will maximally take before hitting the bounds.
 	public updatePaddleVelocity(): number {
 		let moveDirection = 0;
 		for (const keyData of this.keyData) {
@@ -195,10 +189,8 @@ export class PongPaddle extends MultiObject {
 		let maxTravelDistance = 0;
 		const center = this.getCenter();
 		if (moveDirection > 0) {
-			// bounds.max already accounts for paddle width, so just measure distance to it
 			maxTravelDistance = center.distanceTo(this.bounds.max);
 		} else {
-			// bounds.min already accounts for paddle width, so just measure distance to it
 			maxTravelDistance = center.distanceTo(this.bounds.min);
 		}
 
@@ -220,7 +212,6 @@ export class PongPaddle extends MultiObject {
 	}
 
 	public setSpeed(newSpeed: number): void {
-		// Enforce minimum speed (10% of base) and maximum speed (3x base)
 		this.boardPaddleSpeed = Math.max(this.basePaddleSpeed * 0.1, Math.min(this.basePaddleSpeed * 3, newSpeed));
 	}
 
@@ -249,16 +240,11 @@ export class PongPaddle extends MultiObject {
 	}
 
 	public addLeftKey(key: string): void {
-		// "left" means counter-clockwise visually
-		// For top-half paddles: left = counter-clockwise = isClockwise: false
-		// For bottom-half paddles: left = counter-clockwise = isClockwise: true
 		this.keyData.push({ key: key, isPressed: false, isClockwise: !this.isTopHalf });
 	}
 
 	public addRightKey(key: string): void {
-		// "right" means clockwise visually
-		// For top-half paddles: right = clockwise = isClockwise: true
-		// For bottom-half paddles: right = clockwise = isClockwise: false
 		this.keyData.push({ key: key, isPressed: false, isClockwise: this.isTopHalf });
 	}
 }
+

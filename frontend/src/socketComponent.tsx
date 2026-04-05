@@ -53,11 +53,7 @@ export function useWebSocket() {
 const INITIAL_RECONNECT_DELAY_MS = 1000
 const MAX_RECONNECT_DELAY_MS = 30000
 const MAX_RECONNECT_ATTEMPTS = 10
-// Application-level keepalive interval. The hub sends protocol-level pings,
-// but the browser WebSocket API cannot send protocol-level pings. This
-// lightweight message ensures nginx also sees client→server traffic and
-// doesn't close the connection during idle periods (e.g. tournament bracket).
-const WS_KEEPALIVE_INTERVAL_MS = 30_000 // 30 seconds
+const WS_KEEPALIVE_INTERVAL_MS = 30_000
 
 export default function SocketComponent({
   AuthResponseObject,
@@ -74,10 +70,7 @@ export default function SocketComponent({
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const keepaliveTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const intentionalClose = useRef(false)
-  
-  // Store auth in a ref so that connect() always reads the latest JWT
-  // without needing AuthResponseObject in its dependency array.
-  // This prevents the socket from being torn down on every token refresh.
+
   const authRef = useRef<AuthResponseType | null>(null)
   authRef.current = AuthResponseObject
 
@@ -113,18 +106,15 @@ export default function SocketComponent({
     }
   }, [])
 
-  // Handle incoming messages
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
-      // Debug logging disabled for performance
-      // console.log('[Socket] Message received:', event.data, typeof event.data);
       const messageParseResult = HubToClientMessage.fromRawString(event.data);
 
       if (messageParseResult.isErr()) {
         console.error('[Socket] Failed to parse message:', messageParseResult.unwrapErr());
         return;
       }
-      
+
       const message = messageParseResult.unwrap();
       const callbacks = subscribers.current.get(message.getFuncId());
 
@@ -185,12 +175,10 @@ export default function SocketComponent({
       ws.send(JSON.stringify({
         authorization: authRef.current!.tokens.jwt,
       }))
-      // Flush message queue
       while (messageQueue.current.length > 0) {
         const msg = messageQueue.current.shift()!
         ws.send(msg)
       }
-      // Start keepalive pings so nginx doesn't close idle connections
       if (keepaliveTimer.current) clearInterval(keepaliveTimer.current)
       keepaliveTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -239,8 +227,6 @@ export default function SocketComponent({
     }
   }, [handleMessage])
 
-  // Only connect/disconnect when auth presence changes (login/logout),
-  // NOT when the auth token is refreshed (which creates a new object ref).
   const hasAuth = !!AuthResponseObject
   useEffect(() => {
     if (hasAuth) {
@@ -268,3 +254,4 @@ export default function SocketComponent({
     </SocketContext.Provider>
   )
 }
+

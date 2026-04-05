@@ -102,10 +102,10 @@ const RoomList: React.FC = () => {
 
                 {unreadCount > 0 && (
                   <div className={`
-                    flex items-center justify-center 
+                    flex items-center justify-center
                     min-w-[20px] h-5 px-1.5 ml-2
                     text-[10px] font-bold rounded-full shadow-sm
-                    ${isCurrent 
+                    ${isCurrent
                       ? "bg-white text-blue-600"
                       : "bg-red-500 text-white"
                     }
@@ -198,3 +198,4 @@ const RoomList: React.FC = () => {
 }
 
 export default RoomList
+

@@ -57,7 +57,6 @@ async function confirmUserFriendship(
   return { result: ConfirmFriendshipResult.Success };
 }
 
-// {"funcId":"confirm_friendship","payload":1,"target_container":"users"}
 export function wsConfirmFriendshipHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.confirmFriendship,
@@ -100,3 +99,4 @@ export function wsConfirmFriendshipHandlers(socket: OurSocket) {
     }
   );
 }
+

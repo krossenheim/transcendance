@@ -1,6 +1,4 @@
-// Welsh translations
 export const cy = {
-  // Common
   common: {
     loading: 'Yn llwytho...',
     error: 'Gwall',
@@ -22,14 +20,12 @@ export const cy = {
     hide: 'Cuddio',
   },
 
-  // Navigation
   nav: {
     chat: 'Sgwrs',
     pong: 'Pong',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: 'Transcendence',
     welcome: 'Croeso i Transcendence',
@@ -40,7 +36,6 @@ export const cy = {
     guestLoginFailed: 'Methwyd mewngofnodi fel gwestai',
   },
 
-  // Login
   login: {
     title: 'Mewngofnodi',
     username: 'Enw defnyddiwr',
@@ -59,7 +54,6 @@ export const cy = {
     loginFailed: 'Methwyd mewngofnodi',
   },
 
-  // Register
   register: {
     title: 'Creu cyfrif',
     subtitle: 'Llenwch eich manylion i gofrestru',
@@ -89,7 +83,6 @@ export const cy = {
     registrationFailed: 'Methwyd cofrestru',
   },
 
-  // User Menu
   userMenu: {
     userId: 'ID Defnyddiwr',
     viewProfile: 'Gweld fy mhroffil',
@@ -99,7 +92,6 @@ export const cy = {
     loggingOut: 'Yn allgofnodi...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Gosodiadau hygyrchedd',
     subtitle: 'Addasu\'r rhyngwyneb i\'ch anghenion hygyrchedd',
@@ -119,7 +111,6 @@ export const cy = {
     openSettings: 'Agor gosodiadau hygyrchedd',
   },
 
-  // Language
   language: {
     title: 'Iaith',
     select: 'Dewis iaith',
@@ -138,7 +129,6 @@ export const cy = {
     dot: 'Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Ffrindiau',
     manageFriends: 'Rheoli ffrindiau',
@@ -164,7 +154,6 @@ export const cy = {
     deny: 'Gwrthod',
   },
 
-  // Chat
   chat: {
     title: 'Sgwrs',
     sendMessage: 'Anfon neges',
@@ -192,7 +181,6 @@ export const cy = {
     dmWithUser: 'NU gyda defnyddiwr',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Chwaraewch Pong clasurol yn erbyn chwaraewyr eraill mewn gwahanol foddau gêm',
@@ -271,12 +259,10 @@ export const cy = {
     alertMultiplayerPlayers: 'Mae modd aml-chwaraewr angen o leiaf 2 chwaraewr',
     alertLastOneStandingMin: 'Mae Yr Olaf yn Sefyll angen o leiaf 2 chwaraewr',
     alertLastOneStandingMax: 'Mae Yr Olaf yn Sefyll yn caniatáu uchafswm o 8 chwaraewr',
-    // Game UI
     leaderboard: 'Bwrdd sgorio',
     backToMenu: 'Yn ôl i\'r ddewislen',
     player: 'Chwaraewr',
     gameOverText: 'GÊM DROSODD!',
-    // Tournament UI
     tournamentWinner: 'PENCAMPWR Y TWRNAMAINT!',
     tournamentComplete: 'Twrnamaint wedi\'i gwblhau',
     congratulations: 'Llongyfarchiadau! Fe wnaethoch chi ennill y twrnamaint!',
@@ -290,7 +276,6 @@ export const cy = {
     yourMatchIsReady: 'Mae eich gêm nesaf yn barod!',
     anotherMatchCompleted: 'Gêm arall wedi\'i chwblhau',
     matchComplete: 'Gêm wedi\'i chwblhau',
-    // Powerups
     powerupBallAdded: 'Pêl wedi\'i hychwanegu',
     powerupFastPaddles: 'Padlau cyflym',
     powerupSlowPaddles: 'Padlau araf',
@@ -301,7 +286,6 @@ export const cy = {
     powerupUnknown: 'Anhysbys',
   },
 
-  // Two Factor Authentication
   twoFactor: {
     title: 'Dilysu dau ffactor',
     enterCode: 'Rhowch y cod 6 digid o\'ch ap dilysu',
@@ -333,7 +317,6 @@ export const cy = {
     notAvailableGuest: 'Nid yw dilysu dau ffactor ar gael ar gyfer cyfrifon gwestai.',
   },
 
-  // Profile
   profile: {
     title: 'Proffil',
     userProfile: 'Proffil defnyddiwr',
@@ -368,7 +351,6 @@ export const cy = {
     inGame: 'mewn gêm',
   },
 
-  // Errors
   errors: {
     networkError: 'Gwall rhwydwaith. Rhowch gynnig arall arni.',
     serverError: 'Gwall gweinydd. Rhowch gynnig arall arni\'n hwyrach.',
@@ -377,3 +359,4 @@ export const cy = {
   },
 
 };
+

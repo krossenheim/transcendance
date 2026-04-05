@@ -171,3 +171,4 @@ export class MultiObject extends BaseObject {
         return this.objects.flatMap(obj => obj.iter());
     }
 }
+

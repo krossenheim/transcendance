@@ -54,3 +54,4 @@ async function tokenRoutes(fastify: FastifyInstance) {
 }
 
 export default tokenRoutes;
+

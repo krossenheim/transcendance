@@ -8,7 +8,6 @@ const BACKEND_WIDTH = 1000
 const BACKEND_HEIGHT = 1000
 
 interface MiniPongCanvasProps {
-  /** Stable callback that returns the latest game state for a given gameId */
   getGameState: (gameId: number) => TypeGameStateSchema | null
   gameId: number
   width?: number
@@ -16,10 +15,6 @@ interface MiniPongCanvasProps {
   onClick?: () => void
 }
 
-/**
- * A lightweight 2D canvas that renders a top-down mini-preview of a pong game.
- * Reads game state from a ref-backed getter at ~30fps to avoid React re-renders.
- */
 export default function MiniPongCanvas({
   getGameState,
   gameId,
@@ -38,28 +33,24 @@ export default function MiniPongCanvas({
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const DRAW_INTERVAL = 1000 / 30 // ~30 fps for mini-preview
+    const DRAW_INTERVAL = 1000 / 30
     const scaleX = width / BACKEND_WIDTH
     const scaleY = height / BACKEND_HEIGHT
 
     function draw(timestamp: number) {
       animFrameRef.current = requestAnimationFrame(draw)
 
-      // Throttle to ~30fps
       if (timestamp - lastDrawRef.current < DRAW_INTERVAL) return
       lastDrawRef.current = timestamp
 
       const gs = getGameState(gameId)
       if (!gs || !ctx) return
 
-      // Clear
       ctx.clearRect(0, 0, width, height)
 
-      // Background
       ctx.fillStyle = "#0a0a1e"
       ctx.fillRect(0, 0, width, height)
 
-      // Draw edges (field boundary polygon)
       if (gs.edges && gs.edges.length > 1) {
         ctx.beginPath()
         ctx.moveTo(gs.edges[0]!.x * scaleX, gs.edges[0]!.y * scaleY)
@@ -71,7 +62,6 @@ export default function MiniPongCanvas({
         ctx.lineWidth = 1
         ctx.stroke()
 
-        // Draw goal segments (where playerId is set) in player colors
         for (let i = 0; i < gs.edges.length; i++) {
           const edge = gs.edges[i]!
           const nextEdge = gs.edges[(i + 1) % gs.edges.length]!
@@ -86,7 +76,6 @@ export default function MiniPongCanvas({
         }
       }
 
-      // Draw paddles
       for (const paddle of gs.paddles) {
         const px = paddle.x * scaleX
         const py = paddle.y * scaleY
@@ -97,14 +86,12 @@ export default function MiniPongCanvas({
         ctx.translate(px, py)
         ctx.rotate(paddle.r)
 
-        // Paddle color based on owner
         ctx.fillStyle = getUserColorCSS(paddle.owner_id)
         ctx.fillRect(-pLen, -pWidth, pLen * 2, pWidth * 2)
 
         ctx.restore()
       }
 
-      // Draw balls
       for (const ball of gs.balls) {
         const bx = ball.x * scaleX
         const by = ball.y * scaleY
@@ -115,7 +102,6 @@ export default function MiniPongCanvas({
         ctx.fillStyle = "#ffffff"
         ctx.fill()
 
-        // Subtle glow
         ctx.beginPath()
         ctx.arc(bx, by, br + 1, 0, Math.PI * 2)
         ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"
@@ -123,7 +109,6 @@ export default function MiniPongCanvas({
         ctx.stroke()
       }
 
-      // Draw powerups
       if (gs.powerups) {
         for (const pu of gs.powerups) {
           const px = pu.x * scaleX
@@ -135,7 +120,6 @@ export default function MiniPongCanvas({
         }
       }
 
-      // Score overlay (top-left)
       if (gs.score) {
         ctx.font = "bold 9px monospace"
         ctx.fillStyle = "rgba(255,255,255,0.7)"
@@ -168,3 +152,4 @@ export default function MiniPongCanvas({
     />
   )
 }
+

@@ -12,7 +12,7 @@ export class LobbyService {
 
 	private _dbGetLobbyById(lobbyId: number): Result<LobbyDataType, DatabaseError> {
 		return this.db.get(
-			`SELECT 
+			`SELECT
 				game_lobbies.lobbyId,
 				game_lobbies.hostUserId,
 				game_lobbies.lobbyState,
@@ -124,3 +124,4 @@ export class LobbyService {
 		return this._dbUpdateLobbyState(lobbyId, state);
 	}
 }
+

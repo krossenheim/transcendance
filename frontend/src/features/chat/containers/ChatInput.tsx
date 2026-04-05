@@ -7,9 +7,9 @@ import { useWebSocket } from "../../../socketComponent"
 import { user_url } from "@app/shared/api/service/common/endpoints"
 import type { TypeRoomSchema } from '@app/shared/api/service/chat/db_models';
 import { Result } from "@app/shared/api/service/common/result"
-import { 
-  getPossibleSlashCommands, 
-  SlashCommand, 
+import {
+  getPossibleSlashCommands,
+  SlashCommand,
 } from "../../../utils/slashCommands"
 
 type ExtendedArgDef = {
@@ -28,7 +28,7 @@ const COMMAND_PREFIX = "/";
 export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   const { t } = useLanguage()
   const { sendMessage } = useWebSocket()
-  
+
   const [input, setInput] = useState("")
   const [activeCommand, setActiveCommand] = useState<SlashCommand<any> | null>(null)
   const [commandArgValues, setCommandArgValues] = useState<string[]>([])
@@ -46,10 +46,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   const sendButtonRef = useRef<HTMLButtonElement>(null)
   const suggestionsListRef = useRef<HTMLDivElement>(null)
 
-  // --- Derived State ---
   const isCommand = input.startsWith(COMMAND_PREFIX);
   const commandPart = isCommand ? input.substring(COMMAND_PREFIX.length).toLowerCase() : ""
-  
+
   const filteredCommands = isCommand && !activeCommand
     ? getPossibleSlashCommands(commandPart)
     : []
@@ -63,14 +62,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
     }
   }, [selectedIndex, showArgSuggestions, showCommandSuggestions]);
 
-  // Command Suggestions Toggle
   useEffect(() => {
     const shouldShow = isCommand && !activeCommand && filteredCommands.length > 0
     if (!showCommandSuggestions && shouldShow) setSelectedIndex(0)
     setShowCommandSuggestions(shouldShow)
   }, [isCommand, filteredCommands.length, activeCommand, showCommandSuggestions])
 
-  // Argument Autocomplete
   useEffect(() => {
     let isActive = true;
     const fetchArgSuggestions = async () => {
@@ -105,7 +102,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
     }
   }, [activeCommand, activeArgIndex, commandArgValues])
 
-  // Focus Management
   useEffect(() => {
     if (activeCommand) {
       argInputRefs.current[activeArgIndex]?.focus()
@@ -113,8 +109,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
       mainInputRef.current?.focus()
     }
   }, [activeArgIndex, activeCommand])
-
-  // --- Actions ---
 
   const advanceToNextArg = (currentIndex: number) => {
     if (!activeCommand) return;
@@ -138,10 +132,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
 
   const enterCommandMode = (cmd: SlashCommand<any>) => {
     setActiveCommand(cmd)
-    setCommandArgValues(new Array(cmd.args.length).fill("")) 
+    setCommandArgValues(new Array(cmd.args.length).fill(""))
     setActiveArgIndex(0)
     setArgError(null)
-    setInput("") 
+    setInput("")
     setShowCommandSuggestions(false)
   }
 
@@ -155,7 +149,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   const handleExecuteCommand = async () => {
     if (!activeCommand) return
     const parsedArgs: any[] = []
-    
+
     for (let i = 0; i < activeCommand.args.length; i++) {
       const argumentValue = commandArgValues[i] || '';
       const validationResult = (activeCommand.args[i] as ExtendedArgDef).validator(argumentValue);
@@ -231,11 +225,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
         handleExecuteCommand();
         return;
       }
-    } 
+    }
     else if (e.key === "Backspace" && commandArgValues[index] === "") {
         e.preventDefault()
         setArgError(null)
-        if (index > 0) { setActiveArgIndex(index - 1) } 
+        if (index > 0) { setActiveArgIndex(index - 1) }
         else { exitCommandMode(); setInput(`${COMMAND_PREFIX}${activeCommand.name}`) }
     }
   }
@@ -282,8 +276,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
   return (
     <div className="p-4 flex-none glass-dark-xs glass-border border-t border-gray-700 z-20">
         <div className={`relative w-full border rounded-full bg-gray-900/50 flex flex-nowrap items-center p-1 transition-colors min-h-[46px] shadow-sm ${
-           argError 
-             ? "border-red-500" 
+           argError
+             ? "border-red-500"
              : "border-gray-600 focus-within:border-gray-500"
         }`}>
           {activeCommand ? (
@@ -298,11 +292,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                       ref={(el) => { argInputRefs.current[idx] = el }}
                       type="text"
                       autoComplete="off"
-                      data-lpignore="true" 
+                      data-lpignore="true"
                       data-1p-ignore="true"
                       data-form-type="other"
                       name={`cmd_arg_${idx}_${randomId}`}
-                      id={`input_arg_${idx}_${randomId}`} 
+                      id={`input_arg_${idx}_${randomId}`}
                       value={commandArgValues[idx]}
                       onChange={(e) => {
                         const newArgs = [...commandArgValues]
@@ -312,8 +306,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                       onKeyDown={(e) => handleArgKeyDown(e, idx)}
                       onFocus={() => { setActiveArgIndex(idx); setArgError(null); }}
                       className={`w-full text-sm outline-none px-2 py-1 bg-transparent transition-all rounded-md border focus:outline-none focus:ring-0 shadow-none ${
-                        activeArgIndex === idx 
-                          ? (argError ? "border-red-400 bg-red-900/10" : "border-blue-400 bg-blue-900/10") 
+                        activeArgIndex === idx
+                          ? (argError ? "border-red-400 bg-red-900/10" : "border-blue-400 bg-blue-900/10")
                           : "border-transparent hover:border-gray-700 text-gray-400"
                       }`}
                       placeholder={argDef.description}
@@ -326,12 +320,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                                  Suggestions
                                </div>
                                {argSuggestions.map((sug, sIdx) => (
-                                  <div 
+                                  <div
                                     key={sug}
                                     id={`suggestion-item-${sIdx}`}
                                     className={`px-4 py-2.5 text-sm cursor-pointer border-b border-gray-700/50 last:border-0 transition-colors ${
-                                      sIdx === selectedIndex 
-                                        ? 'bg-blue-900/40 text-blue-200 font-semibold pl-6' 
+                                      sIdx === selectedIndex
+                                        ? 'bg-blue-900/40 text-blue-200 font-semibold pl-6'
                                         : 'hover:bg-gray-700 text-gray-200'
                                     }`}
                                     onMouseDown={(e) => { e.preventDefault(); selectArgSuggestion(sug); }}
@@ -383,8 +377,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
             onKeyDown={handleSendButtonKeyDown}
             disabled={!roomData}
             className={`px-5 py-2 mr-1 rounded-full text-sm font-semibold transition-all ${
-               roomData 
-                 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md active:scale-95' 
+               roomData
+                 ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md active:scale-95'
                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
             }`}
           >
@@ -403,8 +397,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
                     id={`suggestion-item-${idx}`}
                     onMouseDown={(e) => { e.preventDefault(); enterCommandMode(cmd); }}
                     className={`w-full text-left px-4 py-2.5 text-sm block transition-colors border-l-4 ${
-                      idx === selectedIndex 
-                        ? "bg-purple-900/30 text-purple-300 border-purple-500" 
+                      idx === selectedIndex
+                        ? "bg-purple-900/30 text-purple-300 border-purple-500"
                         : "hover:bg-gray-800/50 border-transparent text-gray-300"
                     }`}
                   >
@@ -419,3 +413,4 @@ export const ChatInput: React.FC<ChatInputProps> = ({ roomData }) => {
     </div>
   )
 }
+

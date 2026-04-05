@@ -211,7 +211,6 @@ export class UserService {
 					};
 					gameMap.set(row.gameId, entry);
 				}
-				// Skip null opponents (from LEFT JOIN on AI-only games)
 				if (row.opponentId !== null) {
 					entry.opponents.push({
 						userId: row.opponentId,
@@ -427,3 +426,4 @@ export class UserService {
 	}
 
 }
+

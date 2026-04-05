@@ -12,3 +12,4 @@ export function rawDataToString(data: RawData): string | undefined {
   }
   return undefined;
 }
+

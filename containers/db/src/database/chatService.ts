@@ -212,3 +212,4 @@ export class ChatService {
     return this._dbSendMessageToRoom(roomId, userId, messageString);
   }
 }
+

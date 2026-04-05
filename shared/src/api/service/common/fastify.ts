@@ -7,7 +7,6 @@ import { z } from "zod";
 import type { HTTPRouteDef } from "@app/shared/api/service/common/endpoints";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addHealthcheckRoute(fastify: any) {
 	registerRoute(
 		fastify,
@@ -39,14 +38,12 @@ export function createFastify(options: FastifyServerOptions = {
 		},
 	},
 }): FastifyInstance {
-	// Disable Fastify's built-in request/response logging so we can control it
 	options.disableRequestLogging = true;
 
 	const server = Fastify(options);
 	server.setValidatorCompiler(validatorCompiler);
 	server.setSerializerCompiler(serializerCompiler);
 
-	// Only log failed (non-2xx) API responses
 	server.addHook('onResponse', (request, reply, done) => {
 		if (reply.statusCode < 200 || reply.statusCode >= 300) {
 			request.log.warn(
@@ -87,7 +84,6 @@ export type RouteParams<T extends HTTPRouteDef> =
 	: never;
 
 export function registerRoute<T extends HTTPRouteDef>(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	fastify: any,
 	route: T,
 	handler: (
@@ -121,3 +117,4 @@ export function registerRoute<T extends HTTPRouteDef>(
 export type { FastifyInstance };
 
 export default { createFastify, registerRoute };
+

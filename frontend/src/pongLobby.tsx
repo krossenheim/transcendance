@@ -41,33 +41,30 @@ export default function PongLobby({
   onLeaveLobby,
 }: PongLobbyProps) {
   const { t } = useLanguage()
-  
+
   if (!lobby) return null
 
   const currentPlayer = lobby.players.find((p) => p.id === currentUserId)
   const isHost = currentPlayer?.isHost || false
-  
-  // Build AI player entries for display
+
   const AI_PLAYER_ID_BASE = -1001
   const aiCount = lobby.settings.aiCount ?? 0
   const aiPlayers: LobbyPlayer[] = Array.from({ length: aiCount }, (_, i) => ({
     id: AI_PLAYER_ID_BASE - i,
     username: `AI ${i + 1}`,
-    isReady: true, // AI is always ready
+    isReady: true,
     isHost: false,
   }))
   const allDisplayPlayers = [...lobby.players, ...aiPlayers]
-  
+
   const allReady = allDisplayPlayers.every((p) => p.isReady)
-  
-  // Total players includes humans + AI
+
   const totalPlayerCount = allDisplayPlayers.length
-  
-  // Minimum players based on game mode
+
   const getMinPlayers = () => {
     switch (lobby.gameMode) {
       case "1v1":
-        return 1 // Local play on same keyboard
+        return 1
       case "multiplayer":
         return 2
       case "tournament":
@@ -96,7 +93,7 @@ export default function PongLobby({
 
   return (
     <div className="glass-dark-sm glass-border shadow-lg p-6">
-      {/* Header */}
+      {}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-200">
@@ -114,7 +111,7 @@ export default function PongLobby({
         </button>
       </div>
 
-      {/* Game Settings */}
+      {}
       <div className="mb-6 p-4 bg-gray-900/70">
         <h3 className="text-sm font-semibold text-gray-300 mb-2">
           {t('pong.gameSettings')}
@@ -149,14 +146,13 @@ export default function PongLobby({
         </div>
       </div>
 
-      {/* Players List */}
+      {}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">
           {t('pong.players')} ({allDisplayPlayers.length})
         </h3>
         <div className="space-y-2">
           {allDisplayPlayers.map((player) => {
-            // Color by user id so it matches paddle owner mapping
             const playerColor = getUserColorCSS(player.id)
 
             return (
@@ -202,7 +198,7 @@ export default function PongLobby({
         </div>
       </div>
 
-      {/* Status Message */}
+      {}
       {lobby.status === "starting" && (
         <div className="mb-4 p-4 bg-blue-900/20 border border-blue-500 text-center">
           <p className="text-blue-300 font-semibold">
@@ -219,7 +215,7 @@ export default function PongLobby({
         </div>
       )}
 
-      {/* Action Buttons */}
+      {}
       <div className="flex gap-3">
         {!isHost && (
           <button
@@ -267,3 +263,4 @@ export default function PongLobby({
     </div>
   )
 }
+

@@ -60,7 +60,7 @@ export default function LoginComponent({
 
       if (response.code !== 200)
         throw new Error(response.payload.message || "Login failed");
-  
+
       const data = response.payload;
       if ('requires2FA' in data) {
         setRequires2FA(data.requires2FA);
@@ -69,7 +69,7 @@ export default function LoginComponent({
       }
 
       localStorage.setItem("jwt", data.tokens.jwt);
-      
+
       if (data.tokens.refresh !== undefined) {
         localStorage.setItem("refreshToken", data.tokens.refresh);
       }
@@ -103,7 +103,6 @@ export default function LoginComponent({
     setPassword("");
   };
 
-  // Show 2FA verification if required
   if (requires2FA && tempToken) {
     return (
       <TwoFactorVerify
@@ -122,7 +121,7 @@ export default function LoginComponent({
         {error && <div className="mb-4 text-red-500 text-center">{error}</div>}
 
         <div className="space-y-4">
-          {/* Username */}
+          {}
           <div>
             <label
               htmlFor={`${id}-login-username`}
@@ -142,7 +141,7 @@ export default function LoginComponent({
             />
           </div>
 
-          {/* Password */}
+          {}
           <div>
             <label
               htmlFor={`${id}-login-password`}
@@ -162,7 +161,7 @@ export default function LoginComponent({
             />
           </div>
 
-          {/* Submit Button */}
+          {}
           <button
             onClick={handleLogin}
             className="w-full bg-blue-600 text-white py-2 px-4 hover:bg-blue-700 transition-colors"
@@ -171,7 +170,7 @@ export default function LoginComponent({
             {isLoading ? t('login.loggingIn') : t('login.loginButton')}
           </button>
 
-          {/* GitHub OAuth Button */}
+          {}
           <button
             onClick={() => window.location.href = '/public_api/auth/oauth/github/login'}
             className="w-full mt-4 bg-gray-700/80 text-white py-2 px-4 hover:bg-gray-600/80 transition-colors flex items-center justify-center gap-2"
@@ -183,7 +182,7 @@ export default function LoginComponent({
             {t('login.continueWithGithub')}
           </button>
 
-          {/* Continue as Guest Button */}
+          {}
           <button
             onClick={handleGuestLogin}
             className="w-full mt-4 bg-gray-600 text-white py-2 px-4 hover:bg-gray-700 transition-colors"
@@ -196,3 +195,4 @@ export default function LoginComponent({
     </div>
   );
 }
+

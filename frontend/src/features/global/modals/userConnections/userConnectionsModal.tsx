@@ -118,7 +118,7 @@ export default function UserConnectionsModal() {
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-    
+
             <div className="px-5 pt-4">
               <div className="flex gap-2 mb-4">
                 <button
@@ -141,7 +141,7 @@ export default function UserConnectionsModal() {
                 </button>
               </div>
             </div>
-    
+
             <div className="px-5 pb-5 max-h-[60vh] overflow-y-auto">
                 <div className="space-y-2">
                     {connectionsToShow.map((item) => {
@@ -174,3 +174,4 @@ export default function UserConnectionsModal() {
         </div>
     );
 }
+

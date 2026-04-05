@@ -48,3 +48,4 @@ export class ResponseBuilder<T extends WebSocketRouteDef> {
 export function createResponseBuilder<T extends WebSocketRouteDef>(schema: T, user_id: number) {
   return new ResponseBuilder(schema, user_id);
 }
+

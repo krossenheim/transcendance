@@ -25,3 +25,4 @@ export type UserConnectionStatusType = z.infer<typeof UserConnectionStatusSchema
 export default {
 	UpdateFriendshipStatusSchema: UserConnectionStatusSchema
 };
+

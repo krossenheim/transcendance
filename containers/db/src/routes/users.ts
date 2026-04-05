@@ -154,7 +154,6 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(200).send(notificationsResult.unwrap());
 	});
 
-	// GDPR: anonymize user data
 	registerRoute(fastify, int_url.http.db.anonymizeUser, async (request, reply) => {
 		const { userId } = request.params;
 		const anonResult = await userService.anonymizeUser(userId);
@@ -165,7 +164,6 @@ async function userRoutes(fastify: FastifyInstance) {
 			return reply.status(200).send(anonResult.unwrap());
 	});
 
-	// GDPR: delete user account and associated data
 	registerRoute(fastify, int_url.http.db.deleteUser, async (request, reply) => {
 		const { userId } = request.params;
 		const delResult = await userService.deleteUser(userId);
@@ -207,3 +205,4 @@ async function userRoutes(fastify: FastifyInstance) {
 }
 
 export default userRoutes;
+

@@ -187,3 +187,4 @@ fastify.listen({ port, host }, (err, address) => {
   }
   fastify.log.info(`Server listening at ${address}`);
 });
+

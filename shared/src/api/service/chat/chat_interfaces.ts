@@ -42,14 +42,12 @@ export const message_rule = z.coerce
 
 export const AddRoomPayloadSchema = z
   .object({
-    // Payload sent by client "Wants a new room made"
     roomName: room_name_rule
   })
   .strict();
 
 export const SendMessagePayloadSchema = z
   .object({
-    // Payload sent by client "send message to room"
     roomId: room_id_rule,
     messageString: message_rule,
   })
@@ -57,7 +55,6 @@ export const SendMessagePayloadSchema = z
 
 export const SendDMMessagePayloadSchema = z
   .object({
-    // Payload sent by client "send DM message to user"
     targetUserId: idValue,
     messageString: message_rule,
   })
@@ -65,7 +62,6 @@ export const SendDMMessagePayloadSchema = z
 
 export const AddToRoomPayloadSchema = z
   .object({
-    // Payload sent by client "add person to room"
     roomId: room_id_rule,
     user_to_add: userIdentifierValue,
   })
@@ -73,7 +69,6 @@ export const AddToRoomPayloadSchema = z
 
 export const RequestRoomByIdSchema = z
   .object({
-    // Payload sent by client "Wants a new room made"
     roomId: room_id_rule,
   })
   .strict();
@@ -87,3 +82,4 @@ export type TypeAddToRoomPayload = z.infer<typeof AddToRoomPayloadSchema>;
 export type TypeUserSendMessagePayload = z.infer<
   typeof SendMessagePayloadSchema
 >;
+

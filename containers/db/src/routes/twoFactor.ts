@@ -5,7 +5,6 @@ import { UserAccountType } from '@app/shared/api/service/db/user';
 import { twoFactorService, userService } from '../main.js';
 
 async function twoFactorRoutes(fastify: FastifyInstance) {
-  // Check if user has 2FA enabled
   registerRoute(fastify, int_url.http.db.check2FAStatus, async (request, reply) => {
     const { userId } = request.params;
     const result = twoFactorService.isEnabled(userId);
@@ -17,11 +16,9 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     return reply.status(200).send({ enabled: result.unwrap() });
   });
 
-  // Generate 2FA secret and QR code (setup step 1)
   registerRoute(fastify, int_url.http.db.generate2FASecret, async (request, reply) => {
     const { userId, username } = request.body;
 
-    // Check if user is a guest
     const userResult = userService.fetchUserById(userId);
     if (userResult.isOk() && userResult.unwrap().accountType === UserAccountType.Guest) {
       return reply.status(403).send({ message: 'Guest users cannot enable 2FA' });
@@ -41,11 +38,9 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // Enable 2FA (setup step 2 - after user scans QR and enters first code)
   registerRoute(fastify, int_url.http.db.enable2FA, async (request, reply) => {
     const { userId, code } = request.body;
 
-    // Check if user is a guest
     const userResult = userService.fetchUserById(userId);
     if (userResult.isOk() && userResult.unwrap().accountType === UserAccountType.Guest) {
       return reply.status(403).send({ message: 'Guest users cannot enable 2FA' });
@@ -60,7 +55,6 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     return reply.status(200).send({ message: '2FA enabled successfully' });
   });
 
-  // Disable 2FA
   registerRoute(fastify, int_url.http.db.disable2FA, async (request, reply) => {
     const { userId } = request.body;
     const result = twoFactorService.disable2FA(userId);
@@ -72,7 +66,6 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
     return reply.status(200).send({ message: '2FA disabled successfully' });
   });
 
-  // Verify 2FA code (used during login)
   registerRoute(fastify, int_url.http.db.verify2FACode, async (request, reply) => {
     const { userId, code } = request.body;
     const result = twoFactorService.verify(userId, code);
@@ -91,3 +84,4 @@ async function twoFactorRoutes(fastify: FastifyInstance) {
 }
 
 export default twoFactorRoutes;
+

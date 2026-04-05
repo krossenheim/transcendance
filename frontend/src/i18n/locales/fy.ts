@@ -1,6 +1,4 @@
-// Frisian translations
 export const fy = {
-  // Common
   common: {
     loading: 'Lade...',
     error: 'Flater',
@@ -22,14 +20,12 @@ export const fy = {
     hide: 'Ferstopje',
   },
 
-  // Navigation
   nav: {
     chat: 'Petear',
     pong: 'Pong',
     gdpr: 'AVG',
   },
 
-  // App
   app: {
     title: 'Transcendence',
     welcome: 'Wolkom by Transcendence',
@@ -40,7 +36,6 @@ export const fy = {
     guestLoginFailed: 'Gast oanmelde mislearre',
   },
 
-  // Login
   login: {
     title: 'Oanmelde',
     username: 'Brûkersnamme',
@@ -59,7 +54,6 @@ export const fy = {
     loginFailed: 'Oanmelde mislearre',
   },
 
-  // Register
   register: {
     title: 'Account oanmeitsje',
     subtitle: 'Folje jo gegevens yn om te registrearjen',
@@ -89,7 +83,6 @@ export const fy = {
     registrationFailed: 'Registraasje mislearre',
   },
 
-  // User Menu
   userMenu: {
     userId: 'Brûkers-ID',
     viewProfile: 'Myn profyl besjen',
@@ -99,7 +92,6 @@ export const fy = {
     loggingOut: 'Ôfmelde...',
   },
 
-  // Accessibility
   accessibility: {
     title: 'Tagonklikheidsynstellings',
     subtitle: 'Pas de ynterface oan jo tagonklikheidsbehoeften oan',
@@ -119,7 +111,6 @@ export const fy = {
     openSettings: 'Iepenje tagonklikheidsynstellings',
   },
 
-  // Language
   language: {
     title: 'Taal',
     select: 'Selektearje taal',
@@ -138,7 +129,6 @@ export const fy = {
     dot: 'Dothraki',
   },
 
-  // Friends
   friends: {
     title: 'Freonen',
     manageFriends: 'Freonen beheare',
@@ -164,7 +154,6 @@ export const fy = {
     deny: 'Wegerje',
   },
 
-  // Chat
   chat: {
     title: 'Petear',
     sendMessage: 'Berjocht ferstjoere',
@@ -192,7 +181,6 @@ export const fy = {
     dmWithUser: 'DB mei brûker',
   },
 
-  // Pong
   pong: {
     title: 'Pong',
     subtitle: 'Spylje klassyk Pong tsjin oare spilers yn ferskate spulmodi',
@@ -271,12 +259,10 @@ export const fy = {
     alertMultiplayerPlayers: 'Multiplayer modus fereasket minimaal 2 spilers',
     alertLastOneStandingMin: 'Lêste Steander fereasket minimaal 2 spilers',
     alertLastOneStandingMax: 'Lêste Steander stiet maksimaal 8 spilers ta',
-    // Game UI
     leaderboard: 'Ranglyst',
     backToMenu: 'Werom nei menu',
     player: 'Spiler',
     gameOverText: 'SPUL FOARBY!',
-    // Tournament UI
     tournamentWinner: 'TOERNOAIKAMPIOEN!',
     tournamentComplete: 'Toernoai klear',
     congratulations: 'Lokwinske! Jo hawwe it toernoai wûn!',
@@ -290,7 +276,6 @@ export const fy = {
     yourMatchIsReady: 'Jo folgjende wedstriid is klear!',
     anotherMatchCompleted: 'In oare wedstriid klear',
     matchComplete: 'Wedstriid klear',
-    // Powerups
     powerupBallAdded: 'Bal tafoege',
     powerupFastPaddles: 'Flugge paddles',
     powerupSlowPaddles: 'Stadige paddles',
@@ -301,7 +286,6 @@ export const fy = {
     powerupUnknown: 'Unbekend',
   },
 
-  // Two Factor Authentication
   twoFactor: {
     title: 'Twa-faktor autentikaasje',
     enterCode: 'Fier de 6-siferige koade yn fan jo autentikaasje-app',
@@ -333,7 +317,6 @@ export const fy = {
     notAvailableGuest: 'Twa-faktor autentikaasje is net beskikber foar gastaccounts.',
   },
 
-  // Profile
   profile: {
     title: 'Profyl',
     userProfile: 'Brûkersprofyl',
@@ -368,7 +351,6 @@ export const fy = {
     inGame: 'yn spul',
   },
 
-  // Errors
   errors: {
     networkError: 'Netwurkflater. Besykje it nochris.',
     serverError: 'Serverflater. Besykje it letter nochris.',
@@ -377,3 +359,4 @@ export const fy = {
   },
 
 };
+

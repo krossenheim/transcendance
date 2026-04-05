@@ -1,4 +1,3 @@
-// Main translations index file
 import { en } from './locales/en';
 import type { TranslationKeys } from './locales/en';
 import { ru } from './locales/ru';
@@ -65,3 +64,4 @@ export const languageFlags: { [key in Language]: string } = {
 };
 
 export type { TranslationKeys };
+

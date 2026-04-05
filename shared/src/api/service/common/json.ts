@@ -20,3 +20,4 @@ export function parseJson(jsonString: string): Result<any, string> {
 }
 
 export default { JSONtoZod, parseJson };
+

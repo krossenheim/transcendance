@@ -44,7 +44,6 @@ async function denyUserFriendshipRequest(
   return { result: DenyFriendshipResult.Success };
 }
 
-// {"funcId":"deny_friendship","payload":1,"target_container":"users"}
 export function wsDenyFriendshipHandlers(socket: OurSocket) {
   socket.registerHandler(
     user_url.ws.users.denyFriendship,
@@ -85,3 +84,4 @@ export function wsDenyFriendshipHandlers(socket: OurSocket) {
     }
   );
 }
+

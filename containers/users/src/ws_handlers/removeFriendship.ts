@@ -32,7 +32,6 @@ async function removeFriendship(
   if (existingStatus !== UserFriendshipStatusEnum.Accepted)
     return { result: RemoveFriendshipResult.NotFriends };
 
-  // Remove friendship from both sides
   const updates = [
     { userId: remover.id, friendId: friend.id, status: UserFriendshipStatusEnum.None },
     { userId: friend.id, friendId: remover.id, status: UserFriendshipStatusEnum.None }
@@ -69,7 +68,7 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
       }
 
       const removeResult = await removeFriendship(me, friend);
-      
+
       switch (removeResult.result) {
         case RemoveFriendshipResult.NotFriends:
           return Result.Ok(response.select("NotFriends").reply({
@@ -96,3 +95,4 @@ export function wsRemoveFriendshipHandlers(socket: OurSocket) {
     }
   );
 }
+

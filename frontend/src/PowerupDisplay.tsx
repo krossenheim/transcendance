@@ -5,7 +5,6 @@ import type { TypeActiveEffect, TypeRecentEvent } from "./types/pong-interfaces"
 import { PowerupType } from "./types/pong-interfaces"
 import { useLanguage } from "./i18n/LanguageContext"
 
-// Icon and color configurations for each powerup type
 const POWERUP_CONFIG: Record<number, { icon: string; labelKey: string; color: string; bgColor: string }> = {
   [PowerupType.ADD_BALL]: {
     icon: "⚽",
@@ -58,24 +57,19 @@ interface PowerupDisplayProps {
 
 export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupDisplayProps) {
   const { t } = useLanguage()
-  // Track which event types we've recently shown (by type, reset after 3s)
   const lastShownTimeRef = useRef<Map<number, number>>(new Map())
   const [notifications, setNotifications] = useState<Array<{ id: string; type: number; timestamp: number }>>([])
 
-  // Process new recent events and create notifications
   useEffect(() => {
     const now = Date.now()
     const newNotifications: Array<{ id: string; type: number; timestamp: number }> = []
-    
+
     for (const event of recentEvents) {
-      // Only process very recent events (just collected)
       if (event.ageSeconds > 0.3) continue
-      
-      // Check if we've shown this powerup type recently (within 2 seconds)
+
       const lastShownTime = lastShownTimeRef.current.get(event.type) || 0
       if (now - lastShownTime < 2000) continue
-      
-      // Create notification and mark as shown
+
       const notificationId = `${event.type}-${now}`
       newNotifications.push({
         id: notificationId,
@@ -84,17 +78,15 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
       })
       lastShownTimeRef.current.set(event.type, now)
     }
-    
+
     if (newNotifications.length > 0) {
       setNotifications(prev => [...prev, ...newNotifications])
     }
-    
-    // Clean up old notifications (older than 3 seconds)
+
     const cutoff = now - 3000
     setNotifications(prev => prev.filter(n => n.timestamp > cutoff))
   }, [recentEvents])
 
-  // Clean up old shown times periodically
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
@@ -115,7 +107,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
 
   return (
     <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-none z-50">
-      {/* Active time-based effects */}
+      {}
       {activeEffects.map((effect, index) => {
         const config = POWERUP_CONFIG[effect.type] || {
           icon: "❓",
@@ -123,8 +115,8 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
           color: "#888",
           bgColor: "rgba(136, 136, 136, 0.2)",
         }
-        const progress = Math.min(100, (effect.remainingSeconds / 10) * 100) // Assuming 10s max duration
-        
+        const progress = Math.min(100, (effect.remainingSeconds / 10) * 100)
+
         return (
           <div
             key={`active-${effect.type}-${index}`}
@@ -157,7 +149,7 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
         )
       })}
 
-      {/* Recent event notifications (instant powerups) */}
+      {}
       {notifications.map((notification) => {
         const config = POWERUP_CONFIG[notification.type] || {
           icon: "❓",
@@ -166,8 +158,8 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
           bgColor: "rgba(136, 136, 136, 0.2)",
         }
         const age = (Date.now() - notification.timestamp) / 1000
-        const opacity = Math.max(0, 1 - age / 3) // Fade out over 3 seconds
-        
+        const opacity = Math.max(0, 1 - age / 3)
+
         return (
           <div
             key={notification.id}
@@ -191,3 +183,4 @@ export default function PowerupDisplay({ activeEffects, recentEvents }: PowerupD
     </div>
   )
 }
+

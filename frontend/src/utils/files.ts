@@ -1,9 +1,4 @@
 
-/**
- * Convert a File object to a base64 string
- * @param file The file to convert
- * @returns A base64 representation of the file contents
- */
 export async function fileToBase64(file: File): Promise<string> {
 	return new Promise<string>((resolve, reject) => {
 		const reader = new FileReader();
@@ -16,3 +11,4 @@ export async function fileToBase64(file: File): Promise<string> {
 		reader.readAsDataURL(file);
 	});
 };
+

@@ -1,8 +1,6 @@
-// Klingon translations (tlhIngan Hol)
 import type { TranslationKeys } from './en';
 
 export const tlh: TranslationKeys = {
-  // Common
   common: {
     loading: "loS...",
     error: "Qagh",
@@ -24,14 +22,12 @@ export const tlh: TranslationKeys = {
     hide: "So'",
   },
 
-  // Navigation
   nav: {
     chat: "ja'chuq",
     pong: "moQ Quj",
     gdpr: "De' chut",
   },
 
-  // App
   app: {
     title: "yInSIvchoH",
     welcome: "nuqneH, yInSIvchoH",
@@ -42,7 +38,6 @@ export const tlh: TranslationKeys = {
     guestLoginFailed: "meb 'el Qagh",
   },
 
-  // Login
   login: {
     title: "'el",
     username: "pong",
@@ -61,7 +56,6 @@ export const tlh: TranslationKeys = {
     loginFailed: "'el Qagh",
   },
 
-  // Register
   register: {
     title: "chu' pong chenmoH",
     subtitle: "De' yIteb yIqon",
@@ -91,7 +85,6 @@ export const tlh: TranslationKeys = {
     registrationFailed: "qon Qagh",
   },
 
-  // User Menu
   userMenu: {
     userId: "lo'wI' mI'",
     viewProfile: "nuv vIlegh",
@@ -101,7 +94,6 @@ export const tlh: TranslationKeys = {
     loggingOut: "mejtaH...",
   },
 
-  // Accessibility
   accessibility: {
     title: "lo'laHghach DuHmey",
     subtitle: "HaSta yIDub lo'laHghach'lIjvaD",
@@ -121,7 +113,6 @@ export const tlh: TranslationKeys = {
     openSettings: "DuHmey poSmoH",
   },
 
-  // Language
   language: {
     title: "Hol",
     select: "Hol yIwIv",
@@ -140,7 +131,6 @@ export const tlh: TranslationKeys = {
     dot: "Dothraki Hol",
   },
 
-  // Friends
   friends: {
     title: "juppu'",
     manageFriends: "juppu' yISeH",
@@ -166,7 +156,6 @@ export const tlh: TranslationKeys = {
     deny: "lajQo'",
   },
 
-  // Chat
   chat: {
     title: "ja'chuq",
     sendMessage: "QIn yIngeH",
@@ -194,7 +183,6 @@ export const tlh: TranslationKeys = {
     dmWithUser: "lo'wI' QIn",
   },
 
-  // Pong
   pong: {
     title: "moQ Quj",
     subtitle: "tera'ngan moQ Quj HoS Quj. loDpu' ghIq yIQuj!",
@@ -273,12 +261,10 @@ export const tlh: TranslationKeys = {
     alertMultiplayerPlayers: "law' nuv DuH cha' QujwI' poQ",
     alertLastOneStandingMin: "Qam QIn'a' cha' QujwI' poQ",
     alertLastOneStandingMax: "Qam QIn'a' chorgh QujwI' neH ghap",
-    // Game UI
     leaderboard: "QujwI' patlh",
     backToMenu: "wuv ghIq chegh",
     player: "QujwI'",
     gameOverText: "QUJ RINTA'!",
-    // Tournament UI
     tournamentWinner: "QES'A' CHARGHWI'!",
     tournamentComplete: "qeS'a' rIn",
     congratulations: "Qapla'! qeS'a' Dacharghpu'!",
@@ -292,7 +278,6 @@ export const tlh: TranslationKeys = {
     yourMatchIsReady: "Suv lI' ghuS!",
     anotherMatchCompleted: "latlh Suv rIn",
     matchComplete: "Suv rIn",
-    // Powerups
     powerupBallAdded: "moQ chelta'",
     powerupFastPaddles: "nom ngev",
     powerupSlowPaddles: "QIt ngev",
@@ -303,7 +288,6 @@ export const tlh: TranslationKeys = {
     powerupUnknown: "Sovbe'",
   },
 
-  // 2FA
   twoFactor: {
     title: "cha' ngoDwI' tej",
     enterCode: "jav mI' ngeD chaw' ngoD jan yIngeH",
@@ -335,7 +319,6 @@ export const tlh: TranslationKeys = {
     notAvailableGuest: "meb pongvaD 2FA DuHbe'.",
   },
 
-  // Profile
   profile: {
     title: "nuv De'",
     userProfile: "lo'wI' nuv",
@@ -370,7 +353,6 @@ export const tlh: TranslationKeys = {
     inGame: "QujtaH",
   },
 
-  // Errors
   errors: {
     networkError: "HablI' Qagh. yInIDqa'.",
     serverError: "De'wI' Qagh. ghIq yInIDqa'.",
@@ -379,3 +361,4 @@ export const tlh: TranslationKeys = {
   },
 
 };
+

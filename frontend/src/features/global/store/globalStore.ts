@@ -8,3 +8,4 @@ export const useGlobalStore = create<GlobalStoreState>()(immer((...a) => ({
     ...createGlobalUsersSlice(...a),
     ...createGlobalMeSlice(...a),
 })));
+

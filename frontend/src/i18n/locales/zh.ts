@@ -1,8 +1,6 @@
-// Chinese (Simplified) translations
 import { TranslationKeys } from './en';
 
 export const zh: TranslationKeys = {
-  // Common
   common: {
     loading: '加载中...',
     error: '错误',
@@ -24,14 +22,12 @@ export const zh: TranslationKeys = {
     hide: '隐藏',
   },
 
-  // Navigation
   nav: {
     chat: '聊天',
     pong: '乒乓球',
     gdpr: 'GDPR',
   },
 
-  // App
   app: {
     title: '超越',
     welcome: '欢迎来到超越',
@@ -42,7 +38,6 @@ export const zh: TranslationKeys = {
     guestLoginFailed: '游客登录失败',
   },
 
-  // Login
   login: {
     title: '登录',
     username: '用户名',
@@ -61,7 +56,6 @@ export const zh: TranslationKeys = {
     loginFailed: '登录失败',
   },
 
-  // Register
   register: {
     title: '创建账户',
     subtitle: '填写您的信息以完成注册',
@@ -91,7 +85,6 @@ export const zh: TranslationKeys = {
     registrationFailed: '注册失败',
   },
 
-  // User Menu
   userMenu: {
     userId: '用户ID',
     viewProfile: '查看我的资料',
@@ -101,7 +94,6 @@ export const zh: TranslationKeys = {
     loggingOut: '正在退出...',
   },
 
-  // Accessibility
   accessibility: {
     title: '无障碍设置',
     subtitle: '根据您的需求自定义界面',
@@ -121,7 +113,6 @@ export const zh: TranslationKeys = {
     openSettings: '打开无障碍设置',
   },
 
-  // Language
   language: {
     title: '语言',
     select: '选择语言',
@@ -140,7 +131,6 @@ export const zh: TranslationKeys = {
     dot: '多斯拉克语',
   },
 
-  // Friends
   friends: {
     title: '好友',
     manageFriends: '管理好友',
@@ -166,7 +156,6 @@ export const zh: TranslationKeys = {
     deny: '拒绝',
   },
 
-  // Chat
   chat: {
     title: '聊天',
     sendMessage: '发送消息',
@@ -194,7 +183,6 @@ export const zh: TranslationKeys = {
     dmWithUser: '与用户私信',
   },
 
-  // Pong
   pong: {
     title: '乒乓球',
     subtitle: '在各种游戏模式中与其他玩家进行经典乒乓球对战',
@@ -208,12 +196,10 @@ export const zh: TranslationKeys = {
     invite: '邀请参加游戏',
     acceptInvite: '接受邀请',
     declineInvite: '拒绝邀请',
-    // Menu buttons
     createGameButton: '🎮 创建游戏',
     menuDescription: '创建本地游戏、邀请朋友或与AI对战。',
     quickPlay: '🤖 快速游戏（单人）',
     debugMode: '🎯 调试：8名玩家（3个球）',
-    // Pong Invite Modal
     createPongGame: '创建乒乓球游戏',
     selectGameMode: '选择游戏模式',
     oneVsOne: '1对1',
@@ -247,7 +233,6 @@ export const zh: TranslationKeys = {
     aiNightmare: '噩梦',
     ai: 'AI',
     createGame: '创建游戏',
-    // Pong Lobby
     gameLobby: '游戏大厅',
     lobby: '大厅',
     leave: '离开',
@@ -263,14 +248,12 @@ export const zh: TranslationKeys = {
     imReady: '我准备好了！',
     allReadyRequired: '所有玩家必须准备好才能开始',
     needMinPlayers: '至少需要2名玩家才能开始',
-    // Game mode descriptions
     desc1v1: '经典1对1乒乓球 - 两名玩家直接对战',
     descMultiplayer: '多人乒乓球 - 多名玩家自由竞技',
     descTournament1v1: '1对1锦标赛 - 玩家以淘汰赛制进行比赛',
     descTournamentMulti: '多人锦标赛 - 团队以淘汰赛制进行比赛',
     descTournament: '锦标赛 - 4名玩家进行1v1淘汰赛（半决赛+决赛）',
     descLastOneStanding: '最后站立者 - 2-8名玩家在自动缩放的竞技场中战斗。最后的幸存者获胜！',
-    // Validation alerts
     alert1v1Players: '1对1模式需要正好2名玩家（包括你）',
     alertTournament1v1Players: '1对1锦标赛至少需要4名玩家',
     alertTournamentMultiPlayers: '多人锦标赛至少需要4名玩家',
@@ -278,12 +261,10 @@ export const zh: TranslationKeys = {
     alertMultiplayerPlayers: '多人模式至少需要2名玩家',
     alertLastOneStandingMin: '最后站立者模式至少需要2名玩家',
     alertLastOneStandingMax: '最后站立者模式最多允许8名玩家',
-    // Game UI
     leaderboard: '排行榜',
     backToMenu: '返回菜单',
     player: '玩家',
     gameOverText: '游戏结束！',
-    // Tournament UI
     tournamentWinner: '锦标赛冠军！',
     tournamentComplete: '锦标赛已结束',
     congratulations: '恭喜！您赢得了锦标赛！',
@@ -297,7 +278,6 @@ export const zh: TranslationKeys = {
     yourMatchIsReady: '您的比赛已准备就绪！',
     anotherMatchCompleted: '另一场比赛已完成',
     matchComplete: '比赛完成',
-    // Powerups
     powerupBallAdded: '添加球',
     powerupFastPaddles: '快速球拍',
     powerupSlowPaddles: '慢速球拍',
@@ -308,7 +288,6 @@ export const zh: TranslationKeys = {
     powerupUnknown: '未知',
   },
 
-  // 2FA
   twoFactor: {
     title: '双重身份验证',
     enterCode: '请输入您的身份验证器应用中的6位数字代码',
@@ -340,7 +319,6 @@ export const zh: TranslationKeys = {
     notAvailableGuest: '访客账户无法使用双重身份验证。',
   },
 
-  // Profile
   profile: {
     title: '个人资料',
     userProfile: '用户资料',
@@ -375,7 +353,6 @@ export const zh: TranslationKeys = {
     inGame: '游戏中',
   },
 
-  // Errors
   errors: {
     networkError: '网络错误，请重试。',
     serverError: '服务器错误，请稍后重试。',
@@ -384,3 +361,4 @@ export const zh: TranslationKeys = {
   },
 
 };
+

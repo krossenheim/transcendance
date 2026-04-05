@@ -1,21 +1,12 @@
-/**
- * Deterministic seeded PRNG using mulberry32 algorithm.
- * This ensures identical random sequences given the same seed,
- * which is critical for deterministic game simulation and rollback netcode.
- */
 export class SeededRandom {
     private state: number;
     private initialSeed: number;
 
     constructor(seed: number) {
-        this.initialSeed = seed >>> 0; // Convert to unsigned 32-bit
+        this.initialSeed = seed >>> 0;
         this.state = this.initialSeed;
     }
 
-    /**
-     * Get the next random number in [0, 1)
-     * Uses mulberry32 algorithm - fast and has good statistical properties
-     */
     public next(): number {
         let t = (this.state += 0x6d2b79f5);
         t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -23,32 +14,21 @@ export class SeededRandom {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     }
 
-    /**
-     * Get a random float in [min, max)
-     */
     public nextFloat(min: number, max: number): number {
         return this.next() * (max - min) + min;
     }
 
-    /**
-     * Get a random angle in [0, 2π)
-     */
     public nextAngle(): number {
         return this.next() * 2 * Math.PI;
     }
 
-    /**
-     * Get the initial seed
-     */
     public getSeed(): number {
         return this.initialSeed;
     }
 
-    /**
-     * Create a new SeededRandom with a random seed (for game initialization)
-     */
     public static withRandomSeed(): SeededRandom {
         return new SeededRandom((Math.random() * 0xffffffff) >>> 0);
     }
 
 }
+

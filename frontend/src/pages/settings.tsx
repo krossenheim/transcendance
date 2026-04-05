@@ -17,13 +17,11 @@ enum SettingsTab {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(SettingsTab.Profile)
   const showToast = useToastStore(s => s.showToast)
-  
-  // Stores
-  const { 
-    highContrast, largeText, reducedMotion, screenReaderMode, toggle 
+
+  const {
+    highContrast, largeText, reducedMotion, screenReaderMode, toggle
   } = useAccessibilityStore()
-  
-  // User Data
+
   const currentUserId = useGlobalStore(state => state.me.data.currentUserId)
   const userData = useGlobalStore(state => state.me.data.currentUserData)
 
@@ -34,7 +32,7 @@ export default function SettingsPage() {
         setActiveTab={setActiveTab}
       />
 
-      {/* Content Area */}
+      {}
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         {activeTab === 'profile' && (
           <UpdateProfileComponent />
@@ -43,11 +41,11 @@ export default function SettingsPage() {
         {activeTab === 'security' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
             <h1 className="text-2xl font-bold text-white mb-6">Security</h1>
-            
+
             <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700">
                {currentUserId && userData ? (
-                  <TwoFactorSettings 
-                    userId={currentUserId} 
+                  <TwoFactorSettings
+                    userId={currentUserId}
                     username={userData.username}
                     isGuest={userData.isGuest}
                   />
@@ -61,28 +59,28 @@ export default function SettingsPage() {
         {activeTab === 'appearance' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
             <h1 className="text-2xl font-bold text-white mb-6">Accessibility & Appearance</h1>
-            
+
             <div className="space-y-4">
-              <ToggleOption 
-                label="High Contrast" 
+              <ToggleOption
+                label="High Contrast"
                 desc="Increases contrast of borders and backgrounds for better visibility."
                 checked={highContrast}
                 onChange={() => toggle('highContrast')}
               />
-              <ToggleOption 
-                label="Large Text" 
+              <ToggleOption
+                label="Large Text"
                 desc="Increases the base font size of the application."
                 checked={largeText}
                 onChange={() => toggle('largeText')}
               />
-              <ToggleOption 
-                label="Reduced Motion" 
+              <ToggleOption
+                label="Reduced Motion"
                 desc="Disables most animations and transitions."
                 checked={reducedMotion}
                 onChange={() => toggle('reducedMotion')}
               />
-              <ToggleOption 
-                label="Screen Reader Optimizations" 
+              <ToggleOption
+                label="Screen Reader Optimizations"
                 desc="Adds extra aria-labels and structure for screen readers."
                 checked={screenReaderMode}
                 onChange={() => toggle('screenReaderMode')}
@@ -117,3 +115,4 @@ function ToggleOption({ label, desc, checked, onChange }: { label: string, desc:
     </div>
   )
 }
+

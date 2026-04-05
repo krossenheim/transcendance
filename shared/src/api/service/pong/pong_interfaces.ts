@@ -3,13 +3,11 @@ import { gameIdValue, userIdValue, anyPlayerIdValue } from "@app/shared/api/serv
 
 const player_list_rule = z.array(z.coerce.number()).refine(
   (arr) => {
-    // Count occurrences of each ID
     const counts = arr.reduce<Record<number, number>>((acc, id) => {
       acc[id] = (acc[id] || 0) + 1;
       return acc;
     }, {});
 
-    // Ensure no ID appears more than twice
     return Object.values(counts).every((count) => count <= 2);
   },
   {
@@ -26,44 +24,44 @@ export const StartNewPongGameSchema = z
 
 export const PongBallSchema = z
   .tuple([
-    z.coerce.number(), // x
-    z.coerce.number(), // y
-    z.coerce.number(), // velocity x
-    z.coerce.number(), // velocity y
-    z.coerce.number(), // radius
-    z.coerce.number(), // inverse mass
-    z.coerce.number(), // id
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
   ]);
 
 export const PongPaddleSchema = z
   .tuple([
-    z.coerce.number(), // center x
-    z.coerce.number(), // center y
-    z.coerce.number(), // angle
-    z.coerce.number(), // width
-    z.coerce.number(), // height
-    z.coerce.number(), // velocity x
-    z.coerce.number(), // velocity y
-    z.coerce.number(), // player id
-    z.coerce.number(), // board paddle speed
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
   ]);
 
 const PongWallSchema = z
   .tuple([
-    z.coerce.number(), // pointA x
-    z.coerce.number(), // pointA y
-    z.coerce.number(), // pointB x
-    z.coerce.number(), // pointB y
-    z.coerce.number(), // velocity x
-    z.coerce.number(), // velocity y
-    z.coerce.number().nullable(), // player id or null
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number(),
+    z.coerce.number().nullable(),
   ]);
 
 export const HandleGameKeysSchema = z
   .object({
-    board_id: gameIdValue, // board id
-    pressed_keys: z.array(z.string()), // pressed keys
-    clientTimestamp: z.number().optional(), // client timestamp for lag compensation
+    board_id: gameIdValue,
+    pressed_keys: z.array(z.string()),
+    clientTimestamp: z.number().optional(),
   })
   .strict();
 
@@ -96,7 +94,6 @@ export const PlayerDeclaresReadyForGame = z
   })
   .strict();
 
-// Lobby and Tournament schemas
 export const GameModeSchema = z.enum(["1v1", "multiplayer", "tournament", "lastOneStanding"]);
 
 export const CreateLobbySchema = z
@@ -138,8 +135,8 @@ export const TournamentMatchSchema = z
     player2Id: anyPlayerIdValue.nullable(),
     winnerId: anyPlayerIdValue.nullable(),
     status: z.enum(["pending", "in_progress", "completed"]),
-    gameId: gameIdValue.optional(), // Associated pong game ID when match is in progress
-    readyPlayers: z.array(anyPlayerIdValue).default([]), // Players who clicked "Join Match"
+    gameId: gameIdValue.optional(),
+    readyPlayers: z.array(anyPlayerIdValue).default([]),
   })
   .strict();
 
@@ -225,17 +222,14 @@ export const PongInvitationNotificationSchema = z
   })
   .strict();
 
-// Schema for tournament match result pushed to all tournament participants after a match ends
 export const TournamentMatchResultSchema = z
   .object({
     tournamentId: gameIdValue,
     matchId: gameIdValue,
-    winnerId: anyPlayerIdValue.nullable(), // null for non-participants
-    loserId: anyPlayerIdValue.nullable(),  // null for non-participants
+    winnerId: anyPlayerIdValue.nullable(),
+    loserId: anyPlayerIdValue.nullable(),
     tournament: TournamentDataSchema,
-    // Next match info for the requesting user (null if eliminated or tournament complete)
     nextMatch: TournamentMatchSchema.nullable(),
-    // Is this the final match of the tournament?
     isTournamentComplete: z.boolean(),
   })
   .strict();
@@ -266,3 +260,4 @@ export type TypeSpectateMatch = z.infer<typeof SpectateMatchSchema>;
 export type TypeWatchTournamentMatches = z.infer<typeof WatchTournamentMatchesSchema>;
 export type TypeAcceptPongInvitation = z.infer<typeof AcceptPongInvitationSchema>;
 export type TypePongInvitationNotification = z.infer<typeof PongInvitationNotificationSchema>;
+

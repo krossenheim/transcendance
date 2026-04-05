@@ -55,3 +55,4 @@ export default function TopHeaderBar({ onLogout, isLoggingOut }: TopHeaderBarPro
 		</header>
 	)
 }
+
