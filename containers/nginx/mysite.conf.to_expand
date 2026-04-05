@@ -5,8 +5,6 @@ server {
 	}
 
 
-	# Expose a minimal nginx status endpoint on port 80 as well so
-	# monitoring tools (exporters) using plain HTTP can scrape it.
 	location /status {
 		stub_status on;
 		access_log off;
@@ -39,8 +37,6 @@ server {
 		return 301 https://$host:${FORWARDED_SSL_PORT_FROM_NAT_HOST}/;
     }
 
-	# Expose a minimal nginx status endpoint for monitoring
-	# Only allow access from the Docker network subnet.
 	location /status {
 		stub_status on;
 		access_log off;
@@ -77,9 +73,7 @@ server {
 		proxy_read_timeout ${WEBSOCKET_TIMEOUT};
 		proxy_send_timeout ${WEBSOCKET_TIMEOUT};
 
-		#proxy_buffering off;
 		proxy_cache off;
-		#gzip off;
     }
 
 	location /api {
@@ -97,9 +91,7 @@ server {
 		proxy_read_timeout ${WEBSOCKET_TIMEOUT};
 		proxy_send_timeout ${WEBSOCKET_TIMEOUT};
 
-		#proxy_buffering off;
 		proxy_cache off;
-		#gzip off;
     }
 
 	location /public_api {
@@ -117,9 +109,7 @@ server {
 		proxy_read_timeout ${WEBSOCKET_TIMEOUT};
 		proxy_send_timeout ${WEBSOCKET_TIMEOUT};
 
-		#proxy_buffering off;
 		proxy_cache off;
-		#gzip off;
     }
 
 location /blockchain-explorer/ {

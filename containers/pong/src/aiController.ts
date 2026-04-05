@@ -1,6 +1,6 @@
 
 const AI_PARAMS = {
-  refreshIntervalMs: 1000,
+  refreshIntervalMs: 200,
   maxBounces: 15,
   commitThreshold: 0.06,
   commitLockoutMs: 50,
@@ -8,7 +8,7 @@ const AI_PARAMS = {
   minDeadZonePx: 10,
   predictionError: 0.06,
   sectorMatchWidth: 1.5,
-  ballGracePeriodMs: 3000,
+  ballGracePeriodMs: 500,
   speedMultiplier: 1.5,
 };
 
@@ -32,6 +32,7 @@ export class AIController {
   private playerId: number;
   private params = AI_PARAMS;
   private lastRefreshTime: number = 0;
+  private firstFrame: boolean = true;
   private currentKeys: string[] = [];
 
   private paddleOrbitRadius: number = 0;
@@ -70,12 +71,17 @@ export class AIController {
   }
 
   public shouldRefresh(currentTime: number): boolean {
+    if (this.firstFrame) return true;
     return currentTime - this.lastRefreshTime >= this.params.refreshIntervalMs;
   }
 
   public refreshGameState(gameState: any, timestamp: number = Date.now()): void {
     const now = timestamp;
     this.lastRefreshTime = now;
+    if (this.firstFrame) {
+      this.lastBallDetectedTime = now;
+      this.firstFrame = false;
+    }
     if (!gameState) return;
 
     const cx = 500, cy = 500;

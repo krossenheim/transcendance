@@ -1,4 +1,3 @@
-# ---- Builder Stage ----
 FROM node:24.8-slim AS builder
 
 ARG SERVICE_NAME
@@ -23,7 +22,6 @@ COPY containers/${SERVICE_NAME}/src ./src
 RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
 
 
-# ---- Runner Stage ----
 FROM node:24.8-slim AS runner
 
 RUN groupadd -g 1001 nodejs && \

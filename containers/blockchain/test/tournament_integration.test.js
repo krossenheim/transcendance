@@ -4,14 +4,12 @@ const http = require("http");
 
 describe("TournamentScores Integration Test", function () {
   it("deploys contract, exposes a backend endpoint and records a score via that endpoint", async function () {
-    // Deploy the contract
     const TournamentScores = await ethers.getContractFactory("TournamentScores");
     const ts = await TournamentScores.deploy();
     if (typeof ts.waitForDeployment === 'function') {
       await ts.waitForDeployment();
     }
 
-    // Create a simple HTTP server acting as the backend record endpoint
     const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && req.url === '/record_score') {
         let body = '';
@@ -34,12 +32,10 @@ describe("TournamentScores Integration Test", function () {
     await new Promise((resolve) => server.listen(0, resolve));
     const port = server.address().port;
 
-    // Simulate tournament flow: winner and score
     const tournamentId = 42;
     const winnerAddress = '0x0000000000000000000000000000000000000007';
     const winnerScore = 9;
 
-    // Call the backend endpoint using fetch (Node 18+)
     const resp = await fetch(`http://127.0.0.1:${port}/record_score`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,9 +47,7 @@ describe("TournamentScores Integration Test", function () {
     expect(json.ok).to.equal(true);
     expect(json.txHash).to.be.a('string');
 
-    // Retrieve the transaction receipt and assert the ScoreRecorded event
     const receipt = await ethers.provider.getTransactionReceipt(json.txHash);
-    // parse logs to find ScoreRecorded
     let found = null;
     for (const log of receipt.logs) {
       try {
@@ -63,7 +57,6 @@ describe("TournamentScores Integration Test", function () {
           break;
         }
       } catch (e) {
-        // ignore non-matching logs
       }
     }
     const ev = found;
@@ -72,7 +65,6 @@ describe("TournamentScores Integration Test", function () {
     expect(ev.args[1]).to.equal(winnerAddress);
     expect(Number(ev.args[2])).to.equal(winnerScore);
 
-    // Assert on-chain storage
     const count = await ts.getScoreCount(tournamentId);
     expect(Number(count)).to.equal(1);
 

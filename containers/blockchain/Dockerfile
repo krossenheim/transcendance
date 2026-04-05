@@ -2,24 +2,19 @@ FROM node:24.8-slim
 
 WORKDIR /app
 
-# Install curl for healthcheck
 RUN apt-get update && apt-get install -y curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
 COPY package.json package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     npm install
 
-# Copy contract sources and scripts
 COPY contracts/ ./contracts/
 COPY scripts/ ./scripts/
 COPY hardhat.config.js ./
 
-# Compile contracts
 RUN npx hardhat compile
 
-# Copy entrypoint
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 

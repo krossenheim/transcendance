@@ -9,9 +9,6 @@
     color-scheme: dark;
   }
 
-  /* ========== ACCESSIBILITY STYLES ========== */
-
-  /* High Contrast Mode - Black and White with strong borders */
   .high-contrast {
     filter: contrast(2) !important;
   }
@@ -33,7 +30,6 @@
     font-size: 125% !important;
   }
 
-  /* Screen Reader Mode - Enhanced focus and readability */
   .screen-reader-mode {
     line-height: 1.8 !important;
     letter-spacing: 0.03em !important;
@@ -46,13 +42,11 @@
     box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.3) !important;
   }
 
-  /* Focus visible for better keyboard navigation */
   *:focus-visible {
     outline: 2px solid #60a5fa;
     outline-offset: 2px;
   }
 
-  /* Improve autofill color (override Chrome's yellow) */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
@@ -70,15 +64,12 @@
   }
 }
 
-/* Default smooth transitions */
 *,
 ::before,
 ::after {
   transition: background-color 200ms, border-color 200ms, color 200ms;
 }
 
-/* ========== REDUCED MOTION MODE ========== */
-/* Completely disable all animations and transitions */
 .reduce-motion,
 .reduce-motion *,
 .reduce-motion ::before,
@@ -92,7 +83,6 @@
   scroll-behavior: auto !important;
 }
 
-/* Also respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
 
   *,
@@ -149,7 +139,6 @@
   }
 }
 
-/* ===== Glass Utility Classes ===== */
 .glass-dark-xs {
   background: rgba(31, 41, 55, 0.45);
   backdrop-filter: blur(4px);
@@ -190,34 +179,22 @@
   backdrop-filter: blur(10px);
 }
 
-/* Border helper for glass panels */
 .glass-border {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* ========== RTL (Right-to-Left) LANGUAGE SUPPORT ========== */
-
-/* Base RTL support */
 [dir="rtl"] {
   text-align: right;
 }
 
-/* Fix flex direction for RTL */
 [dir="rtl"] .direction-rtl {
   direction: rtl;
 }
 
-/* Ensure icons don't flip unnecessarily in RTL */
-[dir="rtl"] svg {
-  /* Most icons should not be flipped */
-}
-
-/* Flip directional icons in RTL */
 [dir="rtl"] .flip-rtl {
   transform: scaleX(-1);
 }
 
-/* Fix spacing utilities for RTL */
 [dir="rtl"] .space-x-4> :not([hidden])~ :not([hidden]) {
   --tw-space-x-reverse: 1;
 }
@@ -226,7 +203,6 @@
   --tw-space-x-reverse: 1;
 }
 
-/* RTL-aware text alignment */
 [dir="rtl"] .text-left {
   text-align: right;
 }
@@ -235,7 +211,6 @@
   text-align: left;
 }
 
-/* RTL-aware margin and padding */
 [dir="rtl"] .ml-auto {
   margin-left: 0;
   margin-right: auto;
@@ -246,7 +221,6 @@
   margin-left: auto;
 }
 
-/* RTL-aware absolute positioning for dropdowns */
 [dir="rtl"] .right-0 {
   right: auto;
   left: 0;
@@ -257,26 +231,16 @@
   right: 0;
 }
 
-/* RTL transitions for toggle switches */
 [dir="rtl"] .translate-x-7 {
   --tw-translate-x: -1.75rem;
 }
 
-/* Ensure form inputs work correctly in RTL */
 [dir="rtl"] input,
 [dir="rtl"] textarea,
 [dir="rtl"] select {
   text-align: inherit;
 }
 
-/* RTL support for flex items with gaps */
-[dir="rtl"] .gap-2,
-[dir="rtl"] .gap-3,
-[dir="rtl"] .gap-4 {
-  /* Gaps work correctly in RTL by default */
-}
-
-/* Fix button icon alignment in RTL */
 [dir="rtl"] .flex.items-center.gap-2 svg:first-child {
   order: 1;
 }

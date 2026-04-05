@@ -14,7 +14,6 @@ if [ -z "${USERS_NAME}" ]; then echo "ERROR: '${USERS_NAME}' (in between docker 
 if [ -z "${SERVER_NAME}" ]; then echo "ERROR: SERVER_NAME is not set" >&2; exit 1; fi
 if [ -z "${SUBJECT}" ]; then echo "ERROR: SUBJECT is not set" >&2; exit 1; fi
 
-#multiple vars can be done by ont typing argumnets to envsubst other than input and output files (Itll try to replace all env vars found inside)
 envsubst '${SERVER_NAME} 
 ${MESSAGE_FROM_DOCKER_NETWORK} 
 ${WEBSOCKET_TIMEOUT}
@@ -55,8 +54,8 @@ if ! nginx -t; then
   cat /etc/nginx/nginx.conf
   cat /etc/nginx/sites-enabled/mysite.conf
   echo "Command 'nginx -t' failed, above are the configs!"
-  tail -f /dev/null  # keep container alive or
+  tail -f /dev/null
 fi
 
 
-exec "$@" # Very important otherwise the CMD on the dockerfile won't really run. It also makes that CMD run as PID 1. Which is good. For reasons.
+exec "$@"

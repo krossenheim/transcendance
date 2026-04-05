@@ -9,10 +9,9 @@ interface Collision {
 };
 
 const scratchRelativeVelocity = new Vec2(0, 0);
+const scratchRelativePosition = new Vec2(0, 0);
 
 const MAX_NUDGE_DISTANCE = 0.5;
-
-let targetBallSpeed: number = 450;
 
 export class Scene {
     private objects: BaseObject[];
@@ -20,12 +19,13 @@ export class Scene {
     private timeScale: number = 1.0;
     private arenaCenterX: number;
     private arenaCenterY: number;
+    private targetBallSpeed: number;
 
     constructor(ballSpeed: number = 450, arenaCenterX: number = 500, arenaCenterY: number = 500) {
         this.objects = [];
         this.arenaCenterX = arenaCenterX;
         this.arenaCenterY = arenaCenterY;
-        targetBallSpeed = ballSpeed;
+        this.targetBallSpeed = ballSpeed;
     }
 
     public setTimeScale(scale: number): void {
@@ -62,7 +62,6 @@ export class Scene {
                 if (parentA === parentB) continue;
 
                 const relVelSq = scratchRelativeVelocity.copy(parentA.velocity).sub(parentB.velocity).lenSq();
-                if (relVelSq < EPS) continue;
 
                 for (const objA of parentA.iter()) {
                     for (const objB of parentB.iter()) {
@@ -71,11 +70,22 @@ export class Scene {
                         let tHit: number | null = null;
 
                         if (objA instanceof CircleObject && objB instanceof CircleObject) {
-                            tHit = getBallCollisionTime(objA, objB);
-                        } else if (objA instanceof CircleObject && objB instanceof LineObject) {
-                            tHit = getWallCollisionTime(objA, objB);
-                        } else if (objA instanceof LineObject && objB instanceof CircleObject) {
-                            tHit = getWallCollisionTime(objB, objA);
+                            if (relVelSq < EPS) {
+                                // Even with near-zero relative velocity, check if balls overlap
+                                const combinedRadius = objA.radius + objB.radius;
+                                const distSq = scratchRelativePosition.copy(objB.center).sub(objA.center).lenSq();
+                                if (distSq < combinedRadius * combinedRadius - EPS) {
+                                    tHit = 0;
+                                }
+                            } else {
+                                tHit = getBallCollisionTime(objA, objB);
+                            }
+                        } else if (relVelSq >= EPS) {
+                            if (objA instanceof CircleObject && objB instanceof LineObject) {
+                                tHit = getWallCollisionTime(objA, objB);
+                            } else if (objA instanceof LineObject && objB instanceof CircleObject) {
+                                tHit = getWallCollisionTime(objB, objA);
+                            }
                         }
 
                         if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
@@ -214,7 +224,7 @@ export class Scene {
     private normalizeBallSpeed(obj: CircleObject): void {
         const speed = obj.velocity.len();
         if (speed > EPS) {
-            const scale = targetBallSpeed / speed;
+            const scale = this.targetBallSpeed / speed;
             obj.velocity = obj.velocity.mul(scale);
         }
     }

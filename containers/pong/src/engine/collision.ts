@@ -177,14 +177,14 @@ export function resolveCircleLineCollision(
     if (velocityAlongNormal > 0) {
         const overlapEarly = ball.radius - dist;
         if (overlapEarly > 0) {
-            ball.center.addScaled(scratchNormal, overlapEarly + 1.5);
+            ball.center.addScaled(scratchNormal, overlapEarly + 0.5);
         }
         return;
     }
 
     const overlap = ball.radius - dist;
     if (overlap > 0) {
-        ball.center.addScaled(scratchNormal, overlap + 1.5);
+        ball.center.addScaled(scratchNormal, overlap + 0.5);
     }
 
     const restitution = Math.min(ball.restitution, wall.restitution);
@@ -197,7 +197,9 @@ export function resolveCircleLineCollision(
     ball.velocity.addScaled(scratchNormal, j * ball.inverseMass);
     wall.velocity.addScaled(scratchNormal, -j * wall.inverseMass);
 
-    const perturbAngle = (Math.random() - 0.5) * 0.1;
+    // Deterministic perturbation based on ball position to avoid degenerate bouncing
+    const perturbSeed = (ball.center.x * 7.3 + ball.center.y * 13.7) % 1.0;
+    const perturbAngle = (perturbSeed - 0.5) * 0.1;
     const cos = Math.cos(perturbAngle);
     const sin = Math.sin(perturbAngle);
     const vx = ball.velocity.x;

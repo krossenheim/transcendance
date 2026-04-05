@@ -369,11 +369,21 @@ export class PongGame {
         if (this.ballsPendingReset.size > 0) {
             const centerX = this.gameOptions.canvasWidth / 2;
             const centerY = this.gameOptions.canvasHeight / 2;
+            const pendingCount = this.ballsPendingReset.size;
+            let ballIndex = 0;
             for (const ball of this.ballsPendingReset) {
-                ball.center.set(centerX, centerY);
-                ball.velocity.set(0, -1).rotate(this.rng.nextAngle()).mul(this.gameOptions.ballSpeed);
+                const angle = this.rng.nextAngle();
+                // Spread balls apart when multiple reset simultaneously to avoid overlap
+                const offset = pendingCount > 1 ? (ballIndex / pendingCount) * 2 * Math.PI : 0;
+                const spreadDistance = pendingCount > 1 ? ball.radius * 3 : 0;
+                ball.center.set(
+                    centerX + Math.cos(offset) * spreadDistance,
+                    centerY + Math.sin(offset) * spreadDistance
+                );
+                ball.velocity.set(0, -1).rotate(angle).mul(this.gameOptions.ballSpeed);
                 this.scene.addObject(ball);
-                if (ENABLE_GAME_LOGS) console.log(`[PongGame] Reset ball to center (${centerX},${centerY}) with new velocity (${ball.velocity.x.toFixed(1)},${ball.velocity.y.toFixed(1)})`);
+                if (ENABLE_GAME_LOGS) console.log(`[PongGame] Reset ball to center (${ball.center.x.toFixed(1)},${ball.center.y.toFixed(1)}) with new velocity (${ball.velocity.x.toFixed(1)},${ball.velocity.y.toFixed(1)})`);
+                ballIndex++;
             }
             this.ballsPendingReset.clear();
         }

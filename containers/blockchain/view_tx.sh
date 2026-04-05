@@ -1,5 +1,4 @@
 #!/bin/bash
-# Simple blockchain transaction viewer for Hardhat local node
 
 RPC_URL="${RPC_URL:-http://172.20.0.1:8545}"
 
@@ -19,15 +18,12 @@ echo ""
 echo "Transaction Hash: $TX_HASH"
 echo ""
 
-# Get transaction details
 TX=$(curl -s "$RPC_URL" -X POST -H "Content-Type: application/json" \
     -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionByHash\",\"params\":[\"$TX_HASH\"],\"id\":1}")
 
-# Get transaction receipt
 RECEIPT=$(curl -s "$RPC_URL" -X POST -H "Content-Type: application/json" \
     -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX_HASH\"],\"id\":1}")
 
-# Parse and display
 echo "--- Transaction Details ---"
 echo "$TX" | python3 -c "
 import sys, json
@@ -66,13 +62,11 @@ if data.get('result'):
             if topics:
                 print(f\"  Event Sig:  {topics[0][:18]}...\")
                 for j, topic in enumerate(topics[1:], 1):
-                    # Try to decode as number
                     val = int(topic, 16)
                     print(f\"  Param {j}:    {val} (0x{val:x})\")
             data = log.get('data', '0x')
             if data and data != '0x':
-                # Parse data (each 32 bytes is a parameter)
-                data_hex = data[2:]  # remove 0x
+                data_hex = data[2:]
                 params = [data_hex[i:i+64] for i in range(0, len(data_hex), 64)]
                 for j, param in enumerate(params):
                     val = int(param, 16)
