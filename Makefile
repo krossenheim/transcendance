@@ -179,9 +179,6 @@ fclean: clean
 	docker volume prune -f
 	docker image prune -a -f
 
-re-front:
-	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --build --no-deps nginx
-
 list:
 	docker ps -a
 
