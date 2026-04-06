@@ -7,5 +7,7 @@ if [ -d "/etc/database_data" ]; then
 fi
 
 if [ -z "${TOKEN_ENCRYPTION_TOKEN}" ]; then echo "ERROR: TOKEN_ENCRYPTION_TOKEN is not set" >&2; exit 1; fi
+if [ -z "${TOTP_MASTER_KEY}" ]; then echo "ERROR: TOTP_MASTER_KEY is not set" >&2; exit 1; fi
+if [ -z "${JWT_SECRET}" ]; then echo "ERROR: JWT_SECRET is not set" >&2; exit 1; fi
 
 exec gosu nodejs "$@"
