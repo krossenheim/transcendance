@@ -187,6 +187,7 @@ export default function AppRoot() {
     return () => clearInterval(refreshInterval);
   }, [authResponse])
 
+
   return (
     <div
       className="min-h-screen bg-cover bg-center bg-fixed"

@@ -3,7 +3,6 @@ import { useState, useEffect, useRef, createContext, useContext, useCallback } f
 import { ClientToHubMessage, HubToClientMessage } from "@app/shared/socket_messages"
 import type { WebSocketRouteDef } from "@app/shared/api/service/common/endpoints"
 import type { AuthResponseType } from "@app/shared/api/service/auth/loginResponse"
-import { useNavigate } from "react-router-dom";
 import { z } from "zod"
 
 import { HubToClientMessageScheme } from "@app/shared/socket_messages"
@@ -69,8 +68,8 @@ export default function SocketComponent({
   const socket = useRef<WebSocket | null>(null)
   const messageQueue = useRef<string[]>([])
   const [isConnected, setIsConnected] = useState(false)
+  const [showDisconnectOverlay, setShowDisconnectOverlay] = useState(false)
   const reconnectAttempts = useRef(0)
-  const navigate = useNavigate();
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const keepaliveTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const intentionalClose = useRef(false)
@@ -175,6 +174,7 @@ export default function SocketComponent({
     ws.onopen = () => {
       console.log('[Socket] Connected')
       setIsConnected(true)
+      setShowDisconnectOverlay(false)
       reconnectAttempts.current = 0
       ws.send(JSON.stringify({
         authorization: AuthResponseObject!.tokens.jwt,
@@ -204,7 +204,9 @@ export default function SocketComponent({
         clearInterval(keepaliveTimer.current)
         keepaliveTimer.current = null
       }
-      window.location.href = "/";
+      if (!intentionalClose.current) {
+        setShowDisconnectOverlay(true)
+      }
 
       // if (intentionalClose.current || event.code === 1000) return
 
@@ -250,6 +252,20 @@ export default function SocketComponent({
   return (
     <SocketContext.Provider value={{ isConnected, sendMessage, subscribe }}>
       {children}
+      {showDisconnectOverlay && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-red-200 bg-red-950/95 p-6 text-red-100 shadow-2xl">
+            <p className="text-xl font-bold">WebSocket disconnected</p>
+            <p className="mt-2 text-sm text-red-100/90">The live connection has closed. Reload this tab or go to / to reconnect.</p>
+            <a
+              href="/"
+              className="mt-4 inline-block rounded-full border border-red-200 bg-red-100 px-4 py-2 text-sm font-semibold text-red-900 transition-colors hover:bg-red-200"
+            >
+              Go to /
+            </a>
+          </div>
+        </div>
+      )}
     </SocketContext.Provider>
   )
 }
