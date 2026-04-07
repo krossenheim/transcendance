@@ -141,7 +141,7 @@ export default function ProfileComponent() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeProfileModal}>
       <div
-        className={`bg-white/90 bg-dark-800/90 shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-md rounded-xl transition-all ${
+        className={`bg-dark-800/90 shadow-2xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col backdrop-blur-md rounded-xl transition-all ${
           isFriend ? 'ring-2 ring-blue-500/40 shadow-blue-500/10' : 'border border-dark-700'
         }`}
         onClick={(e) => e.stopPropagation()}
