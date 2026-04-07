@@ -24,5 +24,4 @@ db_data/
 secrets.local.sh
 static/react_dist/
 secrets.env
-**/service_env.env
 certs/
