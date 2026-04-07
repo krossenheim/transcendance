@@ -38,13 +38,8 @@ dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
 
 down:
-	@if docker ps -q --filter "name=prometheus" --filter "name=grafana" --filter "name=alertmanager" 2>/dev/null | grep -q .; then \
-		echo "Monitoring containers detected, bringing down everything..."; \
-		$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; \
-	else \
-		$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; \
-	fi
-	@docker network rm transcendance_network 2>/dev/null || true
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; 
+	docker network rm transcendance_network 2>/dev/null || true
 
 ensure_network:
 	@docker network inspect transcendance_network >/dev/null 2>&1 || \
@@ -192,9 +187,6 @@ fclean: clean
 	docker image prune -a -f
 	docker volume prune -f
 	docker image prune -a -f
-
-re-front:
-	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --build --no-deps nginx
 
 list:
 	docker ps -a

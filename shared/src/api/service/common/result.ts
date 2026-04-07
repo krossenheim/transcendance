@@ -41,57 +41,73 @@ export class Result<T, E> {
     throw new UnwrapError<T>(this.inner.value);
   }
 
+  unwrapOrElse(fn: (error: E) => T): T {
+    if (this.inner.ok) return this.inner.value;
+    return fn(this.inner.error);
+  }
+
   unwrapOr<D>(defaultValue: D): T | D {
     return this.inner.ok ? this.inner.value : defaultValue;
   }
 
   map<U>(fn: (value: T) => U): Result<U, E> {
     if (this.inner.ok) return Result.Ok(fn(this.inner.value));
-    return Result.Err(this.inner.error);
+    return this as unknown as Result<U, E>;
   }
 
   flatMap<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
     if (this.inner.ok) return fn(this.inner.value);
-    return Result.Err(this.inner.error);
+    return this as unknown as Result<U, E>;
   }
 
   mapErr<F>(fn: (error: E) => F): Result<T, F> {
-    if (this.inner.ok) return Result.Ok(this.inner.value);
+    if (this.inner.ok) return this as unknown as Result<T, F>;
     return Result.Err(fn(this.inner.error));
   }
 
   flatMapErr<F>(fn: (error: E) => Result<T, F>): Result<T, F> {
-    if (this.inner.ok) return Result.Ok(this.inner.value);
+    if (this.inner.ok) return this as unknown as Result<T, F>;
     return fn(this.inner.error);
   }
 
-  static safeTry<T, E>(fn: () => Result<T, E> | T, errorMapper: (e: unknown) => E): Result<T, E> {
+  forwardErr<U>(): Result<U, E> {
+    if (this.inner.ok)
+      throw new UnwrapError<T>(this.inner.value, "Cannot cast Ok result to a different type");
+    return this as unknown as Result<U, E>;
+  }
+
+  static safeTry<T, E>(fn: () => Result<T, E> | T, errorMapper?: (e: unknown) => E): Result<T, E> {
     try {
       const result = fn();
-      if (result instanceof Result) {
+      if (result instanceof Result)
         return result;
-      }
       return Result.Ok(result);
     } catch (e) {
-      if (e instanceof UnwrapError) {
+      if (e instanceof UnwrapError)
         return Result.Err(e.error as E);
-      }
-      return Result.Err(errorMapper(e));
+
+      if (errorMapper)
+        return Result.Err(errorMapper(e));
+
+      throw e;
     }
   }
 
-  static safeTryAsync<T, E>(fn: () => Promise<Result<T, E> | T>, errorMapper: (e: unknown) => E): Promise<Result<T, E>> {
-    return fn().then(result => {
-      if (result instanceof Result) {
+  static async safeTryAsync<T, E>(fn: () => Promise<Result<T, E> | T>, errorMapper?: (e: unknown) => E): Promise<Result<T, E>> {
+    try {
+      const result = await fn();
+      if (result instanceof Result)
         return result;
-      }
       return Result.Ok(result);
-    }).catch(e => {
-      if (e instanceof UnwrapError) {
+    } catch (e) {
+      if (e instanceof UnwrapError)
         return Result.Err(e.error as E);
-      }
-      return Result.Err(errorMapper(e));
-    });
+
+      if (errorMapper)
+        return Result.Err(errorMapper(e));
+
+      throw e;
+    }
   }
 }
 

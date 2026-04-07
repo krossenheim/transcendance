@@ -55,8 +55,8 @@ export function wsUnblockUserHandlers(socket: OurSocket) {
 
       if (usersMapResult.isErr()) return Result.Err(usersMapResult.unwrapErr());
 
-      const me = usersMapResult.unwrap()[body.userId];
-      const other = usersMapResult.unwrap()[body.payload];
+      const me = usersMapResult.unwrap().get(body.userId);
+      const other = usersMapResult.unwrap().get(body.payload);
       if (me === undefined || other === undefined) {
         return Result.Ok(response.select("UserDoesNotExist").reply({
           message: "User not found",
