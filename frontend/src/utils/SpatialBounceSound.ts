@@ -7,7 +7,7 @@ export class SpatialBounceSound {
   private loaded = false
   private loading = false
 
-  constructor(private readonly url: string = "/static/react_dist/Bounce1.wav") {}
+  constructor(private readonly url: string = "/react_dist/Bounce1.wav") {}
 
   private ensureContext(): AudioContext {
     if (!this.ctx) {

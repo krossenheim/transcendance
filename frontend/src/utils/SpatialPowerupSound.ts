@@ -17,7 +17,7 @@ export class SpatialPowerupSound {
   private loaded = false
   private loading = false
 
-  constructor(private readonly url: string = "/static/react_dist/Pickup3.wav") {}
+  constructor(private readonly url: string = "/react_dist/Pickup3.wav") {}
 
   private ensureContext(): AudioContext {
     if (!this.ctx) {

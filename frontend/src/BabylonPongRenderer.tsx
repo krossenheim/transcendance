@@ -208,9 +208,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
     const dirLight = new DirectionalLight("dir", new Vector3(-1, -2, -1), scene)
     dirLight.position = new Vector3(20, 40, 20)
     dirLight.intensity = 0.8
-    dirLight.autoCalcShadowZBounds = true
-    dirLight.shadowMinZ = 1
-    dirLight.shadowMaxZ = 100
 
     const shadowGenerator = new ShadowGenerator(2048, dirLight)
     shadowGenerator.useBlurExponentialShadowMap = true
@@ -287,19 +284,11 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const bounceZ = serverPosChanged && target.velocityZ !== 0 && serverVelZ !== 0 &&
                         Math.sign(target.velocityZ) !== Math.sign(serverVelZ)
         const bounced = bounceX || bounceZ
+        // Both axes changed = likely ball-ball collision (wall bounces typically only flip one axis)
+        const hardBounce = bounceX && bounceZ
 
         if (bounced && bounceSoundRef.current) {
           bounceSoundRef.current.play(b.x, b.y, b.radius ?? 10)
-        }
-
-        const dist = Math.sqrt((serverX - mesh.position.x) ** 2 + (serverZ - mesh.position.z) ** 2)
-
-        if (dist > 1.0 || bounced) {
-          mesh.position.x = serverX
-          mesh.position.z = serverZ
-        } else {
-          mesh.position.x += target.velocityX * dtSeconds * timeScale
-          mesh.position.z += target.velocityZ * dtSeconds * timeScale
         }
 
         if (serverPosChanged) {
@@ -307,6 +296,33 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           target.targetPos.z = serverZ
           target.velocityX = serverVelX
           target.velocityZ = serverVelZ
+        }
+
+        if (hardBounce) {
+          // Ball-ball collision: snap to server position to avoid visual gap
+          mesh.position.x = serverX
+          mesh.position.z = serverZ
+        } else {
+          // Extrapolate using current velocity
+          mesh.position.x += target.velocityX * dtSeconds * timeScale
+          mesh.position.z += target.velocityZ * dtSeconds * timeScale
+
+          // Lerp toward server position to correct drift smoothly
+          const errorX = target.targetPos.x - mesh.position.x
+          const errorZ = target.targetPos.z - mesh.position.z
+          const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
+
+          if (errorDist > 2.0) {
+            // Too far off — teleport (e.g. respawn, game reset)
+            mesh.position.x = target.targetPos.x
+            mesh.position.z = target.targetPos.z
+          } else {
+            // Smooth correction: blend toward server at ~15% per frame
+            // Stronger correction when error is larger
+            const correctionRate = Math.min(0.25, 0.10 + errorDist * 0.15)
+            mesh.position.x += errorX * correctionRate
+            mesh.position.z += errorZ * correctionRate
+          }
         }
 
         if (mesh.rotationQuaternion) {
