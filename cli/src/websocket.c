@@ -13,7 +13,11 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
     (void)user;
     
     static FILE *ws_log = NULL;
-    if (!ws_log) ws_log = fopen("/tmp/pong_cli_ws.log", "w");
+    static bool ws_log_init = false;
+    if (!ws_log_init) {
+        ws_log_init = true;
+        ws_log = fopen("/tmp/pong_cli_ws.log", "w");
+    }
     if (ws_log) {
         fprintf(ws_log, "callback reason=%d\\n", reason);
         fflush(ws_log);
@@ -65,6 +69,11 @@ static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
                     memcpy(ws->recv_buffer + ws->recv_len, in, len);
                     ws->recv_len += len;
                     ws->recv_buffer[ws->recv_len] = '\0';
+                } else {
+                    /* Buffer overflow: discard this message */
+                    ws->recv_len = 0;
+                    ws->recv_buffer[0] = '\0';
+                    if (ws_log) { fprintf(ws_log, "RECV OVERFLOW: dropping message\n"); fflush(ws_log); }
                 }
                 
                 if (ws_log) { 
@@ -412,6 +421,12 @@ int ws_send_message(pong_websocket_t *ws, const char *container,
 int ws_send_raw(pong_websocket_t *ws, const char *data, size_t len)
 {
     if (!ws || !data) return -1;
+    
+    pthread_mutex_lock(&ws->mutex);
+    bool connected = (ws->state == WS_STATE_CONNECTED && ws->wsi != NULL);
+    pthread_mutex_unlock(&ws->mutex);
+    
+    if (!connected) return -1;
     return queue_message(ws, data, len);
 }
 

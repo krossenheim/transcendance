@@ -142,7 +142,7 @@ game_state_t    *game_create(pong_websocket_t *ws, int user_id);
 void            game_destroy(game_state_t *game);
 
 int             game_create_lobby(game_state_t *game, const char *mode, 
-                                   int *player_ids, const char **player_usernames,
+                                   const int *player_ids, const char **player_usernames,
                                    int player_count,
                                    int ball_count, int max_score, bool powerups,
                                    int ai_count);

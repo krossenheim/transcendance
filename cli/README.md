@@ -7,7 +7,7 @@ A terminal-based Pong client that connects to the Pong web server, allowing CLI 
 - **Cross-platform gameplay**: Play against web users from the terminal
 - **Real-time synchronization**: WebSocket-based communication for live game state
 - **User authentication**: Login with existing credentials, including 2FA support
-- **Multiple game modes**: Classic 1v1, 2v2, and free-for-all
+- **Multiple game modes**: Classic 1v1, multiplayer, and last one standing
 - **Customizable settings**: Configure ball count, max score, and powerups
 - **Terminal UI**: Full ncurses-based interface with colors
 
@@ -70,16 +70,16 @@ make re
 
 ```bash
 # Start with defaults (connects to localhost:443)
-./pong_cli
+./pong-cli
 
 # Connect to a specific server
-./pong_cli -h example.com -p 8443
+./pong-cli -h example.com -p 8443
 
 # Disable SSL (for development)
-./pong_cli --no-ssl
+./pong-cli --no-ssl
 
 # Show help
-./pong_cli --help
+./pong-cli --help
 ```
 
 ### Controls
@@ -112,6 +112,7 @@ cli/
 │   ├── websocket.h    # WebSocket client
 │   ├── game.h         # Game state management
 │   ├── renderer.h     # ncurses rendering
+│   ├── starfield.h    # Starfield background effect
 │   ├── utils.h        # Utility functions
 │   └── cJSON.h        # JSON parsing library
 └── src/               # Source files
@@ -120,6 +121,7 @@ cli/
     ├── websocket.c    # WebSocket client with libwebsockets
     ├── game.c         # Game state and server communication
     ├── renderer.c     # Terminal UI with ncurses
+    ├── starfield.c    # Starfield background effect
     ├── utils.c        # Utility functions
     └── cJSON.c        # JSON library implementation
 ```
@@ -208,6 +210,8 @@ Authentication sessions are saved to `~/.pong_cli_session` for automatic re-logi
 
 3. **Terminal Too Small**: The game requires a minimum terminal size. Try resizing or using fullscreen.
 
+4. **Flickering on WSL**: Windows Subsystem for Linux may cause screen flickering due to slower terminal I/O. Running in fullscreen mode can help reduce it.
+
 ## License
 
-This project is part of the Crysendence ft_transcendence implementation.
+This project is licensed under the [MIT License](../LICENSE).

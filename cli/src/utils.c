@@ -192,6 +192,11 @@ char *file_read_all(const char *path)
     long size = ftell(f);
     fseek(f, 0, SEEK_SET);
     
+    if (size <= 0 || size > 10 * 1024 * 1024) {
+        fclose(f);
+        return NULL;
+    }
+    
     char *content = malloc(size + 1);
     if (!content) {
         fclose(f);
@@ -229,7 +234,7 @@ char *json_get_string(const char *json, const char *key)
     cJSON *root = cJSON_Parse(json);
     if (!root) return NULL;
     
-    cJSON *item = cJSON_GetObjectItem(root, key);
+    const cJSON *item = cJSON_GetObjectItem(root, key);
     char *result = NULL;
     
     if (item && cJSON_IsString(item) && item->valuestring) {
@@ -247,7 +252,7 @@ int json_get_int(const char *json, const char *key, int default_val)
     cJSON *root = cJSON_Parse(json);
     if (!root) return default_val;
     
-    cJSON *item = cJSON_GetObjectItem(root, key);
+    const cJSON *item = cJSON_GetObjectItem(root, key);
     int result = default_val;
     
     if (item && cJSON_IsNumber(item)) {
@@ -265,7 +270,7 @@ double json_get_double(const char *json, const char *key, double default_val)
     cJSON *root = cJSON_Parse(json);
     if (!root) return default_val;
     
-    cJSON *item = cJSON_GetObjectItem(root, key);
+    const cJSON *item = cJSON_GetObjectItem(root, key);
     double result = default_val;
     
     if (item && cJSON_IsNumber(item)) {
@@ -283,7 +288,7 @@ bool json_get_bool(const char *json, const char *key, bool default_val)
     cJSON *root = cJSON_Parse(json);
     if (!root) return default_val;
     
-    cJSON *item = cJSON_GetObjectItem(root, key);
+    const cJSON *item = cJSON_GetObjectItem(root, key);
     bool result = default_val;
     
     if (item) {
@@ -302,7 +307,7 @@ char *json_get_object(const char *json, const char *key)
     cJSON *root = cJSON_Parse(json);
     if (!root) return NULL;
     
-    cJSON *item = cJSON_GetObjectItem(root, key);
+    const cJSON *item = cJSON_GetObjectItem(root, key);
     char *result = NULL;
     
     if (item && cJSON_IsObject(item)) {
@@ -320,7 +325,7 @@ char *json_get_array(const char *json, const char *key)
     cJSON *root = cJSON_Parse(json);
     if (!root) return NULL;
     
-    cJSON *item = cJSON_GetObjectItem(root, key);
+    const cJSON *item = cJSON_GetObjectItem(root, key);
     char *result = NULL;
     
     if (item && cJSON_IsArray(item)) {
@@ -356,7 +361,7 @@ char *json_array_get(const char *array_json, int index)
         return NULL;
     }
     
-    cJSON *item = cJSON_GetArrayItem(arr, index);
+    const cJSON *item = cJSON_GetArrayItem(arr, index);
     char *result = NULL;
     
     if (item) {

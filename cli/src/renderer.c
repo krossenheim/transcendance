@@ -476,6 +476,7 @@ void renderer_draw_login(const char *username, const char *password,
     int start_x = (width - form_width) / 2;
     
     WINDOW *form = derwin(win, form_height, form_width, start_y, start_x);
+    if (!form) { renderer_refresh(); return; }
     werase(form);
     draw_border(form, "Login");
     
@@ -533,6 +534,7 @@ void renderer_draw_2fa(const char *code, const char *error_msg)
     int start_x = (width - form_width) / 2;
     
     WINDOW *form = derwin(win, form_height, form_width, start_y, start_x);
+    if (!form) { renderer_refresh(); return; }
     werase(form);
     draw_border(form, "Two-Factor Authentication");
     
@@ -574,6 +576,7 @@ void renderer_draw_menu(const char **options, int option_count,
     int start_x = (width - menu_width) / 2;
     
     WINDOW *menu = derwin(win, menu_height, menu_width, start_y, start_x);
+    if (!menu) { renderer_refresh(); return; }
     werase(menu);
     draw_border(menu, title);
     
@@ -613,6 +616,7 @@ void renderer_draw_lobby(lobby_t *lobby, int my_user_id)
     int start_x = (width - lobby_width) / 2;
     
     WINDOW *lwin = derwin(win, lobby_height, lobby_width, start_y, start_x);
+    if (!lwin) { renderer_refresh(); return; }
     werase(lwin);
     draw_border(lwin, "Game Lobby");
     
@@ -1099,6 +1103,7 @@ void renderer_draw_error(const char *title, const char *message)
     int start_x = (width - box_width) / 2;
     
     WINDOW *err = derwin(win, box_height, box_width, start_y, start_x);
+    if (!err) { renderer_refresh(); return; }
     
     wattron(err, COLOR_PAIR(COLOR_ERROR));
     draw_border(err, title ? title : "Error");
@@ -1106,7 +1111,6 @@ void renderer_draw_error(const char *title, const char *message)
     
     if (message) {
         int msg_len = (int)strlen(message);
-        int msg_x = 3;
         
         if (msg_len > box_width - 6) {
             int y = 2;
@@ -1115,7 +1119,7 @@ void renderer_draw_error(const char *title, const char *message)
             
             while (remaining > 0 && y < box_height - 2) {
                 int chunk = (remaining > box_width - 6) ? (box_width - 6) : remaining;
-                mvwprintw(err, y++, msg_x, "%.*s", chunk, ptr);
+                mvwprintw(err, y++, 3, "%.*s", chunk, ptr);
                 ptr += chunk;
                 remaining -= chunk;
             }
@@ -1219,6 +1223,7 @@ void renderer_draw_settings(const char **settings, const char **values,
     int start_x = (width - menu_width) / 2;
     
     WINDOW *swin = derwin(win, menu_height, menu_width, start_y, start_x);
+    if (!swin) { renderer_refresh(); return; }
     werase(swin);
     draw_border(swin, "Settings");
     
@@ -1264,6 +1269,7 @@ void renderer_draw_invite(online_user_t *users, int user_count,
     int start_x = (width - menu_width) / 2;
     
     WINDOW *swin = derwin(win, menu_height, menu_width, start_y, start_x);
+    if (!swin) { renderer_refresh(); return; }
     werase(swin);
     draw_border(swin, "Invite Players");
     
@@ -1342,6 +1348,7 @@ void renderer_draw_invitation(lobby_t *lobby, int my_user_id)
     int start_x = (width - box_w) / 2;
 
     WINDOW *iwin = derwin(win, box_h, box_w, start_y, start_x);
+    if (!iwin) { renderer_refresh(); return; }
     werase(iwin);
     draw_border(iwin, "Game Invitation");
 

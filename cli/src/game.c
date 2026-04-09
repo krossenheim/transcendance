@@ -114,7 +114,7 @@ void game_destroy(game_state_t *game)
 
 /* Create lobby */
 int game_create_lobby(game_state_t *game, const char *mode, 
-                      int *player_ids, const char **player_usernames,
+                      const int *player_ids, const char **player_usernames,
                       int player_count,
                       int ball_count, int max_score, bool powerups, int ai_count)
 {
@@ -155,8 +155,8 @@ int game_create_lobby(game_state_t *game, const char *mode,
     free(json);
     
     if (result == 0) {
-        game->in_lobby = true;
         pthread_mutex_lock(&game->mutex);
+        game->in_lobby = true;
         game->lobby.id = 0;
         game->lobby.ai_count = ai_count;
         game->lobby.ball_count = ball_count;
@@ -237,16 +237,24 @@ int game_start_from_lobby(game_state_t *game)
 /* Send input to server */
 int game_send_input(game_state_t *game)
 {
-    if (!game || !game->ws || game->game_id < 0) return -1;
+    if (!game || !game->ws) return -1;
+    
+    pthread_mutex_lock(&game->mutex);
+    int gid = game->game_id;
+    bool ku = game->key_up;
+    bool kd = game->key_down;
+    pthread_mutex_unlock(&game->mutex);
+    
+    if (gid < 0) return -1;
     
     cJSON *payload = cJSON_CreateObject();
-    cJSON_AddNumberToObject(payload, "board_id", game->game_id);
+    cJSON_AddNumberToObject(payload, "board_id", gid);
     
     cJSON *keys = cJSON_CreateArray();
-    if (game->key_up) {
+    if (ku) {
         cJSON_AddItemToArray(keys, cJSON_CreateString("ArrowLeft"));
     }
-    if (game->key_down) {
+    if (kd) {
         cJSON_AddItemToArray(keys, cJSON_CreateString("ArrowRight"));
     }
     cJSON_AddItemToObject(payload, "pressed_keys", keys);
@@ -265,7 +273,7 @@ int game_send_input(game_state_t *game)
 }
 
 /* Parse ball from JSON tuple [x, y, vx, vy, radius, inverse_mass, id?] */
-static void parse_ball(cJSON *ball_arr, ball_t *ball, int index)
+static void parse_ball(const cJSON *ball_arr, ball_t *ball, int index)
 {
     if (!ball_arr || !cJSON_IsArray(ball_arr)) return;
     
@@ -283,7 +291,7 @@ static void parse_ball(cJSON *ball_arr, ball_t *ball, int index)
 }
 
 /* Parse paddle from JSON tuple [x, y, angle, width, height, vx, vy, playerId] */
-static void parse_paddle(cJSON *paddle_arr, paddle_t *paddle, int index)
+static void parse_paddle(const cJSON *paddle_arr, paddle_t *paddle, int index)
 {
     if (!paddle_arr || !cJSON_IsArray(paddle_arr)) return;
     
@@ -302,7 +310,7 @@ static void parse_paddle(cJSON *paddle_arr, paddle_t *paddle, int index)
 }
 
 /* Parse wall from JSON tuple [x1, y1, x2, y2, vx, vy, playerId] */
-static void parse_wall(cJSON *wall_arr, wall_t *wall)
+static void parse_wall(const cJSON *wall_arr, wall_t *wall)
 {
     if (!wall_arr || !cJSON_IsArray(wall_arr)) return;
     
@@ -328,7 +336,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
     
-    cJSON *board_id = cJSON_GetObjectItem(root, "board_id");
+    const cJSON *board_id = cJSON_GetObjectItem(root, "board_id");
     if (board_id && cJSON_IsNumber(board_id)) {
         game->game_id = board_id->valueint;
     }
@@ -415,7 +423,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
         cJSON *eff;
         cJSON_ArrayForEach(eff, active_effects) {
             if (game->active_effect_count >= MAX_ACTIVE_EFFECTS) break;
-            cJSON *etype = cJSON_GetObjectItem(eff, "type");
+            const cJSON *etype = cJSON_GetObjectItem(eff, "type");
             const cJSON *remaining = cJSON_GetObjectItem(eff, "remainingSeconds");
             if (etype && cJSON_IsNumber(etype)) {
                 active_effect_t *ae = &game->active_effects[game->active_effect_count];
@@ -434,7 +442,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
         cJSON *evt;
         cJSON_ArrayForEach(evt, recent_events) {
             if (game->active_effect_count >= MAX_ACTIVE_EFFECTS) break;
-            cJSON *etype = cJSON_GetObjectItem(evt, "type");
+            const cJSON *etype = cJSON_GetObjectItem(evt, "type");
             cJSON *age = cJSON_GetObjectItem(evt, "ageSeconds");
             if (etype && cJSON_IsNumber(etype)) {
                 float age_sec = (age && cJSON_IsNumber(age)) ? (float)age->valuedouble : 0;
@@ -457,21 +465,21 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
 
-    cJSON *game_over = cJSON_GetObjectItem(root, "gameOver");
+    const cJSON *game_over = cJSON_GetObjectItem(root, "gameOver");
     if (game_over && cJSON_IsBool(game_over)) {
         game->game_over = cJSON_IsTrue(game_over);
     }
     
-    cJSON *winner = cJSON_GetObjectItem(root, "winner");
+    const cJSON *winner = cJSON_GetObjectItem(root, "winner");
     if (winner && cJSON_IsNumber(winner)) {
         game->winner_id = winner->valueint;
     }
     
-    cJSON *metadata = cJSON_GetObjectItem(root, "metadata");
+    const cJSON *metadata = cJSON_GetObjectItem(root, "metadata");
     if (metadata && cJSON_IsObject(metadata)) {
-        cJSON *opts = cJSON_GetObjectItem(metadata, "gameOptions");
+        const cJSON *opts = cJSON_GetObjectItem(metadata, "gameOptions");
         if (opts && cJSON_IsObject(opts)) {
-            cJSON *mode = cJSON_GetObjectItem(opts, "gameMode");
+            const cJSON *mode = cJSON_GetObjectItem(opts, "gameMode");
             if (mode && cJSON_IsString(mode) && mode->valuestring) {
                 strncpy(game->game_mode, mode->valuestring,
                         sizeof(game->game_mode) - 1);
@@ -511,12 +519,12 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
     
-    cJSON *lobby_id = cJSON_GetObjectItem(root, "lobbyId");
+    const cJSON *lobby_id = cJSON_GetObjectItem(root, "lobbyId");
     if (lobby_id && cJSON_IsNumber(lobby_id)) {
         game->lobby.id = lobby_id->valueint;
     }
     
-    cJSON *mode = cJSON_GetObjectItem(root, "gameMode");
+    const cJSON *mode = cJSON_GetObjectItem(root, "gameMode");
     if (mode && cJSON_IsString(mode)) {
         strncpy(game->lobby.game_mode, mode->valuestring, sizeof(game->lobby.game_mode) - 1);
     }
@@ -530,9 +538,9 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
                 player_t *p = &game->lobby.players[game->lobby.player_count];
                 
                 const cJSON *user_id = cJSON_GetObjectItem(player, "userId");
-                cJSON *username = cJSON_GetObjectItem(player, "username");
-                cJSON *is_ready = cJSON_GetObjectItem(player, "isReady");
-                cJSON *is_host = cJSON_GetObjectItem(player, "isHost");
+                const cJSON *username = cJSON_GetObjectItem(player, "username");
+                const cJSON *is_ready = cJSON_GetObjectItem(player, "isReady");
+                const cJSON *is_host = cJSON_GetObjectItem(player, "isHost");
                 
                 if (user_id) p->id = user_id->valueint;
                 if (username && cJSON_IsString(username)) {
@@ -549,7 +557,7 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
     const cJSON *ball_count = cJSON_GetObjectItem(root, "ballCount");
     if (ball_count) game->lobby.ball_count = ball_count->valueint;
 
-    cJSON *ai_count = cJSON_GetObjectItem(root, "aiCount");
+    const cJSON *ai_count = cJSON_GetObjectItem(root, "aiCount");
     if (ai_count && cJSON_IsNumber(ai_count)) {
         game->lobby.ai_count = ai_count->valueint;
     } else {
@@ -559,10 +567,10 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
     const cJSON *max_score = cJSON_GetObjectItem(root, "maxScore");
     if (max_score) game->lobby.max_score = max_score->valueint;
     
-    cJSON *powerups = cJSON_GetObjectItem(root, "allowPowerups");
+    const cJSON *powerups = cJSON_GetObjectItem(root, "allowPowerups");
     if (powerups) game->lobby.allow_powerups = cJSON_IsTrue(powerups);
     
-    cJSON *status = cJSON_GetObjectItem(root, "status");
+    const cJSON *status = cJSON_GetObjectItem(root, "status");
     if (status && cJSON_IsString(status)) {
         strncpy(game->lobby.status, status->valuestring, sizeof(game->lobby.status) - 1);
     }
@@ -592,7 +600,7 @@ void game_handle_game_over(game_state_t *game, const char *json_payload)
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
     
-    cJSON *winner = cJSON_GetObjectItem(root, "winner");
+    const cJSON *winner = cJSON_GetObjectItem(root, "winner");
     if (winner && cJSON_IsNumber(winner)) {
         game->winner_id = winner->valueint;
     }

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <execinfo.h>
+#include <fcntl.h>
 
 #include "pong_cli.h"
 #include "auth.h"
@@ -22,16 +23,32 @@
 
 static void crash_handler(int sig)
 {
-    renderer_cleanup();
-    
-    FILE *f = fopen("/tmp/pong_cli_crash.log", "w");
-    if (f) {
+    /* Only use async-signal-safe functions here */
+    static const char msg[] = "Crashed with signal: ";
+    static const char nl[] = "\n";
+    int fd = open("/tmp/pong_cli_crash.log", O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd >= 0) {
+        ssize_t r;
+        r = write(fd, msg, sizeof(msg) - 1);
+        /* Write signal number as single digit(s) */
+        char sigbuf[16];
+        int pos = 0;
+        int s = sig;
+        if (s < 0) { s = -s; }
+        if (s == 0) { sigbuf[pos++] = '0'; }
+        else {
+            char tmp[16];
+            int tpos = 0;
+            while (s > 0) { tmp[tpos++] = '0' + (s % 10); s /= 10; }
+            while (tpos > 0) { sigbuf[pos++] = tmp[--tpos]; }
+        }
+        r = write(fd, sigbuf, pos);
+        r = write(fd, nl, 1);
+        (void)r;
         void *array[20];
-        size_t size;
-        fprintf(f, "Crashed with signal %d\n", sig);
-        size = backtrace(array, 20);
-        backtrace_symbols_fd(array, size, fileno(f));
-        fclose(f);
+        int size = backtrace(array, 20);
+        backtrace_symbols_fd(array, size, fd);
+        close(fd);
     }
     
     signal(sig, SIG_DFL);
@@ -113,7 +130,14 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
             }
         } else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--port") == 0) {
             if (i + 1 < argc) {
-                ctx->port = atoi(argv[++i]);
+                char *endptr;
+                long p = strtol(argv[++i], &endptr, 10);
+                if (*endptr == '\0' && p > 0 && p <= 65535) {
+                    ctx->port = (int)p;
+                } else {
+                    fprintf(stderr, "Invalid port: %s\n", argv[i]);
+                    return -1;
+                }
             }
         } else if (strcmp(argv[i], "--no-ssl") == 0) {
             ctx->use_ssl = false;
@@ -234,6 +258,10 @@ static int app_connect_ws(app_context_t *ctx)
     if (ctx->game) {
         game_destroy(ctx->game);
     }
+    if (!ctx->session) {
+        LOG_DEBUG("app_connect_ws: no session, cannot create game");
+        return -1;
+    }
     ctx->game = game_create(ctx->ws, ctx->session->user_id);
     
     app_subscribe_invite_handlers(ctx);
@@ -275,6 +303,9 @@ static void handle_login(app_context_t *ctx)
             
             auth_session_t *session = auth_login(ctx->host, ctx->port, 
                                                   ctx->username, ctx->password);
+            
+            /* Clear password from memory immediately */
+            memset(ctx->password, 0, sizeof(ctx->password));
             
             if (session) {
                 if (session->needs_2fa) {
@@ -464,7 +495,7 @@ static void handle_menu(app_context_t *ctx)
                     {
                         int ai = ctx->ai_count > 0 ? ctx->ai_count : 1;
                         LOG_DEBUG("Creating AI lobby for user_id=%d ai=%d", ctx->session->user_id, ai);
-                        int player_ids[] = { ctx->session->user_id };
+                        const int player_ids[] = { ctx->session->user_id };
                         int result = game_create_lobby(ctx->game, "1v1",
                                               player_ids, NULL, 1,
                                               ctx->ball_count, ctx->max_score,
@@ -490,7 +521,7 @@ static void handle_menu(app_context_t *ctx)
                     }
                     {
                         LOG_DEBUG("Creating lobby mode=%s user_id=%d ai=%d", ctx->game_mode, ctx->session->user_id, ctx->ai_count);
-                        int player_ids[] = { ctx->session->user_id };
+                        const int player_ids[] = { ctx->session->user_id };
                         if (game_create_lobby(ctx->game, ctx->game_mode,
                                               player_ids, NULL, 1,
                                               ctx->ball_count, ctx->max_score,
@@ -615,8 +646,8 @@ static void on_user_profile(const char *func_id, int code,
     cJSON *root = cJSON_Parse(payload);
     if (!root) return;
     
-    cJSON *uid_j = cJSON_GetObjectItem(root, "id");
-    cJSON *uname_j = cJSON_GetObjectItem(root, "username");
+    const cJSON *uid_j = cJSON_GetObjectItem(root, "id");
+    const cJSON *uname_j = cJSON_GetObjectItem(root, "username");
     
     if (uid_j && cJSON_IsNumber(uid_j) && uname_j && cJSON_IsString(uname_j)) {
         int uid = uid_j->valueint;
@@ -910,7 +941,11 @@ static void handle_lobby(app_context_t *ctx)
         return;
     }
     
-    renderer_draw_lobby(&ctx->game->lobby, ctx->session->user_id);
+    pthread_mutex_lock(&ctx->game->mutex);
+    lobby_t lobby_copy = ctx->game->lobby;
+    pthread_mutex_unlock(&ctx->game->mutex);
+    
+    renderer_draw_lobby(&lobby_copy, ctx->session->user_id);
     
     int ch = renderer_get_input();
     if (ch == ERR) {
@@ -1024,6 +1059,11 @@ static void handle_game_over(app_context_t *ctx)
     
     int ch = renderer_get_input();
     if (ch != ERR) {
+        pthread_mutex_lock(&ctx->game->mutex);
+        ctx->game->game_active = false;
+        ctx->game->game_over = false;
+        ctx->game->in_lobby = false;
+        pthread_mutex_unlock(&ctx->game->mutex);
         ctx->state = STATE_MENU;
     }
     

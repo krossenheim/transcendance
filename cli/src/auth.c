@@ -5,6 +5,7 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include "auth.h"
 #include "utils.h"
 #include "cJSON.h"
@@ -19,6 +20,7 @@ typedef struct {
 static size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp)
 {
     size_t realsize = size * nmemb;
+    if (nmemb != 0 && realsize / nmemb != size) return 0; /* overflow check */
     response_buffer_t *buf = (response_buffer_t *)userp;
     
     char *ptr = realloc(buf->data, buf->size + realsize + 1);
@@ -107,6 +109,8 @@ static int http_post(const char *url, const char *json_body,
     
     if (res == CURLE_OK) {
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, http_code);
+    } else {
+        free_response(response);
     }
     
     curl_slist_free_all(headers);
@@ -127,17 +131,17 @@ static int parse_login_response(const char *json, auth_session_t *session)
     cJSON *root = cJSON_Parse(json);
     if (!root) return -1;
     
-    cJSON *requires_2fa = cJSON_GetObjectItem(root, "requires2FA");
+    const cJSON *requires_2fa = cJSON_GetObjectItem(root, "requires2FA");
     if (requires_2fa && cJSON_IsBool(requires_2fa) && cJSON_IsTrue(requires_2fa)) {
         session->needs_2fa = true;
         
-        cJSON *temp_token = cJSON_GetObjectItem(root, "tempToken");
+        const cJSON *temp_token = cJSON_GetObjectItem(root, "tempToken");
         if (temp_token && cJSON_IsString(temp_token)) {
             strncpy(session->temp_2fa_token, temp_token->valuestring, 
                     sizeof(session->temp_2fa_token) - 1);
         }
         
-        cJSON *user_id = cJSON_GetObjectItem(root, "userId");
+        const cJSON *user_id = cJSON_GetObjectItem(root, "userId");
         if (user_id && cJSON_IsNumber(user_id)) {
             session->user_id = user_id->valueint;
         }
@@ -146,10 +150,10 @@ static int parse_login_response(const char *json, auth_session_t *session)
         return 0;
     }
     
-    cJSON *tokens = cJSON_GetObjectItem(root, "tokens");
+    const cJSON *tokens = cJSON_GetObjectItem(root, "tokens");
     if (tokens) {
-        cJSON *jwt = cJSON_GetObjectItem(tokens, "jwt");
-        cJSON *refresh = cJSON_GetObjectItem(tokens, "refresh");
+        const cJSON *jwt = cJSON_GetObjectItem(tokens, "jwt");
+        const cJSON *refresh = cJSON_GetObjectItem(tokens, "refresh");
         
         if (jwt && cJSON_IsString(jwt)) {
             strncpy(session->access_token, jwt->valuestring, 
@@ -161,11 +165,11 @@ static int parse_login_response(const char *json, auth_session_t *session)
         }
     }
     
-    cJSON *user = cJSON_GetObjectItem(root, "user");
+    const cJSON *user = cJSON_GetObjectItem(root, "user");
     if (user) {
-        cJSON *id = cJSON_GetObjectItem(user, "id");
-        cJSON *username = cJSON_GetObjectItem(user, "username");
-        cJSON *email = cJSON_GetObjectItem(user, "email");
+        const cJSON *id = cJSON_GetObjectItem(user, "id");
+        const cJSON *username = cJSON_GetObjectItem(user, "username");
+        const cJSON *email = cJSON_GetObjectItem(user, "email");
         
         if (id && cJSON_IsNumber(id)) {
             session->user_id = id->valueint;
@@ -313,7 +317,7 @@ auth_session_t *auth_load_session(void)
 }
 
 /* Save session to file */
-int auth_save_session(auth_session_t *session)
+int auth_save_session(const auth_session_t *session)
 {
     if (!session) return -1;
     
@@ -338,9 +342,15 @@ int auth_save_session(auth_session_t *session)
         return -1;
     }
     
-    FILE *f = fopen(path, "w");
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     free(path);
+    if (fd < 0) {
+        free(json);
+        return -1;
+    }
+    FILE *f = fdopen(fd, "w");
     if (!f) {
+        close(fd);
         free(json);
         return -1;
     }
@@ -461,10 +471,10 @@ int auth_refresh_token(auth_session_t *session)
     
     if (!root) return -1;
     
-    cJSON *tokens = cJSON_GetObjectItem(root, "tokens");
+    const cJSON *tokens = cJSON_GetObjectItem(root, "tokens");
     if (tokens) {
-        cJSON *jwt = cJSON_GetObjectItem(tokens, "jwt");
-        cJSON *refresh = cJSON_GetObjectItem(tokens, "refresh");
+        const cJSON *jwt = cJSON_GetObjectItem(tokens, "jwt");
+        const cJSON *refresh = cJSON_GetObjectItem(tokens, "refresh");
         
         if (jwt && cJSON_IsString(jwt)) {
             strncpy(session->access_token, jwt->valuestring,

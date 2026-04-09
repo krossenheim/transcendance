@@ -25,7 +25,7 @@ auth_session_t  *auth_login(const char *host, int port,
                              const char *username, const char *password);
 
 auth_session_t  *auth_load_session(void);
-int             auth_save_session(auth_session_t *session);
+int             auth_save_session(const auth_session_t *session);
 void            auth_destroy_session(auth_session_t *session);
 bool            auth_validate_session(auth_session_t *session);
 
