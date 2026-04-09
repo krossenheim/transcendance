@@ -284,8 +284,6 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
         const bounceZ = serverPosChanged && target.velocityZ !== 0 && serverVelZ !== 0 &&
                         Math.sign(target.velocityZ) !== Math.sign(serverVelZ)
         const bounced = bounceX || bounceZ
-        // Both axes changed = likely ball-ball collision (wall bounces typically only flip one axis)
-        const hardBounce = bounceX && bounceZ
 
         if (bounced && bounceSoundRef.current) {
           bounceSoundRef.current.play(b.x, b.y, b.radius ?? 10)
@@ -298,31 +296,25 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
           target.velocityZ = serverVelZ
         }
 
-        if (hardBounce) {
-          // Ball-ball collision: snap to server position to avoid visual gap
-          mesh.position.x = serverX
-          mesh.position.z = serverZ
+        // Extrapolate using current velocity
+        mesh.position.x += target.velocityX * dtSeconds * timeScale
+        mesh.position.z += target.velocityZ * dtSeconds * timeScale
+
+        // Lerp toward server position to correct drift smoothly
+        const errorX = target.targetPos.x - mesh.position.x
+        const errorZ = target.targetPos.z - mesh.position.z
+        const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
+
+        if (errorDist > 2.0) {
+          // Too far off — teleport (e.g. respawn, game reset)
+          mesh.position.x = target.targetPos.x
+          mesh.position.z = target.targetPos.z
         } else {
-          // Extrapolate using current velocity
-          mesh.position.x += target.velocityX * dtSeconds * timeScale
-          mesh.position.z += target.velocityZ * dtSeconds * timeScale
-
-          // Lerp toward server position to correct drift smoothly
-          const errorX = target.targetPos.x - mesh.position.x
-          const errorZ = target.targetPos.z - mesh.position.z
-          const errorDist = Math.sqrt(errorX * errorX + errorZ * errorZ)
-
-          if (errorDist > 2.0) {
-            // Too far off — teleport (e.g. respawn, game reset)
-            mesh.position.x = target.targetPos.x
-            mesh.position.z = target.targetPos.z
-          } else {
-            // Smooth correction: blend toward server at ~15% per frame
-            // Stronger correction when error is larger
-            const correctionRate = Math.min(0.25, 0.10 + errorDist * 0.15)
-            mesh.position.x += errorX * correctionRate
-            mesh.position.z += errorZ * correctionRate
-          }
+          // Smooth correction: blend toward server at ~15% per frame
+          // Stronger correction when error is larger
+          const correctionRate = Math.min(0.25, 0.10 + errorDist * 0.15)
+          mesh.position.x += errorX * correctionRate
+          mesh.position.z += errorZ * correctionRate
         }
 
         if (mesh.rotationQuaternion) {
@@ -346,6 +338,54 @@ const BabylonPongRenderer = forwardRef(function BabylonPongRenderer(
             Quaternion.RotationAxisToRef(rotAxis, -moveDist / radius, rotQuat)
             rotQuat.multiplyToRef(rot, rot)
             mesh.rotationQuaternion.copyFrom(rot)
+          }
+        }
+      }
+
+      // Client-side ball-ball collision prediction (mirrors backend resolveBallCollision)
+      const ballIds = Array.from(ballsRef.current.keys())
+      for (let i = 0; i < ballIds.length; i++) {
+        for (let j = i + 1; j < ballIds.length; j++) {
+          const idA = ballIds[i]!
+          const idB = ballIds[j]!
+          const meshA = ballsRef.current.get(idA)
+          const meshB = ballsRef.current.get(idB)
+          const targetA = ballTargetsRef.current.get(idA)
+          const targetB = ballTargetsRef.current.get(idB)
+          if (!meshA || !meshB || !targetA || !targetB) continue
+
+          const dx = meshB.position.x - meshA.position.x
+          const dz = meshB.position.z - meshA.position.z
+          const dist = Math.sqrt(dx * dx + dz * dz)
+          const combinedRadius = (targetA.visualRadius || 0.2) + (targetB.visualRadius || 0.2)
+
+          if (dist < combinedRadius && dist > 0.0001) {
+            // Normalize collision normal
+            const nx = dx / dist
+            const nz = dz / dist
+
+            // Relative velocity along normal
+            const dvx = targetB.velocityX - targetA.velocityX
+            const dvz = targetB.velocityZ - targetA.velocityZ
+            const velAlongNormal = dvx * nx + dvz * nz
+
+            // Only resolve if balls are approaching
+            if (velAlongNormal < 0) {
+              // Elastic collision (restitution = 1, equal mass approximation)
+              const j = -velAlongNormal
+              targetA.velocityX -= j * nx
+              targetA.velocityZ -= j * nz
+              targetB.velocityX += j * nx
+              targetB.velocityZ += j * nz
+            }
+
+            // Separate overlapping balls
+            const overlap = combinedRadius - dist
+            const halfOverlap = overlap * 0.5
+            meshA.position.x -= nx * halfOverlap
+            meshA.position.z -= nz * halfOverlap
+            meshB.position.x += nx * halfOverlap
+            meshB.position.z += nz * halfOverlap
           }
         }
       }

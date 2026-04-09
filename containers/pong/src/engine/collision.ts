@@ -206,5 +206,28 @@ export function resolveCircleLineCollision(
     const vy = ball.velocity.y;
     ball.velocity.x = vx * cos - vy * sin;
     ball.velocity.y = vx * sin + vy * cos;
+
+    // Enforce minimum bounce angle (~15°) relative to the wall
+    const MIN_ANGLE = Math.PI / 12;
+    const speed = Math.sqrt(ball.velocity.x * ball.velocity.x + ball.velocity.y * ball.velocity.y);
+    if (speed > EPS) {
+        const wallLen = Math.sqrt(lenSq);
+        if (wallLen > EPS) {
+            const wallDirX = scratchAB.x / wallLen;
+            const wallDirY = scratchAB.y / wallLen;
+            const dotWall = (ball.velocity.x * wallDirX + ball.velocity.y * wallDirY) / speed;
+            const cosMin = Math.cos(MIN_ANGLE);
+            if (Math.abs(dotWall) > cosMin) {
+                // Too shallow — rotate velocity to minimum angle away from wall
+                const normalX = scratchNormal.x;
+                const normalY = scratchNormal.y;
+                const dotN = ball.velocity.x * normalX + ball.velocity.y * normalY;
+                const sign = dotWall > 0 ? 1 : -1;
+                const sinMin = Math.sin(MIN_ANGLE);
+                ball.velocity.x = speed * (Math.abs(dotN) > 0 ? Math.sign(dotN) : 1) * (normalX * cosMin + sign * wallDirX * sinMin);
+                ball.velocity.y = speed * (Math.abs(dotN) > 0 ? Math.sign(dotN) : 1) * (normalY * cosMin + sign * wallDirY * sinMin);
+            }
+        }
+    }
 }
 
