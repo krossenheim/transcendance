@@ -73,7 +73,7 @@ typedef struct {
     char invite_search[64];
     bool invite_search_mode;
 
-    volatile bool running;
+    volatile sig_atomic_t running;
 } app_context_t;
 
 static app_context_t *g_ctx = NULL;
@@ -144,7 +144,7 @@ static int app_init(app_context_t *ctx, int argc, char **argv)
             auth_destroy_session(ctx->session);
             ctx->session = NULL;
             ctx->state = STATE_LOGIN;
-            strcpy(ctx->login_error, "Session expired, please login again");
+            snprintf(ctx->login_error, sizeof(ctx->login_error), "Session expired, please login again");
         }
     }
     
@@ -267,7 +267,7 @@ static void handle_login(app_context_t *ctx)
             ctx->login_error[0] = '\0';
             
             if (strlen(ctx->username) == 0 || strlen(ctx->password) == 0) {
-                strcpy(ctx->login_error, "Please fill in all fields");
+                snprintf(ctx->login_error, sizeof(ctx->login_error), "Please fill in all fields");
                 break;
             }
             
@@ -288,12 +288,12 @@ static void handle_login(app_context_t *ctx)
                     ctx->state = STATE_MENU;
                     
                     if (app_connect_ws(ctx) != 0) {
-                        strcpy(ctx->login_error, "Failed to connect to server");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Failed to connect to server");
                         ctx->state = STATE_LOGIN;
                     }
                 }
             } else {
-                strcpy(ctx->login_error, "Login failed");
+                snprintf(ctx->login_error, sizeof(ctx->login_error), "Login failed");
             }
             break;
             
@@ -350,7 +350,7 @@ static void handle_2fa(app_context_t *ctx)
         case '\n':
         case KEY_ENTER:
             if (strlen(ctx->totp_code) != 6) {
-                strcpy(ctx->login_error, "2FA code must be 6 digits");
+                snprintf(ctx->login_error, sizeof(ctx->login_error), "2FA code must be 6 digits");
                 break;
             }
             
@@ -361,13 +361,13 @@ static void handle_2fa(app_context_t *ctx)
                 ctx->state = STATE_MENU;
                 
                 if (app_connect_ws(ctx) != 0) {
-                    strcpy(ctx->login_error, "Failed to connect");
+                    snprintf(ctx->login_error, sizeof(ctx->login_error), "Failed to connect");
                     auth_destroy_session(ctx->session);
                     ctx->session = NULL;
                     ctx->state = STATE_LOGIN;
                 }
             } else {
-                strcpy(ctx->login_error, "Invalid 2FA code");
+                snprintf(ctx->login_error, sizeof(ctx->login_error), "Invalid 2FA code");
             }
             ctx->totp_code[0] = '\0';
             break;
@@ -453,12 +453,12 @@ static void handle_menu(app_context_t *ctx)
                               (void*)ctx->game, (void*)ctx->ws, (void*)ctx->session);
                     if (!ctx->session) {
                         LOG_DEBUG("No session!");
-                        strcpy(ctx->login_error, "Not logged in");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Not logged in");
                         break;
                     }
                     if (!ctx->game || !ctx->ws) {
                         LOG_DEBUG("No game/ws connection!");
-                        strcpy(ctx->login_error, "Not connected to server");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Not connected to server");
                         break;
                     }
                     {
@@ -473,7 +473,7 @@ static void handle_menu(app_context_t *ctx)
                         if (result == 0) {
                             ctx->state = STATE_LOBBY;
                         } else {
-                            strcpy(ctx->login_error, "Failed to create lobby");
+                            snprintf(ctx->login_error, sizeof(ctx->login_error), "Failed to create lobby");
                         }
                     }
                     break;
@@ -481,11 +481,11 @@ static void handle_menu(app_context_t *ctx)
                 case 1:
                     LOG_DEBUG("Create Lobby selected");
                     if (!ctx->session) {
-                        strcpy(ctx->login_error, "Not logged in");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Not logged in");
                         break;
                     }
                     if (!ctx->game || !ctx->ws) {
-                        strcpy(ctx->login_error, "Not connected to server");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Not connected to server");
                         break;
                     }
                     {
@@ -497,18 +497,18 @@ static void handle_menu(app_context_t *ctx)
                                               ctx->allow_powerups, ctx->ai_count) == 0) {
                             ctx->state = STATE_LOBBY;
                         } else {
-                            strcpy(ctx->login_error, "Failed to create lobby");
+                            snprintf(ctx->login_error, sizeof(ctx->login_error), "Failed to create lobby");
                         }
                     }
                     break;
                     
                 case 2:
                     if (!ctx->session) {
-                        strcpy(ctx->login_error, "Not logged in");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Not logged in");
                         break;
                     }
                     if (!ctx->game || !ctx->ws) {
-                        strcpy(ctx->login_error, "Not connected to server");
+                        snprintf(ctx->login_error, sizeof(ctx->login_error), "Not connected to server");
                         break;
                     }
                     ctx->online_user_count = 0;
@@ -810,7 +810,7 @@ static void handle_invite(app_context_t *ctx)
                                   ctx->allow_powerups, ctx->ai_count) == 0) {
                 ctx->state = STATE_LOBBY;
             } else {
-                strcpy(ctx->login_error, "Failed to create lobby");
+                snprintf(ctx->login_error, sizeof(ctx->login_error), "Failed to create lobby");
                 ctx->state = STATE_MENU;
             }
             break;
