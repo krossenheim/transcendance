@@ -4,12 +4,12 @@ import { useLanguage, languageNames, languageFlags } from '../i18n';
 type SupportedLanguage = 'en' | 'ru' | 'zh' | 'he' | 'es' | 'nl' | 'fy' | 'cy' | 'tlh' | 'sjn' | 'la' | 'pig' | 'dot';
 
 const imageFlags: Partial<Record<SupportedLanguage, string>> = {
-  fy: '/static/react_dist/flags/fy.png',
-  tlh: '/static/react_dist/flags/tlh.svg',
-  sjn: '/static/react_dist/flags/sjn.svg',
-  la: '/static/react_dist/flags/la.svg',
-  pig: '/static/react_dist/flags/pig.png',
-  dot: '/static/react_dist/flags/Dothraki_flag.webp',
+  fy: '/react_dist/flags/fy.png',
+  tlh: '/react_dist/flags/tlh.svg',
+  sjn: '/react_dist/flags/sjn.svg',
+  la: '/react_dist/flags/la.svg',
+  pig: '/react_dist/flags/pig.png',
+  dot: '/react_dist/flags/Dothraki_flag.webp',
 };
 
 function FlagDisplay({ lang, className }: { lang: SupportedLanguage; className?: string }) {
