@@ -162,4 +162,4 @@ void            game_set_key_down(game_state_t *game, bool pressed);
 
 bool            game_is_active(game_state_t *game);
 
-#endif /* GAME_H */
+#endif

@@ -101,13 +101,13 @@ static void put_wch(WINDOW *win, int y, int x, wchar_t ch, int color_pair, int a
 static void draw_block(WINDOW *win, int sy, int sx, int size, int w, int h,
                        int color_pair, int attr)
 {
-    int cols = size * 2; 
+    int cols = size * 2;
     for (int dy = 0; dy < size; dy++) {
         for (int dx = 0; dx < cols; dx++) {
             int py = sy + dy;
             int px = sx + dx;
             if (px >= 0 && px < w && py >= 0 && py < h) {
-                put_wch(win, py, px, 0x2588, color_pair, attr); /* █ */
+                put_wch(win, py, px, 0x2588, color_pair, attr);
             }
         }
     }
@@ -144,13 +144,13 @@ void starfield_draw(starfield_t *sf, WINDOW *win, int w, int h)
         if (brightness > 0.80f) {
             draw_block(win, sy, sx, 2, w, h, cpair, attr);
         } else if (brightness > 0.60f) {
-            put_wch(win, sy, sx, 0x2588, cpair, attr);  /* █ */
+            put_wch(win, sy, sx, 0x2588, cpair, attr);
         } else if (brightness > 0.45f) {
-            put_wch(win, sy, sx, 0x25AA, cpair, attr);  /* ▪ */
+            put_wch(win, sy, sx, 0x25AA, cpair, attr);
         } else if (brightness > 0.30f) {
-            put_wch(win, sy, sx, 0x2022, cpair, attr);  /* • */
+            put_wch(win, sy, sx, 0x2022, cpair, attr);
         } else if (brightness > 0.15f) {
-            put_wch(win, sy, sx, 0x2219, cpair, attr);  /* ∙ */
+            put_wch(win, sy, sx, 0x2219, cpair, attr);
         } else {
             wattron(win, COLOR_PAIR(cpair) | attr);
             mvwaddch(win, sy, sx, '.');

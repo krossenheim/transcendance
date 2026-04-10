@@ -106,4 +106,4 @@ int                 ws_parse_hub_message(const char *message,
                                           int *code,
                                           char *payload, size_t payload_len);
 
-#endif /* WEBSOCKET_H */
+#endif
