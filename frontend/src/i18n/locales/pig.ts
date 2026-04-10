@@ -217,6 +217,7 @@ export const pig: TranslationKeys = {
     minPlayers: 'Inmay',
     youHost: 'Ouyay (Osthay)',
     autoSelected: 'Autoway-electedsay',
+    searchByUsername: 'Earchsay ybay usernameay...',
     noPlayersAvailable: 'Onay otherway ayersplay availableway inway isthay oomray',
     selectedPlayers: 'Electedsay',
     players: 'ayerplay(say)',

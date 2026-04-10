@@ -215,6 +215,7 @@ export const fy = {
     minPlayers: 'Min',
     youHost: 'Jo (Host)',
     autoSelected: 'Auto-selektearre',
+    searchByUsername: 'Sykje op brûkersnamme...',
     noPlayersAvailable: 'Gjin oare spilers beskikber yn dizze keamer',
     selectedPlayers: 'Selektearre',
     players: 'spiler(s)',

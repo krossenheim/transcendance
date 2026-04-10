@@ -217,6 +217,7 @@ export const ru: TranslationKeys = {
     minPlayers: 'Мин',
     youHost: 'Вы (Хост)',
     autoSelected: 'Автовыбор',
+    searchByUsername: 'Поиск по имени пользователя...',
     noPlayersAvailable: 'В этой комнате нет других игроков',
     selectedPlayers: 'Выбрано',
     players: 'игрок(ов)',

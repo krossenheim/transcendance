@@ -215,6 +215,7 @@ export const es = {
     minPlayers: 'Mín',
     youHost: 'Tú (Anfitrión)',
     autoSelected: 'Selección automática',
+    searchByUsername: 'Buscar por nombre de usuario...',
     noPlayersAvailable: 'No hay otros jugadores disponibles en esta sala',
     selectedPlayers: 'Seleccionados',
     players: 'jugador(es)',

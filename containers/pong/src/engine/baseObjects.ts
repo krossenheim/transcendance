@@ -9,6 +9,7 @@ export class BaseObject {
     private _restitution: number;
 
     private parentObject: BaseObject | null = null;
+    protected _iterCache: BaseObject[] | null = null;
 
     private collisionHandler: (other: BaseObject, elapsedTime: number) => CollisionResponse = (other: BaseObject, elapsedTime: number) => CollisionResponse.BOUNCE;
 
@@ -68,7 +69,7 @@ export class BaseObject {
     }
 
     iter(): BaseObject[] {
-        return [this];
+        return this._iterCache ??= [this];
     }
 
     setParentObject(parent: BaseObject): void {
@@ -101,7 +102,7 @@ export class LineObject extends BaseObject {
     }
 
     override iter(): BaseObject[] {
-        return [this];
+        return this._iterCache ??= [this];
     }
 }
 
@@ -135,7 +136,7 @@ export class CircleObject extends BaseObject {
     }
 
     override iter(): BaseObject[] {
-        return [this];
+        return this._iterCache ??= [this];
     }
 }
 
@@ -160,6 +161,7 @@ export class MultiObject extends BaseObject {
     addObject(obj: BaseObject): void {
         obj.setParentObject(this);
         this.objects.push(obj);
+        this._iterCache = null;
     }
 
     override clone(): MultiObject {
@@ -168,7 +170,7 @@ export class MultiObject extends BaseObject {
     }
 
     override iter(): BaseObject[] {
-        return this.objects.flatMap(obj => obj.iter());
+        return this._iterCache ??= this.objects.flatMap(obj => obj.iter());
     }
 }
 

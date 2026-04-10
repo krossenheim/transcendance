@@ -217,6 +217,7 @@ export const he: TranslationKeys = {
     minPlayers: 'מינימום',
     youHost: 'אתה (מארח)',
     autoSelected: 'נבחר אוטומטית',
+    searchByUsername: 'חיפוש לפי שם משתמש...',
     noPlayersAvailable: 'אין שחקנים אחרים בחדר זה',
     selectedPlayers: 'נבחרו',
     players: 'שחקנים',

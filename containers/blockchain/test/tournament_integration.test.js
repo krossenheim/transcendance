@@ -1,8 +1,14 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const http = require("http");
+import { expect } from "chai";
+import hre from "hardhat";
+import http from "http";
 
 describe("TournamentScores Integration Test", function () {
+  let ethers;
+
+  before(async function () {
+    ({ ethers } = await hre.network.connect());
+  });
+
   it("deploys contract, exposes a backend endpoint and records a score via that endpoint", async function () {
     const TournamentScores = await ethers.getContractFactory("TournamentScores");
     const ts = await TournamentScores.deploy();

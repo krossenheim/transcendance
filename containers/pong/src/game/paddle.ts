@@ -23,6 +23,7 @@ type PongPaddleJSON = [
 ];
 
 const scaledDesiredVelocity = new Vec2(0, 0);
+const scratchCenter = new Vec2(0, 0);
 
 export class PongPaddle extends MultiObject {
 	public keyData: PongPaddleKeyData[];
@@ -150,18 +151,18 @@ export class PongPaddle extends MultiObject {
 	}
 
 	private getCenter(): Vec2 {
-		let sum = new Vec2(0, 0);
+		scratchCenter.set(0, 0);
 		let count = 0;
 		for (const obj of this.objects) {
 			if (obj instanceof LineObject) {
-				sum = sum.add(obj.pointA).add(obj.pointB);
+				scratchCenter.add((obj as LineObject).pointA).add((obj as LineObject).pointB);
 				count += 2;
 			} else if (obj instanceof CircleObject) {
-				sum = sum.add(obj.center);
+				scratchCenter.add((obj as CircleObject).center);
 				count += 1;
 			}
 		}
-		return sum.div(count);
+		return scratchCenter.div(count);
 	}
 
 	public setReverseControls(reverse: boolean): void {
