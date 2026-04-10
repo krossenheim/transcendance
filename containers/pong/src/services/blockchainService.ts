@@ -21,6 +21,11 @@ export default class BlockchainService {
     ];
 
     this.contract = address && this.wallet ? new Contract(address, abi, this.wallet) : null;
+    if (this.contract) {
+      console.log(`[BlockchainService] Configured: contract=${address} rpc=${rpc}`);
+    } else {
+      console.warn(`[BlockchainService] NOT configured — CONTRACT_ADDRESS=${address || "(empty)"} DEPLOYER_PRIVATE_KEY=${pk ? "(set)" : "(empty)"}`);
+    }
   }
 
   isConfigured(): boolean {

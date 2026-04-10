@@ -8,34 +8,32 @@
 #include "utils.h"
 #include "cJSON.h"
 
-/* Message handler for game state updates */
 static void on_game_state(const char *func_id, int code, 
                           const char *payload, void *user_data)
 {
     game_state_t *game = (game_state_t *)user_data;
     (void)func_id;
-    
+
     if (code != 0) return;
-    
+
     pthread_mutex_lock(&game->mutex);
     game_update_state(game, payload);
-    
+
     pthread_mutex_unlock(&game->mutex);
 }
 
-/* Message handler for lobby updates */
 static void on_lobby_update(const char *func_id, int code,
                             const char *payload, void *user_data)
 {
     game_state_t *game = (game_state_t *)user_data;
     (void)func_id;
-    
+
     if (code != 0) return;
-    
+
     pthread_mutex_lock(&game->mutex);
     bool was_in_lobby = game->in_lobby;
     game_update_lobby(game, payload);
-    
+
     bool found_self = false;
     bool is_host = false;
     for (int i = 0; i < game->lobby.player_count; i++) {
@@ -45,7 +43,7 @@ static void on_lobby_update(const char *func_id, int code,
             break;
         }
     }
-    
+
     if (found_self) {
         game->is_host = is_host;
         if (!is_host && !was_in_lobby) {
@@ -53,53 +51,50 @@ static void on_lobby_update(const char *func_id, int code,
         }
         game->in_lobby = true;
     }
-    
+
     pthread_mutex_unlock(&game->mutex);
 }
 
-/* Message handler for game start */
 static void on_game_start(const char *func_id, int code,
                           const char *payload, void *user_data)
 {
     game_state_t *game = (game_state_t *)user_data;
     (void)func_id;
-    
+
     if (code != 0) return;
-    
+
     pthread_mutex_lock(&game->mutex);
     game_handle_game_start(game, payload);
     pthread_mutex_unlock(&game->mutex);
 }
 
-/* Create game state */
 game_state_t *game_create(pong_websocket_t *ws, int user_id)
 {
     game_state_t *game = calloc(1, sizeof(game_state_t));
     if (!game) return NULL;
-    
+
     game->ws = ws;
     game->my_user_id = user_id;
     game->my_paddle_id = -1;
     game->game_id = -1;
     game->canvas_width = 1000;
     game->canvas_height = 1000;
-    
+
     pthread_mutex_init(&game->mutex, NULL);
-    
+
     ws_subscribe(ws, "get_game_state", on_game_state, game);
     ws_subscribe(ws, "handle_game_keys", on_game_state, game);
     ws_subscribe(ws, "create_pong_lobby", on_lobby_update, game);
     ws_subscribe(ws, "toggle_player_ready_in_lobby", on_lobby_update, game);
     ws_subscribe(ws, "start_game_from_lobby", on_game_start, game);
-    
+
     return game;
 }
 
-/* Destroy game state */
 void game_destroy(game_state_t *game)
 {
     if (!game) return;
-    
+
     if (game->ws) {
         ws_unsubscribe(game->ws, "get_game_state");
         ws_unsubscribe(game->ws, "handle_game_keys");
@@ -107,28 +102,27 @@ void game_destroy(game_state_t *game)
         ws_unsubscribe(game->ws, "toggle_player_ready_in_lobby");
         ws_unsubscribe(game->ws, "start_game_from_lobby");
     }
-    
+
     pthread_mutex_destroy(&game->mutex);
     free(game);
 }
 
-/* Create lobby */
 int game_create_lobby(game_state_t *game, const char *mode, 
                       const int *player_ids, const char **player_usernames,
                       int player_count,
                       int ball_count, int max_score, bool powerups, int ai_count)
 {
     if (!game || !game->ws || !mode) return -1;
-    
+
     cJSON *payload = cJSON_CreateObject();
     cJSON_AddStringToObject(payload, "gameMode", mode);
-    
+
     cJSON *ids = cJSON_CreateArray();
     for (int i = 0; i < player_count; i++) {
         cJSON_AddItemToArray(ids, cJSON_CreateNumber(player_ids[i]));
     }
     cJSON_AddItemToObject(payload, "playerIds", ids);
-    
+
     if (player_usernames) {
         cJSON *unames = cJSON_CreateObject();
         for (int i = 0; i < player_count; i++) {
@@ -140,20 +134,20 @@ int game_create_lobby(game_state_t *game, const char *mode,
         }
         cJSON_AddItemToObject(payload, "playerUsernames", unames);
     }
-    
+
     cJSON_AddNumberToObject(payload, "ballCount", ball_count);
     cJSON_AddNumberToObject(payload, "maxScore", max_score);
     cJSON_AddBoolToObject(payload, "allowPowerups", powerups);
     cJSON_AddNumberToObject(payload, "aiCount", ai_count);
-    
+
     char *json = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
-    
+
     if (!json) return -1;
-    
+
     int result = ws_send_message(game->ws, "pong", "create_pong_lobby", json);
     free(json);
-    
+
     if (result == 0) {
         pthread_mutex_lock(&game->mutex);
         game->in_lobby = true;
@@ -169,87 +163,83 @@ int game_create_lobby(game_state_t *game, const char *mode,
         game->auto_start_sent = false;
         pthread_mutex_unlock(&game->mutex);
     }
-    
+
     return result;
 }
 
-/* Leave lobby */
 int game_leave_lobby(game_state_t *game)
 {
     if (!game || !game->ws || !game->in_lobby) return -1;
-    
+
     cJSON *payload = cJSON_CreateObject();
     cJSON_AddNumberToObject(payload, "lobbyId", game->lobby.id);
-    
+
     char *json = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
-    
+
     if (!json) return -1;
-    
+
     int result = ws_send_message(game->ws, "pong", "leave_pong_lobby", json);
     free(json);
-    
+
     if (result == 0) {
         game->in_lobby = false;
     }
-    
+
     return result;
 }
 
-/* Toggle ready status */
 int game_toggle_ready(game_state_t *game)
 {
     if (!game || !game->ws || !game->in_lobby) return -1;
-    
+
     cJSON *payload = cJSON_CreateObject();
     cJSON_AddNumberToObject(payload, "lobbyId", game->lobby.id);
-    
+
     char *json = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
-    
+
     if (!json) return -1;
-    
+
     int result = ws_send_message(game->ws, "pong", "toggle_player_ready_in_lobby", json);
     free(json);
-    
+
     return result;
 }
 
-/* Start game from lobby */
 int game_start_from_lobby(game_state_t *game)
 {
     if (!game || !game->ws || !game->in_lobby) return -1;
-    
+
     cJSON *payload = cJSON_CreateObject();
     cJSON_AddNumberToObject(payload, "lobbyId", game->lobby.id);
-    
+
     char *json = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
-    
+
     if (!json) return -1;
-    
+
     int result = ws_send_message(game->ws, "pong", "start_game_from_lobby", json);
     free(json);
-    
+
     return result;
 }
 
-/* Send input to server */
 int game_send_input(game_state_t *game)
 {
     if (!game || !game->ws) return -1;
-    
+
     pthread_mutex_lock(&game->mutex);
     int gid = game->game_id;
     bool ku = game->key_up;
     bool kd = game->key_down;
     pthread_mutex_unlock(&game->mutex);
-    
+
     if (gid < 0) return -1;
-    
+
     cJSON *payload = cJSON_CreateObject();
     cJSON_AddNumberToObject(payload, "board_id", gid);
-    
+
     cJSON *keys = cJSON_CreateArray();
     if (ku) {
         cJSON_AddItemToArray(keys, cJSON_CreateString("ArrowLeft"));
@@ -258,25 +248,24 @@ int game_send_input(game_state_t *game)
         cJSON_AddItemToArray(keys, cJSON_CreateString("ArrowRight"));
     }
     cJSON_AddItemToObject(payload, "pressed_keys", keys);
-    
+
     cJSON_AddNumberToObject(payload, "clientTimestamp", (double)get_timestamp_ms());
-    
+
     char *json = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
-    
+
     if (!json) return -1;
-    
+
     int result = ws_send_message(game->ws, "pong", "handle_game_keys", json);
     free(json);
-    
+
     return result;
 }
 
-/* Parse ball from JSON tuple [x, y, vx, vy, radius, inverse_mass, id?] */
 static void parse_ball(const cJSON *ball_arr, ball_t *ball, int index)
 {
     if (!ball_arr || !cJSON_IsArray(ball_arr)) return;
-    
+
     int size = cJSON_GetArraySize(ball_arr);
     if (size >= 6) {
         ball->x = (float)cJSON_GetArrayItem(ball_arr, 0)->valuedouble;
@@ -290,11 +279,10 @@ static void parse_ball(const cJSON *ball_arr, ball_t *ball, int index)
     }
 }
 
-/* Parse paddle from JSON tuple [x, y, angle, width, height, vx, vy, playerId] */
 static void parse_paddle(const cJSON *paddle_arr, paddle_t *paddle, int index)
 {
     if (!paddle_arr || !cJSON_IsArray(paddle_arr)) return;
-    
+
     int size = cJSON_GetArraySize(paddle_arr);
     if (size >= 8) {
         paddle->x = (float)cJSON_GetArrayItem(paddle_arr, 0)->valuedouble;
@@ -309,11 +297,10 @@ static void parse_paddle(const cJSON *paddle_arr, paddle_t *paddle, int index)
     }
 }
 
-/* Parse wall from JSON tuple [x1, y1, x2, y2, vx, vy, playerId] */
 static void parse_wall(const cJSON *wall_arr, wall_t *wall)
 {
     if (!wall_arr || !cJSON_IsArray(wall_arr)) return;
-    
+
     int size = cJSON_GetArraySize(wall_arr);
     if (size >= 7) {
         wall->x1 = (float)cJSON_GetArrayItem(wall_arr, 0)->valuedouble;
@@ -322,25 +309,24 @@ static void parse_wall(const cJSON *wall_arr, wall_t *wall)
         wall->y2 = (float)cJSON_GetArrayItem(wall_arr, 3)->valuedouble;
         wall->vx = (float)cJSON_GetArrayItem(wall_arr, 4)->valuedouble;
         wall->vy = (float)cJSON_GetArrayItem(wall_arr, 5)->valuedouble;
-        
+
         cJSON *player_id = cJSON_GetArrayItem(wall_arr, 6);
         wall->player_id = cJSON_IsNull(player_id) ? -1 : player_id->valueint;
     }
 }
 
-/* Update game state from JSON */
 void game_update_state(game_state_t *game, const char *json_payload)
 {
     if (!game || !json_payload) return;
-    
+
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
-    
+
     const cJSON *board_id = cJSON_GetObjectItem(root, "board_id");
     if (board_id && cJSON_IsNumber(board_id)) {
         game->game_id = board_id->valueint;
     }
-    
+
     cJSON *balls = cJSON_GetObjectItem(root, "balls");
     if (balls && cJSON_IsArray(balls)) {
         game->ball_count = 0;
@@ -352,7 +338,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
             }
         }
     }
-    
+
     cJSON *paddles = cJSON_GetObjectItem(root, "paddles");
     if (paddles && cJSON_IsArray(paddles)) {
         game->paddle_count = 0;
@@ -360,7 +346,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
         cJSON_ArrayForEach(paddle, paddles) {
             if (game->paddle_count < MAX_PADDLES) {
                 parse_paddle(paddle, &game->paddles[game->paddle_count], game->paddle_count);
-                
+
                 if (game->paddles[game->paddle_count].owner_id == game->my_user_id) {
                     game->my_paddle_id = game->paddle_count;
                 }
@@ -368,7 +354,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
             }
         }
     }
-    
+
     cJSON *walls = cJSON_GetObjectItem(root, "walls");
     if (walls && cJSON_IsArray(walls)) {
         game->wall_count = 0;
@@ -380,7 +366,7 @@ void game_update_state(game_state_t *game, const char *json_payload)
             }
         }
     }
-    
+
     cJSON *score = cJSON_GetObjectItem(root, "score");
     if (score && cJSON_IsObject(score)) {
         game->player_count = 0;
@@ -436,7 +422,6 @@ void game_update_state(game_state_t *game, const char *json_payload)
         }
     }
 
-
     cJSON *recent_events = cJSON_GetObjectItem(root, "recentEvents");
     if (recent_events && cJSON_IsArray(recent_events)) {
         cJSON *evt;
@@ -469,12 +454,12 @@ void game_update_state(game_state_t *game, const char *json_payload)
     if (game_over && cJSON_IsBool(game_over)) {
         game->game_over = cJSON_IsTrue(game_over);
     }
-    
+
     const cJSON *winner = cJSON_GetObjectItem(root, "winner");
     if (winner && cJSON_IsNumber(winner)) {
         game->winner_id = winner->valueint;
     }
-    
+
     const cJSON *metadata = cJSON_GetObjectItem(root, "metadata");
     if (metadata && cJSON_IsObject(metadata)) {
         const cJSON *opts = cJSON_GetObjectItem(metadata, "gameOptions");
@@ -511,24 +496,23 @@ void game_update_state(game_state_t *game, const char *json_payload)
     cJSON_Delete(root);
 }
 
-/* Update lobby state from JSON */
 void game_update_lobby(game_state_t *game, const char *json_payload)
 {
     if (!game || !json_payload) return;
-    
+
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
-    
+
     const cJSON *lobby_id = cJSON_GetObjectItem(root, "lobbyId");
     if (lobby_id && cJSON_IsNumber(lobby_id)) {
         game->lobby.id = lobby_id->valueint;
     }
-    
+
     const cJSON *mode = cJSON_GetObjectItem(root, "gameMode");
     if (mode && cJSON_IsString(mode)) {
         strncpy(game->lobby.game_mode, mode->valuestring, sizeof(game->lobby.game_mode) - 1);
     }
-    
+
     cJSON *players = cJSON_GetObjectItem(root, "players");
     if (players && cJSON_IsArray(players)) {
         game->lobby.player_count = 0;
@@ -536,24 +520,24 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
         cJSON_ArrayForEach(player, players) {
             if (game->lobby.player_count < MAX_PLAYERS) {
                 player_t *p = &game->lobby.players[game->lobby.player_count];
-                
+
                 const cJSON *user_id = cJSON_GetObjectItem(player, "userId");
                 const cJSON *username = cJSON_GetObjectItem(player, "username");
                 const cJSON *is_ready = cJSON_GetObjectItem(player, "isReady");
                 const cJSON *is_host = cJSON_GetObjectItem(player, "isHost");
-                
+
                 if (user_id) p->id = user_id->valueint;
                 if (username && cJSON_IsString(username)) {
                     strncpy(p->username, username->valuestring, sizeof(p->username) - 1);
                 }
                 if (is_ready) p->ready = cJSON_IsTrue(is_ready);
                 if (is_host) p->is_host = cJSON_IsTrue(is_host);
-                
+
                 game->lobby.player_count++;
             }
         }
     }
-    
+
     const cJSON *ball_count = cJSON_GetObjectItem(root, "ballCount");
     if (ball_count) game->lobby.ball_count = ball_count->valueint;
 
@@ -563,55 +547,52 @@ void game_update_lobby(game_state_t *game, const char *json_payload)
     } else {
         game->lobby.ai_count = 0;
     }
-    
+
     const cJSON *max_score = cJSON_GetObjectItem(root, "maxScore");
     if (max_score) game->lobby.max_score = max_score->valueint;
-    
+
     const cJSON *powerups = cJSON_GetObjectItem(root, "allowPowerups");
     if (powerups) game->lobby.allow_powerups = cJSON_IsTrue(powerups);
-    
+
     const cJSON *status = cJSON_GetObjectItem(root, "status");
     if (status && cJSON_IsString(status)) {
         strncpy(game->lobby.status, status->valuestring, sizeof(game->lobby.status) - 1);
     }
-    
+
     game->in_lobby = true;
-    
+
     cJSON_Delete(root);
 }
 
-/* Handle game start */
 void game_handle_game_start(game_state_t *game, const char *json_payload)
 {
     if (!game || !json_payload) return;
-    
+
     game_update_state(game, json_payload);
-    
+
     game->in_lobby = false;
     game->game_active = true;
     game->game_over = false;
 }
 
-/* Handle game over */
 void game_handle_game_over(game_state_t *game, const char *json_payload)
 {
     if (!game || !json_payload) return;
-    
+
     cJSON *root = cJSON_Parse(json_payload);
     if (!root) return;
-    
+
     const cJSON *winner = cJSON_GetObjectItem(root, "winner");
     if (winner && cJSON_IsNumber(winner)) {
         game->winner_id = winner->valueint;
     }
-    
+
     game->game_active = false;
     game->game_over = true;
-    
+
     cJSON_Delete(root);
 }
 
-/* Set key up state */
 void game_set_key_up(game_state_t *game, bool pressed)
 {
     if (!game) return;
@@ -620,7 +601,6 @@ void game_set_key_up(game_state_t *game, bool pressed)
     pthread_mutex_unlock(&game->mutex);
 }
 
-/* Set key down state */
 void game_set_key_down(game_state_t *game, bool pressed)
 {
     if (!game) return;
@@ -629,7 +609,6 @@ void game_set_key_down(game_state_t *game, bool pressed)
     pthread_mutex_unlock(&game->mutex);
 }
 
-/* Check if game is active */
 bool game_is_active(game_state_t *game)
 {
     if (!game) return false;

@@ -33,4 +33,4 @@ int             auth_verify_2fa(auth_session_t *session, const char *code);
 int             auth_refresh_token(auth_session_t *session);
 int             auth_logout(auth_session_t *session);
 
-#endif /* AUTH_H */
+#endif 

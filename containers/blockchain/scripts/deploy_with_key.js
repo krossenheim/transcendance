@@ -1,9 +1,9 @@
-const hre = require("hardhat");
-const { ethers } = hre;
+import hre from "hardhat";
 
 async function main() {
   const HARDHAT_ACCOUNT_0_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-  
+
+  const { ethers } = await hre.network.connect();
   const provider = ethers.provider;
   const wallet = new ethers.Wallet(HARDHAT_ACCOUNT_0_PRIVATE_KEY, provider);
 

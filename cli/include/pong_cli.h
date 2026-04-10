@@ -37,4 +37,4 @@ typedef struct {
     bool selected;
 } online_user_t;
 
-#endif /* PONG_CLI_H */
+#endif 

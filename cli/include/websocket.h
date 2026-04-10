@@ -36,31 +36,31 @@ typedef struct ws_message {
 typedef struct pong_websocket {
     struct lws_context      *context;
     struct lws              *wsi;
-    
+
     char                    *host;
     int                     port;
     char                    *path;
     bool                    use_ssl;
     char                    *auth_token;
-    
+
     ws_state_t              state;
     bool                    should_reconnect;
     int                     reconnect_attempts;
     int                     max_reconnect_attempts;
-    
+
     pthread_t               service_thread;
     pthread_mutex_t         mutex;
     pthread_cond_t          cond;
     bool                    thread_running;
     bool                    shutting_down;
-    
+
     ws_subscription_t       *subscriptions;
     ws_message_t            *send_queue;
     ws_message_t            *send_queue_tail;
-    
+
     char                    recv_buffer[WS_RECV_BUFFER_SIZE];
     size_t                  recv_len;
-    
+
     void                    (*on_connected)(void *user_data);
     void                    (*on_disconnected)(void *user_data);
     void                    (*on_error)(const char *error, void *user_data);
@@ -106,4 +106,4 @@ int                 ws_parse_hub_message(const char *message,
                                           int *code,
                                           char *payload, size_t payload_len);
 
-#endif /* WEBSOCKET_H */
+#endif 
