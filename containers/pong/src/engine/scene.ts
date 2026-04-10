@@ -20,6 +20,7 @@ export class Scene {
     private arenaCenterX: number;
     private arenaCenterY: number;
     private targetBallSpeed: number;
+    private _collisionResult: Collision = { time: 0, objectA: null as any, objectB: null as any };
 
     constructor(ballSpeed: number = 450, arenaCenterX: number = 500, arenaCenterY: number = 500) {
         this.objects = [];
@@ -41,9 +42,11 @@ export class Scene {
     }
 
     public removeObject(obj: BaseObject): void {
+        const toRemove = new Set<BaseObject>();
+        toRemove.add(obj);
         for (const childObj of obj.iter())
-            this.objects = this.objects.filter(o => o !== childObj);
-        this.objects = this.objects.filter(o => o !== obj);
+            toRemove.add(childObj);
+        this.objects = this.objects.filter(o => !toRemove.has(o));
     }
 
     private moveSceneObjects(deltaTime: number): void {
@@ -89,11 +92,10 @@ export class Scene {
                         }
 
                         if (tHit !== null && !isNaN(tHit) && (earliestCollision === null || tHit < earliestCollision.time)) {
-                            earliestCollision = {
-                                time: tHit,
-                                objectA: objA,
-                                objectB: objB,
-                            };
+                            this._collisionResult.time = tHit;
+                            this._collisionResult.objectA = objA;
+                            this._collisionResult.objectB = objB;
+                            earliestCollision = this._collisionResult;
                         }
 
                         if (tHit !== null && tHit < 0) {
@@ -105,16 +107,6 @@ export class Scene {
         }
 
         return earliestCollision;
-    }
-
-    private fetchParentObject(obj: BaseObject): BaseObject | null {
-        for (const sceneObj of this.objects) {
-            if (sceneObj === obj) continue;
-            if (sceneObj.isPartOfObject(obj)) {
-                return this.fetchParentObject(sceneObj) || sceneObj;
-            }
-        }
-        return null;
     }
 
     public playSimulation(deltaTime: number, mainObjects?: BaseObject[]) {
@@ -165,8 +157,8 @@ export class Scene {
             this.moveSceneObjects(earliestHit);
             timeRemaining -= earliestHit;
 
-            const parentA = this.fetchParentObject(collision.objectA) || collision.objectA;
-            const parentB = this.fetchParentObject(collision.objectB) || collision.objectB;
+            const parentA = collision.objectA.getParentObject();
+            const parentB = collision.objectB.getParentObject();
             const aTask = parentA.onCollision(parentB, this.elapsedTime);
             const bTask = parentB.onCollision(parentA, this.elapsedTime);
 
@@ -178,10 +170,12 @@ export class Scene {
                     break;
                 case CollisionResponse.RESET:
                     if (aTask === CollisionResponse.RESET) {
-                        this.objects = this.objects.filter(obj => obj !== parentA);
+                        const idxA = this.objects.indexOf(parentA);
+                        if (idxA !== -1) this.objects.splice(idxA, 1);
                     }
                     if (bTask === CollisionResponse.RESET) {
-                        this.objects = this.objects.filter(obj => obj !== parentB);
+                        const idxB = this.objects.indexOf(parentB);
+                        if (idxB !== -1) this.objects.splice(idxB, 1);
                     }
                     if (aTask !== CollisionResponse.RESET) this.safeNudge(collision.objectA);
                     if (bTask !== CollisionResponse.RESET) this.safeNudge(collision.objectB);

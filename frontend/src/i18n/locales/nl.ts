@@ -215,6 +215,7 @@ export const nl = {
     minPlayers: 'Min',
     youHost: 'Jij (Host)',
     autoSelected: 'Auto-geselecteerd',
+    searchByUsername: 'Zoeken op gebruikersnaam...',
     noPlayersAvailable: 'Geen andere spelers beschikbaar in deze kamer',
     selectedPlayers: 'Geselecteerd',
     players: 'speler(s)',

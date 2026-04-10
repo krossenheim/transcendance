@@ -217,6 +217,7 @@ export const tlh: TranslationKeys = {
     minPlayers: "puS",
     youHost: "SoH (DevwI')",
     autoSelected: "nIteb wIvlu'pu'",
+    searchByUsername: "pong per nejwI'...",
     noPlayersAvailable: "pa'vamDaq latlh QujwI'mey Hutlh",
     selectedPlayers: "wIvlu'pu'",
     players: "QujwI'(mey)",

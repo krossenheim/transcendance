@@ -217,6 +217,7 @@ export const dot: TranslationKeys = {
     minPlayers: 'Min',
     youHost: 'Yer (Khal)',
     autoSelected: 'Azhat kishi',
+    searchByUsername: 'Lajak hash shafka...',
     noPlayersAvailable: 'Vos lajaki she jin kherikh',
     selectedPlayers: 'Azhat',
     players: 'lajak(i)',

@@ -215,6 +215,7 @@ export const cy = {
     minPlayers: 'Lleiaf',
     youHost: 'Chi (Gwesteiwr)',
     autoSelected: 'Wedi\'i ddewis yn awtomatig',
+    searchByUsername: 'Chwilio yn ôl enw defnyddiwr...',
     noPlayersAvailable: 'Dim chwaraewyr eraill ar gael yn yr ystafell hon',
     selectedPlayers: 'Wedi\'u dewis',
     players: 'chwaraewr(wyr)',

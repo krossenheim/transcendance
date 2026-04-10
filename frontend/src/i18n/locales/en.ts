@@ -215,6 +215,7 @@ export const en = {
     minPlayers: 'Min',
     youHost: 'You (Host)',
     autoSelected: 'Auto-selected',
+    searchByUsername: 'Search by username...',
     noPlayersAvailable: 'No other players available in this room',
     selectedPlayers: 'Selected',
     players: 'player(s)',
