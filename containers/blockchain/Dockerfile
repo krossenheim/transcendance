@@ -11,9 +11,9 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY contracts/ ./contracts/
 COPY scripts/ ./scripts/
-COPY hardhat.config.js ./
+COPY hardhat.config.ts ./
 
-RUN npx hardhat compile
+RUN npx hardhat build
 
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
