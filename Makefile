@@ -38,7 +38,7 @@ dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
 
 down:
-	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null; 
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null || true
 	docker network rm transcendance_network 2>/dev/null || true
 
 ensure_network:
