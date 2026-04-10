@@ -5,10 +5,10 @@
   "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.0",
-    "@types/chai": "^4.3.20",
+    "@typechain/ethers-v6": "^0.5.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.2.3",
-    "chai": "^4.5.0",
+    "chai": "^5.1.2",
     "dotenv": "^16.1.4",
     "hardhat": "^3.0.0",
     "typescript": "^5.9.3"
