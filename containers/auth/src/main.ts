@@ -28,7 +28,7 @@ setInterval(() => {
 
 const fastify: FastifyInstance = createFastify({ logger: true } as any);
 
-const GITHUB_OAUTH2_REDIRECT_URL = process.env.GITHUB_OAUTH2_REDIRECT_URL || 'https://localhost';
+const HOMEPAGE_URL = process.env.HOMEPAGE_URL || 'https://localhost';
 
 const pendingOAuthStates = new Map<string, number>();
 setInterval(() => {
@@ -204,7 +204,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 			const tokens = await generateToken(user.id);
 			if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 			const tokenData = tokens.unwrap();
-			const redirectUrl = `${GITHUB_OAUTH2_REDIRECT_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+			const redirectUrl = `${HOMEPAGE_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 			return reply.redirect(redirectUrl);
 		}
 
@@ -251,7 +251,7 @@ fastify.get('/public_api/auth/oauth/github/callback', async (request, reply) => 
 		if (tokens.isErr()) return reply.status(500).send(tokens.unwrapErr());
 
 		const tokenData = tokens.unwrap();
-		const redirectUrl = `${GITHUB_OAUTH2_REDIRECT_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
+		const redirectUrl = `${HOMEPAGE_URL}/#jwt=${encodeURIComponent(tokenData.jwt)}&refresh=${encodeURIComponent(tokenData.refresh || '')}`;
 		return reply.redirect(redirectUrl);
 	} catch (err: unknown) {
 		const errorMessage = err instanceof Error ? err.message : 'Unknown error';

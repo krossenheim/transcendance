@@ -1,8 +1,6 @@
 import { idValue, userIdentifierValue } from "@app/shared/api/service/common/zodRules";
 import { z } from "zod";
 
-const whitelistedPattern = /^[\p{L}\p{N}\p{Emoji}\p{Emoji_Component} .,!@#\$%&*()_\-+=\[\]{};:'"<>\/?`~\\]+$/u;
-const ROOMNAME_MIN_LEN = 3;
 export const ROOMNAME_MAX_LEN = 50;
 
 export enum ChatRoomType {
@@ -13,16 +11,7 @@ export enum ChatRoomType {
 export const room_id_rule = z.coerce.number().gt(0);
 export const room_name_rule = z.coerce
   .string()
-  .min(ROOMNAME_MIN_LEN, {
-    message: `String must be at least ${ROOMNAME_MIN_LEN} characters long`,
-  })
   .max(ROOMNAME_MAX_LEN, { message: `Max ${ROOMNAME_MAX_LEN} characters` })
-  .refine((val) => val.replace(/\s/g, ``).length >= ROOMNAME_MIN_LEN, {
-    message: `Must contain at least ${ROOMNAME_MIN_LEN} non-space characters`,
-  })
-  .refine((val) => whitelistedPattern.test(val), {
-    message: `String contains invalid characters; only alphanumerics are allowed`,
-  });
 
 const MESSAGE_MIN_LEN = 1;
 export const MESSAGE_MAX_LEN = 320;
@@ -36,9 +25,7 @@ export const message_rule = z.coerce
   .refine((val) => val.replace(/\s/g, ``).length >= MESSAGE_MIN_LEN, {
     message: `Must contain at least ${MESSAGE_MIN_LEN} non-space characters`,
   })
-  .refine((val) => whitelistedPattern.test(val), {
-    message: `String contains invalid characters; only numbers and letters are allowed`,
-  });
+
 
 export const AddRoomPayloadSchema = z
   .object({
