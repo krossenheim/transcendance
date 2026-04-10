@@ -323,13 +323,14 @@ void renderer_play_intro(void)
     g_bg_sf_timer_init = false;
 
     const char *logo[] = {
-        " ____   ___  _   _  ____ ",
-        "|  _ \\ / _ \\| \\ | |/ ___|",
-        "| |_) | | | |  \\| | |  _  ",
-        "|  __/| |_| | |\\  | |_| | ",
-        "|_|    \\___/|_| \\_|\\____| "
+        " _____   ____  _   _  _____ ",
+        "|  __ \\ / __ \\| \\ | |/ ____|",
+        "| |__) | |  | |  \\| | |  __ ",
+        "|  ___/| |  | | . ` | | |_ |",
+        "| |    | |__| | |\\  | |__| |",
+        "|_|     \\____/|_| \\_|\\_____|"
     };
-    const int logo_lines = 5;
+    const int logo_lines = 6;
 
     const char *logo_small[] = { "PONG" };
     const int logo_small_lines = 1;
