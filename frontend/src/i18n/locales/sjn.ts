@@ -217,6 +217,7 @@ export const sjn: TranslationKeys = {
     minPlayers: "Er",
     youHost: "Le (Hîr)",
     autoSelected: "Níthen cilion",
+    searchByUsername: "Cesto vi estel...",
     noPlayersAvailable: "Law teilienrim ned si thamas",
     selectedPlayers: "Cilion",
     players: "teilienrim",

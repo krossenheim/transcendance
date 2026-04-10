@@ -217,6 +217,7 @@ export const zh: TranslationKeys = {
     minPlayers: '最少',
     youHost: '你（主持人）',
     autoSelected: '自动选择',
+    searchByUsername: '按用户名搜索...',
     noPlayersAvailable: '该房间没有其他玩家',
     selectedPlayers: '已选择',
     players: '名玩家',

@@ -217,6 +217,7 @@ export const la: TranslationKeys = {
     minPlayers: 'Min',
     youHost: 'Tu (Hospes)',
     autoSelected: 'Auto-selectum',
+    searchByUsername: 'Quaere per nomen usoris...',
     noPlayersAvailable: 'Nulli alii lusores in hoc conclavi praesto',
     selectedPlayers: 'Selecti',
     players: 'lusor(es)',
