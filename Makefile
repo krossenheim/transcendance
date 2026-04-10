@@ -54,14 +54,6 @@ RED := \033[0;31m
 YELLOW := \033[1;33m
 NC := \033[0m
 
-debug:
-	@echo -e "=============================="
-	@echo -e "$(RED)DELETING DATABASE!!!!!!!! ! @ !!$(NC)"
-	@echo -e "$(YELLOW)rm $(VOLUMES_DIR)users.db$(NC)"
-	@echo -e "$(RED)Actually removing: rm $(VOLUMES_DIR)users.db$(NC)"
-	rm -rf $(VOLUMES_DIR)database/users.db
-	rm -rf $(VOLUMES_DIR)database/pfps
-
 HARDHAT_IMAGE_TAG := hardhat:local
 EXPLORER_IMAGE_TAG := blockchain-explorer:local
 BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
@@ -69,7 +61,7 @@ BLOCKCHAIN_DIR := $(SOURCES_DIR)/blockchain
 rebuild:
 	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" up -d --build --no-deps ${s}
 
-build: create_shared_volume_folder debug build_hardhat_if_needed build_explorer_if_needed build-cli
+build: create_shared_volume_folder build_hardhat_if_needed build_explorer_if_needed build-cli
 	$(DC_ENV) docker compose --progress=$(COMPOSE_PROGRESS) -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" --env-file "$(PATH_TO_COMPOSE_SECRETS_FILE)" build db auth chat hub pong users nginx
 
 build-cli:
