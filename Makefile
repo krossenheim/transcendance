@@ -38,8 +38,8 @@ dnginx:
 	docker exec -it nginx cat /var/log/nginx/error.log
 
 down:
-	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1 2>/dev/null || true
-	docker network rm transcendance_network 2>/dev/null || true
+	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
+	docker network rm transcendance_network || true
 
 ensure_network:
 	@docker network inspect transcendance_network >/dev/null 2>&1 || \
@@ -49,9 +49,6 @@ ensure_network:
 
 up-all:
 	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" up -d --remove-orphans
-
-down-all:
-	$(DC_ENV) docker compose -f "$(PATH_TO_COMPOSE)" --env-file "$(PATH_TO_COMPOSE_ENV_FILE)" down --timeout 1
 
 RED := \033[0;31m
 YELLOW := \033[1;33m
