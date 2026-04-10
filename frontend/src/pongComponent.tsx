@@ -1575,9 +1575,22 @@ export default function PongComponent({
                     <h1 className="text-yellow-400 text-5xl mb-3 drop-shadow-lg">🏆 {t('pong.tournamentWinner')} 🏆</h1>
                     <p className="text-white text-2xl mb-6">{t('pong.congratulations')}</p>
                     {tournament?.onchainTxHashes && tournament.onchainTxHashes.length > 0 && (
-                      <p className="text-green-400 text-sm mb-6">
-                        {t('pong.recordedOnBlockchain')} ✓
-                      </p>
+                      <div className="mb-6 p-3 bg-green-900/20 border border-green-500/50 rounded-lg">
+                        <p className="text-green-400 text-sm mb-2">⛓️ {t('pong.recordedOnBlockchain')} ✓</p>
+                        {tournament.onchainTxHashes.map((hash, idx) => (
+                          <div key={idx} className="flex items-center justify-center gap-2 mt-1">
+                            <code className="text-xs text-gray-400 font-mono">{hash.slice(0, 10)}…{hash.slice(-8)}</code>
+                            <a
+                              href={`/blockchain-explorer/?tx=${hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-400 hover:text-blue-300 underline"
+                            >
+                              View on Explorer
+                            </a>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </>
                 ) : tournamentMatchResult?.isTournamentComplete ? (
@@ -1593,9 +1606,22 @@ export default function PongComponent({
                       }</span>
                     </p>
                     {tournament?.onchainTxHashes && tournament.onchainTxHashes.length > 0 && (
-                      <p className="text-green-400 text-sm mb-6">
-                        {t('pong.recordedOnBlockchain')} ✓
-                      </p>
+                      <div className="mb-6 p-3 bg-green-900/20 border border-green-500/50 rounded-lg">
+                        <p className="text-green-400 text-sm mb-2">⛓️ {t('pong.recordedOnBlockchain')} ✓</p>
+                        {tournament.onchainTxHashes.map((hash, idx) => (
+                          <div key={idx} className="flex items-center justify-center gap-2 mt-1">
+                            <code className="text-xs text-gray-400 font-mono">{hash.slice(0, 10)}…{hash.slice(-8)}</code>
+                            <a
+                              href={`/blockchain-explorer/?tx=${hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-400 hover:text-blue-300 underline"
+                            >
+                              View on Explorer
+                            </a>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </>
                 ) : (

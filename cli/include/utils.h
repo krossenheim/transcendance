@@ -58,4 +58,4 @@ void    safe_free(void *ptr);
 char    *url_encode(const char *s);
 char    *url_decode(const char *s);
 
-#endif /* UTILS_H */
+#endif 

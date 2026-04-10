@@ -45,7 +45,6 @@ static const char *powerup_type_label(int type)
     }
 }
 
-/* Return a character for the pickup icon on the field */
 static char powerup_field_char(int type)
 {
     switch (type) {
@@ -60,32 +59,30 @@ static char powerup_field_char(int type)
     }
 }
 
-/* Initialize ncurses */
 int renderer_init(void)
 {
     if (g_initialized) return 0;
-    
+
     setlocale(LC_ALL, "");
-    
+
     set_escdelay(25);
-    
+
     initscr();
-    
+
     clear();
     refresh();
-    
+
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     nodelay(stdscr, TRUE);
     curs_set(0);
     scrollok(stdscr, FALSE);
-    
-    /* Initialize colors */
+
     if (has_colors()) {
         start_color();
         use_default_colors();
-        
+
         init_pair(COLOR_BALL, COLOR_YELLOW, -1);
         init_pair(COLOR_PADDLE, COLOR_CYAN, -1);
         init_pair(COLOR_WALL, COLOR_BLUE, -1);
@@ -97,20 +94,20 @@ int renderer_init(void)
         init_pair(COLOR_POWERUP, COLOR_MAGENTA, -1);
         init_pair(COLOR_PADDLE_OPP, COLOR_MAGENTA, -1);
         init_pair(COLOR_MIDLINE, COLOR_GREEN, -1);
-        
+
         if (COLORS >= 256) {
-            init_pair(COLOR_PLAYER_BASE + 0, 46, -1);   /* Green */
-            init_pair(COLOR_PLAYER_BASE + 1, 33, -1);   /* Blue */
-            init_pair(COLOR_PLAYER_BASE + 2, 208, -1);  /* Orange */
-            init_pair(COLOR_PLAYER_BASE + 3, 201, -1);  /* Magenta */
-            init_pair(COLOR_PLAYER_BASE + 4, 226, -1);  /* Yellow */
-            init_pair(COLOR_PLAYER_BASE + 5, 51, -1);   /* Cyan */
-            init_pair(COLOR_PLAYER_BASE + 6, 135, -1);  /* Purple */
-            init_pair(COLOR_PLAYER_BASE + 7, 197, -1);  /* Pink */
-            init_pair(COLOR_PLAYER_BASE + 8, 196, -1);  /* Red */
-            init_pair(COLOR_PLAYER_BASE + 9, 43, -1);   /* Teal */
-            init_pair(COLOR_PLAYER_BASE + 10, 209, -1); /* Coral */
-            init_pair(COLOR_PLAYER_BASE + 11, 118, -1); /* Lime */
+            init_pair(COLOR_PLAYER_BASE + 0, 46, -1);   
+            init_pair(COLOR_PLAYER_BASE + 1, 33, -1);   
+            init_pair(COLOR_PLAYER_BASE + 2, 208, -1);  
+            init_pair(COLOR_PLAYER_BASE + 3, 201, -1);  
+            init_pair(COLOR_PLAYER_BASE + 4, 226, -1);  
+            init_pair(COLOR_PLAYER_BASE + 5, 51, -1);   
+            init_pair(COLOR_PLAYER_BASE + 6, 135, -1);  
+            init_pair(COLOR_PLAYER_BASE + 7, 197, -1);  
+            init_pair(COLOR_PLAYER_BASE + 8, 196, -1);  
+            init_pair(COLOR_PLAYER_BASE + 9, 43, -1);   
+            init_pair(COLOR_PLAYER_BASE + 10, 209, -1); 
+            init_pair(COLOR_PLAYER_BASE + 11, 118, -1); 
         } else {
             init_pair(COLOR_PLAYER_BASE + 0, COLOR_GREEN, -1);
             init_pair(COLOR_PLAYER_BASE + 1, COLOR_BLUE, -1);
@@ -126,45 +123,43 @@ int renderer_init(void)
             init_pair(COLOR_PLAYER_BASE + 11, COLOR_GREEN, -1);
         }
     }
-    
+
     getmaxyx(stdscr, g_renderer.term_height, g_renderer.term_width);
-    
+
     g_renderer.main_win = newwin(g_renderer.term_height, g_renderer.term_width, 0, 0);
     keypad(g_renderer.main_win, TRUE);
     nodelay(g_renderer.main_win, TRUE);
     g_renderer.game_win = NULL;
     g_renderer.status_win = NULL;
-    
+
     g_initialized = true;
-    
+
     return 0;
 }
 
-/* Cleanup ncurses */
 void renderer_cleanup(void)
 {
     if (!g_initialized) return;
-    
+
     if (g_renderer.game_win) {
         delwin(g_renderer.game_win);
         g_renderer.game_win = NULL;
     }
-    
+
     if (g_renderer.status_win) {
         delwin(g_renderer.status_win);
         g_renderer.status_win = NULL;
     }
-    
+
     if (g_renderer.main_win) {
         delwin(g_renderer.main_win);
         g_renderer.main_win = NULL;
     }
-    
+
     endwin();
     g_initialized = false;
 }
 
-/* Clear screen */
 void renderer_clear(void)
 {
     clear();
@@ -174,7 +169,6 @@ void renderer_clear(void)
     }
 }
 
-/* Reset input mode (call after state transitions) */
 void renderer_reset_input(void)
 {
     keypad(stdscr, TRUE);
@@ -185,12 +179,11 @@ void renderer_reset_input(void)
     }
 }
 
-/* Refresh screen */
 void renderer_refresh(void)
 {
     touchwin(stdscr);
     wnoutrefresh(stdscr);
-    
+
     if (g_renderer.main_win) {
         touchwin(g_renderer.main_win);
         wnoutrefresh(g_renderer.main_win);
@@ -203,17 +196,15 @@ void renderer_refresh(void)
         touchwin(g_renderer.status_win);
         wnoutrefresh(g_renderer.status_win);
     }
-    
+
     doupdate();
 }
 
-/* Get input */
 int renderer_get_input(void)
 {
     return wgetch(g_renderer.main_win);
 }
 
-/* Get terminal size */
 void renderer_get_size(int *width, int *height)
 {
     getmaxyx(stdscr, g_renderer.term_height, g_renderer.term_width);
@@ -221,43 +212,40 @@ void renderer_get_size(int *width, int *height)
     if (height) *height = g_renderer.term_height;
 }
 
-/* Draw centered text */
 static void draw_centered(WINDOW *win, int y, const char *text, int color_pair)
 {
     int width;
     int height;
     getmaxyx(win, height, width);
     (void)height;
-    
+
     int x = (width - (int)strlen(text)) / 2;
     if (x < 0) x = 0;
-    
+
     if (color_pair > 0) wattron(win, COLOR_PAIR(color_pair));
     mvwprintw(win, y, x, "%s", text);
     if (color_pair > 0) wattroff(win, COLOR_PAIR(color_pair));
 }
 
-/* Draw box around window */
 static void draw_border(WINDOW *win, const char *title)
 {
     box(win, 0, 0);
-    
+
     if (title && strlen(title) > 0) {
         int width;
         int height;
         getmaxyx(win, height, width);
         (void)height;
-        
+
         int x = (width - (int)strlen(title) - 4) / 2;
         if (x < 2) x = 2;
-        
+
         wattron(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
         mvwprintw(win, 0, x, "[ %s ]", title);
         wattroff(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
     }
 }
 
-/* Update and draw the persistent background starfield */
 static void draw_bg_starfield(void)
 {
     if (!g_bg_starfield_active) return;
@@ -282,8 +270,6 @@ static void draw_bg_starfield(void)
     starfield_draw(&g_bg_starfield, g_renderer.main_win, w, h);
 }
 
-/* Draw text with a "zoom from center" reveal animation.
- * progress: 0.0 = nothing visible, 1.0 = fully revealed. */
 static void draw_text_reveal(WINDOW *win, const char **lines, int num_lines,
                              int base_y, int win_w, float progress,
                              int color_pair)
@@ -326,7 +312,6 @@ static void draw_text_reveal(WINDOW *win, const char **lines, int num_lines,
 
     wattroff(win, COLOR_PAIR(color_pair) | A_BOLD);
 }
-
 
 void renderer_play_intro(void)
 {
@@ -430,18 +415,17 @@ void renderer_play_intro(void)
     g_bg_sf_timer_init = true;
 }
 
-/* Draw title screen */
 void renderer_draw_title(void)
 {
     renderer_clear();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
     (void)width;
-    
+
     int y = height / 4;
-    
+
     wattron(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
     draw_centered(win, y++, " ____   ___  _   _  ____        ____ _     ___ ", 0);
     draw_centered(win, y++, "|  _ \\ / _ \\| \\ | |/ ___|      / ___| |   |_ _|", 0);
@@ -449,55 +433,54 @@ void renderer_draw_title(void)
     draw_centered(win, y++, "|  __/| |_| | |\\  | |_| |_____| |___| |___ | | ", 0);
     draw_centered(win, y++, "|_|    \\___/|_| \\_|\\____|      \\____|_____|___|", 0);
     wattroff(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
-    
+
     y += 2;
     draw_centered(win, y++, "Terminal Edition", COLOR_SCORE);
-    
+
     y = height - 5;
     draw_centered(win, y, "Press any key to continue...", COLOR_MENU);
-    
+
     renderer_refresh();
 }
 
-/* Draw login form */
 void renderer_draw_login(const char *username, const char *password, 
                          int cursor_field, const char *error_msg)
 {
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int form_height = 12;
     int form_width = 50;
     int start_y = (height - form_height) / 2;
     int start_x = (width - form_width) / 2;
-    
+
     WINDOW *form = derwin(win, form_height, form_width, start_y, start_x);
     if (!form) { renderer_refresh(); return; }
     werase(form);
     draw_border(form, "Login");
-    
+
     int y = 2;
-    
+
     if (cursor_field == 0) wattron(form, A_BOLD);
     mvwprintw(form, y, 3, "Username:");
     if (cursor_field == 0) wattroff(form, A_BOLD);
-    
+
     mvwprintw(form, y + 1, 3, "[");
     mvwprintw(form, y + 1, form_width - 4, "]");
     mvwprintw(form, y + 1, 4, "%-*s", form_width - 8, username ? username : "");
     y += 3;
-    
+
     if (cursor_field == 1) wattron(form, A_BOLD);
     mvwprintw(form, y, 3, "Password:");
     if (cursor_field == 1) wattroff(form, A_BOLD);
-    
+
     mvwprintw(form, y + 1, 3, "[");
     mvwprintw(form, y + 1, form_width - 4, "]");
-    
+
     int pwd_len = password ? (int)strlen(password) : 0;
     char pwd_display[128] = {0};
     for (int i = 0; i < pwd_len && i < (int)sizeof(pwd_display) - 1; i++) {
@@ -505,57 +488,56 @@ void renderer_draw_login(const char *username, const char *password,
     }
     mvwprintw(form, y + 1, 4, "%-*s", form_width - 8, pwd_display);
     y += 3;
-    
+
     if (error_msg && strlen(error_msg) > 0) {
         wattron(form, COLOR_PAIR(COLOR_ERROR));
         mvwprintw(form, y + 1, 3, "%.*s", form_width - 6, error_msg);
         wattroff(form, COLOR_PAIR(COLOR_ERROR));
     }
-    
+
     mvwprintw(form, form_height - 2, 3, "TAB: Switch  ENTER: Submit  ESC: Quit");
-    
+
     delwin(form);
     renderer_refresh();
 }
 
-/* Draw 2FA prompt */
 void renderer_draw_2fa(const char *code, const char *error_msg)
 {
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int form_height = 10;
     int form_width = 40;
     int start_y = (height - form_height) / 2;
     int start_x = (width - form_width) / 2;
-    
+
     WINDOW *form = derwin(win, form_height, form_width, start_y, start_x);
     if (!form) { renderer_refresh(); return; }
     werase(form);
     draw_border(form, "Two-Factor Authentication");
-    
+
     int y = 2;
     mvwprintw(form, y++, 3, "Enter your 2FA code:");
     y++;
-    
+
     int code_x = (form_width - 10) / 2;
     mvwprintw(form, y, code_x, "[");
     mvwprintw(form, y, code_x + 9, "]");
     mvwprintw(form, y, code_x + 1, "%-6s", code ? code : "");
     y += 2;
-    
+
     if (error_msg && strlen(error_msg) > 0) {
         wattron(form, COLOR_PAIR(COLOR_ERROR));
         draw_centered(form, y, error_msg, 0);
         wattroff(form, COLOR_PAIR(COLOR_ERROR));
     }
-    
+
     mvwprintw(form, form_height - 2, 3, "ENTER: Submit  ESC: Back");
-    
+
     delwin(form);
     renderer_refresh();
 }
@@ -566,62 +548,61 @@ void renderer_draw_menu(const char **options, int option_count,
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int menu_height = option_count + 6;
     int menu_width = 40;
     int start_y = (height - menu_height) / 2;
     int start_x = (width - menu_width) / 2;
-    
+
     WINDOW *menu = derwin(win, menu_height, menu_width, start_y, start_x);
     if (!menu) { renderer_refresh(); return; }
     werase(menu);
     draw_border(menu, title);
-    
+
     int y = 2;
     for (int i = 0; i < option_count; i++) {
         if (i == selected) {
             wattron(menu, COLOR_PAIR(COLOR_SELECTED) | A_BOLD);
         }
-        
+
         mvwprintw(menu, y + i, 3, "  %s  ", options[i]);
-        
+
         if (i == selected) {
             wattroff(menu, COLOR_PAIR(COLOR_SELECTED) | A_BOLD);
         }
     }
-    
+
     y = menu_height - 2;
     mvwprintw(menu, y, 3, "UP/DOWN: Navigate  ENTER: Select");
-    
+
     delwin(menu);
     renderer_refresh();
 }
 
-/* Draw lobby screen */
 void renderer_draw_lobby(lobby_t *lobby, int my_user_id)
 {
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int lobby_height = 17;
     int lobby_width = 60;
     int start_y = (height - lobby_height) / 2;
     int start_x = (width - lobby_width) / 2;
-    
+
     WINDOW *lwin = derwin(win, lobby_height, lobby_width, start_y, start_x);
     if (!lwin) { renderer_refresh(); return; }
     werase(lwin);
     draw_border(lwin, "Game Lobby");
-    
+
     int y = 2;
-    
+
     mvwprintw(lwin, y++, 3, "Mode: %s", lobby->game_mode);
     mvwprintw(lwin, y++, 3, "Balls: %d  Max Score: %d", 
               lobby->ball_count, lobby->max_score);
@@ -629,60 +610,58 @@ void renderer_draw_lobby(lobby_t *lobby, int my_user_id)
               lobby->allow_powerups ? "Enabled" : "Disabled");
     mvwprintw(lwin, y++, 3, "AI Players: %d", lobby->ai_count);
     y++;
-    
+
     wattron(lwin, A_UNDERLINE);
     mvwprintw(lwin, y++, 3, "Players:");
     wattroff(lwin, A_UNDERLINE);
-    
+
     for (int i = 0; i < lobby->player_count; i++) {
         player_t *p = &lobby->players[i];
-        
+
         const char *ready_str = p->ready ? "[READY]" : "[-----]";
         const char *you_str = (p->id == my_user_id) ? " (You)" : "";
-        
+
         if (p->ready) {
             wattron(lwin, COLOR_PAIR(COLOR_TITLE));
         }
-        
+
         mvwprintw(lwin, y++, 5, "%s %s%s", ready_str, p->username, you_str);
-        
+
         if (p->ready) {
             wattroff(lwin, COLOR_PAIR(COLOR_TITLE));
         }
     }
-    
+
     y = lobby_height - 3;
     mvwprintw(lwin, y++, 3, "R: Toggle Ready  Q: Leave Lobby");
     mvwprintw(lwin, y, 3, "S: Start Game (when all ready)");
-    
+
     delwin(lwin);
     renderer_refresh();
 }
 
-/* Draw waiting screen */
 void renderer_draw_waiting(const char *message)
 {
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
     (void)width;
-    
+
     int y = height / 2 - 2;
-    
+
     wattron(win, A_BLINK);
     draw_centered(win, y, message, COLOR_SCORE);
     wattroff(win, A_BLINK);
-    
+
     y += 3;
     draw_centered(win, y, "Press Q to cancel", COLOR_MENU);
-    
+
     renderer_refresh();
 }
 
-/* Convert game coordinates to screen coordinates */
 static void game_to_screen(float gx, float gy, int canvas_w, int canvas_h,
                            int screen_x, int screen_y, int screen_w, int screen_h,
                            int *sx, int *sy)
@@ -691,7 +670,6 @@ static void game_to_screen(float gx, float gy, int canvas_w, int canvas_h,
     *sy = screen_y + (int)((((float)canvas_h - gy) / (float)canvas_h) * (float)screen_h);
 }
 
-/* Bresenham line drawing on ncurses window */
 static void draw_line(WINDOW *win, int x0, int y0, int x1, int y1,
                       int min_x, int min_y, int max_x, int max_y, chtype ch)
 {
@@ -725,23 +703,22 @@ static int get_player_color(const game_state_t *game, int player_id)
     return COLOR_WALL;
 }
 
-/* Draw game state */
 void renderer_draw_game(game_state_t *game)
 {
     if (!game) return;
-    
+
     renderer_clear();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int status_h = 4;
     int game_h = height - status_h;
     int game_w = width - 2;
     int game_x = 1;
     int game_y = status_h;
-    
+
     {
         bool is_los = (strcmp(game->game_mode, "lastOneStanding") == 0);
         int score_y = 0;
@@ -820,34 +797,34 @@ void renderer_draw_game(game_state_t *game)
             }
         }
     }
-    
+
     {
         int effect_y = 2;
-        
+
         int total_w = 0;
         for (int i = 0; i < game->active_effect_count; i++) {
             const char *label = powerup_type_label(game->active_effects[i].type);
             total_w += (int)strlen(label) + 3;
         }
         if (total_w > 0) total_w--;
-        
+
         int effect_x = (width - total_w) / 2;
         if (effect_x < 1) effect_x = 1;
-        
+
         for (int i = 0; i < game->active_effect_count; i++) {
             const active_effect_t *eff = &game->active_effects[i];
             const char *label = powerup_type_label(eff->type);
             int label_len = (int)strlen(label) + 2;
-            
+
             if (effect_x + label_len >= width - 1) break;
-            
+
             wattron(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD);
             mvwprintw(win, effect_y, effect_x, "[%s]", label);
             wattroff(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD);
             effect_x += label_len + 1;
         }
     }
-    
+
     for (int x = game_x; x < game_x + game_w; x++) {
         mvwaddch(win, game_y, x, ACS_HLINE);
         mvwaddch(win, game_y + game_h - 1, x, ACS_HLINE);
@@ -860,7 +837,7 @@ void renderer_draw_game(game_state_t *game)
     mvwaddch(win, game_y, game_x + game_w - 1, ACS_URCORNER);
     mvwaddch(win, game_y + game_h - 1, game_x, ACS_LLCORNER);
     mvwaddch(win, game_y + game_h - 1, game_x + game_w - 1, ACS_LRCORNER);
-    
+
     pthread_mutex_lock(&game->mutex);
 
     int area_x = game_x + 1;
@@ -880,7 +857,7 @@ void renderer_draw_game(game_state_t *game)
 
     for (int i = 0; i < game->wall_count; i++) {
         const wall_t *w = &game->walls[i];
-        
+
         int sx1, sy1, sx2, sy2;
         game_to_screen(w->x1, w->y1, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx1, &sy1);
@@ -921,10 +898,10 @@ void renderer_draw_game(game_state_t *game)
 
         wattroff(win, COLOR_PAIR(wall_cpair) | A_BOLD);
     }
-    
+
     for (int i = 0; i < game->paddle_count; i++) {
         const paddle_t *p = &game->paddles[i];
-        
+
         float perp = p->angle + (float)M_PI / 2.0f;
         float half_len = p->width / 2.0f;
         float px1 = p->x - cosf(perp) * half_len;
@@ -937,26 +914,26 @@ void renderer_draw_game(game_state_t *game)
                        area_x, area_y, area_w, area_h, &sx1, &sy1);
         game_to_screen(px2, py2, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx2, &sy2);
-        
+
         bool is_mine = (p->owner_id == game->my_user_id);
         int paddle_color = get_player_color(game, p->owner_id);
         wattron(win, COLOR_PAIR(paddle_color) | A_BOLD | (is_mine ? A_REVERSE : 0));
-        
+
         draw_line(win, sx1, sy1, sx2, sy2,
                   game_x, game_y, game_x + game_w - 1, game_y + game_h - 1, '#');
-        
+
         wattroff(win, COLOR_PAIR(paddle_color) | A_BOLD | (is_mine ? A_REVERSE : 0));
     }
-    
+
     wattron(win, COLOR_PAIR(COLOR_POWERUP) | A_BOLD | A_BLINK);
     for (int i = 0; i < game->powerup_count; i++) {
         const powerup_t *p = &game->powerups[i];
         if (!p->active || p->activation_tick >= 0) continue;
-        
+
         int sx, sy;
         game_to_screen(p->x, p->y, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx, &sy);
-        
+
         if (sx > game_x && sx < game_x + game_w - 1 &&
             sy > game_y && sy < game_y + game_h - 1) {
             mvwaddch(win, sy, sx, powerup_field_char(p->type));
@@ -969,11 +946,10 @@ void renderer_draw_game(game_state_t *game)
     for (int i = 0; i < game->ball_count; i++) {
         const ball_t *b = &game->balls[i];
         if (!b->active) continue;
-        
+
         int sx, sy;
         game_to_screen(b->x, b->y, game->canvas_width, game->canvas_height,
                        area_x, area_y, area_w, area_h, &sx, &sy);
-        
 
         if (b->radius > 25.0f) {
             if (sx > game_x + 1 && sx < game_x + game_w - 2 &&
@@ -1009,30 +985,29 @@ void renderer_draw_game(game_state_t *game)
         }
     }
     wattroff(win, COLOR_PAIR(COLOR_BALL) | A_BOLD);
-    
+
     pthread_mutex_unlock(&game->mutex);
-    
+
     mvwprintw(win, height - 1, 3, "A/LEFT: Left  D/RIGHT: Right  Q: Quit");
-    
+
     renderer_refresh();
 }
 
-/* Draw game over screen */
 void renderer_draw_game_over(game_state_t *game)
 {
     if (!game) return;
-    
+
     renderer_clear();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
     (void)width;
-    
+
     int y = height / 4;
-    
+
     bool i_won = (game->winner_id == game->my_user_id);
-    
+
     if (i_won) {
         wattron(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
         draw_centered(win, y++, "*** VICTORY! ***", 0);
@@ -1042,12 +1017,12 @@ void renderer_draw_game_over(game_state_t *game)
         draw_centered(win, y++, "*** DEFEAT ***", 0);
         wattroff(win, COLOR_PAIR(COLOR_ERROR) | A_BOLD);
     }
-    
+
     y += 2;
-    
+
     draw_centered(win, y++, "Final Scores:", COLOR_SCORE);
     y++;
-    
+
     int order[MAX_PLAYERS];
     for (int i = 0; i < game->player_count; i++) order[i] = i;
     for (int i = 1; i < game->player_count; i++) {
@@ -1070,53 +1045,52 @@ void renderer_draw_game_over(game_state_t *game)
         int sc  = game->players[idx].score;
         bool is_me = (pid == game->my_user_id);
         int cpair = get_player_color(game, pid);
-        
+
         char line[80];
         if (is_me)
             snprintf(line, sizeof(line), "%d. You: %d", rank + 1, sc);
         else
             snprintf(line, sizeof(line), "%d. Player %d: %d", rank + 1, pid, sc);
-        
+
         wattron(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
         draw_centered(win, y++, line, 0);
         wattroff(win, COLOR_PAIR(cpair) | (is_me ? A_BOLD : 0));
     }
-    
+
     y += 2;
     draw_centered(win, y++, "Press any key to continue...", COLOR_MENU);
-    
+
     renderer_refresh();
 }
 
-/* Draw error message */
 void renderer_draw_error(const char *title, const char *message)
 {
     renderer_clear();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int box_height = 8;
     int box_width = 50;
     int start_y = (height - box_height) / 2;
     int start_x = (width - box_width) / 2;
-    
+
     WINDOW *err = derwin(win, box_height, box_width, start_y, start_x);
     if (!err) { renderer_refresh(); return; }
-    
+
     wattron(err, COLOR_PAIR(COLOR_ERROR));
     draw_border(err, title ? title : "Error");
     wattroff(err, COLOR_PAIR(COLOR_ERROR));
-    
+
     if (message) {
         int msg_len = (int)strlen(message);
-        
+
         if (msg_len > box_width - 6) {
             int y = 2;
             int remaining = msg_len;
             const char *ptr = message;
-            
+
             while (remaining > 0 && y < box_height - 2) {
                 int chunk = (remaining > box_width - 6) ? (box_width - 6) : remaining;
                 mvwprintw(err, y++, 3, "%.*s", chunk, ptr);
@@ -1127,124 +1101,121 @@ void renderer_draw_error(const char *title, const char *message)
             draw_centered(err, 3, message, 0);
         }
     }
-    
+
     mvwprintw(err, box_height - 2, 3, "Press any key to continue...");
-    
+
     delwin(err);
     renderer_refresh();
 }
 
-/* Draw loading indicator */
 void renderer_draw_loading(const char *message)
 {
     renderer_clear();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
     (void)width;
-    
+
     int y = height / 2;
-    
+
     static int frame = 0;
     const char *spinner = "|/-\\";
     char spin_char = spinner[frame % 4];
     frame++;
-    
+
     char display[256];
     snprintf(display, sizeof(display), "%c %s %c", spin_char, message ? message : "Loading...", spin_char);
-    
+
     draw_centered(win, y, display, COLOR_SCORE);
-    
+
     renderer_refresh();
 }
 
-/* Draw matchmaking screen */
 void renderer_draw_matchmaking(const char *mode, int elapsed_seconds)
 {
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
     (void)width;
-    
+
     int y = height / 3;
-    
+
     wattron(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
     draw_centered(win, y++, "Searching for Match...", 0);
     wattroff(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
-    
+
     y += 2;
-    
+
     char mode_line[64];
     snprintf(mode_line, sizeof(mode_line), "Mode: %s", mode);
     draw_centered(win, y++, mode_line, COLOR_SCORE);
-    
+
     y++;
-    
+
     char time_line[64];
     int mins = elapsed_seconds / 60;
     int secs = elapsed_seconds % 60;
     snprintf(time_line, sizeof(time_line), "Time: %02d:%02d", mins, secs);
     draw_centered(win, y++, time_line, COLOR_MENU);
-    
+
     static int dots = 0;
     dots = (dots + 1) % 4;
-    
+
     char dots_str[8];
     memset(dots_str, '.', dots);
     dots_str[dots] = '\0';
-    
+
     y += 2;
     draw_centered(win, y, dots_str, COLOR_MENU);
-    
+
     y = height - 5;
     draw_centered(win, y, "Press Q to cancel", COLOR_MENU);
-    
+
     renderer_refresh();
 }
 
-/* Draw settings menu */
 void renderer_draw_settings(const char **settings, const char **values, 
                             int setting_count, int selected)
 {
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int menu_height = setting_count + 8;
     int menu_width = 50;
     int start_y = (height - menu_height) / 2;
     int start_x = (width - menu_width) / 2;
-    
+
     WINDOW *swin = derwin(win, menu_height, menu_width, start_y, start_x);
     if (!swin) { renderer_refresh(); return; }
     werase(swin);
     draw_border(swin, "Settings");
-    
+
     int y = 2;
     for (int i = 0; i < setting_count; i++) {
         if (i == selected) {
             wattron(swin, COLOR_PAIR(COLOR_SELECTED) | A_BOLD);
         }
-        
+
         mvwprintw(swin, y, 3, "%-20s: %s", settings[i], values[i]);
         y++;
-        
+
         if (i == selected) {
             wattroff(swin, COLOR_PAIR(COLOR_SELECTED) | A_BOLD);
         }
     }
-    
+
     y = menu_height - 3;
     mvwprintw(swin, y++, 3, "UP/DOWN: Navigate  LEFT/RIGHT: Change");
     mvwprintw(swin, y, 3, "ENTER: Save  ESC: Cancel");
-    
+
     delwin(swin);
     renderer_refresh();
 }
@@ -1257,24 +1228,24 @@ void renderer_draw_invite(online_user_t *users, int user_count,
     renderer_clear();
     draw_bg_starfield();
     WINDOW *win = g_renderer.main_win;
-    
+
     int height, width;
     getmaxyx(win, height, width);
-    
+
     int menu_height = (user_count > 0 ? user_count : 1) + 10;
     if (menu_height > height - 2) menu_height = height - 2;
     int menu_width = 52;
     if (menu_width > width - 2) menu_width = width - 2;
     int start_y = (height - menu_height) / 2;
     int start_x = (width - menu_width) / 2;
-    
+
     WINDOW *swin = derwin(win, menu_height, menu_width, start_y, start_x);
     if (!swin) { renderer_refresh(); return; }
     werase(swin);
     draw_border(swin, "Invite Players");
-    
+
     int y = 2;
-    
+
     if (user_count == 0) {
         wattron(swin, A_DIM);
         mvwprintw(swin, y++, 3, "No online users found.");
@@ -1289,30 +1260,30 @@ void renderer_draw_invite(online_user_t *users, int user_count,
         if (scroll_offset > user_count - visible_rows)
             scroll_offset = user_count - visible_rows;
         if (scroll_offset < 0) scroll_offset = 0;
-        
+
         for (int i = scroll_offset;
              i < user_count && (i - scroll_offset) < visible_rows; i++) {
             bool is_selected = (i == selected);
             bool is_checked  = users[i].selected;
-            
+
             if (is_selected)
                 wattron(swin, COLOR_PAIR(COLOR_SELECTED) | A_BOLD);
-            
+
             const char *name = users[i].username[0]
                 ? users[i].username
                 : "(loading...)";
-            
+
             mvwprintw(swin, y, 3, "[%c] %-30s  (ID %d)",
                       is_checked ? 'X' : ' ',
                       name,
                       users[i].id);
             y++;
-            
+
             if (is_selected)
                 wattroff(swin, COLOR_PAIR(COLOR_SELECTED) | A_BOLD);
         }
     }
-    
+
     y = menu_height - 5;
     if (searching) {
         wattron(swin, COLOR_PAIR(COLOR_TITLE));
@@ -1321,16 +1292,15 @@ void renderer_draw_invite(online_user_t *users, int user_count,
     } else if (search_query && search_query[0]) {
         mvwprintw(swin, y, 3, "Search: %s", search_query);
     }
-    
+
     y = menu_height - 3;
     mvwprintw(swin, y++, 3, "UP/DOWN: Move  SPACE: Select  /: Search");
     mvwprintw(swin, y,   3, "ENTER: Create Lobby  R: Refresh  ESC: Back");
-    
+
     delwin(swin);
     renderer_refresh();
 }
 
-/* Draw incoming invitation screen */
 void renderer_draw_invitation(lobby_t *lobby, int my_user_id)
 {
     renderer_clear();

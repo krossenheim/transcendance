@@ -174,6 +174,7 @@ export class PongGame {
     private static readonly RECENT_EVENT_TICKS = 3 * TICK_RATE;
 
     private currentTick: number = 0;
+    private tickRemainder: number = 0;
     private rng: SeededRandom;
     private eliminatedPlayers: Set<number> = new Set();
     private pendingEliminations: number[] = [];
@@ -399,7 +400,10 @@ export class PongGame {
 
         this.fixStuckBalls();
 
-        this.currentTick += Math.max(1, Math.round(deltaTime * TICK_RATE));
+        this.tickRemainder += deltaTime * TICK_RATE;
+        const wholeTicks = Math.floor(this.tickRemainder);
+        this.tickRemainder -= wholeTicks;
+        this.currentTick += Math.max(1, wholeTicks);
 
     }
 

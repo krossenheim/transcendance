@@ -93,7 +93,7 @@ typedef struct game_state {
     int             game_id;
     int             my_user_id;
     int             my_paddle_id;
-    
+
     ball_t          balls[MAX_BALLS];
     int             ball_count;
     paddle_t        paddles[MAX_PADDLES];
@@ -102,13 +102,13 @@ typedef struct game_state {
     int             wall_count;
     powerup_t       powerups[MAX_POWERUPS];
     int             powerup_count;
-    
+
     active_effect_t active_effects[MAX_ACTIVE_EFFECTS];
     int             active_effect_count;
-    
+
     player_t        players[MAX_PLAYERS];
     int             player_count;
-    
+
     bool            game_active;
     bool            game_over;
     int             winner_id;
@@ -123,10 +123,10 @@ typedef struct game_state {
 
     int             all_player_ids[MAX_PLAYERS];
     int             all_player_count;
-    
+
     bool            key_up;
     bool            key_down;
-    
+
     lobby_t         lobby;
     bool            in_lobby;
     bool            invitation_pending;
@@ -134,7 +134,7 @@ typedef struct game_state {
     bool            auto_start_sent;
 
     pthread_mutex_t mutex;
-    
+
     pong_websocket_t *ws;
 } game_state_t;
 
@@ -162,4 +162,4 @@ void            game_set_key_down(game_state_t *game, bool pressed);
 
 bool            game_is_active(game_state_t *game);
 
-#endif /* GAME_H */
+#endif 
