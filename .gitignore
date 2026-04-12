@@ -25,3 +25,5 @@ secrets.local.sh
 static/react_dist/
 secrets.env
 certs/
+containers/blockchain/cache/
+containers/blockchain/artifacts/
