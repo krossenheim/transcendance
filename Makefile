@@ -13,8 +13,6 @@ TR_NETWORK_SUBNET = 172.18.0.0/16
 
 DC_ENV := VOLUMES_DIR=${VOLUMES_DIR}
 
-REACT_DIR := $(SOURCES_DIR)/nginx/react_source
-NODE_MAX_OLD_SPACE ?= 4096
 $(NAME): all
 
 all: ensure_env ensure_volumes check-deps down build ensure_network
@@ -95,10 +93,6 @@ build-hardhat-plain:
 build-explorer:
 	@echo "Force rebuilding Block Explorer image..."
 	docker build -f "$(BLOCKCHAIN_DIR)/explorer/Dockerfile" -t $(EXPLORER_IMAGE_TAG) "$(BLOCKCHAIN_DIR)/explorer"
-
-build_react:
-	npm install --prefix $(REACT_DIR)
-	NODE_OPTIONS=--max_old_space_size=$(NODE_MAX_OLD_SPACE) npm run build --prefix $(REACT_DIR)
 
 check-deps: check-system-deps check-npm-deps
 	@echo "All required dependencies present."
