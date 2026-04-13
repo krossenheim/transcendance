@@ -1,6 +1,6 @@
 
 const AI_PARAMS = {
-  refreshIntervalMs: 200,
+  refreshIntervalMs: 1000,
   maxBounces: 15,
   commitThreshold: 0.06,
   commitLockoutMs: 50,
@@ -8,7 +8,7 @@ const AI_PARAMS = {
   minDeadZonePx: 10,
   predictionError: 0.06,
   sectorMatchWidth: 1.5,
-  ballGracePeriodMs: 500,
+  ballGracePeriodMs: 1000,
   speedMultiplier: 1.5,
 };
 
