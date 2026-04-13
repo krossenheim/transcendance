@@ -158,6 +158,7 @@ clean: down
 	rm -rf "$(VOLUMES_DIR)"
 
 fclean: clean
+	$(MAKE) -C $(PROJECT_ROOT)cli fclean
 	rm -rf "$(OUTPUT_FILES_DIR)"
 	rm -rf "$(PROJECT_ROOT)static/react_dist/assets"
 	rm -rf "$(BLOCKCHAIN_DIR)/cache" "$(BLOCKCHAIN_DIR)/artifacts"
