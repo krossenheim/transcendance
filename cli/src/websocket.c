@@ -5,6 +5,17 @@
 #include "websocket.h"
 #include "utils.h"
 
+static char *ws_format_client_message(const char *container,
+                                       const char *func_id,
+                                       const char *payload);
+static int ws_parse_hub_message(const char *message,
+                                 char *container, size_t cont_len,
+                                 char *func_id, size_t func_len,
+                                 int *code,
+                                 char *payload, size_t payload_len);
+static void ws_disconnect(pong_websocket_t *ws);
+static void ws_unsubscribe_all(pong_websocket_t *ws);
+
 static int callback_pong(struct lws *wsi, enum lws_callback_reasons reason,
                          void *user, void *in, size_t len)
 {
@@ -301,7 +312,7 @@ int ws_connect(pong_websocket_t *ws)
     return -1;
 }
 
-void ws_disconnect(pong_websocket_t *ws)
+static void ws_disconnect(pong_websocket_t *ws)
 {
     if (!ws) return;
 
@@ -331,24 +342,6 @@ void ws_disconnect(pong_websocket_t *ws)
     ws->state = WS_STATE_DISCONNECTED;
     ws->shutting_down = false;
     pthread_mutex_unlock(&ws->mutex);
-}
-
-bool ws_is_connected(pong_websocket_t *ws)
-{
-    if (!ws) return false;
-    pthread_mutex_lock(&ws->mutex);
-    bool connected = (ws->state == WS_STATE_CONNECTED);
-    pthread_mutex_unlock(&ws->mutex);
-    return connected;
-}
-
-ws_state_t ws_get_state(pong_websocket_t *ws)
-{
-    if (!ws) return WS_STATE_DISCONNECTED;
-    pthread_mutex_lock(&ws->mutex);
-    ws_state_t state = ws->state;
-    pthread_mutex_unlock(&ws->mutex);
-    return state;
 }
 
 static int queue_message(pong_websocket_t *ws, const char *data, size_t len)
@@ -465,7 +458,7 @@ void ws_unsubscribe(pong_websocket_t *ws, const char *func_id)
     pthread_mutex_unlock(&ws->mutex);
 }
 
-void ws_unsubscribe_all(pong_websocket_t *ws)
+static void ws_unsubscribe_all(pong_websocket_t *ws)
 {
     if (!ws) return;
 
@@ -479,28 +472,6 @@ void ws_unsubscribe_all(pong_websocket_t *ws)
     }
 
     pthread_mutex_unlock(&ws->mutex);
-}
-
-void ws_set_callbacks(pong_websocket_t *ws,
-                      void (*on_connected)(void *),
-                      void (*on_disconnected)(void *),
-                      void (*on_error)(const char *, void *),
-                      void *user_data)
-{
-    if (!ws) return;
-
-    pthread_mutex_lock(&ws->mutex);
-    ws->on_connected = on_connected;
-    ws->on_disconnected = on_disconnected;
-    ws->on_error = on_error;
-    ws->callback_user_data = user_data;
-    pthread_mutex_unlock(&ws->mutex);
-}
-
-int ws_service(pong_websocket_t *ws, int timeout_ms)
-{
-    if (!ws || !ws->context) return -1;
-    return lws_service(ws->context, timeout_ms);
 }
 
 static void *service_thread_func(void *arg)
@@ -568,7 +539,7 @@ void ws_stop_service_thread(pong_websocket_t *ws)
     pthread_join(ws->service_thread, NULL);
 }
 
-char *ws_format_client_message(const char *container, const char *func_id,
+static char *ws_format_client_message(const char *container, const char *func_id,
                                const char *payload)
 {
     size_t len = strlen(container) + strlen(func_id) +
@@ -583,7 +554,7 @@ char *ws_format_client_message(const char *container, const char *func_id,
     return msg;
 }
 
-int ws_parse_hub_message(const char *message,
+static int ws_parse_hub_message(const char *message,
                          char *container, size_t cont_len,
                          char *func_id, size_t func_len,
                          int *code,
@@ -603,14 +574,14 @@ int ws_parse_hub_message(const char *message,
     size_t len = p1 - message;
     if (container && cont_len > 0) {
         len = (len < cont_len - 1) ? len : cont_len - 1;
-        strncpy(container, message, len);
+        memcpy(container, message, len);
         container[len] = '\0';
     }
 
     len = p2 - p1 - 1;
     if (func_id && func_len > 0) {
         len = (len < func_len - 1) ? len : func_len - 1;
-        strncpy(func_id, p1 + 1, len);
+        memcpy(func_id, p1 + 1, len);
         func_id[len] = '\0';
     }
 

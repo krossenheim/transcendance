@@ -575,24 +575,6 @@ void game_handle_game_start(game_state_t *game, const char *json_payload)
     game->game_over = false;
 }
 
-void game_handle_game_over(game_state_t *game, const char *json_payload)
-{
-    if (!game || !json_payload) return;
-
-    cJSON *root = cJSON_Parse(json_payload);
-    if (!root) return;
-
-    const cJSON *winner = cJSON_GetObjectItem(root, "winner");
-    if (winner && cJSON_IsNumber(winner)) {
-        game->winner_id = winner->valueint;
-    }
-
-    game->game_active = false;
-    game->game_over = true;
-
-    cJSON_Delete(root);
-}
-
 void game_set_key_up(game_state_t *game, bool pressed)
 {
     if (!game) return;

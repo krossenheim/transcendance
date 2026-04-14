@@ -205,13 +205,6 @@ int renderer_get_input(void)
     return wgetch(g_renderer.main_win);
 }
 
-void renderer_get_size(int *width, int *height)
-{
-    getmaxyx(stdscr, g_renderer.term_height, g_renderer.term_width);
-    if (width) *width = g_renderer.term_width;
-    if (height) *height = g_renderer.term_height;
-}
-
 static void draw_centered(WINDOW *win, int y, const char *text, int color_pair)
 {
     int width;
@@ -416,34 +409,6 @@ void renderer_play_intro(void)
     g_bg_sf_timer_init = true;
 }
 
-void renderer_draw_title(void)
-{
-    renderer_clear();
-    WINDOW *win = g_renderer.main_win;
-
-    int height, width;
-    getmaxyx(win, height, width);
-    (void)width;
-
-    int y = height / 4;
-
-    wattron(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
-    draw_centered(win, y++, " ____   ___  _   _  ____        ____ _     ___ ", 0);
-    draw_centered(win, y++, "|  _ \\ / _ \\| \\ | |/ ___|      / ___| |   |_ _|", 0);
-    draw_centered(win, y++, "| |_) | | | |  \\| | |  _ _____| |   | |    | | ", 0);
-    draw_centered(win, y++, "|  __/| |_| | |\\  | |_| |_____| |___| |___ | | ", 0);
-    draw_centered(win, y++, "|_|    \\___/|_| \\_|\\____|      \\____|_____|___|", 0);
-    wattroff(win, COLOR_PAIR(COLOR_TITLE) | A_BOLD);
-
-    y += 2;
-    draw_centered(win, y++, "Terminal Edition", COLOR_SCORE);
-
-    y = height - 5;
-    draw_centered(win, y, "Press any key to continue...", COLOR_MENU);
-
-    renderer_refresh();
-}
-
 void renderer_draw_login(const char *username, const char *password,
                          int cursor_field, const char *error_msg)
 {
@@ -638,28 +603,6 @@ void renderer_draw_lobby(lobby_t *lobby, int my_user_id)
     mvwprintw(lwin, y, 3, "S: Start Game (when all ready)");
 
     delwin(lwin);
-    renderer_refresh();
-}
-
-void renderer_draw_waiting(const char *message)
-{
-    renderer_clear();
-    draw_bg_starfield();
-    WINDOW *win = g_renderer.main_win;
-
-    int height, width;
-    getmaxyx(win, height, width);
-    (void)width;
-
-    int y = height / 2 - 2;
-
-    wattron(win, A_BLINK);
-    draw_centered(win, y, message, COLOR_SCORE);
-    wattroff(win, A_BLINK);
-
-    y += 3;
-    draw_centered(win, y, "Press Q to cancel", COLOR_MENU);
-
     renderer_refresh();
 }
 
@@ -1061,51 +1004,6 @@ void renderer_draw_game_over(game_state_t *game)
     y += 2;
     draw_centered(win, y++, "Press any key to continue...", COLOR_MENU);
 
-    renderer_refresh();
-}
-
-void renderer_draw_error(const char *title, const char *message)
-{
-    renderer_clear();
-    WINDOW *win = g_renderer.main_win;
-
-    int height, width;
-    getmaxyx(win, height, width);
-
-    int box_height = 8;
-    int box_width = 50;
-    int start_y = (height - box_height) / 2;
-    int start_x = (width - box_width) / 2;
-
-    WINDOW *err = derwin(win, box_height, box_width, start_y, start_x);
-    if (!err) { renderer_refresh(); return; }
-
-    wattron(err, COLOR_PAIR(COLOR_ERROR));
-    draw_border(err, title ? title : "Error");
-    wattroff(err, COLOR_PAIR(COLOR_ERROR));
-
-    if (message) {
-        int msg_len = (int)strlen(message);
-
-        if (msg_len > box_width - 6) {
-            int y = 2;
-            int remaining = msg_len;
-            const char *ptr = message;
-
-            while (remaining > 0 && y < box_height - 2) {
-                int chunk = (remaining > box_width - 6) ? (box_width - 6) : remaining;
-                mvwprintw(err, y++, 3, "%.*s", chunk, ptr);
-                ptr += chunk;
-                remaining -= chunk;
-            }
-        } else {
-            draw_centered(err, 3, message, 0);
-        }
-    }
-
-    mvwprintw(err, box_height - 2, 3, "Press any key to continue...");
-
-    delwin(err);
     renderer_refresh();
 }
 

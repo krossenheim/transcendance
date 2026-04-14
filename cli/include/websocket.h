@@ -73,9 +73,6 @@ void                ws_destroy(pong_websocket_t *ws);
 void                ws_set_auth_token(pong_websocket_t *ws, const char *token);
 
 int                 ws_connect(pong_websocket_t *ws);
-void                ws_disconnect(pong_websocket_t *ws);
-bool                ws_is_connected(pong_websocket_t *ws);
-ws_state_t          ws_get_state(pong_websocket_t *ws);
 
 int                 ws_send_message(pong_websocket_t *ws, const char *container,
                                     const char *func_id, const char *payload);
@@ -84,26 +81,8 @@ int                 ws_send_raw(pong_websocket_t *ws, const char *data, size_t l
 int                 ws_subscribe(pong_websocket_t *ws, const char *func_id,
                                  ws_message_callback_t callback, void *user_data);
 void                ws_unsubscribe(pong_websocket_t *ws, const char *func_id);
-void                ws_unsubscribe_all(pong_websocket_t *ws);
-
-void                ws_set_callbacks(pong_websocket_t *ws,
-                                     void (*on_connected)(void *),
-                                     void (*on_disconnected)(void *),
-                                     void (*on_error)(const char *, void *),
-                                     void *user_data);
-
-int                 ws_service(pong_websocket_t *ws, int timeout_ms);
 
 int                 ws_start_service_thread(pong_websocket_t *ws);
 void                ws_stop_service_thread(pong_websocket_t *ws);
-
-char                *ws_format_client_message(const char *container, 
-                                               const char *func_id, 
-                                               const char *payload);
-int                 ws_parse_hub_message(const char *message,
-                                          char *container, size_t cont_len,
-                                          char *func_id, size_t func_len,
-                                          int *code,
-                                          char *payload, size_t payload_len);
 
 #endif
