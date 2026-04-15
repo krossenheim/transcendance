@@ -33,6 +33,21 @@ YELLOW		= \033[0;33m
 RED			= \033[0;31m
 NC			= \033[0m
 
+# Progress counter
+TOTAL_OBJS	:= $(words $(OBJS))
+_NPROG		:= x
+_CPROG		= $(words $(_NPROG))$(eval _NPROG := x $(_NPROG))
+BAR_WIDTH	:= 20
+define PROGBAR
+	FILLED=$$(( $(1) * $(BAR_WIDTH) / $(TOTAL_OBJS) )); \
+	EMPTY=$$(( $(BAR_WIDTH) - FILLED )); \
+	BAR=""; \
+	i=0; while [ $$i -lt $$FILLED ]; do BAR="$${BAR}█"; i=$$((i+1)); done; \
+	i=0; while [ $$i -lt $$EMPTY ]; do BAR="$${BAR}░"; i=$$((i+1)); done; \
+	PCT=$$(( $(1) * 100 / $(TOTAL_OBJS) )); \
+	printf "\r$(2)[%d/%d] (%3d%%) $$BAR $(3)$(NC)\033[K" $(1) $(TOTAL_OBJS) $$PCT
+endef
+
 .PHONY: all build clean fclean re install deps check-deps help
 
 all:
@@ -65,16 +80,16 @@ check-deps:
 build: $(NAME)
 
 $(NAME): $(OBJ_DIR) $(OBJS)
-	@echo "$(GREEN)Linking $(NAME)...$(NC)"
-	$(CC) $(OBJS) -o $(NAME) $(LDFLAGS)
-	@echo "$(GREEN)Build complete: $(NAME)$(NC)"
+	@$(call PROGBAR,$(TOTAL_OBJS),$(GREEN),Linking $(NAME)...)
+	@$(CC) $(OBJS) -o $(NAME) $(LDFLAGS)
+	@printf "\n$(GREEN)Build complete: $(NAME)$(NC)\n"
 
 $(OBJ_DIR):
 	@mkdir -p $(OBJ_DIR)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
-	@echo "$(YELLOW)Compiling $<...$(NC)"
-	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
+	@$(call PROGBAR,$(_CPROG),$(YELLOW),Compiling $<...)
+	@$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
 clean:
 	@echo "$(RED)Cleaning object files...$(NC)"

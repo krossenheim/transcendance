@@ -155,6 +155,7 @@ int             game_send_input(game_state_t *game);
 void            game_update_state(game_state_t *game, const char *json_payload);
 void            game_update_lobby(game_state_t *game, const char *json_payload);
 void            game_handle_game_start(game_state_t *game, const char *json_payload);
+void            game_handle_game_over(game_state_t *game, const char *json_payload);
 
 void            game_set_key_up(game_state_t *game, bool pressed);
 void            game_set_key_down(game_state_t *game, bool pressed);
