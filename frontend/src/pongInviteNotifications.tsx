@@ -26,7 +26,6 @@ export default function PongInviteNotifications({
   onAccept,
   onDecline,
 }: PongInviteNotificationsProps) {
-  console.log("[PongInviteNotifications] Rendering with", invitations.length, "invitations:", invitations);
   if (invitations.length === 0) return null
 
   const getGameModeLabel = (mode: GameMode) => {

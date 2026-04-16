@@ -21,7 +21,6 @@ export default function UserMenu({ onLogout, isLoggingOut }: UserMenuProps) {
   const currentUserId = useGlobalStore((state) => state.me.data.currentUserId);
   const currentUserData = useGlobalStore((state) => state.users.data.userCache.get(currentUserId || -1));
 
-  console.log("Current user data in UserMenu:", currentUserData, currentUserId);
   const userColor = getUserColorCSS(currentUserId || 0);
 
   const openUserConnectionsModal = useUserConnectionsModalStore(state => state.openUserConnectionsModal);

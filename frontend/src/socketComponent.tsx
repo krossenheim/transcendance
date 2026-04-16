@@ -168,7 +168,6 @@ export default function SocketComponent({
     globalSocket = ws
 
     ws.onopen = () => {
-      console.log('[Socket] Connected')
       setIsConnected(true)
       setShowDisconnectOverlay(false)
       reconnectAttempts.current = 0

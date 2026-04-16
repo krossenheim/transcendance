@@ -237,26 +237,17 @@ export default function PongComponent({
 
   useEffect(() => {
     if (!isConnected) {
-      console.log("[Pong] Socket not ready yet");
       return;
     }
 
-    console.log("[Pong] Requesting game state...");
-    console.log("[Pong] getGameState config:", {
-      funcId: user_url.ws.pong.getGameState.funcId,
-      container: user_url.ws.pong.getGameState.container,
-    });
-    console.log("[Pong] Sending payload for gameId:", lastCreatedBoardId);
     if (lastCreatedBoardId != null) {
       sendMessage(user_url.ws.pong.getGameState, { gameId: lastCreatedBoardId });
     }
-    console.log("[Pong] Game state request sent");
   }, [isConnected, lastCreatedBoardId, sendMessage]);
 
   const wasConnected = useRef(false)
   useEffect(() => {
     if (isConnected && !wasConnected.current && currentViewRef.current === "lobby") {
-      console.log("[Pong] Reconnected while in lobby, requesting lobby state resync");
       sendMessage(user_url.ws.pong.getLobbyState, {});
     }
     wasConnected.current = isConnected;
@@ -265,7 +256,6 @@ export default function PongComponent({
   const setPlayerIDsHelper = useCallback(
     (game_data: TypeGameStateSchema) => {
       if (!game_data) {
-        console.log("[Pong] setPlayerIDsHelper: game_data is null");
         return;
       }
       if (!authResponse) {

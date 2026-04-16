@@ -62,7 +62,6 @@ export async function apiCall<T extends HTTPRouteDef>(
             const validation = zodParse(schemaForStatus, data);
 
             if (validation.isOk()) {
-                console.log(data, response);
                 return {
                     code: response.status,
                     payload: validation.unwrap(),

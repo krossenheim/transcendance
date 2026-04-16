@@ -23,17 +23,13 @@ export const createMessagesSlice: StateCreator<ChatStoreState, [["zustand/immer"
 
         state: {
             setMessagesForRoom: (roomId: number, messages: TypeStoredMessageSchema[]) => {
-                console.log("Setting messages for room", roomId, messages, typeof roomId);
                 set((state) => {
                     state.messages.data.messagesPerRoom.set(roomId, Array.from(messages));
-                    console.log("Updated messagesPerRoom:", state.messages.data.messagesPerRoom);
                 });
             },
 
             addMessageToRoom: (message: TypeStoredMessageSchema) => {
-                console.log("Adding message to room", message.roomId, message, typeof message.roomId);
                 set((state) => {
-                    console.log("Current messages before adding:", state.messages.data.messagesPerRoom);
                     state.messages.data.messagesPerRoom.set(message.roomId, logic.appendMessage(state.messages.data.messagesPerRoom.get(message.roomId) || [], message));
 
                     if (state.rooms.data.currentRoomId !== message.roomId)

@@ -15,7 +15,6 @@ const NO_MESSAGES: TypeStoredMessageSchema[] = [];
 export const ChatMessageList: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { openProfileModal } = useProfileModalStore.getState();
-  console.log("Rendering ChatMessageList component");
 
   const currentUserId = useGlobalStore(state => state.me.data.currentUserId);
   const publicUserDataCache = useGlobalStore(state => state.users.data.userCache);
@@ -27,8 +26,6 @@ export const ChatMessageList: React.FC = () => {
     const messages = map.get(currentId);
     return messages ?? NO_MESSAGES;
 });
-
-console.log("Blocked user IDs:", Array.from(userBlockedIds));
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })

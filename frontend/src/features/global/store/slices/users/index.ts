@@ -70,7 +70,6 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                 })
 
                 if (apiResult.code === 200) {
-                    console.log("Fetched user profile avatar data:", apiResult);
                     const raw = apiResult.payload as string;
                     const base64 = raw.startsWith("data:") ? raw.split(",")[1]! : raw;
                     const binary = atob(base64);
@@ -80,7 +79,6 @@ export const createGlobalUsersSlice: StateCreator<GlobalStoreState, [["zustand/i
                         bytes[i] = binary.charCodeAt(i);
                     const blob = new Blob([bytes], { type: "image/png" });
                     const objectUrl = URL.createObjectURL(blob);
-                    console.log("Created object URL for avatar:", objectUrl);
                     return Result.Ok(objectUrl);
                 }
                 else

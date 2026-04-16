@@ -21,23 +21,17 @@ export default function PongInvitationHandler({
     if (!authResponse) return
 
     const unsubscribe = subscribe(user_url.ws.pong.createLobby, (message, schema) => {
-      console.log("[PongInvitationHandler] Received create_pong_lobby:", message)
-
       if (message.code !== schema.output.LobbyCreated.code) {
         return HandlerResult.Handled
       }
 
       const payload = message.payload as any
-      console.log("[PongInvitationHandler] Processing lobby invitation:", payload)
 
       const isHost = payload.players?.some((p: any) =>
         (p.userId === authResponse.user.id || p.id === authResponse.user.id) && p.isHost
       )
 
-      console.log("[PongInvitationHandler] isHost check: myId=", authResponse.user.id, "isHost=", isHost)
-
       if (!isHost) {
-        console.log("[PongInvitationHandler] We're invited! Creating notification...")
         const hostPlayer = payload.players?.find((p: any) => p.isHost)
         const invitation: PongInvitation = {
           inviteId: payload.lobbyId || Date.now(),
