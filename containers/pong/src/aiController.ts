@@ -57,6 +57,7 @@ export class AIController {
   private walls: WallData[] = [];
   private myWallIndices: number[] = [];
   private initialized: boolean = false;
+  private reverseControls: boolean = false;
 
   constructor(playerId: number) {
     this.playerId = playerId;
@@ -87,6 +88,10 @@ export class AIController {
     const cx = 500, cy = 500;
     const paddles = gameState.paddles || [];
     const balls   = gameState.balls   || [];
+
+    this.reverseControls = (gameState.activeEffects || []).some(
+      (e: any) => e.typeName === 'REVERSE_CONTROLS'
+    );
 
     let paddleX = 0, paddleY = 0;
     let paddleDirAngle = 0;
@@ -347,10 +352,11 @@ export class AIController {
       return;
     }
 
+    const reversed = this.reverseControls;
     if (diff > 0) {
-      this.currentKeys = [this.isTopHalf ? 'arrowright' : 'arrowleft'];
+      this.currentKeys = [this.isTopHalf !== reversed ? 'arrowright' : 'arrowleft'];
     } else {
-      this.currentKeys = [this.isTopHalf ? 'arrowleft' : 'arrowright'];
+      this.currentKeys = [this.isTopHalf !== reversed ? 'arrowleft' : 'arrowright'];
     }
   }
 
@@ -397,8 +403,9 @@ export class AIController {
 
       const key = this.currentKeys[0];
       let direction = 0;
-      if (key === 'arrowright') direction = this.isTopHalf ? 1 : -1;
-      else if (key === 'arrowleft') direction = this.isTopHalf ? -1 : 1;
+      const rev = this.reverseControls;
+      if (key === 'arrowright') direction = (this.isTopHalf !== rev) ? 1 : -1;
+      else if (key === 'arrowleft') direction = (this.isTopHalf !== rev) ? -1 : 1;
       this.estimatedPaddleAngle = normalizeAngle(this.estimatedPaddleAngle + direction * step);
     }
 
